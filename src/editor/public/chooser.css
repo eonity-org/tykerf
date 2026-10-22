@@ -1,0 +1,93 @@
+/* The page chooser (chooser.js): the start screen and the editor's New page dialog. It sets its own
+   tokens, so it looks the same in the editor's shadow root and on the plain start page. */
+.chooser {
+  --teal: #0A5475; --brand-2: #2A7699; --amber: #EA9A27;
+  --bg: #ffffff; --bg-2: #F2F7F9; --tint: #E6F0F4; --line: #D9E5EB; --text: #10303F; --muted: #557080; --danger: #B42318;
+  --sans: tykerf-plex-sans, system-ui, -apple-system, "Segoe UI", sans-serif;
+  display: grid; grid-template-columns: minmax(280px, 380px) minmax(0, 1fr); gap: 20px; height: 100%; min-height: 0;
+  font: 13px/1.45 var(--sans); color: var(--text); background: var(--bg);
+}
+@media (prefers-color-scheme: dark) {
+  .chooser { --bg: #0F2530; --bg-2: #15303D; --tint: #1B3B4A; --line: #26475A; --text: #EAF3F7; --muted: #9BB5C2; --danger: #F08A7A; }
+}
+.chooser * { box-sizing: border-box; }
+.chooser button { font: inherit; color: inherit; cursor: pointer; }
+.ch-side { display: flex; flex-direction: column; gap: 12px; min-height: 0; overflow: auto; padding-right: 4px; }
+.ch-field { display: grid; gap: 4px; font-weight: 600; }
+.ch-field input { font: 14px/1.4 var(--sans); color: inherit; background: var(--bg-2); border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; }
+.ch-field input:focus { outline: 2px solid var(--brand-2); outline-offset: -1px; }
+.ch-hint { margin: -6px 0 0; color: var(--muted); font-size: 12px; }
+.chooser fieldset { border: 0; margin: 0; padding: 0; display: grid; gap: 8px; }
+.chooser legend { font-weight: 600; padding: 0; margin-bottom: 6px; }
+.ch-cards { display: grid; gap: 6px; }
+.ch-cards button { display: grid; gap: 2px; text-align: left; padding: 8px 10px; border: 1px solid var(--line); background: var(--bg); border-radius: 9px; }
+.ch-cards span { color: var(--muted); font-size: 12px; }
+.ch-themes { display: flex; flex-wrap: wrap; gap: 6px; }
+.ch-themes button { display: inline-flex; align-items: center; gap: 7px; padding: 6px 10px; border: 1px solid var(--line); background: var(--bg); border-radius: 999px; }
+.ch-auto .kaity-mark { width: 22px; height: 11px; }
+.sw { display: inline-flex; }
+.sw i { width: 14px; height: 14px; border-radius: 50%; border: 1px solid rgb(0 0 0 / .18); margin-left: -4px; }
+.sw i:first-child { margin-left: 0; }
+.chooser button[aria-pressed=true] { border-color: var(--brand-2); background: var(--tint); box-shadow: inset 0 0 0 1px var(--brand-2); }
+.ch-error { margin: 0; color: var(--danger); }
+.ch-status { margin: 0; color: var(--muted); }
+/* the ways to start: cards, the AI first */
+.ch-ways { display: grid; gap: 6px; }
+.ch-ways button { display: grid; gap: 2px; text-align: left; padding: 9px 11px; border: 1px solid var(--line); background: var(--bg); border-radius: 9px; }
+.ch-ways span { color: var(--muted); font-size: 12px; }
+.ch-ways em { display: inline-flex; align-items: center; gap: 4px; font-style: normal; font-size: 11px; font-weight: 700; padding: 1px 8px 1px 6px; margin-left: 4px; border-radius: 999px; background: var(--tint); color: var(--teal); vertical-align: 1px; }
+.kaity-mark { width: 18px; height: 9px; }
+.ch-idea { display: grid; gap: 10px; }
+.ch-field textarea { font: 14px/1.45 var(--sans); color: inherit; background: var(--bg-2); border: 1.5px solid var(--line); border-radius: 8px; padding: 10px 12px; resize: vertical; }
+.ch-field textarea:focus { outline: 2px solid var(--brand-2); outline-offset: -1px; }
+.ch-field textarea, .ch-drop { min-height: 112px; }
+.ch-drop { display: grid; justify-items: center; align-content: center; gap: 8px; padding: 14px; text-align: center; border: 1.5px dashed var(--brand-2); border-radius: 8px; color: var(--text); font: 400 13px/1.45 var(--sans); cursor: pointer; background: var(--bg-2); }
+.ch-drop > svg { width: 28px; height: 28px; fill: none; stroke: var(--brand-2); stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+.ch-drop u { color: var(--brand-2); font-weight: 600; }
+.ch-drop.over, .ch-drop:focus-visible { border-color: var(--brand-2); background: var(--tint); outline: none; }
+.ch-pics { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; }
+.ch-pics:empty { display: none; }
+.ch-pics span { position: relative; }
+.ch-pics img { display: block; width: 72px; height: 54px; object-fit: cover; border-radius: 6px; border: 1px solid var(--line); }
+.ch-zip { display: flex; align-items: center; gap: 6px; height: 54px; max-width: 220px; padding: 0 12px; box-sizing: border-box; border-radius: 6px; border: 1px solid var(--line); background: var(--bg); font-size: 12px; }
+.ch-zip svg { flex: none; width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linejoin: round; }
+.ch-zip b { font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ch-pics button { position: absolute; top: -6px; right: -6px; width: 20px; height: 20px; padding: 0; border-radius: 50%; border: 1px solid var(--line); background: var(--bg); line-height: 1; }
+.ch-ai { margin: 0; font-size: 12px; padding: 8px 10px; border-radius: 8px; background: var(--bg-2); }
+.ch-ai.ok { color: var(--muted); }
+.ch-ai.bad { color: var(--danger); }
+.ch-note { margin: 0; color: var(--muted); font-size: 12px; padding: 8px 10px; border-radius: 8px; background: var(--bg-2); }
+.ch-panel ol { text-align: left; padding-left: 18px; display: grid; gap: 6px; }
+.ch-site { display: grid; gap: 10px; }
+.ch-site[hidden], .chooser [data-for][hidden], .ch-preview[hidden], .ch-panel [hidden] { display: none; }
+.ch-check { display: flex; gap: 8px; align-items: flex-start; color: var(--muted); }
+.ch-check input { margin: 2px 0 0; }
+.ch-advice { border: 1px solid var(--line); border-left: 3px solid var(--amber); border-radius: 8px; padding: 10px 12px; background: var(--bg-2); }
+.ch-advice p { margin: 6px 0 0; color: var(--muted); }
+.ch-panel { display: grid; place-items: center; text-align: center; border: 1px dashed var(--line); border-radius: 10px; padding: 24px; }
+.ch-panel p, .ch-panel ol { max-width: 42ch; color: var(--muted); margin: 8px auto 0; }
+.ch-panel .spin::before { content: ""; display: inline-block; width: 12px; height: 12px; margin-right: 8px; border: 2px solid var(--brand-2); border-right-color: transparent; border-radius: 50%; vertical-align: -1px; animation: ch-spin 0.9s linear infinite; }
+@keyframes ch-spin { to { transform: rotate(1turn); } }
+@media (prefers-reduced-motion: reduce) { .ch-panel .spin::before { animation: none; } }
+/* the button stays in sight at the bottom of the steps, however tall they grow */
+.ch-actions { position: sticky; bottom: 0; display: flex; gap: 8px; justify-content: flex-end; margin-top: auto; padding: 10px 0 2px; background: var(--bg); border-top: 1px solid var(--line); }
+.ch-actions button { padding: 7px 14px; border: 1px solid var(--line); background: var(--bg); border-radius: 8px; }
+.ch-actions .primary { background: var(--teal); border-color: var(--teal); color: #fff; font-weight: 600; }
+.ch-actions .primary:disabled { opacity: .6; cursor: progress; }
+.ch-preview { display: grid; grid-template-rows: auto minmax(0, 1fr); gap: 8px; min-height: 0; }
+.ch-bar { display: flex; align-items: center; justify-content: space-between; color: var(--muted); }
+.ch-seg { display: inline-flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+.ch-seg button { border: 0; background: var(--bg); padding: 4px 10px; }
+.ch-seg button[aria-pressed=true] { box-shadow: none; }
+.ch-frame { position: relative; overflow: hidden; border: 1px solid var(--line); border-radius: 10px; background: var(--bg-2); min-height: 280px; display: flex; justify-content: center; }
+.ch-frame iframe { position: absolute; top: 0; border: 0; background: #fff; transform-origin: top center; }
+@media (max-width: 760px) {
+  .chooser { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(320px, 1fr); height: auto; }
+  .ch-side { overflow: visible; }
+}
+
+/* numbered steps */
+.ch-step { display: inline-grid; place-items: center; width: 20px; height: 20px; margin-right: 8px; border-radius: 50%; background: var(--teal); color: #fff; font-size: 11px; font-weight: 700; vertical-align: 1px; }
+.ch-step-head { margin: 4px 0 2px; font-weight: 600; }
+
+.ch-legend-note { font-weight: 400; color: var(--muted); font-size: 12px; margin-left: 4px; }

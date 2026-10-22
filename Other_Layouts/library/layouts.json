@@ -1,0 +1,61 @@
+{
+  "saas": {
+    "label": "SaaS landing",
+    "description": "A headline beside the product, logos, two features, a features grid, quotes, pricing, FAQ and a call to action",
+    "layout": "nav[role=header] hero[role=section] logos feature[role=section] feature2[role=section #reverse] features[role=section #tone-alt] testimonials[role=section] pricing[role=section #tone-alt] faq[role=section] cta[role=section #tone-soft] footer[role=footer #tone-dark] H11@page",
+    "boxes": {
+      "nav": "nav",
+      "hero": "hero-split",
+      "logos": "logos",
+      "feature": "feature",
+      "feature2": "feature",
+      "features": "features",
+      "testimonials": "testimonials",
+      "pricing": "pricing",
+      "faq": "faq",
+      "cta": "cta",
+      "footer": "footer"
+    }
+  },
+  "landing": {
+    "label": "Landing page",
+    "description": "Hero, features, numbers, testimonials, pricing, FAQ and a call to action",
+    "layout": "nav[role=header] hero[role=section] features[role=section #tone-alt] stats testimonials[role=section] pricing[role=section #tone-alt] faq[role=section] cta[role=section #tone-soft] footer[role=footer #tone-dark] H9@page",
+    "boxes": {
+      "nav": "nav",
+      "hero": "hero",
+      "features": "features",
+      "stats": "stats",
+      "testimonials": "testimonials",
+      "pricing": "pricing",
+      "faq": "faq",
+      "cta": "cta",
+      "footer": "footer"
+    }
+  },
+  "pinwheel": {
+    "label": "Pinwheel",
+    "description": "TYKERF's IC roots: four blocks wound around a centre, the pinwheel floorplan of chip layout (W); it stacks on phones",
+    "layout": "nav[role=header] top right bottom left center W@wheel footer[role=footer #tone-dark] H3@page\nrule r1 below=900 flip wheel",
+    "boxes": {
+      "nav": "nav",
+      "top": "text",
+      "right": "stats",
+      "bottom": "cta",
+      "left": "list",
+      "center": "image"
+    }
+  },
+  "periphery": {
+    "label": "Periphery",
+    "description": "TYKERF's IC roots: a page frame of north, west, centre, east and south slots, the periphery floorplan (P); it stacks on phones",
+    "layout": "nav[role=header] menu[role=nav] content[role=main] aside[role=aside] footer[role=footer #tone-dark] P@page\nrule r1 below=900 flip page",
+    "boxes": {
+      "nav": "nav",
+      "menu": "docs-nav",
+      "content": "article",
+      "aside": "aside",
+      "footer": "footer"
+    }
+  }
+}

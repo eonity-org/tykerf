@@ -1,0 +1,59 @@
+<!-- TYKERF theme: every template and component uses these variables. Change them in the Page tab. -->
+<style data-tykerf-theme>
+:root {
+  --color-bg: #fafaf8;
+  /* bands, cards and lines follow the background unless you give them a colour of their own */
+  --color-band: color-mix(in srgb, var(--color-bg) 95%, var(--color-text));
+  --color-surface: color-mix(in srgb, var(--color-bg) 96%, var(--color-text));
+  --color-text: #14181f;
+  --color-muted: #5b636e;
+  --color-border: color-mix(in srgb, var(--color-bg) 86%, var(--color-text));
+  --color-accent: #1a52dd;
+  --color-on-accent: #ffffff;
+  /* a pastel of the accent, for soft bands and cards */
+  --color-soft: color-mix(in srgb, var(--color-accent) 12%, var(--color-bg));
+  /* a second accent for details (rules, dots, bars) and figures on dark cards; light enough for the dark band */
+  --color-highlight: color-mix(in srgb, var(--color-accent) 50%, var(--color-on-dark));
+  /* the one dark band a page may have (#tone-dark): a footer, a hero */
+  --color-dark: #121418;
+  --color-on-dark: #f2f2ee;
+  --font-body: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-heading: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  /* a second voice for subtitles and quotes */
+  --font-accent: "Newsreader", Georgia, "Times New Roman", serif;
+  --weight-heading: 680;
+  --tracking-heading: -0.035em;
+  --text-hero: clamp(44px, 7.2vw, 96px);
+  --text-title: clamp(32px, 4.2vw, 52px);
+  --text-lead: clamp(18px, 1.5vw, 21px);
+  --text-body: 17px;
+  --radius: 18px;
+  --radius-button: 999px;
+  --gap: 24px;
+  --space-section: clamp(72px, 10vw, 136px);
+  --max-width: 1200px;
+}
+body { background: var(--color-bg); color: var(--color-text); font: var(--text-body)/1.6 var(--font-body); -webkit-font-smoothing: antialiased; }
+h1, h2, h3, h4 { font-family: var(--font-heading); font-weight: var(--weight-heading); letter-spacing: var(--tracking-heading); line-height: 1.08; margin: 0 0 .5em; text-wrap: balance; }
+p { text-wrap: pretty; }
+a { color: var(--color-accent); }
+/* boxes look like the page, not like TYKERF's default coloured outline; components set their own padding */
+:where(.sw-leaf) { background: none; outline: none; }
+.sw-leaf { padding: 0; }
+/* #dense: one section packed tighter (less space around it, smaller titles), whatever the theme */
+.t-dense { --space-section: clamp(32px, 4vw, 56px); --text-title: clamp(24px, 2.6vw, 32px); --text-hero: clamp(32px, 4vw, 52px); --gap: 16px; }
+/* band tones: tag a block #tone-alt, #tone-soft or #tone-dark; the block (a box with any code, or a whole
+   container) takes the band's background, and components inside paint var(--section-bg) too */
+.t-tone-alt { --section-bg: var(--color-band); background: var(--section-bg); }
+.t-tone-soft { --section-bg: var(--color-soft); --color-muted: color-mix(in srgb, var(--color-text) 78%, var(--color-soft)); background: var(--section-bg); }
+.t-tone-dark {
+  --section-bg: var(--color-dark);
+  background: var(--section-bg);
+  --color-text: var(--color-on-dark);
+  --color-muted: color-mix(in srgb, var(--color-on-dark) 66%, var(--color-dark));
+  --color-border: color-mix(in srgb, var(--color-on-dark) 14%, var(--color-dark));
+  --color-surface: color-mix(in srgb, var(--color-on-dark) 6%, var(--color-dark));
+  --color-soft: color-mix(in srgb, var(--color-accent) 22%, var(--color-dark));
+  color: var(--color-text);
+}
+</style>

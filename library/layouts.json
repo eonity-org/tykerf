@@ -1,0 +1,119 @@
+{
+  "blank": {
+    "label": "Blank",
+    "description": "A navigation bar and one text section",
+    "layout": "nav[role=header] text[role=main] H@page",
+    "boxes": {
+      "nav": "nav",
+      "text": "text"
+    }
+  },
+  "launch": {
+    "label": "Product launch",
+    "description": "A big headline over the product, logos, features, numbers, quotes, pricing, FAQ and a call to action",
+    "layout": "nav[role=header] hero[role=section] logos features[role=section #tone-alt] feature[role=section] feature2[role=section #reverse] stats testimonials[role=section #tone-alt] pricing[role=section] faq[role=section] cta[role=section #tone-soft] footer[role=footer #tone-dark] H12@page",
+    "boxes": {
+      "nav": "nav",
+      "hero": "hero",
+      "logos": "logos",
+      "features": "features",
+      "feature": "feature",
+      "feature2": "feature",
+      "stats": "stats",
+      "testimonials": "testimonials",
+      "pricing": "pricing",
+      "faq": "faq",
+      "cta": "cta",
+      "footer": "footer"
+    }
+  },
+  "company": {
+    "label": "Company",
+    "description": "A statement, the latest news, what you do, numbers and a call to action",
+    "layout": "nav[role=header] intro[role=section] news[role=section] feature[role=section #tone-alt] stats[role=section] cta[role=section] footer[role=footer #tone-dark] H7@page",
+    "boxes": {
+      "nav": "nav",
+      "intro": "statement",
+      "news": "updates",
+      "feature": "feature",
+      "stats": "stats",
+      "cta": "cta",
+      "footer": "footer"
+    }
+  },
+  "magazine": {
+    "label": "Magazine",
+    "description": "A packed front page: a lead story, a grid of stories, a most-read list beside them, a newsletter call and a dark footer",
+    "layout": "nav[role=header] stories[role=main] latest[role=aside] V@body{3:1 maxw=1320} cta[role=section #tone-soft #dense] footer[role=footer #tone-dark #dense] H4@page\nrule r1 below=900 flip body",
+    "boxes": {
+      "nav": "nav",
+      "stories": "story-grid",
+      "latest": "list",
+      "cta": "cta",
+      "footer": "footer"
+    }
+  },
+  "catalogue": {
+    "label": "Catalogue",
+    "description": "A packed shop or service list: a short intro, filters and a grid of cards, questions and a compact footer",
+    "layout": "nav[role=header] intro[role=section #dense] items[role=main] faq[role=section #tone-alt #dense] footer[role=footer #tone-dark #dense] H5@page",
+    "boxes": {
+      "nav": "nav",
+      "intro": "statement",
+      "items": "card-grid",
+      "faq": "faq",
+      "footer": "footer"
+    }
+  },
+  "portfolio": {
+    "label": "Portfolio",
+    "description": "A statement, a gallery of work, who is behind it, quotes and a contact form",
+    "layout": "nav[role=header] hero[role=section] gallery[role=section] about[role=section #tone-alt #reverse] testimonials[role=section] contact[role=section #tone-alt] footer[role=footer #tone-dark] H7@page",
+    "boxes": {
+      "nav": "nav",
+      "hero": "statement",
+      "gallery": "gallery",
+      "about": "feature",
+      "testimonials": "testimonials",
+      "contact": "contact",
+      "footer": "footer"
+    }
+  },
+  "article": {
+    "label": "Article",
+    "description": "A blog post or news article with a sidebar",
+    "layout": "nav[role=header] article[role=main] aside[role=aside] V@body{3:1 maxw=1120} footer[role=footer] H3@page\nrule r1 below=900 flip body",
+    "boxes": {
+      "nav": "nav",
+      "article": "article",
+      "aside": "aside",
+      "footer": "footer"
+    }
+  },
+  "docs": {
+    "label": "Documentation",
+    "description": "A menu on the side and a documentation page",
+    "layout": "nav[role=header] menu content[role=main] V@body{1:3 maxw=1120} footer[role=footer] H3@page\nrule r1 below=800 flip body",
+    "boxes": {
+      "nav": "nav",
+      "menu": "docs-nav",
+      "content": "docs-content",
+      "footer": "footer"
+    }
+  },
+  "factual": {
+    "label": "Factual",
+    "description": "An editorial data page: a headline, figures on dark cards, a bar chart beside a highlighted figure, a timeline and a picture banner",
+    "layout": "nav[role=header] intro[role=section] figures[role=section] chart[role=main] highlight[role=aside] V@pulse{3:2 maxw=1280} timeline[role=section #tone-alt] banner[role=section] footer[role=footer #tone-dark] H7@page\nrule r1 below=900 flip pulse",
+    "boxes": {
+      "nav": "nav",
+      "intro": "headline",
+      "figures": "figure-cards",
+      "chart": "bar-chart",
+      "highlight": "highlight",
+      "timeline": "timeline",
+      "banner": "image-banner",
+      "footer": "footer"
+    }
+  }
+}

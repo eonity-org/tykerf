@@ -1,0 +1,16 @@
+<style>
+:scope { background: var(--section-bg, transparent); }
+.wrap { padding: calc(var(--space-section) * .7) var(--gap); display: grid; gap: 20px; align-content: start; }
+.card { padding: 24px; background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius); }
+.author { display: flex; gap: 14px; align-items: center; }
+.author img { width: 52px; height: 52px; border-radius: 50%; }
+.author span { color: var(--color-muted); font-size: 15px; }
+h3 { font: 600 12px/1.4 var(--font-body); text-transform: uppercase; letter-spacing: .1em; color: var(--color-muted); margin: 0 0 12px; }
+ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+a { color: var(--color-text); text-decoration: none; font-weight: 500; }
+a:hover { color: var(--color-accent); }
+</style>
+<div class="wrap">
+  <div class="card author"><img src="assets/placeholder-avatar.svg" alt=""><div><b>Author name</b><br><span>A line about the author</span></div></div>
+  <div class="card"><h3>Related</h3><ul><li><a href="#">Another article</a></li><li><a href="#">A second article</a></li><li><a href="#">A third article</a></li></ul></div>
+</div>

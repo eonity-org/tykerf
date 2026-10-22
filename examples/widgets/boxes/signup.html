@@ -1,0 +1,28 @@
+<style>
+  h3 { margin: 0 0 8px; }
+  form { display: grid; gap: 8px; }
+  input, button { font: inherit; padding: 10px; min-height: 44px; border-radius: 8px; border: 1px solid #0003; }
+  button { background: #1a9b5a; color: #fff; border: 0; cursor: pointer; }
+  .msg { min-height: 1.4em; font-size: 14px; }
+  .msg.err { color: #c62828; }
+  .msg.ok { color: #1a9b5a; }
+</style>
+<h3>Newsletter</h3>
+<form novalidate>
+  <input type="email" name="email" placeholder="you@example.com" aria-label="Email">
+  <button type="submit">Subscribe</button>
+  <div class="msg" role="status"></div>
+</form>
+<script>
+{
+  const box = document.currentScript.closest('[data-sw]');
+  const form = box.querySelector('form');
+  const msg = box.querySelector('.msg');
+  form.addEventListener('submit', (e) => {
+    e.preventDefault();
+    const ok = /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(form.email.value);
+    msg.textContent = ok ? 'Thanks! Check your inbox.' : 'Please enter a valid email.';
+    msg.className = 'msg ' + (ok ? 'ok' : 'err');
+  });
+}
+</script>

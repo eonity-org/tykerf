@@ -1,0 +1,15 @@
+<style>
+  :scope { padding: 24px 16px; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; }
+  .plan { border: 1px solid #0002; border-radius: 10px; padding: 16px; background: #fff; }
+  .plan.pro { border: 2px solid #2f6fed; }
+  /* deliberately generic selector: must NOT leak to other boxes */
+  h3 { margin: 0; color: #c62828; }
+  .price { font-size: 28px; font-weight: 700; margin: 6px 0; }
+  ul { padding-left: 18px; margin: 0; }
+</style>
+<div class="grid">
+  <div class="plan"><h3>Basic</h3><div class="price">9 €</div><ul><li>1 page</li><li>Tree editor</li></ul></div>
+  <div class="plan pro"><h3>Pro</h3><div class="price">29 €</div><ul><li>Unlimited pages</li><li>AI moves</li></ul></div>
+  <div class="plan"><h3>Team</h3><div class="price">79 €</div><ul><li>5 seats</li><li>Shared history</li></ul></div>
+</div>

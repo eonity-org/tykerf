@@ -1,0 +1,21 @@
+<style>
+:scope { background: var(--section-bg, transparent); }
+.wrap { padding: calc(var(--space-section) * .6) var(--gap); }
+h2 { font-size: 15px; letter-spacing: .1em; text-transform: uppercase; color: var(--color-muted); border-bottom: 2px solid var(--color-text); padding-bottom: 10px; margin: 0 0 4px; }
+ol { list-style: none; margin: 0; padding: 0; counter-reset: item; }
+li { counter-increment: item; display: grid; grid-template-columns: auto 1fr; gap: 2px 12px; padding: 14px 0; border-bottom: 1px solid var(--color-border); }
+li::before { content: counter(item); grid-row: span 2; font: var(--weight-heading) 22px/1 var(--font-heading); color: var(--color-accent); }
+a { color: var(--color-text); text-decoration: none; font-weight: 600; line-height: 1.35; }
+a:hover { text-decoration: underline; }
+span { color: var(--color-muted); font-size: 13px; }
+</style>
+<div class="wrap">
+  <h2>Most read</h2>
+  <ol>
+    <li><a href="#">A short title people click on</a><span>2 hours ago</span></li>
+    <li><a href="#">Another title worth a look</a><span>5 hours ago</span></li>
+    <li><a href="#">A third, with a number in it</a><span>Yesterday</span></li>
+    <li><a href="#">A fourth that answers a question</a><span>Yesterday</span></li>
+    <li><a href="#">A fifth to close the list</a><span>2 days ago</span></li>
+  </ol>
+</div>

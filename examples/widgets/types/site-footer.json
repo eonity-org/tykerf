@@ -1,0 +1,2 @@
+{ "label": { "en": "Site footer", "es": "Pie de página" }, "max": 1, "notWithin": ["widget-row"],
+  "content": { "tags": ["small", "a", "p"], "scripts": false } }

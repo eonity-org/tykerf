@@ -1,0 +1,33 @@
+<style>
+:scope { background: var(--section-bg, transparent); }
+.wrap { max-width: var(--max-width); margin: 0 auto; padding: var(--space-section) var(--gap); }
+.head { max-width: 680px; margin-bottom: clamp(36px, 5vw, 64px); }
+.eyebrow { margin: 0 0 16px; font-size: 13px; font-weight: 600; letter-spacing: .12em; text-transform: uppercase; color: var(--color-accent); }
+h2 { font-size: var(--text-title); }
+.head p:last-child { font-size: var(--text-lead); color: var(--color-muted); margin: 0; }
+/* a bento grid: two wide tiles with a picture, four small ones */
+.grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr)); gap: 16px; }
+.tile { padding: 28px; border-radius: var(--radius); background: var(--color-surface); border: 1px solid var(--color-border); display: flex; flex-direction: column; gap: 10px; }
+.tile.wide { grid-column: span 2; }
+@media (max-width: 620px) { .tile.wide { grid-column: auto; } }
+.tile img { display: block; width: 100%; height: clamp(180px, 18vw, 240px); object-fit: cover; object-position: top left; margin-top: auto; border-radius: calc(var(--radius) - 6px); border: 1px solid var(--color-border); }
+.icon { width: 40px; height: 40px; display: grid; place-items: center; border-radius: 12px; background: var(--color-soft); color: var(--color-accent); margin-bottom: 6px; }
+.icon svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+h3 { font-size: 20px; margin: 0; }
+.tile p { margin: 0; color: var(--color-muted); }
+</style>
+<div class="wrap">
+  <div class="head">
+    <p class="eyebrow">Features</p>
+    <h2>Everything you need, nothing you don't</h2>
+    <p>A sentence that sums up what the product does better than anything else.</p>
+  </div>
+  <div class="grid">
+    <div class="tile wide"><h3>The main thing it does</h3><p>Explain the biggest benefit in one or two sentences.</p><img src="assets/mockup-detail.svg" alt="Describe this picture"></div>
+    <div class="tile"><span class="icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M13 2 4 14h7l-1 8 9-12h-7z"/></svg></span><h3>Fast</h3><p>A short benefit people notice on day one.</p></div>
+    <div class="tile"><span class="icon" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="4" y="10" width="16" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg></span><h3>Private</h3><p>Say what stays safe, and where.</p></div>
+    <div class="tile"><span class="icon" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0M16 4.5a3.5 3.5 0 0 1 0 7M21.5 20a6.5 6.5 0 0 0-4-6"/></svg></span><h3>Made for teams</h3><p>Who works together, and how.</p></div>
+    <div class="tile wide"><h3>A second strong reason</h3><p>Another benefit, shown with a picture of the product doing it.</p><img src="assets/mockup-app.svg" alt="Describe this picture"></div>
+    <div class="tile"><span class="icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 12a8 8 0 1 0 2.3-5.6M4 4v4h4"/></svg></span><h3>Always up to date</h3><p>What happens without anyone lifting a finger.</p></div>
+  </div>
+</div>

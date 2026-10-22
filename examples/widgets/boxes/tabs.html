@@ -1,0 +1,25 @@
+<style>
+  .tabs { display: flex; gap: 4px; border-bottom: 1px solid #0002; }
+  button { border: 0; background: none; padding: 8px 12px; min-height: 44px; font: inherit; cursor: pointer; border-bottom: 2px solid transparent; }
+  button[aria-selected="true"] { border-bottom-color: #2f6fed; color: #2f6fed; font-weight: 600; }
+  [role="tabpanel"] { padding: 12px 2px; }
+</style>
+<div class="tabs" role="tablist">
+  <button role="tab" aria-selected="true" data-tab="0">Overview</button>
+  <button role="tab" aria-selected="false" data-tab="1">Specs</button>
+  <button role="tab" aria-selected="false" data-tab="2">Reviews</button>
+</div>
+<div role="tabpanel">A slicing tree describes the page as nested rows and columns.</div>
+<div role="tabpanel" hidden>Operators: row, column, wheel, periphery. Rules flip them per breakpoint.</div>
+<div role="tabpanel" hidden>"Moving a whole widget is one drag." — a happy user</div>
+<script>
+{
+  const box = document.currentScript.closest('[data-sw]');
+  const tabs = box.querySelectorAll('[role="tab"]');
+  const panels = box.querySelectorAll('[role="tabpanel"]');
+  tabs.forEach((t) => t.addEventListener('click', () => {
+    tabs.forEach((x) => x.setAttribute('aria-selected', String(x === t)));
+    panels.forEach((p, i) => (p.hidden = String(i) !== t.dataset.tab));
+  }));
+}
+</script>

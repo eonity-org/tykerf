@@ -1,0 +1,2 @@
+{ "label": { "en": "Pricing table", "es": "Tabla de precios" }, "max": 1, "notWithin": ["widget-row"],
+  "content": { "tags": ["div", "h3", "ul", "li"], "scripts": false } }

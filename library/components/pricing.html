@@ -1,0 +1,29 @@
+<style>
+:scope { background: var(--section-bg, transparent); }
+.wrap { max-width: var(--max-width); margin: 0 auto; padding: var(--space-section) var(--gap); }
+.head { text-align: center; max-width: 640px; margin: 0 auto clamp(36px, 5vw, 64px); }
+.eyebrow { margin: 0 0 16px; font-size: 13px; font-weight: 600; letter-spacing: .12em; text-transform: uppercase; color: var(--color-accent); }
+h2 { font-size: var(--text-title); }
+.head p:last-child { font-size: var(--text-lead); color: var(--color-muted); margin: 0; }
+.grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr)); gap: 16px; align-items: stretch; }
+.plan { padding: 32px; border-radius: var(--radius); background: var(--color-bg); border: 1px solid var(--color-border); display: flex; flex-direction: column; gap: 18px; }
+/* the plan most people should pick: the page's dark band colours */
+.plan.featured { background: var(--color-dark); color: var(--color-on-dark); border-color: var(--color-dark); }
+.tag { align-self: start; padding: 4px 12px; border-radius: var(--radius-button); background: var(--color-accent); color: var(--color-on-accent); font-size: 13px; font-weight: 600; }
+h3 { font-size: 20px; margin: 0; }
+.price { font: var(--weight-heading) 52px/1 var(--font-heading); letter-spacing: var(--tracking-heading); }
+.price small { font: 400 16px var(--font-body); letter-spacing: 0; opacity: .7; }
+ul { margin: 0; padding: 0; list-style: none; display: grid; gap: 10px; }
+li { padding-left: 26px; position: relative; opacity: .85; }
+li::before { content: "✓"; position: absolute; left: 0; color: var(--color-accent); font-weight: 700; }
+.button { margin-top: auto; text-align: center; padding: 13px; border-radius: var(--radius-button); font-weight: 600; text-decoration: none; border: 1px solid var(--color-border); color: inherit; }
+.featured .button { background: var(--color-accent); color: var(--color-on-accent); border-color: var(--color-accent); }
+</style>
+<div class="wrap">
+  <div class="head"><p class="eyebrow">Pricing</p><h2>Simple plans that grow with you</h2><p>Start free. Change or cancel at any time.</p></div>
+  <div class="grid">
+    <div class="plan"><h3>Starter</h3><div class="price">€0 <small>/ month</small></div><ul><li>First feature</li><li>Second feature</li><li>Community help</li></ul><a class="button" href="#">Start free</a></div>
+    <div class="plan featured"><span class="tag">Most popular</span><h3>Pro</h3><div class="price">€24 <small>/ month</small></div><ul><li>Everything in Starter</li><li>Third feature</li><li>Fourth feature</li><li>Priority support</li></ul><a class="button" href="#">Choose Pro</a></div>
+    <div class="plan"><h3>Business</h3><div class="price">€79 <small>/ month</small></div><ul><li>Everything in Pro</li><li>Fifth feature</li><li>A named contact</li></ul><a class="button" href="#">Talk to us</a></div>
+  </div>
+</div>

@@ -1,0 +1,12 @@
+<style>
+/* the picture fills its box: the box's width and height handles size it; a taller box shows more of it
+   cut to fit (never stretched), and cropping the image changes its shape */
+:scope { display: flex; flex-direction: column; }
+figure { flex: 1 1 auto; display: flex; flex-direction: column; min-height: 0; margin: 0; }
+img { display: block; flex: 1 1 auto; width: 100%; min-height: 0; object-fit: cover; border-radius: var(--radius); }
+figcaption { padding: 8px calc(var(--gap) / 2) 0; color: var(--color-muted); font-size: 15px; }
+</style>
+<figure>
+  <img src="assets/placeholder-wide.svg" alt="Describe the image">
+  <figcaption>A short caption for the image.</figcaption>
+</figure>

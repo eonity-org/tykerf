@@ -1,0 +1,24 @@
+name: Release
+
+# Attaches the Claude Desktop extension (dist/tykerf.mcpb) to each published GitHub release.
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: write
+
+jobs:
+  mcpb:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run build:mcpb
+      - run: gh release upload "${{ github.event.release.tag_name }}" dist/tykerf.mcpb --clobber
+        env:
+          GH_TOKEN: ${{ github.token }}

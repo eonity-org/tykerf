@@ -1,0 +1,16 @@
+<style>
+:scope { background: var(--section-bg, transparent); }
+.wrap { max-width: var(--max-width); margin: 0 auto; padding: calc(var(--space-section) * .9) var(--gap) calc(var(--space-section) * .7); display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); gap: calc(var(--gap) * 1.5) calc(var(--gap) * 3); align-items: end; }
+@media (max-width: 860px) { .wrap { grid-template-columns: minmax(0, 1fr); } }
+h1 { font-size: calc(var(--text-hero) * .8); margin: 0; max-width: 16ch; }
+.side { font: var(--text-lead)/1.5 var(--font-accent); color: var(--color-muted); margin: 0; max-width: 30em; }
+.actions { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 24px; }
+.button { display: inline-flex; padding: 13px 24px; border-radius: var(--radius-button); font-weight: 600; text-decoration: none; background: var(--color-text); color: var(--color-bg); }
+</style>
+<div class="wrap">
+  <h1>A clear statement of what you do and why it matters</h1>
+  <div>
+    <p class="side">Two sentences that give the statement its context: who you are, and what you are working towards.</p>
+    <div class="actions"><a class="button" href="#">What we do</a></div>
+  </div>
+</div>

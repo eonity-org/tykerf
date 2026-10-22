@@ -1,0 +1,24 @@
+<style>
+:scope { background: var(--section-bg, transparent); }
+.wrap { max-width: var(--max-width); margin: 0 auto; padding: calc(var(--space-section) * .7) var(--gap); }
+.head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; gap: 12px; margin-bottom: 28px; }
+h2 { font-size: clamp(24px, 2.6vw, 32px); margin: 0; }
+.head a { color: var(--color-text); font-weight: 600; text-decoration: none; }
+.grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr)); gap: 16px; }
+article { padding: 28px; border-radius: var(--radius); background: var(--color-band); display: flex; flex-direction: column; gap: 14px; min-height: 340px; }
+h3 { font-size: 22px; margin: 0; }
+article > p { margin: 0; color: var(--color-muted); }
+dl { margin: auto 0 0; display: grid; grid-template-columns: auto 1fr; font-size: 14px; }
+dt, dd { margin: 0; padding: 9px 0; border-top: 1px solid var(--color-border); }
+dt { color: var(--color-muted); text-transform: uppercase; letter-spacing: .08em; font-size: 12px; }
+dd { text-align: right; }
+.button { align-self: start; padding: 9px 16px; border-radius: var(--radius-button); background: var(--color-text); color: var(--color-bg); font-size: 14px; font-weight: 600; text-decoration: none; }
+</style>
+<div class="wrap">
+  <div class="head"><h2>Latest news</h2><a href="#">See all →</a></div>
+  <div class="grid">
+    <article><h3>A first announcement</h3><p>One or two sentences about what is new and who it is for.</p><dl><dt>Date</dt><dd>October 7, 2026</dd><dt>Category</dt><dd>Product</dd></dl><a class="button" href="#">Read more</a></article>
+    <article><h3>A second announcement</h3><p>One or two sentences about what is new and who it is for.</p><dl><dt>Date</dt><dd>September 28, 2026</dd><dt>Category</dt><dd>Company</dd></dl><a class="button" href="#">Read more</a></article>
+    <article><h3>A third announcement</h3><p>One or two sentences about what is new and who it is for.</p><dl><dt>Date</dt><dd>September 12, 2026</dd><dt>Category</dt><dd>Research</dd></dl><a class="button" href="#">Read more</a></article>
+  </div>
+</div>

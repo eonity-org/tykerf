@@ -1,0 +1,18 @@
+<style>
+:scope { background: var(--section-bg, transparent); }
+.wrap { max-width: var(--max-width); margin: 0 auto; padding: var(--space-section) var(--gap); display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 340px), 1fr)); gap: calc(var(--gap) * 2) calc(var(--gap) * 3); align-items: center; }
+img { display: block; width: 100%; aspect-ratio: 4 / 5; object-fit: cover; border-radius: var(--radius); background: var(--color-band); }
+.eyebrow { margin: 0 0 16px; font-size: 13px; font-weight: 600; letter-spacing: .12em; text-transform: uppercase; color: var(--color-accent); }
+h2 { font-size: var(--text-title); }
+.lead { font: var(--text-lead)/1.5 var(--font-accent); color: var(--color-text); }
+p { color: var(--color-muted); }
+</style>
+<div class="wrap">
+  <img src="assets/placeholder-square.svg" alt="A photo of you or your team">
+  <div>
+    <p class="eyebrow">About</p>
+    <h2>Who is behind the work</h2>
+    <p class="lead">Who you are, what you do and why, in one or two sentences.</p>
+    <p>Add what makes your work different, or the story behind it.</p>
+  </div>
+</div>

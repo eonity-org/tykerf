@@ -1,0 +1,11 @@
+node_modules/
+# rendered pages and TYKERF's per-workspace state (AI chats, images, buffer)
+out/
+dist/
+.tykerf/
+.tykerf.lock/
+# TYKERF needs no credentials, but never commit a local env file holding someone's API key
+.env
+.env.*
+.DS_Store
+!.env.example

@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="-2.5 -2.5 293.75 86.5" role="img" aria-label="TYKERF">
+<!-- wordmark set in IBM Plex Sans Light 300 (SIL Open Font License), baseline on the bottom of the mark, k and f reaching its top, the y descending below it; 2.5 units of clear space on every side; convert the text to outlines before print or third-party use -->
+<rect x="0" y="0" width="64" height="21" rx="6" fill="#0A5475"/><rect x="0" y="26" width="29.5" height="38" rx="6" fill="#0A5475"/><rect x="34.5" y="26" width="29.5" height="13" rx="3.5" fill="#EA9A27"/><rect x="34.5" y="43" width="12.75" height="21" rx="3.5" fill="#0A5475"/><rect x="51.25" y="43" width="12.75" height="21" rx="3.5" fill="#0A5475"/>
+<text x="80" y="64" font-family="IBM Plex Sans, system-ui, sans-serif" font-weight="300" font-size="86.5" letter-spacing="-1.73" fill="#0A5475">tykerf</text>
+</svg>

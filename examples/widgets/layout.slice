@@ -1,0 +1,9 @@
+// Widgets demo: every box is a piece of code (boxes/<id>.html) with its own CSS and JS.
+// Its <style> only applies inside the box; its <script> finds the box via document.currentScript.
+// Box types (types/*.json) say where each block may go and what its code may contain.
+title[role=header shape=text:80 type=banner]
+tabs[shape=fixed:420:200 type=widget] chart[shape=image:1.6 type=widget] V@row1{gap=16 type=widget-row}
+pricing[role=section shape=fixed:600:220 type=pricing-table]
+signup[shape=fixed:300:200 type=widget] faq[shape=text:500 type=faq-list] V@row2{1:2 gap=16 type=widget-row}
+footer[role=footer shape=text:60 type=site-footer]
+H5@page

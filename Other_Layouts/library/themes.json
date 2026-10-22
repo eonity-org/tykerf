@@ -1,0 +1,60 @@
+{
+  "clean": {
+    "label": "Clean",
+    "description": "Soft white, a blue accent and Inter",
+    "values": {}
+  },
+  "warm-classic": {
+    "label": "Warm classic",
+    "description": "Cream, terracotta and serif headings",
+    "values": {
+      "--color-bg": "#fbf6ee",
+      "--color-text": "#2b2420",
+      "--color-muted": "#6e6259",
+      "--color-accent": "#b4532a",
+      "--color-on-accent": "#ffffff",
+      "--font-heading": "Georgia, \"Times New Roman\", serif",
+      "--radius": "10px"
+    }
+  },
+  "bold": {
+    "label": "Bold",
+    "description": "A strong violet accent and round corners",
+    "values": {
+      "--color-bg": "#ffffff",
+      "--color-text": "#15121f",
+      "--color-muted": "#5d576b",
+      "--color-accent": "#5b2be0",
+      "--color-on-accent": "#ffffff",
+      "--radius": "18px",
+      "--gap": "28px"
+    }
+  },
+  "editorial": {
+    "label": "Editorial",
+    "description": "White, deep red, serif type and a narrow column",
+    "values": {
+      "--color-bg": "#ffffff",
+      "--color-text": "#141414",
+      "--color-muted": "#5c5c5c",
+      "--color-accent": "#8c1d2c",
+      "--color-on-accent": "#ffffff",
+      "--font-body": "Georgia, \"Times New Roman\", serif",
+      "--font-heading": "Georgia, \"Times New Roman\", serif",
+      "--radius": "2px",
+      "--max-width": "960px"
+    }
+  },
+  "dark": {
+    "label": "Dark (classic)",
+    "description": "The first dark theme: a navy background with light text",
+    "values": {
+      "--color-bg": "#111827",
+      "--color-text": "#e8edf3",
+      "--color-muted": "#9aa7b6",
+      "--color-accent": "#5cb8e6",
+      "--color-on-accent": "#0b1a24",
+      "--radius": "12px"
+    }
+  }
+}
