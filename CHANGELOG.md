@@ -1,5 +1,7 @@
 <!-- tykerf:header -->
-[<img src="src/editor/public/brand/tykerf-logo.svg" alt="TYKERF" height="20">](README.md) › **Changelog**
+&nbsp;
+
+[<img src="src/editor/public/brand/tykerf-logo.svg" alt="TYKERF" height="20" style="border-radius:0">](README.md) › **Changelog**
 <!-- /tykerf:header -->
 
 # Changelog
@@ -30,7 +32,7 @@
 - **The site manager's pages as icons:** each page's actions are icons with their names in a tooltip: make it the home page (a star, filled amber on the home page), rename, **duplicate** (new: a copy next to it, `<name>-copy`, without its history or conversations) and remove.
 - **What Kaity is doing, across the site.** The site manager lists every Kaity run (the whole site, and the block she works on in each page), and her balls pulse on those pages; each opens the page on her block. In the page editor, the block she works on carries her balls in the tree, and another block's Kaity tab says where she is, with **Go there**. A page opens on a block and tab with `?block=<name>&tab=<tab>`.
 - **Links between pages** in the site manager: broken links first, each opening the page on the box it's in, then the pages no other page links to, then what each page links to.
-- **The logo looks right everywhere.** Its wordmark was live text in IBM Plex Sans, so where the font isn't installed (GitHub, image viewers) another typeface took its place and the end of the word was cut off. It is now in outlines, drawn from the bundled font.
+- **The logo looks right everywhere.** Its wordmark was live text in IBM Plex Sans, so where the font isn't installed (GitHub, image viewers) another typeface took its place and the end of the word was cut off. It is now in outlines, drawn from the bundled font, and its frame starts at 0 with an explicit size (Quick Look ignored a frame starting below 0 and lost the margin). The docs show it with square corners: Markdown viewers that round every image (Markdown Preview on the Mac, 8 px) cut the f's hook off at header size.
 - **Every docs page has a header and footer:** the TYKERF logo and where the page sits, and at the end the previous and next pages of its guide, its index and the project's links. `npm run docs:nav` writes them; a test checks they're current and that no link between docs is broken.
 - **The user guide covers sites:** two new pages, [Your site](docs/user-guide/en/sites.md) (the site manager, section by section) and [Publishing and serving](docs/user-guide/en/publishing.md) (Publish, what a published site holds, serving it with sign-in), and screenshots of the editor and the site manager. *Sites, pages and the notation* is now *Pages and the notation*, and the parts that described older menus are up to date.
 - In the site manager, a page's address that wraps under its name no longer starts indented.

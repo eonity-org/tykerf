@@ -1,5 +1,7 @@
 <!-- tykerf:header -->
-[<img src="../../src/editor/public/brand/tykerf-logo.svg" alt="TYKERF" height="20">](../../README.md) › [Documentation](../README.md) › **TYKERF user guide**
+&nbsp;
+
+[<img src="../../src/editor/public/brand/tykerf-logo.svg" alt="TYKERF" height="20" style="border-radius:0">](../../README.md) › [Documentation](../README.md) › **TYKERF user guide**
 <!-- /tykerf:header -->
 
 # TYKERF user guide

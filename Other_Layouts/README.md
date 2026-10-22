@@ -1,5 +1,7 @@
 <!-- tykerf:header -->
-[<img src="../src/editor/public/brand/tykerf-logo.svg" alt="TYKERF" height="20">](../README.md) › **Other layouts**
+&nbsp;
+
+[<img src="../src/editor/public/brand/tykerf-logo.svg" alt="TYKERF" height="20" style="border-radius:0">](../README.md) › **Other layouts**
 <!-- /tykerf:header -->
 
 # Other layouts

@@ -1,5 +1,7 @@
 <!-- tykerf:header -->
-[<img src="src/editor/public/brand/tykerf-logo.svg" alt="TYKERF" height="20">](README.md) › **TYKERF roadmap**
+&nbsp;
+
+[<img src="src/editor/public/brand/tykerf-logo.svg" alt="TYKERF" height="20" style="border-radius:0">](README.md) › **TYKERF roadmap**
 <!-- /tykerf:header -->
 
 # TYKERF roadmap

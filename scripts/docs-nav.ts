@@ -83,9 +83,12 @@ function title(file: string): string {
 const rel = (from: string, to: string) => relative(dirname(join(ROOT, from)), join(ROOT, to)).split('\\').join('/') || posix.basename(to);
 
 function header(file: string, up: Place[]): string {
-  const logo = `[<img src="${rel(file, 'src/editor/public/brand/tykerf-logo.svg')}" alt="TYKERF" height="20">](${rel(file, 'README.md')})`;
+  // square corners: some Markdown viewers round every image (Markdown Preview on the Mac: 8px), which at this
+  // size cuts the f's hook off (GitHub drops the style and rounds nothing)
+  const logo = `[<img src="${rel(file, 'src/editor/public/brand/tykerf-logo.svg')}" alt="TYKERF" height="20" style="border-radius:0">](${rel(file, 'README.md')})`;
   const crumbs = up.filter((p) => p !== TYKERF).map((p) => `[${p.name}](${rel(file, p.file)})`);
-  return `<!-- tykerf:header -->\n${[logo, ...crumbs, `**${title(file)}**`].join(' › ')}\n<!-- /tykerf:header -->\n\n`;
+  // a blank line first (Markdown drops empty lines, not an empty paragraph), so the logo doesn't touch the top
+  return `<!-- tykerf:header -->\n&nbsp;\n\n${[logo, ...crumbs, `**${title(file)}**`].join(' › ')}\n<!-- /tykerf:header -->\n\n`;
 }
 
 function footer(file: string, guide: Guide | undefined, up: Place[]): string {

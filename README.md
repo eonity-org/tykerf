@@ -1,4 +1,4 @@
-<p align="center"><img src="src/editor/public/brand/tykerf-logo.svg" alt="TYKERF" width="360"></p>
+<p align="center"><img src="src/editor/public/brand/tykerf-logo.svg" alt="TYKERF" width="360" style="border-radius:0"></p>
 
 # TYKERF
 
