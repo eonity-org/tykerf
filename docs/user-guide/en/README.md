@@ -1,3 +1,7 @@
+<!-- tykerf:header -->
+[<img src="../../../src/editor/public/brand/tykerf-logo.svg" alt="TYKERF" height="20">](../../../README.md) › [Documentation](../../README.md) › **TYKERF user guide**
+<!-- /tykerf:header -->
+
 # TYKERF user guide
 
 TYKERF lets people and its assistant, Kaity, build and change a web page together, one block at a time. A page is a tree of blocks: rows and columns, down to boxes that hold ordinary HTML. Every block has a name, every change is a validated move, and every change can be undone.
@@ -12,11 +16,13 @@ TYKERF lets people and its assistant, Kaity, build and change a web page togethe
 | [Working with Kaity](ai.md) | Starting a page with Kaity, asking about one block, images, which AI answers, using TYKERF from other AI clients |
 | [Layouts, components and the theme](layouts.md) | Layouts, ready-made sections, the site's colours and fonts, band tones, images |
 | [Copying a website](importing.md) | A page from an existing site, or one of its sections in a box, and what you may do with the copy |
-| [Sites, pages and the notation](workspaces.md) | Pages of a site, links between them, the shared theme, what is in a page folder, box types |
+| [Your site](sites.md) | The site manager: pages, the home page, titles, the site's icon, styles and scripts for every page, links between pages, where Kaity is working, the trash |
+| [Publishing and serving](publishing.md) | Publish to GitHub Pages, Cloudflare Pages or Netlify; serve the site with TYKERF and sign in to edit it |
 | [Exporting](exporting.md) | A page or a whole site as plain files for any web host |
+| [Pages and the notation](workspaces.md) | What is in a page folder, the slicing notation, box types |
 | [TYKERF in Claude Desktop](claude-desktop.md) | Installing the extension and letting Claude Desktop change a page |
 
-To run TYKERF for others or publish pages, see [DEPLOY.md](../../../DEPLOY.md). To work on TYKERF itself, see the [developer guide](../../developer-guide/README.md).
+To set up a server, see [DEPLOY.md](../../../DEPLOY.md). To work on TYKERF itself, see the [developer guide](../../developer-guide/README.md).
 
 ## Quick start
 
@@ -31,4 +37,12 @@ A new or empty folder is a new site. The start screen offers three ways to start
 - **A layout:** with a theme.
 - **A copy of a website.**
 
-*New page…* in the editor adds more pages, and all the pages share one theme. To make one page directly: `npm start -- my-page --layout launch --theme studio`.
+**+ New page** in the site manager (or *New page…* in the editor's page list) adds more pages, and all the pages share one theme. **Publish** in the site manager puts the site online. To make one page directly: `npm start -- my-page --layout launch --theme studio`.
+
+<!-- tykerf:footer -->
+---
+
+[Why TYKERF](why-tykerf.md) →
+
+[TYKERF](../../../README.md) · [Documentation](../../README.md) · [GitHub](https://github.com/eonity-org/tykerf) · Apache-2.0 · an [eonity](https://eonity.org) project
+<!-- /tykerf:footer -->

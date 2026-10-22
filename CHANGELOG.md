@@ -1,3 +1,7 @@
+<!-- tykerf:header -->
+[<img src="src/editor/public/brand/tykerf-logo.svg" alt="TYKERF" height="20">](README.md) › **Changelog**
+<!-- /tykerf:header -->
+
 # Changelog
 
 ## Unreleased
@@ -26,11 +30,15 @@
 - **The site manager's pages as icons:** each page's actions are icons with their names in a tooltip: make it the home page (a star, filled amber on the home page), rename, **duplicate** (new: a copy next to it, `<name>-copy`, without its history or conversations) and remove.
 - **What Kaity is doing, across the site.** The site manager lists every Kaity run (the whole site, and the block she works on in each page), and her balls pulse on those pages; each opens the page on her block. In the page editor, the block she works on carries her balls in the tree, and another block's Kaity tab says where she is, with **Go there**. A page opens on a block and tab with `?block=<name>&tab=<tab>`.
 - **Links between pages** in the site manager: broken links first, each opening the page on the box it's in, then the pages no other page links to, then what each page links to.
+- **The logo looks right everywhere.** Its wordmark was live text in IBM Plex Sans, so where the font isn't installed (GitHub, image viewers) another typeface took its place and the end of the word was cut off. It is now in outlines, drawn from the bundled font.
+- **Every docs page has a header and footer:** the TYKERF logo and where the page sits, and at the end the previous and next pages of its guide, its index and the project's links. `npm run docs:nav` writes them; a test checks they're current and that no link between docs is broken.
+- **The user guide covers sites:** two new pages, [Your site](docs/user-guide/en/sites.md) (the site manager, section by section) and [Publishing and serving](docs/user-guide/en/publishing.md) (Publish, what a published site holds, serving it with sign-in), and screenshots of the editor and the site manager. *Sites, pages and the notation* is now *Pages and the notation*, and the parts that described older menus are up to date.
+- In the site manager, a page's address that wraps under its name no longer starts indented.
 - **Fixed: a page's files could be read half written.** Files were written in place, so another process reading one at that moment (the editor while Kaity's MCP server saves, or the other way round) could find it empty: a test failed now and then with "empty expression" on `layout.slice`. Every file of a page, and `site.json`, is now written under a temporary name and renamed into place, so a reader gets the old file or the new one.
-- **Fixed: a wrong address on Cloudflare Pages went deeper and deeper** (`/seville2/seville/seville/…`). Without a `404.html`, Cloudflare Pages served the site's `index.html` for any unknown address, and its redirect to the home page is relative. Site exports now include a `404.html`: the list of pages under *This page isn't here*, whose links work at any address (a `<base>` from the site's address). GitHub Pages and Netlify use it too. It ends with the TYKERF mark and a link to TYKERF's repository.
+- **Fixed: a wrong address on Cloudflare Pages went deeper and deeper** (`/munich2/munich/munich/…`). Without a `404.html`, Cloudflare Pages served the site's `index.html` for any unknown address, and its redirect to the home page is relative. Site exports now include a `404.html`: the list of pages under *This page isn't here*, whose links work at any address (a `<base>` from the site's address). GitHub Pages and Netlify use it too. It ends with the TYKERF mark and a link to TYKERF's repository.
 - **Site icons (favicons).** Every site has one: by default made from the home page's first letter on the theme's accent colour (`favicon.svg`), or your own SVG, PNG or ICO, uploaded under *Styles & scripts* in the site manager (kept at the site's root as `favicon.<ext>`). Every page links to it, and exports and publishes include it. TYKERF's own screens (the site manager, sign-in, *not found*) and pages open in the editor show TYKERF's mark in the tab instead; visitors see the site's icon.
 - **"Made with TYKERF" on published sites.** Publish adds a small line at the bottom of every page (the mark and a link to TYKERF's repository; its styles inline, in the theme's colours and fonts), and the same link under the list of pages. A checkbox in the Publish panel turns it off (`"credit": false` in `site.json`). Exports you download don't have it.
-- **Fixed: Kaity going round in circles over a picture.** She couldn't add a picture, so she made up file names (`/assets/espana.jpg`) and tried again after each broken screenshot. Now a box that uses a file the page doesn't have gets a warning at once (and `check_page` lists it), and a new tool, `add_picture`, saves an SVG she draws or a picture you attached to the request into the page's `assets/`.
+- **Fixed: Kaity going round in circles over a picture.** She couldn't add a picture, so she made up file names (`/assets/marienplatz.jpg`) and tried again after each broken screenshot. Now a box that uses a file the page doesn't have gets a warning at once (and `check_page` lists it), and a new tool, `add_picture`, saves an SVG she draws or a picture you attached to the request into the page's `assets/`.
 - **Fixed: signing in behind an HTTPS proxy.** TYKERF refused every change, signing in included, when the browser reached it at an `https://` address (Caddy, nginx); it now accepts changes from `TYKERF_PUBLIC_URL`'s origin.
 - **Export this page…** in the Site menu exports only the page you're on, with the site's theme and fonts, and lists its links to the other pages first (`/_tykerf/export.zip?page=<name>`).
 - **The list of pages** (`/pages/`) shows each page's address under its title, marks the home page, and ends with the TYKERF mark and the way in (*Sign in to edit* or *Site manager*).
@@ -136,3 +144,9 @@
 - The TYKERF editor: an editing layer over the real page, the tree panel, text/code/size tabs, Delete vs Remove with a paste buffer, and an AI conversation per block with image attachments and screenshots.
 - MCP server with the same moves, plus `evaluate` and `screenshot`.
 - CLI: outline, normalize, render, optimize, and a website importer (XY-cut).
+
+<!-- tykerf:footer -->
+---
+
+[TYKERF](README.md) · [Documentation](docs/README.md) · [GitHub](https://github.com/eonity-org/tykerf) · Apache-2.0 · an [eonity](https://eonity.org) project
+<!-- /tykerf:footer -->

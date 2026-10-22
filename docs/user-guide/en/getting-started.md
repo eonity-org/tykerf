@@ -1,3 +1,7 @@
+<!-- tykerf:header -->
+[<img src="../../../src/editor/public/brand/tykerf-logo.svg" alt="TYKERF" height="20">](../../../README.md) › [Documentation](../../README.md) › [User guide](README.md) › **Getting started**
+<!-- /tykerf:header -->
+
 # Getting started
 
 This page takes you from nothing to a first page you can edit, and explains the ways to start a site. To see why you might want TYKERF at all, read [Why TYKERF](why-tykerf.md) first.
@@ -113,5 +117,13 @@ Click the page name next to the TYKERF logo and choose **New page…**. You get 
   - add, move and resize blocks;
   - undo anything.
 - **[Ask Kaity about one block](ai.md):** select a block, open the **Kaity** tab and say what you want. Kaity can only change that block.
-- **[Link the pages](workspaces.md#sites-and-pages):** the link box (⌘K) lists the site's pages, and renaming a page updates every link to it.
-- **[Export](exporting.md):** *Site → Export the site…* gives a .zip of plain files for any web host.
+- **[Manage the site](sites.md):** the **Manage the site** button next to *Edit with TYKERF* opens the site manager: the home page, titles, the site's icon, links between pages, and pages to rename, duplicate or remove. The link box (⌘K) lists the site's pages, and renaming a page updates every link to it.
+- **[Put it online](publishing.md):** **Publish** in the site manager sends the site to GitHub Pages, Cloudflare Pages or Netlify; *Site → Export the site…* gives a .zip of plain files for any web host.
+
+<!-- tykerf:footer -->
+---
+
+← [Why TYKERF](why-tykerf.md) · [User guide index](README.md) · [Editing a page](editor.md) →
+
+[TYKERF](../../../README.md) · [Documentation](../../README.md) · [GitHub](https://github.com/eonity-org/tykerf) · Apache-2.0 · an [eonity](https://eonity.org) project
+<!-- /tykerf:footer -->

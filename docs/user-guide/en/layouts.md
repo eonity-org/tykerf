@@ -1,3 +1,7 @@
+<!-- tykerf:header -->
+[<img src="../../../src/editor/public/brand/tykerf-logo.svg" alt="TYKERF" height="20">](../../../README.md) › [Documentation](../../README.md) › [User guide](README.md) › **Layouts, components and the theme**
+<!-- /tykerf:header -->
+
 # Layouts, components and the theme
 
 Three things shape how a page looks, at three sizes:
@@ -102,3 +106,11 @@ Using a component on a page that has no theme yet (an imported site, for example
 ## Images
 
 Put the images your page uses in its `assets/` folder and refer to them as `assets/<file>` (the Text tab shows image addresses as plain fields). When you render the page, `assets/` is copied next to it, in `out/assets/`.
+
+<!-- tykerf:footer -->
+---
+
+← [Working with Kaity](ai.md) · [User guide index](README.md) · [Copying a website](importing.md) →
+
+[TYKERF](../../../README.md) · [Documentation](../../README.md) · [GitHub](https://github.com/eonity-org/tykerf) · Apache-2.0 · an [eonity](https://eonity.org) project
+<!-- /tykerf:footer -->

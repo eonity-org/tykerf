@@ -15,7 +15,8 @@
     "metrics": "tsx src/metrics.ts",
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
-    "build:mcpb": "tsx scripts/build-mcpb.ts"
+    "build:mcpb": "tsx scripts/build-mcpb.ts",
+    "docs:nav": "tsx scripts/docs-nav.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.133.0",

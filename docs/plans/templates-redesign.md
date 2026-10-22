@@ -1,3 +1,7 @@
+<!-- tykerf:header -->
+[<img src="../../src/editor/public/brand/tykerf-logo.svg" alt="TYKERF" height="20">](../../README.md) › [Roadmap](../../ROADMAP.md) › **Templates redesign: modern, light, launch pages**
+<!-- /tykerf:header -->
+
 # Templates redesign: modern, light, launch pages
 
 ## Why
@@ -69,3 +73,11 @@ The user asked for a minimum set where each item is clearly different (KISS), wi
 - **Components:** *About* retired; *Story grid*, *Card grid* and *List* added.
 - **`#dense`** packs any section tighter.
 - **Retired items** live in `Other_Layouts/`, next to the IC showcase layouts (pinwheel and periphery).
+
+<!-- tykerf:footer -->
+---
+
+↑ [Roadmap](../../ROADMAP.md)
+
+[TYKERF](../../README.md) · [Documentation](../README.md) · [GitHub](https://github.com/eonity-org/tykerf) · Apache-2.0 · an [eonity](https://eonity.org) project
+<!-- /tykerf:footer -->

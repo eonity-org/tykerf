@@ -1,3 +1,7 @@
+<!-- tykerf:header -->
+[<img src="../../../src/editor/public/brand/tykerf-logo.svg" alt="TYKERF" height="20">](../../../README.md) › [Documentation](../../README.md) › [User guide](README.md) › **Working with Kaity**
+<!-- /tykerf:header -->
+
 # Working with Kaity
 
 **Kaity** is TYKERF's assistant: eonity's AI as it works in TYKERF (in Tydal, it is Aity). Its symbol is the three balls of eonity's isotype: still at rest, pulsing while Kaity works.
@@ -88,3 +92,11 @@ claude mcp add tykerf -- /path/to/tykerf/node_modules/.bin/tsx /path/to/tykerf/s
 Restart the client after editing the config. The tools include `get_layout`, `split`, `wrap`, `flip`, `swap`, `move`, `set_ratios`, `set_content`, `edit_content`, `add_picture`, `rename`, `undo`, `redo`, `get_theme`, `set_theme`, `list_themes`, `use_theme`, `list_layouts`, `use_layout`, `list_components`, `use_component`, `evaluate` (layout checks at several widths) and `screenshot` (needs `npx playwright install chromium`).
 
 You can keep the editor open on the same page: changes made from the client appear in the browser as they happen.
+
+<!-- tykerf:footer -->
+---
+
+← [Editing a page](editor.md) · [User guide index](README.md) · [Layouts, components and the theme](layouts.md) →
+
+[TYKERF](../../../README.md) · [Documentation](../../README.md) · [GitHub](https://github.com/eonity-org/tykerf) · Apache-2.0 · an [eonity](https://eonity.org) project
+<!-- /tykerf:footer -->

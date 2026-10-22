@@ -1,3 +1,7 @@
+<!-- tykerf:header -->
+[<img src="../../../src/editor/public/brand/tykerf-logo.svg" alt="TYKERF" height="20">](../../../README.md) › [Documentation](../../README.md) › [Developer guide](README.md) › **Extending TYKERF**
+<!-- /tykerf:header -->
+
 # Extending TYKERF
 
 Step-by-step recipes. Each ends with the tests that guard it. Run `npm test && npm run typecheck` before sending a change (see [CONTRIBUTING.md](../../../CONTRIBUTING.md)).
@@ -153,3 +157,11 @@ Speak *row* and *column* in descriptions and replies, never H/V. The Claude Desk
 3. Add the language to the indexes in `docs/user-guide/README.md`, `docs/developer-guide/README.md` and `docs/README.md`.
 
 **Translated separately:** server messages, the AI's prompts (`CODE_RULES`, `BUILD_BRIEF`) and component placeholder text.
+
+<!-- tykerf:footer -->
+---
+
+← [The AI and MCP](ai-and-mcp.md) · [Developer guide index](README.md)
+
+[TYKERF](../../../README.md) · [Documentation](../../README.md) · [GitHub](https://github.com/eonity-org/tykerf) · Apache-2.0 · an [eonity](https://eonity.org) project
+<!-- /tykerf:footer -->

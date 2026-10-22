@@ -1,3 +1,7 @@
+<!-- tykerf:header -->
+[<img src="../../../src/editor/public/brand/tykerf-logo.svg" alt="TYKERF" height="20">](../../../README.md) › [Documentation](../../README.md) › [Developer guide](README.md) › **Setup and tests**
+<!-- /tykerf:header -->
+
 # Setup and tests
 
 ## Requirements
@@ -86,3 +90,11 @@ The short version (the full list is in [CONTRIBUTING.md](../../../CONTRIBUTING.m
 - **The editor client has no build step.** Every UI string goes through `t()` as a whole sentence, and all UI lives in a shadow root.
 - **No third-party requests.** Fonts and images are bundled or copied into the page; nothing loads from a CDN.
 - **Keep [the notation spec](../../slicing-notation.md) in sync** with the grammar and the moves.
+
+<!-- tykerf:footer -->
+---
+
+← [Developer guide](README.md) · [Developer guide index](README.md) · [Architecture](architecture.md) →
+
+[TYKERF](../../../README.md) · [Documentation](../../README.md) · [GitHub](https://github.com/eonity-org/tykerf) · Apache-2.0 · an [eonity](https://eonity.org) project
+<!-- /tykerf:footer -->

@@ -51,15 +51,15 @@ describe('what a page has left unfinished', () => {
   });
 
   it('finds pictures and files the page does not have: a made-up name, a site file that is not there', () => {
-    const ws = new Workspace(new MemoryStore('memory:new'), { site: { head: () => '', pageNames: () => ['seville'], files: () => ['font.woff2'] } });
+    const ws = new Workspace(new MemoryStore('memory:new'), { site: { head: () => '', pageNames: () => ['munich'], files: () => ['font.woff2'] } });
     ws.create('banner main H', {
-      banner: '<img src="/assets/plaza-espana.webp" alt=""><img src="assets/seville.jpg" alt=""><img src="https://example.org/x.jpg" alt=""><img src="data:image/png;base64,AA" alt="">',
+      banner: '<img src="/assets/marienplatz.webp" alt=""><img src="assets/munich.jpg" alt=""><img src="https://example.org/x.jpg" alt=""><img src="data:image/png;base64,AA" alt="">',
       main: '<div style="background:url(\'assets/tiles.svg\')"></div><img srcset="assets/a.png 1x, assets/b.png 2x" alt=""><style>@font-face{src:url(/assets/font.woff2)}</style>',
     });
     ws.store.write('assets/a.png', new Uint8Array([1]));
     expect(leftovers(ws).map(say)).toEqual([
-      'banner: /assets/plaza-espana.webp is not one of the page\'s files, so it shows broken',
-      'banner: assets/seville.jpg is not one of the page\'s files, so it shows broken',
+      'banner: /assets/marienplatz.webp is not one of the page\'s files, so it shows broken',
+      'banner: assets/munich.jpg is not one of the page\'s files, so it shows broken',
       'main: assets/b.png is not one of the page\'s files, so it shows broken',
       'main: assets/tiles.svg is not one of the page\'s files, so it shows broken',
     ]);
@@ -67,11 +67,11 @@ describe('what a page has left unfinished', () => {
 
   it('warns the AI at once about a file it made up, and lets it add a picture it draws or the user attached', async () => {
     const ws = fresh();
-    ws.create('banner main H', { banner: '<p>Seville</p>', main: '<p>Hi</p>' });
+    ws.create('banner main H', { banner: '<p>Munich</p>', main: '<p>Hi</p>' });
     ws.store.write('.tykerf/images/' + 'a'.repeat(40) + '.png', new Uint8Array([137, 80, 78, 71]));
     const tools = await openTools(ws, '');
-    const made = await tools.call('edit_content', { id: 'banner', old: '<p>Seville</p>', new: '<img src="/assets/espana.jpg" alt="">' });
-    expect(made.text).toMatch(/^ok: 1 change in "banner"\nwarning: \/assets\/espana\.jpg is not among the page's files.*Never guess a file name\.$/s);
+    const made = await tools.call('edit_content', { id: 'banner', old: '<p>Munich</p>', new: '<img src="/assets/marienplatz.jpg" alt="">' });
+    expect(made.text).toMatch(/^ok: 1 change in "banner"\nwarning: \/assets\/marienplatz\.jpg is not among the page's files.*Never guess a file name\.$/s);
     const drawn = await tools.call('add_picture', { name: 'plaza', svg: '<svg viewBox="0 0 10 10"><rect width="10" height="5" fill="#c33"/></svg>' });
     expect(drawn.text).toBe('saved assets/plaza.svg: use it as <img src="assets/plaza.svg" alt="…"> (the address has no leading slash)');
     expect(new TextDecoder().decode(ws.store.readBytes('assets/plaza.svg')!)).toContain('xmlns="http://www.w3.org/2000/svg"');

@@ -1,3 +1,7 @@
+<!-- tykerf:header -->
+[<img src="../src/editor/public/brand/tykerf-logo.svg" alt="TYKERF" height="20">](../README.md) › **Other layouts**
+<!-- /tykerf:header -->
+
 # Other layouts
 
 TYKERF offers a small set of layouts, themes and components that are truly different from each other (see [the layouts guide](../docs/user-guide/en/layouts.md)). This folder keeps the rest:
@@ -48,3 +52,9 @@ rule r1 below=900 flip page
 To try a layout without bringing it back, write its `layout` line into a page's `layout.slice` (each box name gets a component with *Use a component*), or paste it into `npm run cli -- outline "<layout>"`. `outline` takes the tree only, without the `rule` lines.
 
 Pages made earlier with any of these keep working as they are: a page holds its own copy of each component's code and of its theme values.
+
+<!-- tykerf:footer -->
+---
+
+[TYKERF](../README.md) · [Documentation](../docs/README.md) · [GitHub](https://github.com/eonity-org/tykerf) · Apache-2.0 · an [eonity](https://eonity.org) project
+<!-- /tykerf:footer -->

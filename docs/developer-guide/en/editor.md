@@ -1,3 +1,7 @@
+<!-- tykerf:header -->
+[<img src="../../../src/editor/public/brand/tykerf-logo.svg" alt="TYKERF" height="20">](../../../README.md) › [Documentation](../../README.md) › [Developer guide](README.md) › **The editor**
+<!-- /tykerf:header -->
+
 # The editor
 
 The editor is a small HTTP server (`src/editor/server.ts`, `src/editor/page.ts`) and a browser client with no build step (`src/editor/public/`). It serves each page exactly as it renders, plus one script, `tykerf.js`. That script draws the whole panel inside a shadow root, so the site's CSS and the editor's CSS never touch.
@@ -113,3 +117,11 @@ How the client works:
 - **The corner dock** (`.dock`): *Edit with TYKERF* and, in a site, *Manage the site* (`.managebtn`, a link to `/_tykerf/site/`). Both are pills with a symbol and a word, and turn solid teal on hover; *Edit with TYKERF* stays teal while the panel is open.
 - **Page tab** of the top block: a status line saying where the page's look comes from (inherited, inherited with own values, own theme, own look); in a site, an *Every page / This page only* switch; the theme values (each marked *site* or *this page* in page mode); the page's head code.
 - **Presets** rebuild the whole theme block from TYKERF's current theme (`theme` in `/_tykerf/library`) with the preset's values, which updates older heads and repairs damaged band rules. Changing single values only touches `:root`.
+
+<!-- tykerf:footer -->
+---
+
+← [Architecture](architecture.md) · [Developer guide index](README.md) · [The AI and MCP](ai-and-mcp.md) →
+
+[TYKERF](../../../README.md) · [Documentation](../../README.md) · [GitHub](https://github.com/eonity-org/tykerf) · Apache-2.0 · an [eonity](https://eonity.org) project
+<!-- /tykerf:footer -->

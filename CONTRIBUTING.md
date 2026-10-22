@@ -1,3 +1,7 @@
+<!-- tykerf:header -->
+[<img src="src/editor/public/brand/tykerf-logo.svg" alt="TYKERF" height="20">](README.md) › **Contributing to TYKERF**
+<!-- /tykerf:header -->
+
 # Contributing to TYKERF
 
 Thanks for helping. TYKERF is an eonity project; issues and pull requests are welcome at https://github.com/eonity-org/tykerf.
@@ -17,6 +21,7 @@ npm start -- examples/widgets      # http://localhost:4400
 
 - **The tree is never left invalid.** Every move in `src/moves.ts` is pure (`clone → mutate → finish`) and either returns a valid layout or throws. New moves go through `mutate()`, get a test, and keep the property test in `test/moves.test.ts` passing.
 - **The notation spec is the contract.** If you change the grammar, a move or a reference form, update [docs/slicing-notation.md](docs/slicing-notation.md) in the same pull request.
+- **Docs pages have a header and footer** (the logo, where the page sits, the previous and next pages of its guide). They are written by `npm run docs:nav`: run it after adding a page, renaming one or reordering a guide's index, and `npm test` checks they're current and that every link leads somewhere.
 - **People and the AI share one tree and one history.** Changes go through `Workspace` (`save`, `setContent`, `rename`, `group`), never by writing workspace files directly, so they are validated, typed, scope-checked and undoable.
 - **The AI's vocabulary is row/column**, never the letters H/V (a model once read `H` as "horizontal row").
 - **The editor client stays build-free:** plain browser JS in `src/editor/public/`, all UI inside the shadow root.
@@ -59,3 +64,9 @@ Server error messages, the AI's prompts and the guides (`docs/user-guide/<lang>/
 ## Reporting security issues
 
 Please don't open a public issue; see [SECURITY.md](SECURITY.md).
+
+<!-- tykerf:footer -->
+---
+
+[TYKERF](README.md) · [Documentation](docs/README.md) · [GitHub](https://github.com/eonity-org/tykerf) · Apache-2.0 · an [eonity](https://eonity.org) project
+<!-- /tykerf:footer -->

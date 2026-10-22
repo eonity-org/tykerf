@@ -1,3 +1,7 @@
+<!-- tykerf:header -->
+[<img src="../../../src/editor/public/brand/tykerf-logo.svg" alt="TYKERF" height="20">](../../../README.md) › [Documentation](../../README.md) › [User guide](README.md) › **Copying a website**
+<!-- /tykerf:header -->
+
 # Copying a website
 
 TYKERF can start a page from any website, or copy one section of a website into a box. It loads the site in a browser, cuts the rendered page into rows, columns and boxes (the XY-cut method), and turns the result into TYKERF blocks you can edit like any other.
@@ -41,3 +45,11 @@ A copy includes the site's text, images and design, which usually belong to some
 - **Your own site:** rebuild it, restructure it, publish it.
 - **Someone else's site:** fine for studying a layout, prototyping or a private mock-up. Don't publish it, or anything that still contains their text, images, logos or design, without the owner's permission.
 - The site's images and fonts are copied into the page's `assets/` folder, so the copy loads nothing from the original servers. Anything that couldn't be downloaded stays linked, and the [export](exporting.md) lists it. Being on your computer doesn't make them yours: replace the ones you may not use before publishing.
+
+<!-- tykerf:footer -->
+---
+
+← [Layouts, components and the theme](layouts.md) · [User guide index](README.md) · [Your site](sites.md) →
+
+[TYKERF](../../../README.md) · [Documentation](../../README.md) · [GitHub](https://github.com/eonity-org/tykerf) · Apache-2.0 · an [eonity](https://eonity.org) project
+<!-- /tykerf:footer -->

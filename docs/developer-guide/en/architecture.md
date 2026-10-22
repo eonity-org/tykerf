@@ -1,3 +1,7 @@
+<!-- tykerf:header -->
+[<img src="../../../src/editor/public/brand/tykerf-logo.svg" alt="TYKERF" height="20">](../../../README.md) › [Documentation](../../README.md) › [Developer guide](README.md) › **Architecture**
+<!-- /tykerf:header -->
+
 # Architecture
 
 TYKERF has one core idea: **a web page is a slicing tree, and every change is a validated move on that tree.** Everything else (the editor, the AI, the MCP server, the importer, export) is built around a small core library in `src/`.
@@ -137,3 +141,11 @@ Links between pages are written from the site root (`/about/`); export makes the
 - **In the editor.** `POST /_tykerf/site/new` with `url` makes a page from a copy; `POST <page>/_tykerf/import {url}` copies a page and keeps it for the `section` op (token-checked).
 - **Export** (`export.ts`): renders every page without TYKERF, makes the site-root addresses relative, copies the assets, and reports broken links and files still loaded from other servers. It writes a folder or a zip (`zip.ts`, no dependency).
 - **Checks** (`metrics.ts`, `screenshot.ts`): sideways scroll, overflow, line length, tap targets and more, plus screenshots of a block or a page. Playwright is loaded lazily, so the MCP server runs without Chromium.
+
+<!-- tykerf:footer -->
+---
+
+← [Setup and tests](setup.md) · [Developer guide index](README.md) · [The editor](editor.md) →
+
+[TYKERF](../../../README.md) · [Documentation](../../README.md) · [GitHub](https://github.com/eonity-org/tykerf) · Apache-2.0 · an [eonity](https://eonity.org) project
+<!-- /tykerf:footer -->
