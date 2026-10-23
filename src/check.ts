@@ -15,6 +15,8 @@ export interface Leftover {
   detail: string;
   /** For a link: why it has no target. */
   why?: 'nowhere' | 'section' | 'page';
+  /** For a link to a section: the address that works, when it names a block (`#faq` → `#sw-faq`, the block's own element). */
+  target?: string;
 }
 
 /** One leftover as a stable key, to compare a page before and after a request and to remember what the person keeps. */
@@ -28,7 +30,7 @@ export function say(l: Leftover): string {
   const [href, ...words] = l.detail.split(' ');
   const label = words.join(' ') || href;
   if (l.why === 'nowhere') return `${l.box}: the link "${label}" goes nowhere`;
-  if (l.why === 'section') return `${l.box}: the link "${label}" points at ${href}, which is not on the page`;
+  if (l.why === 'section') return `${l.box}: the link "${label}" points at ${href}, which is not on the page${l.target ? `; the block "${href.slice(1)}" is ${l.target}` : ''}`;
   return `${l.box}: the link "${label}" points at ${href}, a page the site doesn't have (yet)`;
 }
 
@@ -125,7 +127,9 @@ export function leftovers(ws: Workspace, opts: { within?: string | null } = {}):
         : href.startsWith('#') && !ids.has(decode(href.slice(1))) ? 'section'
         : page && pages && !pages.includes(page) && !['_tykerf', 'assets', 'out'].includes(page) ? 'page'
         : null;
-      if (why) add({ box, kind: 'link', detail: `${href || '#'} ${words}`.trim(), why });
+      // a link written with a block's name (#faq) reaches it at the block's own element, #sw-faq
+      const target = why === 'section' && ids.has(`sw-${decode(href.slice(1))}`) ? `#sw-${decode(href.slice(1))}` : undefined;
+      if (why) add({ box, kind: 'link', detail: `${href || '#'} ${words}`.trim(), why, ...(target ? { target } : {}) });
     }
   }
   return out;

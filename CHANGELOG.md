@@ -8,6 +8,8 @@
 
 ## Unreleased
 
+- **Screenshots and checks show the page's pictures and fonts.** Kaity's and every MCP client's screenshots showed the page's pictures as broken and its fonts as Georgia, and `evaluate` measured the page that way; they now load the page's files, and the site's, as the editor does.
+- **Links to a section:** a block's element is `#sw-<name>`. The tools' instructions say so, and *what's left unfinished* names the right address when a link uses the block's bare name (`#faq`).
 - **Tools say what they do.** Every MCP tool has a short title ("Replace the page with a layout") and tells the client whether it only reads the page, changes it, or replaces something whole, so Claude Desktop, Claude Code and other clients can show it and ask before the bigger changes.
 - **The MCP server can start with no folder** (`--lazy`, for the coming Claude plugin): Claude opens one with the new `open_folder` tool, a page, a site or an empty folder, and without a path the default: `--dir`, else `TYKERF_DIR`, else `~/TYKERF`. The Claude Desktop extension and `claude mcp add --dir` keep opening their folder at once.
 - **A Claude plugin** for Claude Code and Cowork, with a skill that tells Claude when to use TYKERF and how: `npm run build:plugin` writes it to `dist/plugin/`, and each release publishes it to the `claude-plugin` branch for Anthropic's directory. It needs Node.js 20 or later on the computer.

@@ -83,6 +83,8 @@ export interface SiteLink {
   pageNames?(): string[];
   /** The site's own files (its assets/ folder, at /assets/), so a page's references to them can be checked. */
   files?(): string[];
+  /** One of the site's own files (assets/<file>), as a page asks for it at /assets/<file>; null when there is none. */
+  asset?(file: string): Uint8Array | null;
   /** The <link rel="icon"> every page of the site gets (its own icon, or the one made from its name). */
   icon?(): string;
   /** Replace the shared head (the site keeps the previous one for its own undo). */

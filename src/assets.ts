@@ -10,6 +10,12 @@ import type { Workspace } from './workspace.js';
 
 export const MAX_IMAGE_BYTES = 15 * 1024 * 1024;
 
+/** The content type a page's file is served with, by its extension (the editor, and screenshots in screenshot.ts). */
+export const ASSET_TYPES: Record<string, string> = {
+  svg: 'image/svg+xml', png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg', gif: 'image/gif', webp: 'image/webp', avif: 'image/avif',
+  ico: 'image/x-icon', mp4: 'video/mp4', webm: 'video/webm', pdf: 'application/pdf', woff2: 'font/woff2', woff: 'font/woff', ttf: 'font/ttf', otf: 'font/otf', eot: 'application/vnd.ms-fontobject', css: 'text/css', txt: 'text/plain',
+};
+
 const ascii = (b: Uint8Array, at: number, s: string) => [...s].every((c, i) => b[at + i] === c.charCodeAt(0));
 
 /** The file extension of an image's format, from its first bytes; null when it isn't one we accept. */

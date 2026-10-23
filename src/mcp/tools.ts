@@ -137,6 +137,7 @@ export function createTykerfServer(start: Workspace | null, opts: TykerfServerOp
       'The page theme (colours, fonts, radius, spacing, content width) is a set of CSS variables that every box uses: read it with get_theme ' +
       'and change it with set_theme, which restyles the whole page. Only allowed when the scope is the whole page (or there is no scope); ' +
       'inside a smaller block, change that block\'s own code instead, or ask the user to select the page block. ' +
+      'To link to a block on the page, use its element\'s id: #sw-<name> (the block "faq" is #sw-faq). ' +
       'Pictures are files in the page\'s assets/, written assets/<file> (no leading slash). You can\'t download pictures: draw one as SVG, or place one the user attached, with add_picture; when neither fits, say what picture is needed. Never make up a file name. ' +
       'For a new section (hero, features, FAQ, pricing, footer...), start from a ready-made component (list_components, use_component) ' +
       'and adapt its text and images, instead of writing the code from scratch. To make a page like another page of its site, use_page copies that page\'s blocks. ' +
@@ -663,7 +664,8 @@ export function createTykerfServer(start: Workspace | null, opts: TykerfServerOp
     inputSchema: { widths: z.array(z.number().int()).optional() },
   }, guard(async ({ widths }: { widths?: number[] }) => {
     const { evaluateHTML } = await import('../metrics.js');
-    const r = await evaluateHTML(ws.page(), { widths });
+    const { pageFiles } = await import('../screenshot.js');
+    const r = await evaluateHTML(ws.page(), { widths, files: pageFiles(ws) });
     return JSON.stringify(r, null, 2);
   }) as never);
 
@@ -676,8 +678,8 @@ export function createTykerfServer(start: Workspace | null, opts: TykerfServerOp
     try {
       const l = ws.load();
       const target = raw.id ? resolveRef(l, raw.id) : scope(l);
-      const { screenshot } = await import('../screenshot.js');
-      const shot = await screenshot(ws.page(), { width: raw.width ?? 1440, id: target && target !== l.root.id ? target : null });
+      const { pageFiles, screenshot } = await import('../screenshot.js');
+      const shot = await screenshot(ws.page(), { width: raw.width ?? 1440, id: target && target !== l.root.id ? target : null, files: pageFiles(ws) });
       const what = shot.box ? `${pathOf(l, target!)}: ${Math.round(shot.box.w)}×${Math.round(shot.box.h)} px (dashed red frame), with 24 px around it` : 'the whole page';
       return {
         content: [

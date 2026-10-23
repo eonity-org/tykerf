@@ -325,7 +325,7 @@ export function siteHead(dir: string): string {
 }
 
 /** What a page of this site needs to render with the site's shared head. */
-export const siteLink = (dir: string): SiteLink => ({ head: () => siteHead(dir), pages: () => sitePages(dir).length, pageNames: () => sitePages(dir), files: () => (existsSync(join(dir, 'assets')) ? readdirSync(join(dir, 'assets')) : []), icon: () => iconLink(dir), setHead: (html, label) => setSiteHead(dir, html, label) });
+export const siteLink = (dir: string): SiteLink => ({ head: () => siteHead(dir), pages: () => sitePages(dir).length, pageNames: () => sitePages(dir), files: () => (existsSync(join(dir, 'assets')) ? readdirSync(join(dir, 'assets')) : []), asset: (f) => siteStore(dir).readBytes(`assets/${f}`), icon: () => iconLink(dir), setHead: (html, label) => setSiteHead(dir, html, label) });
 
 /** A page of the site, with the site's shared head. */
 export const pageWorkspace = (dir: string, name: string) => new Workspace(join(dir, name), { site: siteLink(dir) });

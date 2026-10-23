@@ -5,7 +5,7 @@
 
 import { randomUUID } from 'node:crypto';
 import type { IncomingMessage, ServerResponse } from 'node:http';
-import { fetchImage, imageOrigin, pageImages, recordEdit, saveImage, trashUnusedAssets, unusedAssets } from '../assets.js';
+import { ASSET_TYPES, fetchImage, imageOrigin, pageImages, recordEdit, saveImage, trashUnusedAssets, unusedAssets } from '../assets.js';
 import { KIND_WORD, type Layout, type Node, find, freshId, isOp } from '../model.js';
 import * as M from '../moves.js';
 import { serializeSlice } from '../notation.js';
@@ -33,10 +33,6 @@ export async function body(req: IncomingMessage): Promise<any> {
   return s ? JSON.parse(s) : {};
 }
 
-export const ASSET_TYPES: Record<string, string> = {
-  svg: 'image/svg+xml', png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg', gif: 'image/gif', webp: 'image/webp', avif: 'image/avif',
-  ico: 'image/x-icon', mp4: 'video/mp4', webm: 'video/webm', pdf: 'application/pdf', woff2: 'font/woff2', woff: 'font/woff', ttf: 'font/ttf', otf: 'font/otf', eot: 'application/vnd.ms-fontobject', css: 'text/css', txt: 'text/plain',
-};
 
 /** The pages of the site this page is in, for the panel's page switcher. */
 export interface SiteInfo {
