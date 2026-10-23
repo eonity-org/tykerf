@@ -1,0 +1,29 @@
+{
+  "name": "eonity.org",
+  "description": "Plugins from eonity.org. TYKERF: build and edit real web pages block by block, with validated moves and undo.",
+  "owner": {
+    "name": "eonity.org",
+    "email": "dev@eonity.org",
+    "url": "https://eonity.org"
+  },
+  "plugins": [
+    {
+      "name": "tykerf",
+      "displayName": "TYKERF",
+      "description": "Build and edit real web pages block by block: Claude changes one named block at a time through validated moves, looks at the result, and every change can be undone. Plain HTML files in a folder, no platform.",
+      "source": {
+        "source": "github",
+        "repo": "eonity-org/tykerf",
+        "ref": "claude-plugin"
+      },
+      "category": "design",
+      "tags": [
+        "web page",
+        "landing page",
+        "website",
+        "html",
+        "editor"
+      ]
+    }
+  ]
+}

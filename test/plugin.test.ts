@@ -32,6 +32,16 @@ describe('the Claude plugin', async () => {
     for (const part of ['data collection', 'stored', 'third parties', 'Retention', 'Contact']) expect(readme.toLowerCase()).toContain(part.toLowerCase().split(' ')[0]);
   });
 
+  it('is listed in the repository\'s own marketplace, at the branch each release writes it to', () => {
+    // people add eonity-org/tykerf as a marketplace (the default branch), and install tykerf@eonity.org from it
+    const market = read('.', '.claude-plugin/marketplace.json');
+    expect(market.name).toBe('eonity.org'); // the publisher's name, as in plugin.json's author
+    const entry = market.plugins.find((p: { name: string }) => p.name === read(out, '.claude-plugin/plugin.json').name);
+    expect(entry?.source).toEqual({ source: 'github', repo: 'eonity-org/tykerf', ref: 'claude-plugin' });
+    expect(readFileSync('.github/workflows/release.yml', 'utf8')).toContain(`git push origin ${entry.source.ref}`);
+    expect(entry.version).toBeUndefined(); // plugin.json's version decides, raised with every release
+  });
+
   it('has a skill that names only tools the server has', async () => {
     const skill = readFileSync(join(out, 'skills', 'tykerf', 'SKILL.md'), 'utf8');
     const front = /^---\nname: (.+)\ndescription: (.+)\n---\n/.exec(skill);

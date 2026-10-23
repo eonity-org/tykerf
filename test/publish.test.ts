@@ -11,6 +11,7 @@ import { chromium } from 'playwright';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { MANIFEST, blobSha, publishToGitHub } from '../src/publish.js';
 import { newSitePage, publishSettingsError, readSite, removePage, setPublish } from '../src/site.js';
+import { freePort } from './ports.js';
 
 /** A repository: blobs by hash, trees as path → blob, commits, branches. Empty until a first commit, like
  * GitHub's (the Git Data API answers 409 there; the Contents API works). A recursive tree listing longer than
@@ -241,7 +242,7 @@ describe('Publish in the site manager', () => {
 
   beforeAll(async () => {
     dir = site();
-    const port = 45000 + Math.floor(Math.random() * 10000);
+    const port = await freePort();
     editor = spawn(process.execPath, ['--import', 'tsx', 'src/editor/server.ts', dir, '--port', String(port)], {
       stdio: ['ignore', 'pipe', 'inherit'],
       env: { ...process.env, TYKERF_GITHUB_TOKEN: 'secret', TYKERF_GITHUB_API: api },
