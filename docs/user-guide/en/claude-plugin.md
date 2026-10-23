@@ -26,9 +26,9 @@ The plugin holds no key and calls no API itself. Claude does the thinking, with 
 
 ## Install
 
-TYKERF's repository is also a plugin marketplace, called **eonity**:
+TYKERF's repository is also a plugin marketplace, called **eonity.org**:
 
-- **Claude Code:** run `/plugin marketplace add eonity-org/tykerf`, then `/plugin install tykerf@eonity`.
+- **Claude Code:** run `/plugin marketplace add eonity-org/tykerf`, then `/plugin install tykerf@eonity.org`.
 - **Cowork:** in the desktop app, choose *Customize → Plugins → Add marketplace*, enter `eonity-org/tykerf`, then install **TYKERF** from it.
 
 A plugin you add in Cowork or on claude.ai reaches Claude Code too. Each TYKERF release brings a new version, which you get when the plugin updates.

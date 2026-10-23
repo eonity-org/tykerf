@@ -8,7 +8,7 @@
 
 ## Unreleased
 
-- **Install the plugin from TYKERF's own marketplace.** The repository is a plugin marketplace, *eonity*: `/plugin marketplace add eonity-org/tykerf` in Claude Code, or *Add marketplace* in Cowork, then install TYKERF. It follows the releases.
+- **Install the plugin from TYKERF's own marketplace.** The repository is a plugin marketplace, *eonity.org*: `/plugin marketplace add eonity-org/tykerf` in Claude Code, or *Add marketplace* in Cowork, then install TYKERF. It follows the releases.
 
 ## 0.2.0 (2026-10-23): the Claude plugin
 

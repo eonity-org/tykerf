@@ -33,8 +33,9 @@ describe('the Claude plugin', async () => {
   });
 
   it('is listed in the repository\'s own marketplace, at the branch each release writes it to', () => {
-    // people add eonity-org/tykerf as a marketplace (the default branch), and install tykerf@eonity from it
+    // people add eonity-org/tykerf as a marketplace (the default branch), and install tykerf@eonity.org from it
     const market = read('.', '.claude-plugin/marketplace.json');
+    expect(market.name).toBe('eonity.org'); // the publisher's name, as in plugin.json's author
     const entry = market.plugins.find((p: { name: string }) => p.name === read(out, '.claude-plugin/plugin.json').name);
     expect(entry?.source).toEqual({ source: 'github', repo: 'eonity-org/tykerf', ref: 'claude-plugin' });
     expect(readFileSync('.github/workflows/release.yml', 'utf8')).toContain(`git push origin ${entry.source.ref}`);

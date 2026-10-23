@@ -45,7 +45,7 @@ Anthropic's pages this plan follows:
 8. **Docs:** **done.** `docs/user-guide/en/claude-plugin.md` (*TYKERF in Claude Code and Cowork*): which way in for which app, what it needs (Node.js, Chromium), installing (by hand until the directory lists it), the folder Claude opens and the default, what to expect and what it can't do. `open_folder` is now in the tools table of `ai.md`; `claude-desktop.md`, `ai.md` and the README point to the page. Update the install section once the directory lists TYKERF.
 
 ## Meanwhile: TYKERF's own marketplace
-Until the directory lists it, and besides it, the repository is a marketplace, **eonity** (`.claude-plugin/marketplace.json` on the default branch), whose `tykerf` entry points to the `claude-plugin` branch. Claude Code: `/plugin marketplace add eonity-org/tykerf`, then `/plugin install tykerf@eonity`; Cowork: *Add marketplace*. `test/plugin.test.ts` keeps the entry's name and branch in step with the plugin and the release workflow.
+Until the directory lists it, and besides it, the repository is a marketplace, **eonity.org** (`.claude-plugin/marketplace.json` on the default branch), whose `tykerf` entry points to the `claude-plugin` branch. Claude Code: `/plugin marketplace add eonity-org/tykerf`, then `/plugin install tykerf@eonity.org`; Cowork: *Add marketplace*. `test/plugin.test.ts` keeps the entry's name and branch in step with the plugin and the release workflow.
 
 ## Before submitting
 Open, and it doesn't block steps 1–6 (`NOTICE` stays as it is, the same as in TYDAL and FullFrame):

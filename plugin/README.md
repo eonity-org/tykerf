@@ -6,7 +6,7 @@ TYKERF is open source (Apache-2.0): https://github.com/eonity-org/tykerf
 
 ## Install
 
-- **Claude Code:** `/plugin marketplace add eonity-org/tykerf`, then `/plugin install tykerf@eonity`.
+- **Claude Code:** `/plugin marketplace add eonity-org/tykerf`, then `/plugin install tykerf@eonity.org`.
 - **Cowork:** *Customize → Plugins → Add marketplace*, enter `eonity-org/tykerf`, then install TYKERF.
 
 ## Start
