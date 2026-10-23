@@ -123,7 +123,7 @@ How the client works:
 <!-- tykerf:footer -->
 ---
 
-← [Architecture](architecture.md) · [Developer guide index](README.md) · [The AI and MCP](ai-and-mcp.md) →
+← [Following a change](following-a-change.md) · [Developer guide index](README.md) · [The AI and MCP](ai-and-mcp.md) →
 
 [TYKERF](../../../README.md) · [Documentation](../../README.md) · [GitHub](https://github.com/eonity-org/tykerf) · Apache-2.0 · an [eonity](https://eonity.org) project
 <!-- /tykerf:footer -->

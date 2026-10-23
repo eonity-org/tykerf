@@ -8,13 +8,20 @@
 
 For people who work on TYKERF itself, extend it (components, layouts, moves, MCP tools, AI runners), or build on it. To *use* TYKERF, read the [user guide](../../user-guide/en/README.md).
 
+**Where to start:**
+- **To change TYKERF:** [Setup and tests](setup.md), then [Architecture](architecture.md) and [Following a change](following-a-change.md). After those, the other pages are reference: read the one for the part you're changing.
+- **To add something** (a component, a layout, a move, a tool, a runner…): [Extending TYKERF](extending.md) has a recipe for each.
+- **To use TYKERF from your own code** (scripts, your own agent, CI): [Building on TYKERF](building-on-tykerf.md).
+
 | Guide | What it covers |
 |---|---|
-| [Setup and tests](setup.md) | Install, run, the test suites, the project layout, the rules every change follows |
+| [Setup and tests](setup.md) | Install, run, the test suites, the project layout, the rules every change follows, working with an AI coding assistant |
 | [Architecture](architecture.md) | The core ideas (slicing tree, notation, moves, workspaces, history, scope, sites) and how the parts fit |
+| [Following a change](following-a-change.md) | One change followed through the code: a click in the editor, the same change by Kaity, undo, rendering; and where to look when something misbehaves |
 | [The editor](editor.md) | The HTTP server, page hosts, the browser client, the chooser, security |
 | [The AI and MCP](ai-and-mcp.md) | The MCP tools, the scope, the AI runners (Claude Code, API, Gemini), the Claude Desktop extension |
 | [Extending TYKERF](extending.md) | Step by step: a component, a layout, a theme preset, a move, an MCP tool, an AI runner, an editor operation, a translation |
+| [Building on TYKERF](building-on-tykerf.md) | Using TYKERF from your own code: pages from a script, your own agent through MCP, checks in CI, and what is stable |
 | [Writing the docs](documentation.md) | What goes where, which page to update for a change, the house style, headers and footers, screenshots and the demo video |
 
 Other references:

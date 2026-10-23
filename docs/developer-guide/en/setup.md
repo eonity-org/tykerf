@@ -44,10 +44,11 @@ npx vitest run test/site.test.ts -t "like another"
 
 | Kind | Files | What they check |
 |---|---|---|
-| The core | `notation`, `moves` (with a property test of 1000 random move sequences), `refs`, `render`, `shape`, `boxes`, `types-scope`, `redo`, `store`, `concurrency` | The tree, its notation, moves, rendering, the optimizer, box types and scope, history, locks across processes |
-| Sites and pages | `site`, `layouts`, `theme`, `assets`, `export`, `import-files` | Sites, shared theme, page renames and links, layouts and presets, images, export and zip |
+| The core | `notation`, `moves` (with a property test of 1000 random move sequences), `refs`, `render`, `shape`, `boxes`, `types-scope`, `redo`, `store`, `concurrency`, `check` | The tree, its notation, moves, rendering, the optimizer, box types and scope, history, locks across processes, what is left unfinished |
+| Sites and pages | `site`, `library`, `theme`, `assets`, `export`, `import-files`, `publish`, `unzip` | Sites, shared theme, page renames and links, layouts and presets, images, export and zip, publishing against a fake GitHub, design ZIPs |
 | AI and MCP | `mcp-scope`, `runners`, `mcpb` | MCP tools under a scope, the API runners against fake API servers, the bundled Claude Desktop server |
-| In a browser | `editor`, `site-editor`, `start-ai`, `inline`, `import`, `design` | The editor end to end, the start screen, the AI-first start (fake API), editing in place, the importer on a local fixture site, design checks |
+| In a browser | `editor`, `site-editor`, `start-ai`, `inline`, `import`, `design`, `public`, `markdown` | The editor end to end, the start screen, the AI-first start (fake API), editing in place, the importer on a local fixture site, design checks, serving to visitors with sign-in, Kaity's answers |
+| The docs | `docs` | Every page's header and footer, and every link between pages, images and `#sections` |
 
 **`test/design.test.ts`** renders every page layout in the main theme presets at 1440 and 375 px and fails on:
 - text below WCAG AA contrast against its own band;
@@ -65,17 +66,19 @@ src/
   model.ts notation.ts moves.ts refs.ts   the tree, its text form, validated moves, references
   render.ts shape.ts types.ts scope.ts    tree → HTML, shape functions + optimizer, box types, AI scope
   store.ts workspace.ts                   where files live, a page (box code, head, history, undo)
-  site.ts library.ts assets.ts          sites (shared theme, renames, links), library/themes/fonts, images
-  export.ts zip.ts                        static export and a small zip writer
+  site.ts library.ts assets.ts            sites (shared theme, renames, links), library/themes/fonts, images
+  check.ts                                what a page has left unfinished
+  export.ts zip.ts unzip.ts publish.ts    static export, a small zip writer and reader, publishing to GitHub
   importer.ts import-files.ts             website → page (XY-cut), and the copy's images and fonts
   metrics.ts screenshot.ts                page checks, screenshots
   cli.ts
   mcp/tools.ts mcp/server.ts              the MCP tools (a factory) and the stdio server
   editor/server.ts editor/page.ts         the editor's HTTP server and one page's API
   editor/ai.ts editor/runners/ editor/tools-client.ts   AI conversations and the model runners
+  editor/auth.ts editor/design-zip.ts     signing in to edit a served site, design exports for Kaity
   editor/public/                          the browser client: plain JS, no build (tykerf.js, chooser.js, inline.js, start.html)
 library/                                layouts.json, components/, theme.html, themes.json, fonts/, assets/
-scripts/                                  build-mcpb.ts (Claude Desktop extension), brand-png.ts
+scripts/                                  build-mcpb.ts (Claude Desktop extension), brand-png.ts, docs-nav.ts (the docs' headers and footers)
 test/                                     Vitest suites (see above)
 docs/                                     user guide, developer guide, notation spec, plans
 examples/widgets/                         a sample page the tests read

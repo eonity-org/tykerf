@@ -67,7 +67,7 @@ Add an entry to `library/themes.json` with values for **existing** theme variabl
 ```
 
 - **Colours:** check contrast. The design test fails if secondary text or eyebrows on the alternate or soft band, or text on the accent, fall under WCAG AA (4.5:1).
-- **Fonts:** installed fonts, or the bundled families in `FONTS` (`library.ts`): Inter, Manrope, DM Sans, Newsreader. To bundle another font:
+- **Fonts:** installed fonts, or the bundled families in `FONTS` (`library.ts`): Inter, Manrope, DM Sans, Newsreader, Playfair Display and Plus Jakarta Sans. To bundle another font:
   1. Add the Latin variable `.woff2` and its OFL licence to `library/fonts/`.
   2. Add the family to `FONTS`.
   3. Credit it in `NOTICE`.
@@ -163,7 +163,7 @@ Speak *row* and *column* in descriptions and replies, never H/V. The Claude Desk
 <!-- tykerf:footer -->
 ---
 
-← [The AI and MCP](ai-and-mcp.md) · [Developer guide index](README.md) · [Writing the docs](documentation.md) →
+← [The AI and MCP](ai-and-mcp.md) · [Developer guide index](README.md) · [Building on TYKERF](building-on-tykerf.md) →
 
 [TYKERF](../../../README.md) · [Documentation](../../README.md) · [GitHub](https://github.com/eonity-org/tykerf) · Apache-2.0 · an [eonity](https://eonity.org) project
 <!-- /tykerf:footer -->

@@ -8,6 +8,8 @@
 
 TYKERF has one core idea: **a web page is a slicing tree, and every change is a validated move on that tree.** Everything else (the editor, the AI, the MCP server, the importer, export) is built around a small core library in `src/`.
 
+This page is the map. To see the parts working together on one real change, read [Following a change](following-a-change.md) next.
+
 ## The slicing tree
 
 A page is cut into **rows** (blocks side by side) and **columns** (blocks stacked), recursively, down to **boxes** (leaves) that hold ordinary HTML. This is how microchip floorplans are described: Otten 1982, Wong & Liu 1986 (normalized Polish expressions), and Stockmeyer 1983 (shape functions). The importer's cutting of existing pages is Nagy & Seth's recursive XY-cut (1984).
@@ -108,7 +110,7 @@ Links between pages are written from the site root (`/about/`); export makes the
 - `layouts.json`: each layout as a layout plus the component for each box;
 - `components/*.html`, listed in `components.json`;
 - `theme.html` and `themes.json`: the theme and its presets;
-- `fonts/`: Inter, Manrope, DM Sans and Newsreader, under the SIL Open Font License;
+- `fonts/`: Inter, Manrope, DM Sans, Newsreader, Playfair Display and Plus Jakarta Sans, under the SIL Open Font License;
 - `assets/`: placeholder images.
 
 - **A small offered set.** `library/` holds only what TYKERF offers. `Other_Layouts/` keeps retired layouts, themes and components, plus the pinwheel (`W`) and periphery (`P`) showcase layouts. TYKERF never loads it; `test/library.test.ts` keeps it valid.
@@ -141,13 +143,15 @@ Links between pages are written from the site root (`/about/`); export makes the
 - **Sections.** `sections: true` lists the copy's sections (columns taller than 1300 px are opened up) with a JPEG of each. `placeSection(ws, result, section, box)` replaces a box with one (`M.graft`; the section root takes the box's name) in one undo group: layout, box code, rules, and a head block `<!-- tykerf-import in-<box> … -->…<!-- /tykerf-import in-<box> -->` whose `.t-in-<box>` rule carries the site's base look. `pruneImports` drops blocks whose tag is gone.
 - **Files.** `copyFiles` (`import-files.ts`, run at the end of `importPage` unless `fetchFiles: false`) downloads what the copy loads (`src`/`poster`, CSS `url()`, linked font stylesheets inlined first) into `ImportResult.files` (`assets/img-|font-<hash>.<ext>`, checked by bytes: raster images, fonts, SVGs without scripts; 80 MB in all) and rewrites the code; `remote` lists what stays linked. `writeWorkspace` writes all of them, `placeSection` those the section uses.
 - **In the editor.** `POST /_tykerf/site/new` with `url` makes a page from a copy; `POST <page>/_tykerf/import {url}` copies a page and keeps it for the `section` op (token-checked).
+- **Publish** (`publish.ts`): commits the export, plus a `MANIFEST` of the files TYKERF wrote, to a GitHub branch through the Git Data API, in one commit, sending only files whose blob changed and deleting only files on the previous manifest. Settings live in `site.json`, the token in `TYKERF_GITHUB_TOKEN`.
+- **What is unfinished** (`check.ts`): `leftovers` lists sample text, placeholder pictures and links without a target; Kaity's runs and the MCP `check_page` tool use it ([details](ai-and-mcp.md#what-a-request-leaves-unfinished-srccheckts)).
 - **Export** (`export.ts`): renders every page without TYKERF, makes the site-root addresses relative, copies the assets, and reports broken links and files still loaded from other servers. It writes a folder or a zip (`zip.ts`, no dependency).
 - **Checks** (`metrics.ts`, `screenshot.ts`): sideways scroll, overflow, line length, tap targets and more, plus screenshots of a block or a page. Playwright is loaded lazily, so the MCP server runs without Chromium.
 
 <!-- tykerf:footer -->
 ---
 
-← [Setup and tests](setup.md) · [Developer guide index](README.md) · [The editor](editor.md) →
+← [Setup and tests](setup.md) · [Developer guide index](README.md) · [Following a change](following-a-change.md) →
 
 [TYKERF](../../../README.md) · [Documentation](../../README.md) · [GitHub](https://github.com/eonity-org/tykerf) · Apache-2.0 · an [eonity](https://eonity.org) project
 <!-- /tykerf:footer -->

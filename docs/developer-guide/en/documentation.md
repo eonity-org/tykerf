@@ -41,6 +41,8 @@ When a change alters what people see or how the code is extended, update the gui
 | Export or publish | `exporting.md`, `publishing.md`, `DEPLOY.md` |
 | The notation, a move, a reference form | `docs/slicing-notation.md` |
 | A module's job, a rule other code relies on | `developer-guide/en/architecture.md` and `CLAUDE.md` |
+| The path a change takes (an endpoint, `Workspace.save`, the scope check, the events) | `developer-guide/en/following-a-change.md` |
+| A function or tool people build on (`Workspace`, moves, `createPage`, export, the MCP tools' arguments) | `developer-guide/en/building-on-tykerf.md`: its examples must still run |
 
 ## How the pages are written
 
@@ -78,7 +80,7 @@ Each guide has a folder per language: `en/` today, `es/` and others next to it, 
 <!-- tykerf:footer -->
 ---
 
-← [Extending TYKERF](extending.md) · [Developer guide index](README.md)
+← [Building on TYKERF](building-on-tykerf.md) · [Developer guide index](README.md)
 
 [TYKERF](../../../README.md) · [Documentation](../../README.md) · [GitHub](https://github.com/eonity-org/tykerf) · Apache-2.0 · an [eonity](https://eonity.org) project
 <!-- /tykerf:footer -->
