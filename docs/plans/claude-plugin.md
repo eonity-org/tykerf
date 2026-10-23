@@ -46,7 +46,7 @@ Anthropic's pages this plan follows:
    - data handling: reads and stores no personal data, sends nothing to other services, keeps nothing outside the page folder, not aimed at people under 18;
    - set up the GitHub push webhook so new releases reach the directory.
    Expect a reviewer to read the first version: the bundled server, the lockfile install and the large file each hold it, which is normal and not a rejection.
-8. **Docs:** a user-guide page for the plugin (Claude Code and Cowork), covering `open_folder` and the default folder; then add `open_folder` to the tools table in `docs/user-guide/en/ai.md` (*TYKERF from your own AI client*), which leaves it out until then because only the plugin's `--lazy` start has it. Also the change in `CHANGELOG.md`, and this plan's status.
+8. **Docs:** **done.** `docs/user-guide/en/claude-plugin.md` (*TYKERF in Claude Code and Cowork*): which way in for which app, what it needs (Node.js, Chromium), installing (by hand until the directory lists it), the folder Claude opens and the default, what to expect and what it can't do. `open_folder` is now in the tools table of `ai.md`; `claude-desktop.md`, `ai.md` and the README point to the page. Update the install section once the directory lists TYKERF.
 
 ## Before submitting
 Open, and it doesn't block steps 1–6 (`NOTICE` stays as it is, the same as in TYDAL and FullFrame):

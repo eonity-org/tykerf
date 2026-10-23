@@ -26,6 +26,7 @@ TYKERF lets people and its assistant, Kaity, build and change a web page togethe
 | [Exporting](exporting.md) | A page or a whole site as plain files for any web host |
 | [Pages and the notation](workspaces.md) | What is in a page folder, the slicing notation, box types |
 | [TYKERF in Claude Desktop](claude-desktop.md) | Installing the extension and letting Claude Desktop change a page |
+| [TYKERF in Claude Code and Cowork](claude-plugin.md) | The plugin: installing it, the folder Claude opens, what it needs |
 | [When something goes wrong](troubleshooting.md) | What TYKERF's messages mean and what to do: starting it, Kaity not ready, keys, refused changes, publishing |
 
 To set up a server, see [DEPLOY.md](../../../DEPLOY.md). To work on TYKERF itself, see the [developer guide](../../developer-guide/README.md).

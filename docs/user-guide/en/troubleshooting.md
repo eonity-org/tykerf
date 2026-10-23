@@ -84,7 +84,7 @@ Search the [issues](https://github.com/eonity-org/tykerf/issues) or open one. Sa
 <!-- tykerf:footer -->
 ---
 
-← [TYKERF in Claude Desktop](claude-desktop.md) · [User guide index](README.md)
+← [TYKERF in Claude Code and Cowork](claude-plugin.md) · [User guide index](README.md)
 
 [TYKERF](../../../README.md) · [Documentation](../../README.md) · [GitHub](https://github.com/eonity-org/tykerf) · Apache-2.0 · an [eonity](https://eonity.org) project
 <!-- /tykerf:footer -->

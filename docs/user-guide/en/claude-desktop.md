@@ -8,7 +8,7 @@
 
 The TYKERF extension lets Claude Desktop change a TYKERF page on your computer, with the same tools Kaity uses in the editor. Claude reads the page as a tree of blocks and changes it through named, validated moves, and every change goes into the page's history.
 
-The extension holds no key and calls no API itself. Claude Desktop does the thinking, with your Claude account.
+The extension holds no key and calls no API itself. Claude Desktop does the thinking, with your Claude account. For Claude Code and Cowork, use the plugin instead: [TYKERF in Claude Code and Cowork](claude-plugin.md).
 
 ## Install
 
@@ -54,7 +54,7 @@ What to expect:
 <!-- tykerf:footer -->
 ---
 
-← [Pages and the notation](workspaces.md) · [User guide index](README.md) · [When something goes wrong](troubleshooting.md) →
+← [Pages and the notation](workspaces.md) · [User guide index](README.md) · [TYKERF in Claude Code and Cowork](claude-plugin.md) →
 
 [TYKERF](../../../README.md) · [Documentation](../../README.md) · [GitHub](https://github.com/eonity-org/tykerf) · Apache-2.0 · an [eonity](https://eonity.org) project
 <!-- /tykerf:footer -->
