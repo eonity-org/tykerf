@@ -6,6 +6,11 @@
 
 # Changelog
 
+## Unreleased
+
+- **Tools say what they do.** Every MCP tool has a short title ("Replace the page with a layout") and tells the client whether it only reads the page, changes it, or replaces something whole, so Claude Desktop, Claude Code and other clients can show it and ask before the bigger changes.
+- **The MCP server can start with no folder** (`--lazy`, for the coming Claude plugin): Claude opens one with the new `open_folder` tool, a page, a site or an empty folder, and without a path the default: `--dir`, else `TYKERF_DIR`, else `~/TYKERF`. The Claude Desktop extension and `claude mcp add --dir` keep opening their folder at once.
+
 ## 0.1.0 (2026-10-23): first public release
 
 TYKERF's first public release, under the Apache License 2.0. [The first milestone](#the-first-milestone) lists the foundations; this list is what came after it.
