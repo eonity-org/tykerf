@@ -46,7 +46,7 @@ Anthropic's pages this plan follows:
    - data handling: reads and stores no personal data, sends nothing to other services, keeps nothing outside the page folder, not aimed at people under 18;
    - set up the GitHub push webhook so new releases reach the directory.
    Expect a reviewer to read the first version: the bundled server, the lockfile install and the large file each hold it, which is normal and not a rejection.
-8. **Docs:** a user-guide page or a section in `claude-desktop.md` for the plugin (Claude Code and Cowork), the change in `CHANGELOG.md`, and this plan's status.
+8. **Docs:** a user-guide page for the plugin (Claude Code and Cowork), covering `open_folder` and the default folder; then add `open_folder` to the tools table in `docs/user-guide/en/ai.md` (*TYKERF from your own AI client*), which leaves it out until then because only the plugin's `--lazy` start has it. Also the change in `CHANGELOG.md`, and this plan's status.
 
 ## Before submitting
 Open, and it doesn't block steps 1–6 (`NOTICE` stays as it is, the same as in TYDAL and FullFrame):
