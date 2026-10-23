@@ -52,7 +52,7 @@ function pages(): { file: string; guide?: Guide; up: Place[] }[] {
     { file: 'docs/plans/0.2-finish.md', up: [TYKERF, ROADMAP] },
     { file: 'docs/plans/site-manager.md', up: [TYKERF, ROADMAP] },
     { file: 'docs/plans/templates-redesign.md', up: [TYKERF, ROADMAP] },
-    ...['DEPLOY.md', 'ROADMAP.md', 'BRAND.md', 'CONTRIBUTING.md', 'SECURITY.md', 'CHANGELOG.md', 'Other_Layouts/README.md'].map((file) => ({ file, up: [TYKERF] })),
+    ...['DEPLOY.md', 'ROADMAP.md', 'BRAND.md', 'CONTRIBUTING.md', 'CODE_OF_CONDUCT.md', 'SECURITY.md', 'CHANGELOG.md', 'Other_Layouts/README.md'].map((file) => ({ file, up: [TYKERF] })),
   );
   return out;
 }
@@ -83,9 +83,10 @@ function title(file: string): string {
 const rel = (from: string, to: string) => relative(dirname(join(ROOT, from)), join(ROOT, to)).split('\\').join('/') || posix.basename(to);
 
 function header(file: string, up: Place[]): string {
-  // square corners: some Markdown viewers round every image (Markdown Preview on the Mac: 8px), which at this
-  // size cuts the f's hook off (GitHub drops the style and rounds nothing)
-  const logo = `[<img src="${rel(file, 'src/editor/public/brand/tykerf-logo.svg')}" alt="TYKERF" height="20" style="border-radius:0">](${rel(file, 'README.md')})`;
+  // the logo with a wider margin: some Markdown viewers round every image (Markdown Preview on the Mac: 8px,
+  // and it ignores style="border-radius:0"), which at this size cut the f's hook off; with the margin the
+  // corners are empty. 22px high draws the logo at the size of the plain file at 20px
+  const logo = `[<img src="${rel(file, 'src/editor/public/brand/tykerf-logo-docs.svg')}" alt="TYKERF" height="22">](${rel(file, 'README.md')})`;
   const crumbs = up.filter((p) => p !== TYKERF).map((p) => `[${p.name}](${rel(file, p.file)})`);
   // a blank line first (Markdown drops empty lines, not an empty paragraph), so the logo doesn't touch the top
   return `<!-- tykerf:header -->\n&nbsp;\n\n${[logo, ...crumbs, `**${title(file)}**`].join(' › ')}\n<!-- /tykerf:header -->\n\n`;
