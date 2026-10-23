@@ -15,6 +15,7 @@ For people who work on TYKERF itself, extend it (components, layouts, moves, MCP
 | [The editor](editor.md) | The HTTP server, page hosts, the browser client, the chooser, security |
 | [The AI and MCP](ai-and-mcp.md) | The MCP tools, the scope, the AI runners (Claude Code, API, Gemini), the Claude Desktop extension |
 | [Extending TYKERF](extending.md) | Step by step: a component, a layout, a theme preset, a move, an MCP tool, an AI runner, an editor operation, a translation |
+| [Writing the docs](documentation.md) | What goes where, which page to update for a change, the house style, headers and footers, screenshots and the demo video |
 
 Other references:
 - [docs/slicing-notation.md](../../slicing-notation.md): the formal definition of the notation; keep it in sync with the code.
