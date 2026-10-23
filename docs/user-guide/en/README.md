@@ -10,7 +10,7 @@ TYKERF lets people and its assistant, Kaity, build and change a web page togethe
 
 **New here?** Read [Why TYKERF](why-tykerf.md), then [Getting started](getting-started.md). Or watch Kaity build a page from one sentence first:
 
-[![Watch Kaity build a page about Lisbon from one sentence (2:48)](../../media/tykerf-builds-lisbon.jpg)](../../media/tykerf-builds-lisbon.mp4)
+[![Watch Kaity build a page about Lisbon from one sentence (2:48)](../../media/tykerf-builds-lisbon.jpg)](https://eonity.org/tykerf-guides/videos/tykerf-builds-lisbon.mp4)
 
 | Guide | For |
 |---|---|
