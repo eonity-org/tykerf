@@ -163,7 +163,7 @@ Speak *row* and *column* in descriptions and replies, never H/V. The Claude Desk
 <!-- tykerf:footer -->
 ---
 
-← [The AI and MCP](ai-and-mcp.md) · [Developer guide index](README.md)
+← [The AI and MCP](ai-and-mcp.md) · [Developer guide index](README.md) · [Writing the docs](documentation.md) →
 
 [TYKERF](../../../README.md) · [Documentation](../../README.md) · [GitHub](https://github.com/eonity-org/tykerf) · Apache-2.0 · an [eonity](https://eonity.org) project
 <!-- /tykerf:footer -->

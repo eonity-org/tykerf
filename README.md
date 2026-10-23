@@ -13,12 +13,16 @@ TYKERF gives people and AI a shared language for building and changing web pages
 
   All the pages of a site share one theme.
 - **An editor that lives on the real page.** Open the page, press *Edit with TYKERF*, and a floating panel shows the tree. Select a block on the page or in the tree, then edit its text, its code, its size, or ask the AI to change it.
-- **Kaity, an AI that works on one block.** Each block keeps its own conversation. Kaity only gets TYKERF's moves (no file or shell access), can only change the selected block, and looks at screenshots of its work at desktop and phone widths.
+- **Kaity, an AI that works on one block.** Each block keeps its own conversation. Kaity only gets TYKERF's moves (no file or shell access), can only change the selected block, and looks at screenshots of her work at desktop and phone widths.
 - **A whole site, managed in one place.** The site manager lists the pages (home page, titles, rename, duplicate, remove), the links between them with broken ones first, the code every page shares, the site's icon, and where Kaity is working. Kaity can also work across every page at once.
 - **Publish in one click.** The site goes to a GitHub repository that GitHub Pages, Cloudflare Pages or Netlify serve, one commit per publish, only what changed. Or export a `.zip`, or let TYKERF serve the site itself while you sign in to edit it.
 - **An MCP server** with the same moves, so any MCP client can edit a TYKERF page.
 
 ![A page in TYKERF's editor: the page's tree, a box selected on the page, and its text ready to edit](docs/user-guide/images/editor.png)
+
+**See it in 3 minutes:** one sentence on the start screen, and Kaity builds a page about Lisbon with facts, trivia, games and illustrations.
+
+[![Watch Kaity build a page about Lisbon from one sentence (2:48)](docs/media/tykerf-builds-lisbon.jpg)](docs/media/tykerf-builds-lisbon.mp4)
 
 TYKERF is an [eonity](https://eonity.org) project.
 
@@ -45,8 +49,8 @@ TYKERF edits the page folder in place. Every change is recorded in its history, 
 
 | | |
 |---|---|
-| [User guide](docs/user-guide/README.md) | [Why TYKERF](docs/user-guide/en/why-tykerf.md), [getting started](docs/user-guide/en/getting-started.md) (with the AI, from a website, from a layout), [editing a page](docs/user-guide/en/editor.md), [layouts, components and the theme](docs/user-guide/en/layouts.md), [working with the AI](docs/user-guide/en/ai.md) (including Claude Desktop and other MCP clients), [copying a website](docs/user-guide/en/importing.md), [your site](docs/user-guide/en/sites.md) (the site manager), [publishing and serving](docs/user-guide/en/publishing.md), [exporting](docs/user-guide/en/exporting.md), [TYKERF in Claude Desktop](docs/user-guide/en/claude-desktop.md), [pages and the notation](docs/user-guide/en/workspaces.md) |
-| [Developer guide](docs/developer-guide/README.md) | [Setup and tests](docs/developer-guide/en/setup.md), [architecture](docs/developer-guide/en/architecture.md), [the editor](docs/developer-guide/en/editor.md), [the AI and MCP](docs/developer-guide/en/ai-and-mcp.md), [extending TYKERF](docs/developer-guide/en/extending.md) |
+| [User guide](docs/user-guide/README.md) | [Why TYKERF](docs/user-guide/en/why-tykerf.md), [getting started](docs/user-guide/en/getting-started.md) (with the AI, from a website, from a layout), [editing a page](docs/user-guide/en/editor.md), [layouts, components and the theme](docs/user-guide/en/layouts.md), [working with the AI](docs/user-guide/en/ai.md) (including Claude Desktop and other MCP clients), [getting good results from Kaity](docs/user-guide/en/asking-kaity.md), [copying a website](docs/user-guide/en/importing.md), [your site](docs/user-guide/en/sites.md) (the site manager), [publishing and serving](docs/user-guide/en/publishing.md), [exporting](docs/user-guide/en/exporting.md), [TYKERF in Claude Desktop](docs/user-guide/en/claude-desktop.md), [pages and the notation](docs/user-guide/en/workspaces.md), [when something goes wrong](docs/user-guide/en/troubleshooting.md) |
+| [Developer guide](docs/developer-guide/README.md) | [Setup and tests](docs/developer-guide/en/setup.md), [architecture](docs/developer-guide/en/architecture.md), [the editor](docs/developer-guide/en/editor.md), [the AI and MCP](docs/developer-guide/en/ai-and-mcp.md), [extending TYKERF](docs/developer-guide/en/extending.md), [writing the docs](docs/developer-guide/en/documentation.md) |
 | [DEPLOY.md](DEPLOY.md) | Publishing sites, running the editor for others, serving a site with sign-in, connecting MCP clients |
 | [ROADMAP.md](ROADMAP.md) | What's done and what's next: Tydal storage, a hosted MCP server, a Chrome extension |
 | [docs/slicing-notation.md](docs/slicing-notation.md) | The formal specification of the notation |

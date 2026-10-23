@@ -92,6 +92,16 @@ The short version (the full list is in [CONTRIBUTING.md](../../../CONTRIBUTING.m
 - **The editor client has no build step.** Every UI string goes through `t()` as a whole sentence, and all UI lives in a shadow root.
 - **No third-party requests.** Fonts and images are bundled or copied into the page; nothing loads from a CDN.
 - **Keep [the notation spec](../../slicing-notation.md) in sync** with the grammar and the moves.
+- **Update the docs in the same change.** [Writing the docs](documentation.md) says which page covers what.
+
+## Working with an AI coding assistant
+
+TYKERF is built with AI coding assistants as well as by hand, and the repository is set up for them:
+
+- **`CLAUDE.md`** is the assistant's map of the code: every module, the rules other code relies on, and the traps. Claude Code reads it at the start of every session; other assistants can be pointed at it. When a change moves a responsibility, adds a rule or a module, or retires one, update `CLAUDE.md` in the same change, in its own terse style. A stale line there misleads every later session.
+- **Ask for the same checks a person runs:** `npm test` and `npm run typecheck`, and `test/design.test.ts` after touching a component, a layout or a preset. Review the diff as you would a colleague's: the rules above apply to generated code too.
+- **Give it a running editor to look at.** An assistant that can start `npm start -- /tmp/some-site` and drive it with Playwright (Chromium is already needed for the tests) can check a UI change on the real page instead of guessing.
+- **Kaity is a separate thing.** The AI inside the editor works on pages through MCP tools and can't touch the code; an assistant working *on* TYKERF changes the code itself. Don't give Kaity's prompt or tools rules meant for developers, or the other way round.
 
 <!-- tykerf:footer -->
 ---
