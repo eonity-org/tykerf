@@ -672,19 +672,27 @@ export function createTykerfServer(start: Workspace | null, opts: TykerfServerOp
   server.registerTool('screenshot', {
     title: 'Take a screenshot', annotations: LOOK,
     description: 'Look at the page: a PNG of one block (with a dashed red frame and a little context around it) or of the whole page, at a viewport width. ' +
-      'Defaults to the scope block if one is set. Use it to check how a change looks, not only the metrics.',
-    inputSchema: { id: id.optional().describe('block to look at; default: the scope, else the whole page'), width: z.number().int().min(320).max(2560).optional().describe('viewport width in px (default 1440; 375 = phone)') },
-  }, (async (raw: { id?: string; width?: number }) => {
+      'Defaults to the scope block if one is set. Use it to check how a change looks, not only the metrics. ' +
+      'A picture over 2000 px tall is cut; the reply says which from shows the rest.',
+    inputSchema: {
+      id: id.optional().describe('block to look at; default: the scope, else the whole page'),
+      width: z.number().int().min(320).max(2560).optional().describe('viewport width in px (default 1440; 375 = phone)'),
+      from: z.number().int().min(0).optional().describe('px down the picture to start at, to see the rest after a cut (default 0)'),
+    },
+  }, (async (raw: { id?: string; width?: number; from?: number }) => {
     try {
       const l = ws.load();
       const target = raw.id ? resolveRef(l, raw.id) : scope(l);
       const { pageFiles, screenshot } = await import('../screenshot.js');
-      const shot = await screenshot(ws.page(), { width: raw.width ?? 1440, id: target && target !== l.root.id ? target : null, files: pageFiles(ws) });
+      const shot = await screenshot(ws.page(), { width: raw.width ?? 1440, id: target && target !== l.root.id ? target : null, from: raw.from, files: pageFiles(ws) });
       const what = shot.box ? `${pathOf(l, target!)}: ${Math.round(shot.box.w)}×${Math.round(shot.box.h)} px (dashed red frame), with 24 px around it` : 'the whole page';
+      const end = Math.min(shot.total, shot.from + 2000);
+      const part = shot.from || shot.cropped ? `; this is ${shot.from}–${end} px of ${shot.total}` : '';
+      const rest = shot.cropped ? `; for the rest, call screenshot again with from: ${end}` : '';
       return {
         content: [
           { type: 'image' as const, data: shot.png.toString('base64'), mimeType: 'image/png' },
-          { type: 'text' as const, text: `${what} at ${shot.width} px wide${shot.cropped ? '; cut at 2000 px tall, look at smaller blocks to see the rest' : ''}.` },
+          { type: 'text' as const, text: `${what} at ${shot.width} px wide${part}${rest}.` },
         ],
       };
     } catch (e) {

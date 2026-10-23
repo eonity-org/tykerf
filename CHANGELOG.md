@@ -9,12 +9,12 @@
 ## Unreleased
 
 - **A page in your home folder is no longer taken for part of a site.** A site holds its pages, files, and its own `assets/` and `out/`; a folder that also holds other folders (a home folder with *Desktop* and *Documents*) isn't one, so the page tools can't list or make pages there.
-- **A screenshot cut at 2000 px says so** for the whole page too, not only for a block.
+- **Long screenshots in pieces.** A screenshot cut at 2000 px says so, for the whole page too, and which part it shows; a new `from` option shows the rest, so the AI can look at a long page or block all the way down.
 - **Screenshots and checks show the page's pictures and fonts.** Kaity's and every MCP client's screenshots showed the page's pictures as broken and its fonts as Georgia, and `evaluate` measured the page that way; they now load the page's files, and the site's, as the editor does.
 - **Links to a section:** a block's element is `#sw-<name>`. The tools' instructions say so, and *what's left unfinished* names the right address when a link uses the block's bare name (`#faq`).
 - **Tools say what they do.** Every MCP tool has a short title ("Replace the page with a layout") and tells the client whether it only reads the page, changes it, or replaces something whole, so Claude Desktop, Claude Code and other clients can show it and ask before the bigger changes.
 - **The MCP server can start with no folder** (`--lazy`, for the coming Claude plugin): Claude opens one with the new `open_folder` tool, a page, a site or an empty folder, and without a path the default: `--dir`, else `TYKERF_DIR`, else `~/TYKERF`. The Claude Desktop extension and `claude mcp add --dir` keep opening their folder at once.
-- **A Claude plugin** for Claude Code and Cowork, with a skill that tells Claude when to use TYKERF and how: `npm run build:plugin` writes it to `dist/plugin/`, and each release publishes it to the `claude-plugin` branch for Anthropic's directory. It needs Node.js 20 or later on the computer.
+- **A Claude plugin** for Claude Code and Cowork, with a skill that tells Claude when to use TYKERF and how: `npm run build:plugin` writes it to `dist/plugin/`, and each release publishes it to the `claude-plugin` branch for Anthropic's directory. It needs Node.js 20 or later on the computer, and brings the part of Playwright it uses for screenshots, so they work in Cowork too.
 - **A demo video and five new guide pages.** The README, *Why TYKERF* and *Getting started* link a video of Kaity building a page about Lisbon (on eonity.org), the user guide adds *Getting good results from Kaity* (`asking-kaity.md`) and *When something goes wrong* (`troubleshooting.md`), and the developer guide adds *Following a change* (`following-a-change.md`), *Building on TYKERF* (`building-on-tykerf.md`) and *Writing the docs* (`documentation.md`).
 
 ## 0.1.0 (2026-10-23): first public release

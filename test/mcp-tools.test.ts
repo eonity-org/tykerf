@@ -37,4 +37,23 @@ describe('the MCP tools', () => {
     // Chromium renders the page, whose code may load files from other servers
     for (const name of ['screenshot', 'evaluate']) expect(hints(name), name).toMatchObject({ readOnlyHint: true, openWorldHint: true });
   });
+
+  it('says where a cut screenshot ends, and shows the rest from there', async () => {
+    const ws = new Workspace(new MemoryStore('memory:tall'));
+    ws.create('long end H', { long: '<div style="height:3000px">long</div>', end: '<p>end</p>' });
+    const server = createTykerfServer(ws);
+    const [a, b] = InMemoryTransport.createLinkedPair();
+    const client = new Client({ name: 'test', version: '0' });
+    await Promise.all([server.connect(a), client.connect(b)]);
+    const said = async (args: Record<string, unknown>) => ((await client.callTool({ name: 'screenshot', arguments: args })) as { content: { text?: string }[] }).content.map((c) => c.text ?? '').join('');
+    try {
+      expect(await said({ width: 800 })).toMatch(/^the whole page at 800 px wide; this is 0–2000 px of \d+; for the rest, call screenshot again with from: 2000\.$/);
+      expect(await said({ width: 800, from: 2000 })).toMatch(/^the whole page at 800 px wide; this is 2000–\d+ px of \d+\.$/);
+      expect(await said({ width: 800, id: 'end' })).toMatch(/^\w+\/end: 800×\d+ px \(dashed red frame\), with 24 px around it at 800 px wide\.$/);
+    } finally {
+      await client.close();
+      const { closeScreenshots } = await import('../src/screenshot.js');
+      await closeScreenshots();
+    }
+  });
 });

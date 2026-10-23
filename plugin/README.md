@@ -16,7 +16,7 @@ Ask Claude for a page: "make a landing page for my bakery", or "change the prici
 ## What it needs
 
 - **Claude Code**, or **Cowork** in the Claude desktop app when the session runs on your computer. Chat on claude.ai doesn't run local servers, so the plugin does nothing there.
-- **Node.js 20 or later** on your computer (`node` on the PATH): the plugin's server is a Node.js program. Claude Code installs its one package, Playwright, with npm when it installs the plugin.
+- **Node.js 20 or later** on your computer (`node` on the PATH): the plugin's server is a Node.js program. It comes with the part of Playwright (Apache-2.0, by Microsoft) that it uses to take screenshots, so nothing is installed with the plugin.
 - **Chromium for screenshots and page checks**: run `npx playwright install chromium` once. Every other tool works without it.
 
 ## Privacy policy

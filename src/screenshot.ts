@@ -85,13 +85,16 @@ export interface Shot {
   width: number; // viewport width
   box: { x: number; y: number; w: number; h: number } | null; // the block, in page px (null = whole page)
   cropped: boolean; // the picture was cut at maxHeight
+  from: number; // where it starts, in px from the top of the whole picture
+  total: number; // the whole picture's height (block plus context, or the page)
 }
 
 /**
  * Screenshot `html` at viewport `width`. With `id`, the picture is that block plus `context` px
- * around it (framed); otherwise the whole page. Heights over `maxHeight` are cut.
+ * around it (framed); otherwise the whole page. Heights over `maxHeight` are cut; `from` starts that
+ * many px down the picture, to see the rest of a long one.
  */
-export async function screenshot(html: string, opts: { width?: number; id?: string | null; context?: number; maxHeight?: number; files?: PageFiles | null } = {}): Promise<Shot> {
+export async function screenshot(html: string, opts: { width?: number; id?: string | null; context?: number; maxHeight?: number; from?: number; files?: PageFiles | null } = {}): Promise<Shot> {
   const width = opts.width ?? 1440, context = opts.context ?? 24, maxHeight = opts.maxHeight ?? 2000;
   const page = await (await getBrowser()).newPage({ viewport: { width, height: 900 } });
   try {
@@ -118,10 +121,14 @@ export async function screenshot(html: string, opts: { width?: number; id?: stri
       const x = Math.max(0, box.x - context), y = Math.max(0, box.y - context);
       clip = { x, y, width: Math.min(width, box.x + box.w + context) - x, height: Math.min(docH, box.y + box.h + context) - y };
     }
+    const total = Math.round(clip.height), from = Math.max(0, opts.from ?? 0);
+    if (from >= total) throw new Error(`the picture is ${total} px tall, so there is nothing from ${from} px on`);
+    clip.y += from;
+    clip.height -= from;
     const cropped = clip.height > maxHeight;
     clip.height = Math.min(clip.height, maxHeight);
     const png = await page.screenshot({ clip, fullPage: true });
-    return { png, width, box, cropped };
+    return { png, width, box, cropped, from, total };
   } finally {
     await page.close();
   }

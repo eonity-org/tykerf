@@ -33,7 +33,7 @@ npm install
 npm run build:plugin        # makes the plugin folder, dist/plugin
 ```
 
-- **Claude Code**, for one session: `claude --plugin-dir /path/to/tykerf/dist/plugin`. Loaded this way, Claude Code doesn't install the plugin's one package, so for screenshots run `npm ci` once in `dist/plugin`.
+- **Claude Code**, for one session: `claude --plugin-dir /path/to/tykerf/dist/plugin`.
 - **Cowork**: zip the `dist/plugin` folder, then in the desktop app choose *Customize → Plugins → Add → Upload plugin* and select the zip.
 
 ## The folder Claude works in

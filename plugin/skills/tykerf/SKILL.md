@@ -29,7 +29,7 @@ Never edit `layout.slice`, `boxes/` or `head.html` with file tools or shell comm
    - Pictures: draw an SVG or place one the person attached with `add_picture`. You can't download pictures; never make up a file name.
    - Links to a section of the page: the block's element is `#sw-<name>` (the block "faq" is `#sw-faq`), not `#faq`.
 5. **Ask before replacing a page.** `use_layout` and `use_page` replace a whole existing page. Undo brings it back, but say what will happen and ask first.
-6. **Look at it.** `screenshot` at 1440 and 375 px wide, and fix what looks wrong: spacing, alignment, contrast, text that spills out.
+6. **Look at it.** `screenshot` at 1440 and 375 px wide, and fix what looks wrong: spacing, alignment, contrast, text that spills out. A picture over 2000 px tall is cut, and the reply says where to continue (from: 2000): look at the rest before you call the page done.
 7. **Finish.** `check_page` lists placeholder text and pictures left from layouts and components, and links that go nowhere: fix them, or tell the person what is still needed from them.
 
 ## When you answer
