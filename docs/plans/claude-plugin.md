@@ -26,6 +26,7 @@ Anthropic's pages this plan follows:
   - Claude says which folder it opens, so the person can name another before anything is written;
   - the stdio server keeps today's behavior for existing setups: with `--dir` (the extension, `claude mcp add … --dir`) that folder is open from the start.
 - **Author and contact,** as in TYDAL and FullFrame: copyright "John Pree (eonity.org)" in `NOTICE` and `LICENSE`, the names and logos trademarks of Eonity, and the author shown in listings `{ "name": "Eonity", "url": "https://eonity.org" }` (the extension's manifest says the same). The contact for people is `dev@eonity.org`, also the GitHub organization's email.
+- **The account that submits:** a claude.ai account on `dev@eonity.org`, Eonity's, used for TYKERF only. The listing belongs to the account it's submitted from, so this one can go with the domain if Eonity becomes a company, and personal chats stay apart. It needs a paid plan (Pro is enough), and the form's contact email is `dev@eonity.org` too. Plugin listings show the repository (`eonity-org/tykerf`) and `plugin.json`, not the account; check the portal's **Listing details** preview before submitting.
 
 ## Steps
 
@@ -58,13 +59,17 @@ Anthropic's pages this plan follows:
    - Claude Code: `claude --plugin-dir ./plugin`, then build a page from an empty folder and change one block;
    - Cowork on the computer: zip the folder, *Customize → Plugins → Add → Upload plugin*, and repeat;
    - a test in `test/` like `test/mcpb.test.ts`: the plugin builds, the manifest parses, the server starts and lists its tools.
-7. **Submit** from the developer portal (any paid Claude plan; in a Team or Enterprise organization, an Owner):
-   - connect the GitHub account that can push to `eonity-org/tykerf`;
+7. **Submit** from the developer portal, signed in as `dev@eonity.org` (see Decided):
+   - connect, in that claude.ai account, the GitHub account that can push to `eonity-org/tykerf`;
    - *Validate*, fix every **Blocking** finding;
    - data handling: reads and stores no personal data, sends nothing to other services, keeps nothing outside the page folder, not aimed at people under 18;
    - set up the GitHub push webhook so new releases reach the directory.
    Expect a reviewer to read the first version: the bundled server, the lockfile install and the large file each hold it, which is normal and not a rejection.
 8. **Docs:** a user-guide page or a section in `claude-desktop.md` for the plugin (Claude Code and Cowork), the change in `CHANGELOG.md`, and this plan's status.
+
+## Before submitting
+Open, and it doesn't block steps 1–6 (`NOTICE` stays as it is, the same as in TYDAL and FullFrame):
+- **Registering the names** (TYKERF, and maybe TYDAL and Eonity) before the listing makes them visible: the plugin's `name` is permanent, and an unregistered name is weak protection against someone registering it first.
 
 ## Kept as it is
 - `tykerf.mcpb` stays on each release for people who install the extension by hand in Claude Desktop.
