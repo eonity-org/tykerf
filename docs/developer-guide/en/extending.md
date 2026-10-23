@@ -110,17 +110,19 @@ In `createTykerfServer` (`src/mcp/tools.ts`):
 
 - **For a tree move,** use `moveTool`:
   ```ts
-  moveTool('flip', 'Turn a row into a column or a column into a row (rotation).', { op: id }, (l, a) => M.flip(l, a.op));
+  moveTool('flip', 'Flip a row or column', CHANGE, 'Turn a row into a column or a column into a row (rotation).', { op: id }, (l, a) => M.flip(l, a.op));
   ```
   Arguments declared with the shared `id` or `ids` schema are resolved through `resolveRef`. The change is scope-checked in `commit`, and the reply lists only the lines that changed.
-- **For anything else,** use `server.registerTool(name, { description, inputSchema }, guard(...))`:
+- **For anything else,** use `server.registerTool(name, { title, annotations, description, inputSchema }, guard(...))`:
   - run read-modify-write inside `ws.transaction()`;
   - call `assertInScope` for the blocks it touches;
   - write a description that tells the model when to use the tool.
 
+Every tool has a short **title** for people ("Flip a row or column") and **annotations** that say what it does to the page folder: `READ` (only reads), `CHANGE` (changes it, adding or adjusting), `REPLACE` (removes or overwrites something whole: a block, a box's code, the page), or `LOOK` (reads, but renders the page in Chromium, whose code may load files from other servers). Clients show them and may ask before a change; `test/mcp-tools.test.ts` fails for a tool without them.
+
 Speak *row* and *column* in descriptions and replies, never H/V. The Claude Desktop manifest picks up new tools by itself.
 
-**Tests:** `test/mcp-scope.test.ts` (with and without a scope), and `test/runners.test.ts` if the API runners must handle it.
+**Tests:** `test/mcp-scope.test.ts` (with and without a scope), `test/mcp-tools.test.ts` (title and annotations), and `test/runners.test.ts` if the API runners must handle it.
 
 ## An AI runner
 

@@ -1,0 +1,40 @@
+import { Client } from '@modelcontextprotocol/sdk/client/index.js';
+import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
+import { describe, expect, it } from 'vitest';
+import { createTykerfServer } from '../src/mcp/tools.js';
+import { MemoryStore } from '../src/store.js';
+import { Workspace } from '../src/workspace.js';
+
+/** Every tool, as a client lists it: on a folder (home), so the site's page tools are there too, and open_folder. */
+async function tools() {
+  const server = createTykerfServer(new Workspace(new MemoryStore('memory:tools')), { home: process.cwd(), folders: { defaultDir: process.cwd() } });
+  const [a, b] = InMemoryTransport.createLinkedPair();
+  const client = new Client({ name: 'test', version: '0' });
+  await Promise.all([server.connect(a), client.connect(b)]);
+  const { tools: list } = await client.listTools();
+  await client.close();
+  return new Map(list.map((t) => [t.name, t]));
+}
+
+describe('the MCP tools', () => {
+  it('each say what they do to the page: a title, read-only or not, and whether a change replaces something', async () => {
+    const all = await tools();
+    for (const [name, t] of all) {
+      expect(t.title, name).toMatch(/^[A-Z]/);
+      expect(typeof t.annotations?.readOnlyHint, name).toBe('boolean');
+      expect(typeof t.annotations?.openWorldHint, name).toBe('boolean');
+      if (!t.annotations?.readOnlyHint) expect(typeof t.annotations?.destructiveHint, name).toBe('boolean');
+    }
+    expect(new Set([...all.values()].map((t) => t.title)).size).toBe(all.size);
+  });
+
+  it('mark what only reads, what replaces, and what may reach other servers', async () => {
+    const all = await tools();
+    const hints = (name: string) => all.get(name)?.annotations;
+    for (const name of ['get_layout', 'get_content', 'list_pages', 'open_page', 'open_folder', 'check_page']) expect(hints(name), name).toMatchObject({ readOnlyHint: true, openWorldHint: false });
+    for (const name of ['edit_content', 'split', 'undo', 'new_page']) expect(hints(name), name).toMatchObject({ readOnlyHint: false, destructiveHint: false });
+    for (const name of ['use_layout', 'use_page', 'set_content', 'remove']) expect(hints(name), name).toMatchObject({ readOnlyHint: false, destructiveHint: true });
+    // Chromium renders the page, whose code may load files from other servers
+    for (const name of ['screenshot', 'evaluate']) expect(hints(name), name).toMatchObject({ readOnlyHint: true, openWorldHint: true });
+  });
+});

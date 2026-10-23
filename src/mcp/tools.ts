@@ -4,6 +4,7 @@
 // tools, the same scope checks and the same history.
 
 import { existsSync, mkdirSync } from 'node:fs';
+import { homedir } from 'node:os';
 import { basename, dirname, join, resolve } from 'node:path';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
@@ -14,10 +15,10 @@ import { pathOf, positionOf, resolveRef } from '../refs.js';
 import { inScope, scopeViolation } from '../scope.js';
 import { cost, optimize } from '../shape.js';
 import { leftovers, missingFiles, say } from '../check.js';
-import { newSitePage, pageWorkspace, siteHead, unsafeSVG, siteOf, sitePages, usePage } from '../site.js';
+import { newSitePage, pageWorkspace, siteHead, siteKind, unsafeSVG, siteOf, sitePages, usePage } from '../site.js';
 import { DEFAULT_THEME, components, createPage, hasTheme, pageLayouts, readOverrides, readTheme, setTheme, themeTarget, themes, useComponent, useLayout } from '../library.js';
-import { FolderStore } from '../store.js';
-import type { Workspace } from '../workspace.js';
+import { FolderStore, MemoryStore } from '../store.js';
+import { Workspace } from '../workspace.js';
 
 const text = (s: string, isError = false) => ({ content: [{ type: 'text' as const, text: s }], isError });
 
@@ -63,6 +64,14 @@ const id = z.string().describe('node reference: name ("faq"), path ("page/row2/f
 const ids = z.array(id).min(2);
 const shapes = z.array(z.string()).describe('shape variants: "text:<chars>[:<fontPx>[:<lineHeight>]]", "image:<w/h aspect>", "fixed:<w>:<h>"');
 
+// Every tool tells clients what it does to the page folder (MCP tool annotations: hints, which clients show and may
+// ask before). Nothing reaches other servers, except the page itself when Chromium renders it: its code may load files
+// from elsewhere. "Replaces" is a change that removes or overwrites something whole; every change can still be undone.
+const READ = { readOnlyHint: true, openWorldHint: false };
+const LOOK = { readOnlyHint: true, openWorldHint: true };
+const CHANGE = { readOnlyHint: false, destructiveHint: false, openWorldHint: false };
+const REPLACE = { readOnlyHint: false, destructiveHint: true, openWorldHint: false };
+
 /** Outline of one block's subtree, with positions relative to the whole page. */
 function scopeOutline(l: Layout, scopeId: string): string {
   const all = outline(l).split('\n');
@@ -86,11 +95,30 @@ export interface TykerfServerOptions {
    * new_page): a site, an empty folder, or a page of a site. Without it the server keeps to `ws`.
    */
   home?: string | null;
+  /**
+   * The server may open folders (open_folder), the default one when no path is given. The Claude plugin starts it
+   * this way with no folder open (`ws` null), since Cowork can't ask for one on install.
+   */
+  folders?: { defaultDir: string };
 }
 
-/** The MCP server with every TYKERF tool, working on `ws`. */
-export function createTykerfServer(ws: Workspace, opts: TykerfServerOptions = {}): McpServer {
+/** The tools that answer with no folder open: they need no page. */
+const FOLDERLESS = new Set(['open_folder', 'list_themes', 'list_layouts', 'list_components']);
+
+/** A folder as a person writes it: `~` is their home folder, and a pasted path may bring spaces at either end. */
+export function folderPath(path: string): string {
+  const p = path.trim();
+  return resolve(p === '~' || p.startsWith('~/') ? join(homedir(), p.slice(1)) : p);
+}
+
+/** The MCP server with every TYKERF tool, working on `start` (null: no folder open yet, see `folders`). */
+export function createTykerfServer(start: Workspace | null, opts: TykerfServerOptions = {}): McpServer {
   let runScope = opts.scope ?? null;
+  // with no folder open, ws is an empty stand-in that no tool reaches: they refuse until open_folder opens one
+  let ws = start ?? new Workspace(new MemoryStore('memory:no-folder'));
+  let folderOpen = start !== null;
+  let home = opts.home ? resolve(opts.home) : null;
+  const folders = opts.folders && !runScope ? opts.folders : null;
 
   const server = new McpServer({ name: 'tykerf', version: '0.1.0' }, {
     instructions:
@@ -112,8 +140,15 @@ export function createTykerfServer(ws: Workspace, opts: TykerfServerOptions = {}
       'Pictures are files in the page\'s assets/, written assets/<file> (no leading slash). You can\'t download pictures: draw one as SVG, or place one the user attached, with add_picture; when neither fits, say what picture is needed. Never make up a file name. ' +
       'For a new section (hero, features, FAQ, pricing, footer...), start from a ready-made component (list_components, use_component) ' +
       'and adapt its text and images, instead of writing the code from scratch. To make a page like another page of its site, use_page copies that page\'s blocks. ' +
-      (opts.home && !opts.scope ? 'A site is a folder of pages: list_pages shows them and which one is open, open_page switches the page every other tool works on, and new_page makes one. When there are several, say which page you are working on.' : ''),
+      (folders ? `No folder is open at first: open_folder opens one (a page, a site of pages, or an empty or new folder to start in). Without a path it opens the default folder, ${folders.defaultDir}; tell the person which folder you open, so they can name another first. ` : '') +
+      ((opts.home || folders) && !opts.scope ? 'A site is a folder of pages: list_pages shows them and which one is open, open_page switches the page every other tool works on, and new_page makes one. When there are several, say which page you are working on.' : ''),
   });
+
+  // every tool is registered through this, so with no folder open only open_folder and the library lists answer
+  const registerTool = server.registerTool.bind(server);
+  server.registerTool = ((name: string, config: never, cb: (...a: unknown[]) => unknown) =>
+    registerTool(name, config, ((...a: unknown[]) => (folderOpen || FOLDERLESS.has(name) ? cb(...a)
+      : text(`error: no folder is open. open_folder opens one${folders ? ` (without a path: the default folder, ${folders.defaultDir})` : ''}; say which folder you open, so the person can name another first.`, true))) as never)) as typeof server.registerTool;
 
   /**
    * The block the AI is limited to: this run's block (--scope) or the workspace .scope, and who set it.
@@ -157,8 +192,8 @@ export function createTykerfServer(ws: Workspace, opts: TykerfServerOptions = {}
     return out as A;
   }
 
-  function moveTool<S extends z.ZodRawShape>(name: string, description: string, shape: S, apply: (l: Layout, a: z.infer<z.ZodObject<S>>) => Layout, after?: (a: z.infer<z.ZodObject<S>>) => void) {
-    server.registerTool(name, { description, inputSchema: shape }, guard((raw: z.infer<z.ZodObject<S>>) => ws.transaction(() => {
+  function moveTool<S extends z.ZodRawShape>(name: string, title: string, annotations: typeof CHANGE, description: string, shape: S, apply: (l: Layout, a: z.infer<z.ZodObject<S>>) => Layout, after?: (a: z.infer<z.ZodObject<S>>) => void) {
+    server.registerTool(name, { title, annotations, description, inputSchema: shape }, guard((raw: z.infer<z.ZodObject<S>>) => ws.transaction(() => {
       const prev = ws.load();
       const a = resolveArgs(prev, shape, raw);
       const next = apply(prev, a);
@@ -168,7 +203,7 @@ export function createTykerfServer(ws: Workspace, opts: TykerfServerOptions = {}
     })) as never);
   }
 
-  server.registerTool('get_layout', { description: 'Current layout as an outline: ids, kinds (row/column/wheel/periphery), types, ratios, tags, maxw, positions. When a scope is set, only the scope block is shown.' },
+  server.registerTool('get_layout', { title: 'Read the page\'s blocks', annotations: READ, description: 'Current layout as an outline: ids, kinds (row/column/wheel/periphery), types, ratios, tags, maxw, positions. When a scope is set, only the scope block is shown.' },
     guard(() => {
       const l = ws.load();
       const sc = scopeInfo(l);
@@ -177,6 +212,7 @@ export function createTykerfServer(ws: Workspace, opts: TykerfServerOptions = {}
     }));
 
   server.registerTool('focus', {
+    title: 'Focus on a block', annotations: CHANGE,
     description: 'Limit your changes to one block (and everything inside it): any edit that would change the page outside it is refused. Returns the block outline and the code of its boxes. Not allowed when the user has set the scope.',
     inputSchema: { ref: id },
   }, guard(({ ref }: { ref: string }) => ws.transaction(() => {
@@ -192,7 +228,7 @@ export function createTykerfServer(ws: Workspace, opts: TykerfServerOptions = {}
     return `scope: ${pathOf(l, scope(l)!)}\n\n${scopeOutline(l, target)}\n\n${codes.join('\n')}`;
   })) as never);
 
-  server.registerTool('unfocus', { description: 'Remove a scope you set with focus. A scope set by the user cannot be removed.' },
+  server.registerTool('unfocus', { title: 'Remove the focus', annotations: CHANGE, description: 'Remove a scope you set with focus. A scope set by the user cannot be removed.' },
     guard(() => ws.transaction(() => {
       const sc = scopeInfo();
       if (!sc) return 'no scope set';
@@ -209,7 +245,7 @@ export function createTykerfServer(ws: Workspace, opts: TykerfServerOptions = {}
     if (sc && sc !== root) throw new Error(`refused: the theme changes the whole page, and the scope is "${sc}". Ask the user to select the page block ("${root}") to change the theme, or restyle "${sc}" in its own code.`);
   }
 
-  server.registerTool('get_theme', { description: 'The page theme: CSS variables (colours, fonts, radius, spacing, content width) that every box uses, as name: value. Empty when the page has no theme.' },
+  server.registerTool('get_theme', { title: 'Read the theme', annotations: READ, description: 'The page theme: CSS variables (colours, fonts, radius, spacing, content width) that every box uses, as name: value. Empty when the page has no theme.' },
     guard(() => {
       const own = readTheme(ws.head());
       const mine = readOverrides(ws.head());
@@ -219,6 +255,7 @@ export function createTykerfServer(ws: Workspace, opts: TykerfServerOptions = {}
     }));
 
   server.registerTool('set_theme', {
+    title: 'Change theme values', annotations: CHANGE,
     description: 'Change theme variables of the whole page, e.g. {"--color-accent": "#c2185b", "--font-heading": "Georgia, serif"}. Only existing variables; colours must be colours, lengths lengths, fonts a list of installed font names (no url(), no web fonts). Refused unless the scope is the whole page. One undo step.',
     inputSchema: { values: z.record(z.string(), z.string()).describe('variable name -> new value') },
   }, guard(({ values }: { values: Record<string, string> }) => ws.transaction(() => {
@@ -230,10 +267,11 @@ export function createTykerfServer(ws: Workspace, opts: TykerfServerOptions = {}
     return lines.length ? `${what}:\n${lines.join('\n')}` : 'theme unchanged (the values were already set)';
   })));
 
-  server.registerTool('list_themes', { description: 'Theme presets: a whole set of colours, fonts and spacing in one go (apply one with use_theme, then fine-tune with set_theme).' },
+  server.registerTool('list_themes', { title: 'List theme presets', annotations: READ, description: 'Theme presets: a whole set of colours, fonts and spacing in one go (apply one with use_theme, then fine-tune with set_theme).' },
     guard(() => themes().map((t) => `${t.name}: ${t.label}. ${t.description}`).join('\n')));
 
   server.registerTool('use_theme', {
+    title: 'Apply a theme preset', annotations: REPLACE,
     description: 'Apply a theme preset (see list_themes) to the whole page: every theme variable takes the preset\'s value. Like set_theme, only when the scope is the whole page. One undo step.',
     inputSchema: { name: z.string().describe('preset name from list_themes') },
   }, guard(({ name }: { name: string }) => ws.transaction(() => {
@@ -246,10 +284,11 @@ export function createTykerfServer(ws: Workspace, opts: TykerfServerOptions = {}
     return n ? `${where === 'site' ? 'site theme' : where === 'override' ? 'this page\'s own theme values' : 'theme'} now follows the ${name} preset (${n} values changed)` : `the theme already follows the ${name} preset`;
   })));
 
-  server.registerTool('list_layouts', { description: 'Page layouts: whole ready-made pages (a tree of blocks, each filled with a component and placeholder text), for starting or restarting a page with use_layout.' },
+  server.registerTool('list_layouts', { title: 'List page layouts', annotations: READ, description: 'Page layouts: whole ready-made pages (a tree of blocks, each filled with a component and placeholder text), for starting or restarting a page with use_layout.' },
     guard(() => pageLayouts().map((p) => `${p.name}: ${p.label}. ${p.description}`).join('\n')));
 
   server.registerTool('use_layout', {
+    title: 'Replace the page with a layout', annotations: REPLACE,
     description: 'Replace the WHOLE page with a page layout (see list_layouts): its blocks, each with a component and placeholder text to rewrite. Everything the page held is replaced (the theme stays); undo brings it back. Only when the scope is the whole page. One undo step. ' +
       'In a folder with no page yet, it starts the page there, with the theme given (see list_themes).',
     inputSchema: { name: z.string().describe('layout name from list_layouts'), theme: z.string().optional().describe(`theme preset from list_themes, for a new page only (default ${DEFAULT_THEME})`) },
@@ -275,6 +314,7 @@ export function createTykerfServer(ws: Workspace, opts: TykerfServerOptions = {}
   }));
 
   server.registerTool('use_page', {
+    title: 'Copy another page\'s blocks', annotations: REPLACE,
     description: 'Make this page like another page of its site: replace the WHOLE page with that page\'s blocks, box code and images (its text too, to rewrite for this page). ' +
       'The page keeps its own theme unless theme is true. Only when the scope is the whole page. One undo step; undo brings the page back.',
     inputSchema: { page: z.string().describe('the other page\'s name'), theme: z.boolean().optional().describe('also take that page\'s theme and fonts') },
@@ -287,10 +327,11 @@ export function createTykerfServer(ws: Workspace, opts: TykerfServerOptions = {}
     return `ok: the page now has the blocks of "${page}"${withTheme ? ', and its theme' : ''}; rewrite their text for this page\n\n${outline(ws.load())}`;
   })));
 
-  server.registerTool('list_components', { description: 'Ready-made sections (hero, features, FAQ, pricing, footer...) that fill a box with working code styled by the page theme, at every width. Use one with use_component, then adapt its text and images.' },
+  server.registerTool('list_components', { title: 'List components', annotations: READ, description: 'Ready-made sections (hero, features, FAQ, pricing, footer...) that fill a box with working code styled by the page theme, at every width. Use one with use_component, then adapt its text and images.' },
     guard(() => components().map((c) => `${c.name}: ${c.label}. ${c.description}`).join('\n')));
 
   server.registerTool('use_component', {
+    title: 'Fill a box with a component', annotations: REPLACE,
     description: 'Fill a box with a ready-made component (see list_components), replacing its code; the placeholder images it uses are copied to assets/. ' +
       'Components style themselves with the theme variables: if the page has no theme yet, they are added to the page head, which needs the whole page in scope. ' +
       'One undo step. Replies with the new code, so you can adapt its text with set_content.',
@@ -308,50 +349,51 @@ export function createTykerfServer(ws: Workspace, opts: TykerfServerOptions = {}
     return `ok: "${target}" now holds the ${name} component${themed ? '' : ' (the theme variables were added to the page head)'}\n\n${ws.content(target)}`;
   })) as never);
 
-  server.registerTool('get_types', { description: 'Box types of this page: where each type may be placed (within, notWithin, children, max) and what its code may contain. Moves and set_content that break these rules are refused.' },
+  server.registerTool('get_types', { title: 'Read the box types', annotations: READ, description: 'Box types of this page: where each type may be placed (within, notWithin, children, max) and what its code may contain. Moves and set_content that break these rules are refused.' },
     guard(() => JSON.stringify(ws.types(), null, 2)));
 
-  moveTool('swap', 'Exchange two subtrees (M1). Their ratios travel with them.', { a: id, b: id }, (l, a) => M.swap(l, a.a, a.b));
-  moveTool('flip', 'Turn a row into a column or a column into a row (rotation).', { op: id }, (l, a) => M.flip(l, a.op));
-  moveTool('wrap', 'Group 2+ contiguous siblings of a row/column under a new row (side by side) or column (stacked).',
+  moveTool('swap', 'Swap two blocks', CHANGE, 'Exchange two subtrees (M1). Their ratios travel with them.', { a: id, b: id }, (l, a) => M.swap(l, a.a, a.b));
+  moveTool('flip', 'Flip a row or column', CHANGE, 'Turn a row into a column or a column into a row (rotation).', { op: id }, (l, a) => M.flip(l, a.op));
+  moveTool('wrap', 'Group blocks', CHANGE, 'Group 2+ contiguous siblings of a row/column under a new row (side by side) or column (stacked).',
     { ids, kind: z.enum(['row', 'column']), new_id: z.string().optional() },
     (l, a) => M.wrap(l, a.ids, KIND_LETTER[a.kind] as 'H' | 'V', a.new_id));
-  moveTool('unwrap', 'Dissolve a row/column into its parent (inverse of wrap).', { op: id }, (l, a) => M.unwrap(l, a.op));
-  moveTool('split', 'Turn a leaf into a row/column/wheel/periphery of n blocks: the leaf keeps its name and code and becomes the first block (wheel/periphery: the center), and n-1 new empty leaves follow it (wheel/periphery always 5 slots). ' +
+  moveTool('unwrap', 'Ungroup a row or column', REPLACE, 'Dissolve a row/column into its parent (inverse of wrap).', { op: id }, (l, a) => M.unwrap(l, a.op));
+  moveTool('split', 'Split a box', CHANGE, 'Turn a leaf into a row/column/wheel/periphery of n blocks: the leaf keeps its name and code and becomes the first block (wheel/periphery: the center), and n-1 new empty leaves follow it (wheel/periphery always 5 slots). ' +
     'E.g. to turn "text" into hero, stats, footer: split text column names=["stats","footer"], then rename text to hero.',
     { leaf: id, kind: z.enum(['row', 'column', 'wheel', 'periphery']), n: z.number().int().min(2).optional().describe('how many blocks in all, the leaf included; leave it out to use names.length + 1'), names: z.array(z.string()).optional().describe('names for the n-1 new leaves only (not the leaf being split)') },
     (l, a) => M.split(l, a.leaf, KIND_LETTER[a.kind], a.n ?? (a.names?.length ? a.names.length + 1 : undefined), a.names));
-  moveTool('add_leaf', 'Insert a new leaf into a row/column at a 0-based index, or into an empty wheel/periphery slot index.',
+  moveTool('add_leaf', 'Add a box', CHANGE, 'Insert a new leaf into a row/column at a 0-based index, or into an empty wheel/periphery slot index.',
     { parent: id, index: z.number().int().min(0), name: z.string(), role: z.string().optional(), type: z.string().optional().describe('box type (see get_types); its template becomes the code'), shapes: shapes.optional(), minw: z.number().optional() },
     (l, a) => M.addLeaf(l, a.parent, a.index, a.name, { role: a.role, boxType: a.type, shapes: a.shapes?.map(parseShape), minW: a.minw }),
     (a) => {
       const tpl = a.type ? ws.template(a.type) : null;
       if (tpl && ws.content(a.name) === null) ws.setContent(a.name, tpl);
     });
-  moveTool('remove', 'Delete a subtree. A row/column left with one child dissolves; wheel/periphery slots become empty.', { id }, (l, a) => M.remove(l, a.id));
-  moveTool('move', 'Move a subtree into another row/column at a 0-based index (wheel/periphery: an empty slot index).',
+  moveTool('remove', 'Remove a block', REPLACE, 'Delete a subtree. A row/column left with one child dissolves; wheel/periphery slots become empty.', { id }, (l, a) => M.remove(l, a.id));
+  moveTool('move', 'Move a block', CHANGE, 'Move a subtree into another row/column at a 0-based index (wheel/periphery: an empty slot index).',
     { id, parent: id, index: z.number().int().min(0) }, (l, a) => M.move(l, a.id, a.parent, a.index));
-  moveTool('set_ratios', 'Set relative sizes: row/column one weight per child (e.g. [1,2,1]); wheel/periphery three column weights. null = equal.',
+  moveTool('set_ratios', 'Set block sizes', CHANGE, 'Set relative sizes: row/column one weight per child (e.g. [1,2,1]); wheel/periphery three column weights. null = equal.',
     { op: id, ratios: z.array(z.number().positive()).nullable() }, (l, a) => M.setRatios(l, a.op, a.ratios));
-  moveTool('set_op', 'Set gap (px), cross-axis alignment, and/or maxw (max width in px, centered — e.g. a readable page column) of a row/column/wheel/periphery. null clears.',
+  moveTool('set_op', 'Set spacing and alignment', CHANGE, 'Set gap (px), cross-axis alignment, and/or maxw (max width in px, centered — e.g. a readable page column) of a row/column/wheel/periphery. null clears.',
     { op: id, gap: z.number().min(0).nullable().optional(), align: z.enum(['start', 'center', 'end', 'stretch']).nullable().optional(), maxw: z.number().positive().nullable().optional(), minh: z.number().min(0).nullable().optional().describe('min height in px (never shorter than the content)'), type: z.string().nullable().optional().describe('container type (see get_types); null clears') },
     (l, a) => M.setOp(l, a.op, { gap: a.gap, align: a.align, maxW: a.maxw, minH: a.minh, boxType: a.type }));
-  moveTool('set_leaf', 'Set role (header, nav, main, aside, footer, section, article), shape variants, min width (optimizer hint) and maxw (max width in px, centered) of a leaf.',
+  moveTool('set_leaf', 'Set a box\'s role and size', CHANGE, 'Set role (header, nav, main, aside, footer, section, article), shape variants, min width (optimizer hint) and maxw (max width in px, centered) of a leaf.',
     { leaf: id, role: z.string().nullable().optional(), type: z.string().nullable().optional().describe('box type (see get_types); null clears'), shapes: shapes.optional(), minw: z.number().nullable().optional(), maxw: z.number().positive().nullable().optional(), minh: z.number().min(0).nullable().optional().describe('min height in px (never shorter than the content)') },
     (l, a) => M.setLeaf(l, a.leaf, { role: a.role, boxType: a.type, shapes: a.shapes?.map(parseShape), minW: a.minw, maxW: a.maxw, minH: a.minh }));
-  moveTool('set_variant', 'Choose which shape variant a leaf uses (0-based).', { leaf: id, variant: z.number().int().min(0) },
+  moveTool('set_variant', 'Choose a box\'s shape', CHANGE, 'Choose which shape variant a leaf uses (0-based).', { leaf: id, variant: z.number().int().min(0) },
     (l, a) => M.setVariant(l, a.leaf, a.variant));
-  moveTool('tag', 'Add a tag (written here with #, passed with or without it: "tone-alt" or "#tone-alt"). Tags become CSS classes t-<tag>. Band tones: #tone-alt, #tone-soft, #tone-dark; #dense packs a section tighter. Special: #priority (must be in first screen), #lock / #equal (optimizer constraints), semantic tags (#main, #section...) on operators.',
+  moveTool('tag', 'Add a tag', CHANGE, 'Add a tag (written here with #, passed with or without it: "tone-alt" or "#tone-alt"). Tags become CSS classes t-<tag>. Band tones: #tone-alt, #tone-soft, #tone-dark; #dense packs a section tighter. Special: #priority (must be in first screen), #lock / #equal (optimizer constraints), semantic tags (#main, #section...) on operators.',
     { id, tag: z.string() }, (l, a) => M.tag(l, a.id, a.tag.trim().replace(/^#/, '')));
-  moveTool('untag', 'Remove a tag.', { id, tag: z.string() }, (l, a) => M.untag(l, a.id, a.tag.trim().replace(/^#/, '')));
-  moveTool('attach_overlay', 'Attach an overlay (modal, badge, tooltip) floating over a target node, with z-index. anchor = where inside the target: "box" = centered over it; "top"/"bottom"/"left"/"right" = against the middle of that edge; "top-left"/"top-right"/"bottom-left"/"bottom-right" = tucked into that corner. Its HTML comes from set_content(overlay id).',
+  moveTool('untag', 'Remove a tag', CHANGE, 'Remove a tag.', { id, tag: z.string() }, (l, a) => M.untag(l, a.id, a.tag.trim().replace(/^#/, '')));
+  moveTool('attach_overlay', 'Add an overlay', CHANGE, 'Attach an overlay (modal, badge, tooltip) floating over a target node, with z-index. anchor = where inside the target: "box" = centered over it; "top"/"bottom"/"left"/"right" = against the middle of that edge; "top-left"/"top-right"/"bottom-left"/"bottom-right" = tucked into that corner. Its HTML comes from set_content(overlay id).',
     { id: z.string(), target: id, anchor: z.enum(ANCHORS as [string, ...string[]]), z: z.number().int().optional() },
     (l, a) => M.attachOverlay(l, a.id, a.target, a.anchor as never, a.z));
-  moveTool('add_rule', 'Responsive rule, active while the viewport is narrower than `below` px. action "flip": a row becomes a column (or a column a row); a wheel/periphery stacks all its slots top to bottom in reading order. "ratios": override the ratios of a row/column (one per child) or wheel/periphery (3 column weights). "hide": hide a box. When several rules hit the same box, the smallest `below` wins.',
+  moveTool('add_rule', 'Add a responsive rule', CHANGE, 'Responsive rule, active while the viewport is narrower than `below` px. action "flip": a row becomes a column (or a column a row); a wheel/periphery stacks all its slots top to bottom in reading order. "ratios": override the ratios of a row/column (one per child) or wheel/periphery (3 column weights). "hide": hide a box. When several rules hit the same box, the smallest `below` wins.',
     { below: z.number().int().positive(), action: z.enum(['flip', 'ratios', 'hide']), target: id, ratios: z.array(z.number().positive()).optional(), id: z.string().optional() },
     (l, a) => M.addRule(l, a.below, a.action, a.target, a.ratios, a.id));
-  moveTool('remove_rule', 'Remove a responsive rule by id.', { id: z.string() }, (l, a) => M.removeRule(l, a.id));
+  moveTool('remove_rule', 'Remove a responsive rule', REPLACE, 'Remove a responsive rule by id.', { id: z.string() }, (l, a) => M.removeRule(l, a.id));
   server.registerTool('resolve', {
+    title: 'Find a block', annotations: READ,
     description: 'Resolve a node reference (name, path like page/row2/faq or row2/2, position like #4.2) to its canonical path, position and kind.',
     inputSchema: { ref: z.string() },
   }, guard(({ ref }: { ref: string }) => {
@@ -362,6 +404,7 @@ export function createTykerfServer(ws: Workspace, opts: TykerfServerOptions = {}
   }) as never);
 
   server.registerTool('rename', {
+    title: 'Rename a block', annotations: CHANGE,
     description: 'Rename a node or overlay; every reference to it (rules, overlays) and its box code file are updated in the same undoable step. Use meaningful names so people can track the block.',
     inputSchema: { ref: id, new_name: z.string() },
   }, guard(({ ref, new_name }: { ref: string; new_name: string }) => ws.transaction(() => {
@@ -377,10 +420,11 @@ export function createTykerfServer(ws: Workspace, opts: TykerfServerOptions = {}
     return `ok\n${changes(prev, next)}`;
   })) as never);
 
-  moveTool('detach_overlay', 'Remove an overlay.', { id: z.string() }, (l, a) => M.detachOverlay(l, a.id));
-  moveTool('normalize', 'Canonical form: merge nested rows-in-rows / columns-in-columns into one.', {}, (l) => M.normalizeLayout(l));
+  moveTool('detach_overlay', 'Remove an overlay', REPLACE, 'Remove an overlay.', { id: z.string() }, (l, a) => M.detachOverlay(l, a.id));
+  moveTool('normalize', 'Merge nested rows and columns', REPLACE, 'Canonical form: merge nested rows-in-rows / columns-in-columns into one.', {}, (l) => M.normalizeLayout(l));
 
   server.registerTool('optimize', {
+    title: 'Tune sizes for a width', annotations: CHANGE,
     description: 'Tune the BASE ratios and leaf shape variants for one viewport width using shape functions (minimize height + wasted space + line-length/min-width penalties). This changes the layout at every width; for narrow screens prefer add_rule. Respects #lock and #equal.',
     inputSchema: { width: z.number().int().min(200) },
   }, guard(({ width }: { width: number }) => {
@@ -396,6 +440,7 @@ export function createTykerfServer(ws: Workspace, opts: TykerfServerOptions = {}
   }) as never);
 
   server.registerTool('estimate', {
+    title: 'Estimate the page height', annotations: READ,
     description: 'Shape-function estimate of page height, wasted space and penalties at a width (fast, no browser).',
     inputSchema: { width: z.number().int().min(200) },
   }, guard(({ width }: { width: number }) => JSON.stringify(cost(ws.load(), width))) as never);
@@ -411,6 +456,7 @@ export function createTykerfServer(ws: Workspace, opts: TykerfServerOptions = {}
   }
 
   server.registerTool('add_picture', {
+    title: 'Add a picture', annotations: CHANGE,
     description: 'Add a picture to the page\'s files (assets/), to use in a box as <img src="assets/<name>.<ext>">: either an SVG you draw (an illustration, an icon, a pattern), ' +
       'or a picture the user attached to the request (its file name, as the request says). You can\'t download pictures from the internet.',
     inputSchema: {
@@ -443,6 +489,7 @@ export function createTykerfServer(ws: Workspace, opts: TykerfServerOptions = {}
   }) as never);
 
   server.registerTool('set_content', {
+    title: 'Replace a box\'s code', annotations: REPLACE,
     description: 'Set the HTML content of a leaf or overlay (null removes it, showing a placeholder).',
     inputSchema: { id: id.describe('box (leaf) reference or overlay id'), html: z.string().nullable() },
   }, guard(({ id: ref, html }: { id: string; html: string | null }) => ws.transaction(() => {
@@ -456,6 +503,7 @@ export function createTykerfServer(ws: Workspace, opts: TykerfServerOptions = {}
   })) as never);
 
   server.registerTool('edit_content', {
+    title: 'Edit part of a box\'s code', annotations: CHANGE,
     description: 'Change part of a box\'s code: replace the exact text `old` (as get_content shows it, including spaces) with `new`. ' +
       '`old` must appear exactly once, unless all is true (then every occurrence changes). Prefer it to set_content for small changes: only the changed text is sent.',
     inputSchema: { id: id.describe('box (leaf) reference or overlay id'), old: z.string().min(1), new: z.string(), all: z.boolean().optional() },
@@ -476,6 +524,7 @@ export function createTykerfServer(ws: Workspace, opts: TykerfServerOptions = {}
   })) as never);
 
   server.registerTool('get_content', {
+    title: 'Read box code', annotations: READ,
     description: 'Get the HTML content of one leaf/overlay, or all contents if id is omitted.',
     inputSchema: { id: id.describe('box (leaf) reference or overlay id').optional() },
   }, guard(({ id: ref }: { id?: string }) => {
@@ -483,7 +532,7 @@ export function createTykerfServer(ws: Workspace, opts: TykerfServerOptions = {}
     return ws.content(boxRef(ws.load(), ref)) ?? '(no content: placeholder)';
   }) as never);
 
-  server.registerTool('undo', { description: 'Revert the last change (layout or box code). Refused if it would change something outside the scope.' },
+  server.registerTool('undo', { title: 'Undo', annotations: CHANGE, description: 'Revert the last change (layout or box code). Refused if it would change something outside the scope.' },
     guard(() => ws.transaction(() => {
       const sc = scope();
       const peek = ws.peekUndo();
@@ -499,7 +548,7 @@ export function createTykerfServer(ws: Workspace, opts: TykerfServerOptions = {}
       return `undid: ${ws.undo()}`;
     })));
 
-  server.registerTool('redo', { description: 'Bring back the last change undone with undo. Refused if it would change something outside the scope.' },
+  server.registerTool('redo', { title: 'Redo', annotations: CHANGE, description: 'Bring back the last change undone with undo. Refused if it would change something outside the scope.' },
     guard(() => ws.transaction(() => {
       const sc = scope();
       const peek = ws.peekRedo();
@@ -515,12 +564,11 @@ export function createTykerfServer(ws: Workspace, opts: TykerfServerOptions = {}
       return `redid: ${ws.redo()}`;
     })));
 
-  server.registerTool('render', { description: 'Write out/index.html from the layout and contents; returns its path.' },
+  server.registerTool('render', { title: 'Write the page\'s HTML', annotations: CHANGE, description: 'Write out/index.html from the layout and contents; returns its path.' },
     guard(() => ws.render()));
 
   // ---------- the pages of a site, for a client that works on several (Claude Desktop) ----------
 
-  const home = opts.home ? resolve(opts.home) : null;
   /** The site the server works in: the folder it was started on (a site, or an empty folder), or the site that page belongs to. */
   const siteDir = (): string | null => {
     if (!home) return null;
@@ -537,8 +585,8 @@ export function createTykerfServer(ws: Workspace, opts: TykerfServerOptions = {}
   };
 
   // a run on one block (the editor's Kaity) never sees them
-  if (home && !runScope) {
-    server.registerTool('list_pages', { description: 'The pages of the site (a folder of page folders), and which one is open: the one every other tool works on.' },
+  if ((home || folders) && !runScope) {
+    server.registerTool('list_pages', { title: 'List the site\'s pages', annotations: READ, description: 'The pages of the site (a folder of page folders), and which one is open: the one every other tool works on.' },
       guard(() => {
         const site = siteOnly();
         const pages = sitePages(site), open = openPage(site);
@@ -547,6 +595,7 @@ export function createTykerfServer(ws: Workspace, opts: TykerfServerOptions = {}
       }));
 
     server.registerTool('open_page', {
+      title: 'Open a page', annotations: READ,
       description: 'Open another page of the site (see list_pages): every other tool then works on it. Replies with its outline.',
       inputSchema: { name: z.string().describe('page name from list_pages') },
     }, guard(({ name }: { name: string }) => {
@@ -558,6 +607,7 @@ export function createTykerfServer(ws: Workspace, opts: TykerfServerOptions = {}
     }));
 
     server.registerTool('new_page', {
+      title: 'Make a new page', annotations: CHANGE,
       description: 'Make a new page in the site from a page layout (see list_layouts) and open it. It gets the theme given (see list_themes), unless the site\'s pages share one theme. ' +
         'Name: lowercase letters, digits and -. Links between pages are written /<name>/.',
       inputSchema: {
@@ -579,7 +629,28 @@ export function createTykerfServer(ws: Workspace, opts: TykerfServerOptions = {}
     }));
   }
 
+  // the Claude plugin's way in: it starts with no folder, and Claude opens one, the default when the person names none
+  if (folders) {
+    server.registerTool('open_folder', {
+      title: 'Open a folder', annotations: READ,
+      description: 'Open the folder every other tool works on: a page (a folder with a layout.slice), a site (a folder of pages), or an empty or new folder, where use_layout starts a page and new_page starts a site. ' +
+        `Without a path, the default folder (${folders.defaultDir}). A path may start with ~ (the home folder). Nothing is written until you change something; a folder that holds other files is refused.`,
+      inputSchema: { path: z.string().optional().describe('the folder, e.g. ~/Sites/my-site; leave it out for the default folder') },
+    }, guard(({ path }: { path?: string }) => {
+      const dir = path?.trim() ? folderPath(path) : folders.defaultDir;
+      const kind = siteKind(dir); // throws for a folder of other files, and the open folder stays as it was
+      ws = new Workspace(dir, { site: siteOf(dir) });
+      home = dir;
+      folderOpen = true;
+      if (kind === 'page') return `ok: ${dir} is open, a page${siteOf(dir) ? ` of the site ${dirname(dir)}` : ''}\n\n${outline(ws.load())}`;
+      const pages = sitePages(dir);
+      if (pages.length) return `ok: ${dir} is open, a site of ${pages.length} page${pages.length === 1 ? '' : 's'}: ${pages.join(', ')}. open_page opens one, new_page makes another.`;
+      return `ok: ${dir} is open, ${existsSync(dir) ? 'an empty folder' : 'a new folder (made when something is written)'}: use_layout starts a page here (see list_layouts, list_themes), or new_page starts a site of pages.`;
+    }));
+  }
+
   server.registerTool('check_page', {
+    title: 'Check what\'s unfinished', annotations: READ,
     description: 'What is left unfinished in the scope block (the whole page without a scope): placeholder text and pictures from layouts and components, and links that go nowhere, to a section that is not on the page or to a page the site does not have. Run it before you answer.',
   }, guard(() => {
     const left = leftovers(ws, { within: scope() });
@@ -587,6 +658,7 @@ export function createTykerfServer(ws: Workspace, opts: TykerfServerOptions = {}
   }));
 
   server.registerTool('evaluate', {
+    title: 'Score the page in a browser', annotations: LOOK,
     description: 'Render in headless Chromium and score: horizontal scroll, overflow, image distortion, #priority outside first screen, line length, tap targets, height, wasted space.',
     inputSchema: { widths: z.array(z.number().int()).optional() },
   }, guard(async ({ widths }: { widths?: number[] }) => {
@@ -596,6 +668,7 @@ export function createTykerfServer(ws: Workspace, opts: TykerfServerOptions = {}
   }) as never);
 
   server.registerTool('screenshot', {
+    title: 'Take a screenshot', annotations: LOOK,
     description: 'Look at the page: a PNG of one block (with a dashed red frame and a little context around it) or of the whole page, at a viewport width. ' +
       'Defaults to the scope block if one is set. Use it to check how a change looks, not only the metrics.',
     inputSchema: { id: id.optional().describe('block to look at; default: the scope, else the whole page'), width: z.number().int().min(320).max(2560).optional().describe('viewport width in px (default 1440; 375 = phone)') },

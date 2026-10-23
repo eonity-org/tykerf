@@ -30,17 +30,8 @@ Anthropic's pages this plan follows:
 
 ## Steps
 
-1. **Tool annotations** (`src/mcp/tools.ts`), useful in every MCP client, so they come first. Every tool gets a `title` and `readOnlyHint: true`, or `destructiveHint` when it can remove something:
-   - read-only: `get_layout`, `get_theme`, `list_themes`, `list_layouts`, `list_components`, `get_types`, `resolve`, `estimate`, `get_content`, `list_pages`, `check_page`, `evaluate`, `screenshot`;
-   - change the page (`readOnlyHint: false`): the moves, `set_content`, `edit_content`, `add_picture`, `use_component`, `use_theme`, `set_theme`, `rename`, `optimize`, `undo`, `redo`, `render`, `new_page`, `open_page`, `focus`/`unfocus`;
-   - also `destructiveHint: true`: the tools that remove blocks or replace a whole page or box (`use_layout`, `use_page`, the removing moves, `set_content`). Every change can be undone, but the hint is about the step itself.
-   A test checks that every tool from `createTykerfServer` has a title and a hint, and the extension's manifest keeps listing them.
-2. **The page folder** (see Decided), in `src/mcp/server.ts` and `src/mcp/tools.ts`:
-   - a "no folder" state in `createTykerfServer` (every tool reads `ws` when it runs, so `open_folder` reassigns it as `open_page` does);
-   - `open_folder` reuses `siteKind` and the site's empty-folder start; it refuses a path that is neither a page, a site nor empty, and is refused under a run scope like the other page tools;
-   - the plugin starts the server with a flag that means "don't open yet" (for example `--lazy`), so the extension and `claude mcp add` keep opening `--dir` at once;
-   - check where Claude Code and Cowork start the server (its working folder and environment): that decides whether a `.env` there can set `TYKERF_DIR`, or whether most Cowork users get `~/TYKERF`;
-   - tests: no folder → tools refuse; `open_folder()` → the default; an empty path → a new site; a non-TYKERF folder → refused; switching folders.
+1. **Tool annotations** (`src/mcp/tools.ts`): **done.** Every tool has a `title` and one of four sets of hints (`READ`, `CHANGE`, `REPLACE`, `LOOK`); `test/mcp-tools.test.ts` checks every tool has them. Replaces: `use_layout`, `use_page`, `use_component`, `use_theme`, `set_content`, `remove`, `unwrap`, `normalize`, `remove_rule`, `detach_overlay`. Read-only also covers `open_page` (it writes nothing); `screenshot` and `evaluate` are read-only with `openWorldHint`, since the page Chromium renders may load files from other servers.
+2. **The page folder** (see Decided): **done.** `server.ts --lazy` starts with no folder open; `open_folder(path?)` opens a page, a site or an empty or new folder (the default without a path: `--dir`, else `TYKERF_DIR` from the environment or the starting folder's `.env`, else `~/TYKERF`), writes nothing itself, refuses a folder of other files and keeps the open one. Every other tool but the library lists answers "no folder is open". Only the plugin gets it (`folders` option). Tests: `test/mcp-folder.test.ts`. Still to check with the plugin: where Claude Code and Cowork start the server, which decides whether a `.env` there can set `TYKERF_DIR`.
 3. **The plugin folder** (`plugin/`, built by a script next to `scripts/build-mcpb.ts`, sharing its esbuild step):
    - `.claude-plugin/plugin.json`: `name: "tykerf"`, `displayName: "TYKERF"`, `version` from `package.json` (raised every release), `description`, `author` (see Decided), `license: "Apache-2.0"`, and an optional `userConfig.page_folder` (the default folder, for Claude Code);
    - `.mcp.json`: `node ${CLAUDE_PLUGIN_ROOT}/server/index.js` with plain arguments (no `tsx`, `npm run`, shell or `-c`, which hold the submission for a reviewer);
