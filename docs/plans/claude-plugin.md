@@ -47,10 +47,6 @@ Anthropic's pages this plan follows:
 ## Meanwhile: TYKERF's own marketplace
 Until the directory lists it, and besides it, the repository is a marketplace, **eonity.org** (`.claude-plugin/marketplace.json` on the default branch), whose `tykerf` entry points to the `claude-plugin` branch. Claude Code: `/plugin marketplace add eonity-org/tykerf`, then `/plugin install tykerf@eonity.org`; Cowork: *Add marketplace*. `test/plugin.test.ts` keeps the entry's name and branch in step with the plugin and the release workflow.
 
-## Before submitting
-Open, and it doesn't block steps 1–6 (`NOTICE` stays as it is, the same as in TYDAL and FullFrame):
-- **Registering the names** (TYKERF, and maybe TYDAL and Eonity) before the listing makes them visible: the plugin's `name` is permanent, and an unregistered name is weak protection against someone registering it first.
-
 ## Kept as it is
 - `tykerf.mcpb` stays on each release for people who install the extension by hand in Claude Desktop.
 - The MCP server's tools don't change for the plugin; only how it's packaged and started.
