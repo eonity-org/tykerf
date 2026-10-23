@@ -6,6 +6,10 @@
 
 # Changelog
 
+## Unreleased
+
+- **Install the plugin from TYKERF's own marketplace.** The repository is a plugin marketplace, *eonity*: `/plugin marketplace add eonity-org/tykerf` in Claude Code, or *Add marketplace* in Cowork, then install TYKERF. It follows the releases.
+
 ## 0.2.0 (2026-10-23): the Claude plugin
 
 TYKERF as a plugin for Claude Code and Cowork, on its way to Anthropic's directory, and fixes found while testing it: screenshots now show the page's pictures and fonts, and long pages in pieces.

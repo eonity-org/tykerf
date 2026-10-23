@@ -15,6 +15,7 @@ import { parseSlice } from '../src/notation.js';
 import { MemoryStore } from '../src/store.js';
 import { createPage } from '../src/library.js';
 import { Workspace } from '../src/workspace.js';
+import { freePort } from './ports.js';
 
 vi.setConfig({ testTimeout: 60_000 });
 
@@ -256,7 +257,7 @@ describe('the importer in the editor', () => {
 
   beforeAll(async () => {
     site = join(mkdtempSync(join(tmpdir(), 'tykerf-import-')), 'my-site');
-    const port = 45000 + Math.floor(Math.random() * 10000);
+    const port = await freePort();
     server = spawn(process.execPath, ['--import', 'tsx', 'src/editor/server.ts', site, '--port', String(port)], { stdio: ['ignore', 'pipe', 'inherit'] });
     await new Promise<void>((ok, fail) => {
       server.stdout!.on('data', (d) => String(d).includes('TYKERF: http') && ok());

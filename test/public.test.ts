@@ -9,6 +9,7 @@ import { join } from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { createPage } from '../src/library.js';
 import { Workspace } from '../src/workspace.js';
+import { freePort } from './ports.js';
 
 let server: ChildProcess;
 let url: string;
@@ -16,9 +17,13 @@ let url: string;
 beforeAll(async () => {
   const site = mkdtempSync(join(tmpdir(), 'tykerf-public-'));
   for (const name of ['rome', 'munich']) createPage(new Workspace(join(site, name)), 'blank');
-  const port = 45000 + Math.floor(Math.random() * 10000);
+  const port = await freePort();
   server = spawn(process.execPath, ['--import', 'tsx', 'src/editor/server.ts', site, '--port', String(port)], { stdio: ['ignore', 'pipe', 'inherit'], env: { ...process.env, TYKERF_ADMIN_PASSWORD: 'open sesame' } });
-  await new Promise<void>((ok) => server.stdout!.on('data', (d) => String(d).includes('TYKERF: http') && ok()));
+  // an editor that can't start fails the setup at once, not after the timeout
+  await new Promise<void>((ok, fail) => {
+    server.stdout!.on('data', (d) => String(d).includes('TYKERF: http') && ok());
+    server.once('exit', (code) => fail(new Error(`the editor stopped (exit ${code}) before it was ready`)));
+  });
   url = `http://localhost:${port}/`;
 }, 30_000);
 afterAll(() => server?.kill());
@@ -83,12 +88,15 @@ describe('behind an HTTPS proxy', () => {
   beforeAll(async () => {
     const site = mkdtempSync(join(tmpdir(), 'tykerf-public-'));
     createPage(new Workspace(join(site, 'rome')), 'blank');
-    port = 45000 + Math.floor(Math.random() * 10000);
+    port = await freePort();
     proxied = spawn(process.execPath, ['--import', 'tsx', 'src/editor/server.ts', site, '--port', String(port)], {
       stdio: ['ignore', 'pipe', 'inherit'],
       env: { ...process.env, TYKERF_ADMIN_PASSWORD: 'open sesame', TYKERF_PUBLIC_URL: 'https://cities.example.org' },
     });
-    await new Promise<void>((ok) => proxied.stdout!.on('data', (d) => String(d).includes('TYKERF: http') && ok()));
+    await new Promise<void>((ok, fail) => {
+      proxied.stdout!.on('data', (d) => String(d).includes('TYKERF: http') && ok());
+      proxied.once('exit', (code) => fail(new Error(`the editor stopped (exit ${code}) before it was ready`)));
+    });
   }, 30_000);
   afterAll(() => proxied?.kill());
 

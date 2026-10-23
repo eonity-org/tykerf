@@ -4,6 +4,11 @@ Build and edit real web pages block by block. Claude reads a page as a tree of n
 
 TYKERF is open source (Apache-2.0): https://github.com/eonity-org/tykerf
 
+## Install
+
+- **Claude Code:** `/plugin marketplace add eonity-org/tykerf`, then `/plugin install tykerf@eonity`.
+- **Cowork:** *Customize → Plugins → Add marketplace*, enter `eonity-org/tykerf`, then install TYKERF.
+
 ## Start
 
 Ask Claude for a page: "make a landing page for my bakery", or "change the pricing section of the page in ~/Sites/bakery".

@@ -10,6 +10,7 @@ import { walk } from '../src/model.js';
 import * as M from '../src/moves.js';
 import { createPage, useComponent } from '../src/library.js';
 import { Workspace } from '../src/workspace.js';
+import { freePort } from './ports.js';
 
 vi.setConfig({ testTimeout: 30_000 });
 
@@ -35,7 +36,7 @@ async function start() {
   useComponent(ws, 'testimonials', 'image');
   ws.save(M.setLeaf(ws.load(), 'testimonials', { minH: 700 }), 'taller', 'user');
   ws.setContent('cta', '<h2>Ready?</h2>\n<p>Start <a class="go" href="/start">today</a> with us.</p>', 'user');
-  const port = 45000 + Math.floor(Math.random() * 10000);
+  const port = await freePort();
   server = spawn(process.execPath, ['--import', 'tsx', 'src/editor/server.ts', dir, '--port', String(port)], { stdio: ['ignore', 'pipe', 'inherit'] });
   await new Promise<void>((ok, fail) => {
     server.stdout!.on('data', (d) => String(d).includes('TYKERF: http') && ok());

@@ -12,6 +12,7 @@ import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { createPage } from '../src/library.js';
 import { Workspace } from '../src/workspace.js';
 import { zip } from '../src/zip.js';
+import { freePort } from './ports.js';
 
 vi.setConfig({ testTimeout: 45_000 });
 
@@ -32,7 +33,7 @@ const editors: ChildProcess[] = [];
 /** An editor on a new site folder, with this environment; resolves to its address. */
 async function editor(env: Record<string, string>): Promise<{ url: string; site: string }> {
   const site = join(mkdtempSync(join(tmpdir(), 'tykerf-start-ai-')), 'site');
-  const port = 45000 + Math.floor(Math.random() * 10000);
+  const port = await freePort();
   const p = spawn(process.execPath, ['--import', 'tsx', 'src/editor/server.ts', site, '--port', String(port)], { stdio: ['ignore', 'pipe', 'inherit'], env: { ...process.env, ANTHROPIC_API_KEY: '', ANTHROPIC_AUTH_TOKEN: '', ANTHROPIC_BASE_URL: '', ...env } });
   editors.push(p);
   await new Promise<void>((ok, fail) => {

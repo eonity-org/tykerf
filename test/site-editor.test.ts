@@ -8,6 +8,7 @@ import { join } from 'node:path';
 import { type Browser, type Page, chromium } from 'playwright';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { readTheme, themes } from '../src/library.js';
+import { freePort } from './ports.js';
 
 vi.setConfig({ testTimeout: 30_000 });
 
@@ -22,7 +23,7 @@ const siteTheme = () => readTheme(readFileSync(join(site, 'head.html'), 'utf8'))
 
 beforeAll(async () => {
   site = join(mkdtempSync(join(tmpdir(), 'tykerf-site-editor-')), 'my-site');
-  const port = 45000 + Math.floor(Math.random() * 10000);
+  const port = await freePort();
   server = spawn(process.execPath, ['--import', 'tsx', 'src/editor/server.ts', site, '--port', String(port)], { stdio: ['ignore', 'pipe', 'inherit'] });
   await new Promise<void>((ok, fail) => {
     server.stdout!.on('data', (d) => String(d).includes('TYKERF: http') && ok());
@@ -453,7 +454,7 @@ describe('an editor older than its code', () => {
     const code = mkdtempSync(join(tmpdir(), 'tykerf-code-'));
     writeFileSync(join(code, 'a.ts'), 'export {};');
     const dir = mkdtempSync(join(tmpdir(), 'tykerf-outdated-'));
-    const port = 45000 + Math.floor(Math.random() * 10000);
+    const port = await freePort();
     const ed = spawn(process.execPath, ['--import', 'tsx', 'src/editor/server.ts', join(dir, 'site'), '--layout', 'blank', '--port', String(port)], { stdio: ['ignore', 'pipe', 'inherit'], env: { ...process.env, TYKERF_CODE_DIR: code } });
     try {
       await new Promise<void>((ok) => ed.stdout!.on('data', (d) => String(d).includes('TYKERF: http') && ok()));
