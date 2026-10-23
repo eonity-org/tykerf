@@ -8,7 +8,7 @@
 
 [Working with Kaity](ai.md) explains what Kaity can do and how to set her up. This page is about *how to ask*: what to write, in what order, and how to check her work. It ends with recipes for the jobs people ask for most.
 
-[![Watch Kaity build a page about Lisbon from one sentence (2:48)](../../media/tykerf-builds-lisbon.jpg)](../../media/tykerf-builds-lisbon.mp4)
+[![Watch Kaity build a page about Lisbon from one sentence (2:48)](../../media/tykerf-builds-lisbon.jpg)](https://eonity.org/tykerf-guides/videos/tykerf-builds-lisbon.mp4)
 
 *The video above was made with one request on the start screen. Everything in it, the illustrations, the games and the animations, is Kaity's first build, unedited.*
 

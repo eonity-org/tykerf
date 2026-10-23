@@ -78,7 +78,7 @@ src/
   editor/auth.ts editor/design-zip.ts     signing in to edit a served site, design exports for Kaity
   editor/public/                          the browser client: plain JS, no build (tykerf.js, chooser.js, inline.js, start.html)
 library/                                layouts.json, components/, theme.html, themes.json, fonts/, assets/
-scripts/                                  build-mcpb.ts (Claude Desktop extension), brand-png.ts, docs-nav.ts (the docs' headers and footers)
+scripts/                                  build-mcpb.ts (Claude Desktop extension), build-plugin.ts (Claude plugin), brand-png.ts, docs-nav.ts (the docs' headers and footers)
 test/                                     Vitest suites (see above)
 docs/                                     user guide, developer guide, notation spec, plans
 examples/widgets/                         a sample page the tests read

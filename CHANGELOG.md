@@ -10,6 +10,8 @@
 
 - **Tools say what they do.** Every MCP tool has a short title ("Replace the page with a layout") and tells the client whether it only reads the page, changes it, or replaces something whole, so Claude Desktop, Claude Code and other clients can show it and ask before the bigger changes.
 - **The MCP server can start with no folder** (`--lazy`, for the coming Claude plugin): Claude opens one with the new `open_folder` tool, a page, a site or an empty folder, and without a path the default: `--dir`, else `TYKERF_DIR`, else `~/TYKERF`. The Claude Desktop extension and `claude mcp add --dir` keep opening their folder at once.
+- **A Claude plugin** for Claude Code and Cowork, with a skill that tells Claude when to use TYKERF and how: `npm run build:plugin` writes it to `dist/plugin/`, and each release publishes it to the `claude-plugin` branch for Anthropic's directory. It needs Node.js 20 or later on the computer.
+- **A demo video and five new guide pages.** The README, *Why TYKERF* and *Getting started* link a video of Kaity building a page about Lisbon (on eonity.org), the user guide adds *Getting good results from Kaity* (`asking-kaity.md`) and *When something goes wrong* (`troubleshooting.md`), and the developer guide adds *Following a change* (`following-a-change.md`), *Building on TYKERF* (`building-on-tykerf.md`) and *Writing the docs* (`documentation.md`).
 
 ## 0.1.0 (2026-10-23): first public release
 

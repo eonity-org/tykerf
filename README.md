@@ -22,7 +22,7 @@ TYKERF gives people and AI a shared language for building and changing web pages
 
 **See it in 3 minutes:** one sentence on the start screen, and Kaity builds a page about Lisbon with facts, trivia, games and illustrations.
 
-[![Watch Kaity build a page about Lisbon from one sentence (2:48)](docs/media/tykerf-builds-lisbon.jpg)](docs/media/tykerf-builds-lisbon.mp4)
+[![Watch Kaity build a page about Lisbon from one sentence (2:48)](docs/media/tykerf-builds-lisbon.jpg)](https://eonity.org/tykerf-guides/videos/tykerf-builds-lisbon.mp4)
 
 TYKERF is an [eonity](https://eonity.org) project.
 

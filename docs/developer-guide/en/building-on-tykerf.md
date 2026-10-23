@@ -109,6 +109,7 @@ await client.close();
 - **A refusal is a tool error, not an exception**: `isError` is set and the text starts with `refused:` and says why. Pass it back to your model as the tool's result; models handle it well ("ask the user to widen the scope").
 - **`focus` writes the page's `.scope` file**, so it lasts until `unfocus`, across processes and restarts. Start the server with `--scope <block>` instead for a limit that lasts only as long as the process, as the editor does for each Kaity run. A scope a person set (`<block> user` in `.scope`) can't be lifted by the model at all.
 - **`--dir` may be a site.** The server then also offers `list_pages`, `open_page` and `new_page`; with `--scope` it doesn't.
+- **`--lazy` starts with no folder open.** Every tool but `open_folder` and the library lists refuses until the agent calls `open_folder`, with a path or without one for the default folder (`--dir`, else `TYKERF_DIR`, else `~/TYKERF`). The Claude plugin starts the server this way; see [the AI and MCP](ai-and-mcp.md#the-claude-plugin).
 
 **In-process**, for tests or an agent that runs in your own Node program:
 

@@ -16,6 +16,7 @@
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
     "build:mcpb": "tsx scripts/build-mcpb.ts",
+    "build:plugin": "tsx scripts/build-plugin.ts",
     "docs:nav": "tsx scripts/docs-nav.ts"
   },
   "dependencies": {

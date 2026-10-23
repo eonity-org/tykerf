@@ -70,7 +70,7 @@ Every Markdown page except `CLAUDE.md` starts with a pair of HTML comments, `tyk
 ## Screenshots and video
 
 - **Screenshots** go in `docs/user-guide/images/` as PNG, taken from a real page in the editor at 1440 px wide (Playwright with `deviceScaleFactor: 2` gives sharp ones). Crop to what the text talks about, and describe the picture in its alt text.
-- **The demo video** (`docs/media/tykerf-builds-lisbon.mp4`, with its poster `tykerf-builds-lisbon.jpg`) shows the whole flow: the start screen, one request, the build sped up, a tour of the finished page, its blocks in the editor and the phone view. GitHub doesn't play videos linked from Markdown inline, so pages link the poster to the file: `[![…](../../media/tykerf-builds-lisbon.jpg)](../../media/tykerf-builds-lisbon.mp4)`. Replace both together when the interface changes enough that the video no longer matches.
+- **The demo video** is on eonity.org (https://eonity.org/tykerf-guides/videos/tykerf-builds-lisbon.mp4), not in the repository, so clones stay small; its poster `docs/media/tykerf-builds-lisbon.jpg` is. It shows the whole flow: the start screen, one request, the build sped up, a tour of the finished page, its blocks in the editor and the phone view. GitHub doesn't play videos linked from Markdown inline, so pages link the poster to the video: `[![…](../../media/tykerf-builds-lisbon.jpg)](https://eonity.org/tykerf-guides/videos/tykerf-builds-lisbon.mp4)`. Replace both together when the interface changes enough that the video no longer matches.
 - **Keep people out of pictures.** Use made-up names and `example.com`/`example.org` addresses; no personal names, real domains other than TYKERF's own, keys, tokens or local paths that name someone.
 
 ## Translations

@@ -1,6 +1,7 @@
 name: Release
 
-# Attaches the Claude Desktop extension (dist/tykerf.mcpb) to each published GitHub release.
+# For each published GitHub release: attaches the Claude Desktop extension (dist/tykerf.mcpb), and publishes the
+# Claude plugin to the claude-plugin branch.
 on:
   release:
     types: [published]
@@ -22,3 +23,32 @@ jobs:
       - run: gh release upload "${{ github.event.release.tag_name }}" dist/tykerf.mcpb --clobber
         env:
           GH_TOKEN: ${{ github.token }}
+
+  # The Claude plugin for Anthropic's directory, which follows the claude-plugin branch: the built plugin folder
+  # (npm run build:plugin) at its root, one commit per release (docs/plans/claude-plugin.md)
+  plugin:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run build:plugin
+      - name: Commit the plugin to the claude-plugin branch
+        run: |
+          if git ls-remote --exit-code --heads origin claude-plugin >/dev/null; then
+            git fetch --depth=1 origin claude-plugin:refs/remotes/origin/claude-plugin
+            git worktree add -b claude-plugin ../branch origin/claude-plugin
+          else
+            git worktree add --orphan -b claude-plugin ../branch
+          fi
+          rsync -a --delete --exclude .git dist/plugin/ ../branch/
+          cd ../branch
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          if git diff --cached --quiet; then echo "the plugin didn't change"; exit 0; fi
+          git commit -q -m "TYKERF plugin ${{ github.event.release.tag_name }}"
+          git push origin claude-plugin
