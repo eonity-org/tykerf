@@ -93,7 +93,7 @@ TYKERF borrows the slicing floorplans of IC design: Otten (1982) for slicing str
 
 ## License
 
-TYKERF is licensed under the [Apache License 2.0](LICENSE). It bundles the IBM Plex typefaces under the SIL Open Font License 1.1 (see [NOTICE](NOTICE)). "TYKERF", "TYDAL" and "Eonity" and their logos are trademarks of Eonity (see [NOTICE](NOTICE) and [BRAND.md](BRAND.md)).
+TYKERF is licensed under the [Apache License 2.0](LICENSE). It bundles the IBM Plex typefaces under the SIL Open Font License 1.1 (see [NOTICE](NOTICE)). "TYKERF", "TYDAL" and "Eonity" and their logos are trademarks of Eonity (see [NOTICE](NOTICE) and [BRAND.md](BRAND.md)). 
 
 <!-- tykerf:footer -->
 ---
