@@ -53,7 +53,7 @@ What to expect:
 <!-- tykerf:footer -->
 ---
 
-← [Pages and the notation](workspaces.md) · [User guide index](README.md)
+← [Pages and the notation](workspaces.md) · [User guide index](README.md) · [When something goes wrong](troubleshooting.md) →
 
 [TYKERF](../../../README.md) · [Documentation](../../README.md) · [GitHub](https://github.com/eonity-org/tykerf) · Apache-2.0 · an [eonity](https://eonity.org) project
 <!-- /tykerf:footer -->

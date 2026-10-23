@@ -77,7 +77,7 @@ Every layout and component uses the same **theme**: colours, fonts, corner radiu
   - **Every page** edits the site theme. Every page follows, except values a page sets for itself.
   - **This page only** keeps your changes on this page. Each value is marked **site** (inherited) or **this page** (its own, with a coloured edge and **reset** to inherit it again). **Use the site theme again** drops all of the page's own values.
   - Only the values that differ from the site's are kept. If the site theme later changes a value this page hasn't set, the page follows.
-- **Presets:** *Studio*, *Product*, *Ivory*, *Gallery* and *Dark* set every value at once (one undo step). Start from one, then adjust the values below, grouped as *Colours*, *Type* and *Shape and space*.
+- **Presets:** *Studio*, *Product*, *Ivory*, *Gallery*, *Dark* and *Warm* set every value at once (one undo step). Start from one, then adjust the values below, grouped as *Colours*, *Type* and *Shape and space*.
   - TYKERF remembers the preset a theme came from and highlights it. Once you change a value, it reads ***changed*** (for example *Studio · changed*), and **Reset to Studio** puts every value back, in one undo step. Themes saved before TYKERF remembered presets show none until you pick one.
   - Under **This page only**, a preset gives just this page those colours and fonts.
   - A preset rebuilds the whole theme from TYKERF's current one. This also brings an older page up to date: it gets the newest theme values, and repairs colours that an older TYKERF left stuck in the dark and soft bands.
@@ -112,7 +112,7 @@ Put the images your page uses in its `assets/` folder and refer to them as `asse
 <!-- tykerf:footer -->
 ---
 
-← [Working with Kaity](ai.md) · [User guide index](README.md) · [Copying a website](importing.md) →
+← [Getting good results from Kaity](asking-kaity.md) · [User guide index](README.md) · [Copying a website](importing.md) →
 
 [TYKERF](../../../README.md) · [Documentation](../../README.md) · [GitHub](https://github.com/eonity-org/tykerf) · Apache-2.0 · an [eonity](https://eonity.org) project
 <!-- /tykerf:footer -->

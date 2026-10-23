@@ -20,11 +20,17 @@ Website builders give you a friendlier editor, with AI added on top. But that AI
 
 **Changes are moves, not rewrites.** Adding a box beside another, making a row, resizing, renaming: each change is a named, checked move on the tree. A move either leaves the page valid or is refused, so the layout can't end up broken.
 
-**Kaity works inside one block.** Select a block and ask. Kaity can change that block and what is inside it. TYKERF checks every change it tries, and refuses anything outside the block; it doesn't just ask the model nicely. Kaity has no file or shell access: it can only use TYKERF's moves.
+**Kaity works inside one block.** Select a block and ask. Kaity can change that block and what is inside it. TYKERF checks every change she tries, and refuses anything outside the block; it doesn't just ask the model nicely. Kaity has no file or shell access: she can only use TYKERF's moves.
 
 **Everything can be undone.** Every change, yours or Kaity's, is a step in one history, with who made it and when. Undo goes back step by step, even in the middle of a long AI session.
 
-**Kaity looks at its work.** It takes screenshots of the block at desktop and phone widths and checks the layout, then fixes what looks wrong before telling you it's done.
+**Kaity looks at her work.** She takes screenshots of the block at desktop and phone widths and checks the layout, then fixes what looks wrong before telling you she's done.
+
+## See it
+
+[![Watch Kaity build a page about Lisbon from one sentence (2:48)](../../media/tykerf-builds-lisbon.jpg)](../../media/tykerf-builds-lisbon.mp4)
+
+One sentence on the start screen, a two-minute build, then a page whose every part is a named block you can select, change and undo.
 
 ## What that gives you
 

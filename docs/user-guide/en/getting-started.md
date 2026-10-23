@@ -46,18 +46,22 @@ The quickest way, and the first choice when Kaity is ready.
 
 The page starts empty. Kaity starts from the page layout that fits your request best (a launch page, a magazine, a portfolio, a data page…), then shapes it and rewrites all its text for you.
 
-TYKERF makes the page at once and opens it, with a small card in the corner that shows Kaity's work step by step. The editor stays out of sight meanwhile: the page fills in behind the window as Kaity builds it, and you can't click it until Kaity is done:
-- it plans the sections and starts each from a ready-made component;
-- it writes the text, alternates light and tinted bands, and puts a dark footer at the end;
-- it looks at the result at desktop and phone width and fixes what looks wrong.
+TYKERF makes the page at once and opens it, with a small card in the corner that shows Kaity's work step by step. The editor stays out of sight meanwhile: the page fills in behind the window as Kaity builds it, and you can't click it until Kaity is done. Meanwhile she:
+- plans the sections and starts each from a ready-made component;
+- writes the text, alternates light and tinted bands, and puts a dark footer at the end;
+- looks at the result at desktop and phone width and fixes what looks wrong.
 
-It takes a few minutes and uses your AI account. The **×** stops it; what it built so far stays.
+It takes a few minutes and uses your AI account. The **×** stops her; what she built so far stays.
 
 When it is done, the window shows Kaity's summary and a short guide to go on. Then choose:
 - **Open the editor:** you land on the page's **Kaity** tab, where you can keep talking ("make the hero shorter", "add a pricing section");
 - **See the page:** you see it as visitors will. **Edit with TYKERF**, at the bottom right, opens the editor any time.
 
 Every step is an ordinary change, so you can undo any of them.
+
+[![Watch Kaity build a page about Lisbon from one sentence (2:48)](../../media/tykerf-builds-lisbon.jpg)](../../media/tykerf-builds-lisbon.mp4)
+
+*This video shows the whole flow, from the start screen to the finished page, with this request: "Create a page in English about Lisbon. Include facts, trivia, games, animations and illustrations about the city. Make it joyful and colourful." For what makes a request work, see [Getting good results from Kaity](asking-kaity.md).*
 
 **Best for:** a page you can picture or describe, or a design you saw somewhere and want something like it.
 
@@ -118,7 +122,7 @@ Click the page name next to the TYKERF logo and choose **New page…**. You get 
   - change text and images where they are, by double-clicking;
   - add, move and resize blocks;
   - undo anything.
-- **[Ask Kaity about one block](ai.md):** select a block, open the **Kaity** tab and say what you want. Kaity can only change that block.
+- **[Ask Kaity about one block](ai.md):** select a block, open the **Kaity** tab and say what you want. Kaity can only change that block. [Getting good results from Kaity](asking-kaity.md) has tips and recipes.
 - **[Manage the site](sites.md):** the **Manage the site** button next to *Edit with TYKERF* opens the site manager: the home page, titles, the site's icon, links between pages, and pages to rename, duplicate or remove. The link box (⌘K) lists the site's pages, and renaming a page updates every link to it.
 - **[Put it online](publishing.md):** **Publish** in the site manager sends the site to GitHub Pages, Cloudflare Pages or Netlify; *Site → Export the site…* gives a .zip of plain files for any web host.
 
