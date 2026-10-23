@@ -1,0 +1,29 @@
+<style>
+:scope { background: var(--section-bg, transparent); }
+.wrap { max-width: var(--max-width); margin: 0 auto; padding: calc(var(--space-section) * .4) var(--gap) calc(var(--space-section) * .7); }
+/* a picture with its caption over a dark fade, and a strip with a button under it */
+.card { position: relative; overflow: hidden; border-radius: var(--radius); background: var(--color-dark); color: var(--color-on-dark); }
+.pic { position: relative; }
+.pic img { display: block; width: 100%; height: clamp(200px, 30vw, 380px); object-fit: cover; }
+.pic::after { content: ""; position: absolute; inset: 0; background: linear-gradient(to top, var(--color-dark) 8%, color-mix(in srgb, var(--color-dark) 45%, transparent) 55%, transparent); }
+.caption { position: absolute; z-index: 1; left: 0; right: 0; bottom: 0; padding: clamp(18px, 3vw, 40px); max-width: 40em; }
+.label { margin: 0; font-size: 11px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; color: var(--color-highlight); }
+h2 { font-size: clamp(22px, 2.6vw, 34px); line-height: 1.2; margin: 6px 0; color: var(--color-on-dark); }
+.caption p:last-child { margin: 0; font-size: 15px; color: color-mix(in srgb, var(--color-on-dark) 80%, var(--color-dark)); }
+.strip { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; padding: 16px clamp(18px, 3vw, 40px); }
+.strip > span { font-size: 14px; color: color-mix(in srgb, var(--color-on-dark) 72%, var(--color-dark)); }
+.button { display: inline-flex; align-items: center; gap: 8px; padding: 10px 20px; border-radius: var(--radius-button); background: var(--color-accent); color: var(--color-on-accent); font-size: 14px; font-weight: 600; text-decoration: none; }
+</style>
+<div class="wrap">
+  <div class="card">
+    <div class="pic">
+      <img src="assets/placeholder-wide.svg" alt="Describe this picture">
+      <div class="caption">
+        <p class="label">A short label</p>
+        <h2>A title for what the picture leads to</h2>
+        <p>One line that says what people find there.</p>
+      </div>
+    </div>
+    <div class="strip"><span>A short note, such as how often it changes</span><a class="button" href="#">Open it <span aria-hidden="true">→</span></a></div>
+  </div>
+</div>

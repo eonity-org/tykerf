@@ -1,0 +1,47 @@
+<style>
+:scope { background: var(--section-bg, transparent); }
+.wrap { max-width: var(--max-width); margin: 0 auto; padding: calc(var(--space-section) * .4) var(--gap); }
+.grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 150px), 1fr)); gap: clamp(10px, 1.6vw, var(--gap)); }
+/* dark cards: a label, a large figure in the highlight colour, a title, a line of text and a bar */
+.card { display: flex; flex-direction: column; gap: 8px; padding: clamp(16px, 2vw, 28px); border-radius: var(--radius); background: var(--color-dark); color: var(--color-on-dark); border: 1px solid color-mix(in srgb, var(--color-on-dark) 10%, var(--color-dark)); }
+.top { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.top svg { width: 20px; height: 20px; flex: none; fill: none; stroke: var(--color-highlight); stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.label { font-size: 11px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; text-align: right; color: color-mix(in srgb, var(--color-on-dark) 72%, var(--color-dark)); }
+.n { margin-top: 8px; font: var(--weight-heading) clamp(28px, 3.6vw, 56px)/1 var(--font-heading); letter-spacing: var(--tracking-heading); color: var(--color-highlight); overflow-wrap: anywhere; }
+h2 { font-size: clamp(17px, 1.5vw, 21px); line-height: 1.2; margin: 0; color: var(--color-on-dark); }
+.card p { margin: 0; font-size: 14px; line-height: 1.55; color: color-mix(in srgb, var(--color-on-dark) 72%, var(--color-dark)); }
+.bar { margin-top: auto; height: 4px; border-radius: 999px; background: color-mix(in srgb, var(--color-on-dark) 14%, var(--color-dark)); overflow: hidden; }
+.bar i { display: block; height: 100%; border-radius: inherit; background: var(--color-highlight); }
+</style>
+<div class="wrap">
+  <div class="grid">
+    <div class="card">
+      <div class="top"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="3" width="14" height="14" rx="3"/><path d="M5 11h14M9 21l-2 0M8 17l-2 4M16 17l2 4M9 14h.01M15 14h.01"/></svg><span class="label">Topic one</span></div>
+      <div class="n">302</div>
+      <h2>What this figure counts</h2>
+      <p>One line that puts the number in context.</p>
+      <div class="bar"><i style="width:94%"></i></div>
+    </div>
+    <div class="card">
+      <div class="top"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 8c2.5-2 5-2 7.5 0s5 2 7.5 0 3.5-1.5 5-1M2 14c2.5-2 5-2 7.5 0s5 2 7.5 0 3.5-1.5 5-1M2 20c2.5-2 5-2 7.5 0s5 2 7.5 0 3.5-1.5 5-1"/></svg><span class="label">Topic two</span></div>
+      <div class="n">37</div>
+      <h2>What this figure counts</h2>
+      <p>One line with a <em>surprising detail</em> about it.</p>
+      <div class="bar"><i style="width:65%"></i></div>
+    </div>
+    <div class="card">
+      <div class="top"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 22v-6M12 2 6 11h3l-4 6h14l-4-6h3z"/></svg><span class="label">Topic three</span></div>
+      <div class="n">484 000</div>
+      <h2>What this figure counts</h2>
+      <p>One line that says how it was measured.</p>
+      <div class="bar"><i style="width:80%"></i></div>
+    </div>
+    <div class="card">
+      <div class="top"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2v20M5 5h11l3 3-3 3H5zM19 13H8l-3 3 3 3h11"/></svg><span class="label">Topic four</span></div>
+      <div class="n">6 100</div>
+      <h2>What this figure counts</h2>
+      <p>One line that compares it with something familiar.</p>
+      <div class="bar"><i style="width:72%"></i></div>
+    </div>
+  </div>
+</div>

@@ -1,0 +1,37 @@
+<style>
+:scope { background: var(--section-bg, transparent); }
+.wrap { max-width: var(--max-width); margin: 0 auto; padding: var(--space-section) var(--gap); display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 320px), 1fr)); gap: calc(var(--gap) * 2) calc(var(--gap) * 3); }
+h2 { font-size: var(--text-title); }
+.lead { font-size: var(--text-lead); color: var(--color-muted); margin: 0 0 28px; }
+.ways { display: grid; gap: 4px; color: var(--color-muted); }
+.ways b { color: var(--color-text); font-weight: 600; }
+form { display: grid; gap: 16px; padding: clamp(24px, 3vw, 36px); border-radius: var(--radius); background: var(--color-surface); border: 1px solid var(--color-border); }
+label { display: grid; gap: 6px; font-weight: 600; font-size: 15px; }
+input, textarea { font: inherit; font-weight: 400; padding: 12px 14px; border: 1px solid var(--color-border); border-radius: calc(var(--radius) * .6); background: var(--color-bg); color: var(--color-text); }
+button { font: inherit; font-weight: 600; padding: 14px; border: 0; border-radius: var(--radius-button); background: var(--color-accent); color: var(--color-on-accent); cursor: pointer; }
+.sent { color: var(--color-accent); font-weight: 600; }
+</style>
+<div class="wrap">
+  <div>
+    <h2>Let's talk</h2>
+    <p class="lead">Tell us what you need and we will answer within a day.</p>
+    <div class="ways"><span><b>Email</b> hello@example.com</span><span><b>Phone</b> +00 000 000 000</span></div>
+  </div>
+  <form>
+    <label>Name <input name="name" autocomplete="name" required></label>
+    <label>Email <input name="email" type="email" autocomplete="email" required></label>
+    <label>Message <textarea name="message" rows="5" required></textarea></label>
+    <button type="submit">Send message</button>
+  </form>
+</div>
+<script>
+// Placeholder behaviour: shows a thank-you note. Connect the form to your own service before publishing.
+{
+  const box = document.currentScript.closest('[data-sw]');
+  const form = box.querySelector('form');
+  form.addEventListener('submit', (e) => {
+    e.preventDefault();
+    form.outerHTML = '<p class="sent">Thank you! Your message is on its way.</p>';
+  });
+}
+</script>

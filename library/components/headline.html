@@ -1,0 +1,13 @@
+<style>
+:scope { background: var(--section-bg, transparent); }
+.wrap { max-width: var(--max-width); margin: 0 auto; padding: calc(var(--space-section) * .7) var(--gap) calc(var(--space-section) * .4); }
+.kicker { display: flex; align-items: center; gap: 10px; margin: 0 0 14px; font-size: 12px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; color: var(--color-accent); }
+.kicker span { display: inline-grid; place-items: center; width: 22px; height: 22px; border-radius: 999px; background: var(--color-accent); color: var(--color-on-accent); font-size: 12px; letter-spacing: 0; }
+h1 { font-size: var(--text-hero); max-width: 16ch; margin: 0; }
+p { font-size: var(--text-lead); color: var(--color-muted); max-width: 40em; margin: 18px 0 0; }
+</style>
+<div class="wrap">
+  <p class="kicker"><span aria-hidden="true">¶</span>The subject in a few words</p>
+  <h1>A headline that states the main fact</h1>
+  <p>One or two sentences that say what this page shows, where the figures come from and why they matter to the reader.</p>
+</div>

@@ -1,0 +1,25 @@
+<style>
+:scope { background: var(--section-bg, transparent); }
+.wrap { max-width: var(--max-width); margin: 0 auto; padding: var(--space-section) var(--gap); display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 380px), 1fr)); gap: calc(var(--gap) * 2) calc(var(--gap) * 3); align-items: center; }
+.eyebrow { margin: 0 0 18px; font-size: 13px; font-weight: 600; letter-spacing: .12em; text-transform: uppercase; color: var(--color-accent); }
+h1 { font-size: clamp(40px, 5.6vw, 76px); margin-bottom: 24px; }
+.lead { font: italic var(--text-lead)/1.5 var(--font-accent); color: var(--color-muted); margin: 0 0 32px; max-width: 32em; }
+.actions { display: flex; flex-wrap: wrap; gap: 12px; }
+.button { display: inline-flex; padding: 14px 26px; border-radius: var(--radius-button); font-weight: 600; text-decoration: none; }
+.primary { background: var(--color-accent); color: var(--color-on-accent); }
+.secondary { color: var(--color-text); border: 1px solid var(--color-border); }
+.media { border-radius: calc(var(--radius) + 8px); background: var(--color-soft); padding: clamp(20px, 3vw, 40px); }
+.media img { display: block; width: 100%; border-radius: var(--radius); box-shadow: 0 24px 60px -28px color-mix(in srgb, var(--color-text) 35%, transparent); }
+</style>
+<div class="wrap">
+  <div>
+    <p class="eyebrow">For small teams</p>
+    <h1>Your headline, big and clear</h1>
+    <p class="lead">A sentence in a softer voice that tells people why this matters to them.</p>
+    <div class="actions">
+      <a class="button primary" href="#">Get started</a>
+      <a class="button secondary" href="#">See how it works</a>
+    </div>
+  </div>
+  <div class="media"><img src="assets/mockup-detail.svg" alt="Describe the main image"></div>
+</div>

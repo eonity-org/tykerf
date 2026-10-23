@@ -1,0 +1,27 @@
+<style>
+:scope { background: var(--section-bg, transparent); }
+.wrap { max-width: var(--max-width); margin: 0 auto; padding: var(--space-section) var(--gap); display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 360px), 1fr)); gap: calc(var(--gap) * 2) calc(var(--gap) * 3); align-items: center; }
+/* tag the box #reverse to put the picture first */
+:scope.t-reverse .media { order: -1; }
+.eyebrow { margin: 0 0 16px; font-size: 13px; font-weight: 600; letter-spacing: .12em; text-transform: uppercase; color: var(--color-accent); }
+h2 { font-size: var(--text-title); }
+.text > p { font-size: var(--text-lead); color: var(--color-muted); margin: 0 0 28px; }
+ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 14px; }
+li { display: flex; gap: 12px; align-items: baseline; }
+li::before { content: ""; flex: none; width: 8px; height: 8px; border-radius: 50%; background: var(--color-accent); translate: 0 -2px; }
+.media { border-radius: calc(var(--radius) + 8px); background: var(--color-band); border: 1px solid var(--color-border); padding: clamp(16px, 3vw, 36px); }
+.media img { display: block; width: 100%; border-radius: var(--radius); }
+</style>
+<div class="wrap">
+  <div class="text">
+    <p class="eyebrow">How it works</p>
+    <h2>One feature, explained well</h2>
+    <p>Say what the feature does and what people get from it, in a sentence or two.</p>
+    <ul>
+      <li>A first concrete detail</li>
+      <li>A second one, with a number if you have it</li>
+      <li>A third that answers a common doubt</li>
+    </ul>
+  </div>
+  <div class="media"><img src="assets/mockup-detail.svg" alt="Describe this picture"></div>
+</div>

@@ -1,0 +1,126 @@
+{
+  "nav": {
+    "label": "Navigation bar",
+    "description": "Brand, links and a button"
+  },
+  "hero": {
+    "label": "Hero",
+    "description": "A big centred headline, two buttons and the product below"
+  },
+  "hero-split": {
+    "label": "Hero, split",
+    "description": "Headline and buttons beside a picture"
+  },
+  "statement": {
+    "label": "Statement",
+    "description": "A big sentence beside a short paragraph, no picture"
+  },
+  "logos": {
+    "label": "Logos",
+    "description": "A row of the names of customers or partners"
+  },
+  "text": {
+    "label": "Text section",
+    "description": "A title and a few paragraphs"
+  },
+  "updates": {
+    "label": "Updates",
+    "description": "Three announcement cards with a date and a category"
+  },
+  "story-grid": {
+    "label": "Story grid",
+    "description": "A lead story and many smaller ones in a dense grid, for a front page"
+  },
+  "list": {
+    "label": "List",
+    "description": "A numbered list of short linked items with a date, for a sidebar"
+  },
+  "features": {
+    "label": "Features",
+    "description": "Wide tiles with pictures and small tiles with icons"
+  },
+  "feature": {
+    "label": "Feature",
+    "description": "One feature beside a picture; tag the box #reverse to swap sides"
+  },
+  "stats": {
+    "label": "Numbers",
+    "description": "Four large figures with a line of text each"
+  },
+  "testimonials": {
+    "label": "Testimonials",
+    "description": "One big quote, then three smaller ones"
+  },
+  "pricing": {
+    "label": "Pricing",
+    "description": "Three plans, the popular one on a dark card"
+  },
+  "faq": {
+    "label": "FAQ",
+    "description": "A title beside questions that open to show the answer"
+  },
+  "cta": {
+    "label": "Call to action",
+    "description": "A centred statement with two buttons"
+  },
+  "gallery": {
+    "label": "Gallery",
+    "description": "Pictures of work with a title and a year"
+  },
+  "card-grid": {
+    "label": "Card grid",
+    "description": "Products or services as small cards with a picture, a tag and a price, under a row of filters"
+  },
+  "image": {
+    "label": "Image",
+    "description": "One picture with a caption; the box handles size it"
+  },
+  "contact": {
+    "label": "Contact form",
+    "description": "Ways to reach you beside a form"
+  },
+  "footer": {
+    "label": "Footer",
+    "description": "Brand, link columns and copyright"
+  },
+  "article": {
+    "label": "Article",
+    "description": "Title, summary, image and body text"
+  },
+  "aside": {
+    "label": "Sidebar",
+    "description": "Author card and related links"
+  },
+  "docs-nav": {
+    "label": "Docs menu",
+    "description": "Grouped links for documentation"
+  },
+  "docs-content": {
+    "label": "Docs page",
+    "description": "Title, text, code and a note"
+  },
+  "headline": {
+    "label": "Headline",
+    "description": "A small label with a mark, a big title and a paragraph, no picture"
+  },
+  "figure-cards": {
+    "label": "Figure cards",
+    "description": "Large figures on dark cards, each with an icon, a label, a line of text and a bar"
+  },
+  "bar-chart": {
+    "label": "Bar chart",
+    "description": "A ranked list of items with a value and a bar each, more under Show more, and a source"
+  },
+  "highlight": {
+    "label": "Highlight",
+    "description": "One figure on a soft card with a round icon, a title and a sentence"
+  },
+  "timeline": {
+    "label": "Timeline",
+    "description": "Dated steps along a line, side by side on a wide screen"
+  },
+  "image-banner": {
+    "label": "Picture banner",
+    "description": "A wide picture with its caption over a dark fade, and a strip with a button"
+  }
+}

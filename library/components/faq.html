@@ -1,0 +1,24 @@
+<style>
+:scope { background: var(--section-bg, transparent); }
+.wrap { max-width: var(--max-width); margin: 0 auto; padding: var(--space-section) var(--gap); display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr)); gap: calc(var(--gap) * 2) calc(var(--gap) * 3); align-items: start; }
+.wrap > div:last-child { grid-column: span 2; }
+@media (max-width: 760px) { .wrap > div:last-child { grid-column: auto; } }
+h2 { font-size: var(--text-title); }
+.intro p { color: var(--color-muted); margin: 0; }
+details { border-bottom: 1px solid var(--color-border); padding: 22px 0; }
+details:first-child { border-top: 1px solid var(--color-border); }
+summary { cursor: pointer; list-style: none; display: flex; justify-content: space-between; gap: 16px; font-weight: 600; font-size: 18px; }
+summary::-webkit-details-marker { display: none; }
+summary::after { content: "+"; font-weight: 400; font-size: 24px; line-height: 1; color: var(--color-muted); transition: rotate .2s; }
+details[open] summary::after { rotate: 45deg; }
+details p { color: var(--color-muted); margin: 12px 0 0; max-width: 40em; }
+</style>
+<div class="wrap">
+  <div class="intro"><h2>Questions, answered</h2><p>Can't find yours? <a href="#">Write to us</a>.</p></div>
+  <div>
+    <details open><summary>A question people often ask?</summary><p>A clear, short answer in one or two sentences.</p></details>
+    <details><summary>How much does it cost?</summary><p>A clear, short answer.</p></details>
+    <details><summary>Can I cancel at any time?</summary><p>A clear, short answer.</p></details>
+    <details><summary>Where is my data kept?</summary><p>A clear, short answer.</p></details>
+  </div>
+</div>

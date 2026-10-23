@@ -1,0 +1,40 @@
+<style>
+:scope { background: var(--section-bg, transparent); }
+.wrap { max-width: var(--max-width); margin: 0 auto; padding: calc(var(--space-section) * .4) var(--gap); }
+.panel { padding: clamp(18px, 2.4vw, 32px); border-radius: var(--radius); background: var(--color-surface); border: 1px solid var(--color-border); }
+.head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 16px; }
+h2 { font-size: clamp(22px, 2.2vw, 28px); line-height: 1.2; margin: 0; }
+.chip { padding: 3px 10px; border-radius: 999px; background: var(--color-soft); color: var(--color-text); font-size: 11px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; }
+.intro { margin: 8px 0 24px; font-size: 14px; color: var(--color-muted); }
+/* one row per item: a name and a value over a bar; the bar's width is the item's share */
+.rows { list-style: none; margin: 0; padding: 0; display: grid; gap: 14px; }
+.row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 6px 12px; font-size: 14px; }
+.name { font-weight: 600; }
+.value { font-size: 12px; font-weight: 700; letter-spacing: .06em; color: var(--color-accent); }
+.bar { grid-column: 1 / -1; height: 10px; border-radius: 999px; background: color-mix(in srgb, var(--color-border) 70%, var(--color-bg)); overflow: hidden; }
+.bar i { display: block; height: 100%; border-radius: inherit; background: var(--color-accent); }
+details { margin-top: 14px; }
+details .rows { margin-top: 14px; }
+summary { cursor: pointer; width: fit-content; font-size: 14px; font-weight: 600; color: var(--color-accent); }
+.source { margin: 20px 0 0; font-size: 12px; color: var(--color-muted); }
+</style>
+<div class="wrap">
+  <div class="panel">
+    <div class="head"><h2>What the chart compares</h2><span class="chip">The total</span></div>
+    <p class="intro">One line that says what is counted, and how the items are grouped.</p>
+    <ul class="rows">
+      <li class="row"><span class="name">Item one</span><span class="value">1 840 units</span><span class="bar"><i style="width:95%"></i></span></li>
+      <li class="row"><span class="name">Item two</span><span class="value">1 420 units</span><span class="bar"><i style="width:76%"></i></span></li>
+      <li class="row"><span class="name">Item three</span><span class="value">1 290 units</span><span class="bar"><i style="width:68%"></i></span></li>
+      <li class="row"><span class="name">Item four</span><span class="value">1 110 units</span><span class="bar"><i style="width:58%"></i></span></li>
+    </ul>
+    <details>
+      <summary>Show more</summary>
+      <ul class="rows">
+        <li class="row"><span class="name">Item five</span><span class="value">980 units</span><span class="bar"><i style="width:51%"></i></span></li>
+        <li class="row"><span class="name">Item six</span><span class="value">890 units</span><span class="bar"><i style="width:45%"></i></span></li>
+      </ul>
+    </details>
+    <p class="source">Source: where the data comes from</p>
+  </div>
+</div>

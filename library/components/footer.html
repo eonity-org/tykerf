@@ -1,0 +1,20 @@
+<style>
+:scope { background: var(--section-bg, var(--color-band)); color: var(--color-text); margin-top: auto; } /* stays at the bottom of short pages */
+.wrap { max-width: var(--max-width); margin: 0 auto; padding: calc(var(--space-section) * .6) var(--gap) 32px; display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 160px), 1fr)); gap: 32px var(--gap); }
+.about { grid-column: span 2; max-width: 320px; }
+@media (max-width: 520px) { .about { grid-column: auto; } }
+.brand { font: var(--weight-heading) 20px/1.2 var(--font-heading); letter-spacing: var(--tracking-heading); }
+p { color: var(--color-muted); margin: 10px 0 0; }
+h3 { font: 600 13px/1.4 var(--font-body); letter-spacing: .1em; text-transform: uppercase; color: var(--color-muted); margin: 0 0 14px; }
+ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+a { color: var(--color-text); text-decoration: none; }
+a:hover { color: var(--color-accent); }
+.legal { grid-column: 1 / -1; display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px 24px; border-top: 1px solid var(--color-border); padding-top: 24px; font-size: 14px; color: var(--color-muted); }
+</style>
+<div class="wrap">
+  <div class="about"><div class="brand">Site name</div><p>One line about what you do and for whom.</p></div>
+  <div><h3>Section one</h3><ul><li><a href="#">Page one</a></li><li><a href="#">Page two</a></li><li><a href="#">Page three</a></li></ul></div>
+  <div><h3>Section two</h3><ul><li><a href="#">Page four</a></li><li><a href="#">Page five</a></li><li><a href="#">Contact</a></li></ul></div>
+  <div><h3>Legal</h3><ul><li><a href="#">Privacy</a></li><li><a href="#">Terms</a></li></ul></div>
+  <div class="legal"><span>© 2026 Site name</span><span>Made with care</span></div>
+</div>

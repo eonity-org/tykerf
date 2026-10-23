@@ -1,0 +1,24 @@
+<style>
+:scope { background: var(--section-bg, transparent); }
+.wrap { max-width: var(--max-width); margin: 0 auto; padding: var(--space-section) var(--gap); }
+.head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: end; gap: 16px; margin-bottom: clamp(28px, 4vw, 48px); }
+h2 { font-size: var(--text-title); margin: 0; }
+.head p { margin: 0; color: var(--color-muted); max-width: 26em; }
+.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr)); gap: 20px; }
+figure { margin: 0; }
+img { display: block; width: 100%; aspect-ratio: 4 / 3; object-fit: cover; border-radius: var(--radius); background: var(--color-band); }
+figcaption { display: flex; justify-content: space-between; gap: 12px; margin-top: 12px; }
+figcaption b { font-weight: 600; }
+figcaption span { color: var(--color-muted); }
+</style>
+<div class="wrap">
+  <div class="head"><h2>Selected work</h2><p>A line about the kind of work you show here.</p></div>
+  <div class="grid">
+    <figure><img src="assets/placeholder-square.svg" alt="Describe the first image"><figcaption><b>Project one</b><span>2026</span></figcaption></figure>
+    <figure><img src="assets/placeholder-square.svg" alt="Describe the second image"><figcaption><b>Project two</b><span>2026</span></figcaption></figure>
+    <figure><img src="assets/placeholder-square.svg" alt="Describe the third image"><figcaption><b>Project three</b><span>2025</span></figcaption></figure>
+    <figure><img src="assets/placeholder-square.svg" alt="Describe the fourth image"><figcaption><b>Project four</b><span>2025</span></figcaption></figure>
+    <figure><img src="assets/placeholder-square.svg" alt="Describe the fifth image"><figcaption><b>Project five</b><span>2024</span></figcaption></figure>
+    <figure><img src="assets/placeholder-square.svg" alt="Describe the sixth image"><figcaption><b>Project six</b><span>2024</span></figcaption></figure>
+  </div>
+</div>

@@ -1,0 +1,32 @@
+TYKERF
+Copyright 2026 John Pree (eonity.org)
+
+This product is licensed under the Apache License, Version 2.0 (see LICENSE,
+or http://www.apache.org/licenses/LICENSE-2.0).
+
+Third-party software
+--------------------
+
+This product bundles the IBM Plex Sans and IBM Plex Mono typefaces
+(src/editor/public/fonts/), Copyright © 2017 IBM Corp. with Reserved Font
+Name "Plex", licensed under the SIL Open Font License, Version 1.1
+(see src/editor/public/fonts/OFL.txt).
+
+Page layouts may use the Inter, Manrope, DM Sans, Newsreader, Playfair Display
+and Plus Jakarta Sans typefaces
+(library/fonts/, Latin subsets from Fontsource), each licensed under the SIL
+Open Font License, Version 1.1 (see library/fonts/*-OFL.txt). A page that
+uses one gets a copy of its font file in its assets/ folder.
+
+It depends on open-source packages, including the Model Context Protocol
+TypeScript SDK, Playwright, Zod and tsx, each under its own license; their
+license and copyright notices are kept in their distributions.
+
+Trademarks
+----------
+
+"TYKERF", "TYDAL" and "Eonity", and their logos (including the files in
+src/editor/public/brand/), are trademarks of Eonity. The Apache License does
+not grant permission to use these names or logos, except as required for
+reasonable and customary use in describing the origin of the work. See
+BRAND.md for how to use them.

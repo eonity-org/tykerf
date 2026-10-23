@@ -1,0 +1,24 @@
+<style>
+:scope { background: var(--section-bg, transparent); }
+.wrap { max-width: var(--max-width); margin: 0 auto; padding: calc(var(--space-section) * .4) var(--gap); }
+/* one figure on a soft card, with a round icon */
+.card { display: flex; align-items: flex-start; gap: clamp(14px, 2vw, 24px); padding: clamp(18px, 2.4vw, 32px); border-radius: var(--radius); background: var(--color-soft); color: var(--color-text); }
+.icon { flex: none; display: grid; place-items: center; width: 48px; height: 48px; border-radius: 999px; background: var(--color-accent); color: var(--color-on-accent); }
+.icon svg { width: 24px; height: 24px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.body { min-width: 0; }
+.label { margin: 0; font-size: 11px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; color: color-mix(in srgb, var(--color-accent) 70%, var(--color-text)); }
+.n { margin: 8px 0 4px; font: var(--weight-heading) clamp(32px, 3.4vw, 48px)/1 var(--font-heading); letter-spacing: var(--tracking-heading); color: var(--color-accent); }
+h2 { font-size: clamp(19px, 1.7vw, 23px); line-height: 1.25; margin: 0 0 8px; }
+.body p:last-child { margin: 0; font-size: 14px; color: var(--color-text); }
+</style>
+<div class="wrap">
+  <div class="card">
+    <span class="icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="m12 3 2.6 5.6 6.1.7-4.5 4.2 1.2 6L12 16.5 6.6 19.5l1.2-6-4.5-4.2 6.1-.7z"/></svg></span>
+    <div class="body">
+      <p class="label">The key figure</p>
+      <div class="n">≈ 500 000</div>
+      <h2>What this figure counts</h2>
+      <p>One or two sentences that explain why this number stands out from the rest.</p>
+    </div>
+  </div>
+</div>

@@ -1,0 +1,18 @@
+<style>
+:scope { background: var(--section-bg, transparent); }
+.wrap { max-width: var(--max-width); margin: 0 auto; padding: var(--space-section) var(--gap); text-align: center; }
+h2 { font-size: var(--text-title); max-width: 16ch; margin: 0 auto 20px; }
+p { font-size: var(--text-lead); color: var(--color-muted); margin: 0 auto 36px; max-width: 34em; }
+.actions { display: flex; flex-wrap: wrap; justify-content: center; gap: 12px; }
+.button { display: inline-flex; padding: 15px 28px; border-radius: var(--radius-button); font-weight: 600; text-decoration: none; }
+.primary { background: var(--color-accent); color: var(--color-on-accent); }
+.secondary { color: var(--color-text); border: 1px solid var(--color-border); }
+</style>
+<div class="wrap">
+  <h2>Try it. It takes less time than reading this page.</h2>
+  <p>One sentence that makes the next step feel small and safe.</p>
+  <div class="actions">
+    <a class="button primary" href="#">Get started free</a>
+    <a class="button secondary" href="#">Talk to us</a>
+  </div>
+</div>
