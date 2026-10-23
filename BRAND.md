@@ -1,7 +1,7 @@
 <!-- tykerf:header -->
 &nbsp;
 
-[<img src="src/editor/public/brand/tykerf-logo.svg" alt="TYKERF" height="20" style="border-radius:0">](README.md) › **TYKERF brand**
+[<img src="src/editor/public/brand/tykerf-logo-docs.svg" alt="TYKERF" height="22">](README.md) › **TYKERF brand**
 <!-- /tykerf:header -->
 
 # TYKERF brand
@@ -35,6 +35,7 @@ The channels between the blocks (the kerfs) draw a **T**. The channels between 4
 | `tykerf-mark-mono.svg` | One colour (greyscale, black-and-white print): no accent cell, recolour freely |
 | `tykerf-app-icon.svg` | App icon / social avatar: the white small mark on a TYKERF-blue tile |
 | `tykerf-logo.svg` | Mark plus the wordmark "tykerf" (IBM Plex Sans Light 300, tracking −0.02em). The wordmark spans the mark's full height: baseline on the mark's bottom edge, the tops of k and f on its top edge, the y descending below it; the file includes 2.5 units of clear space on every side. The wordmark is in outlines (from the bundled Plex Sans Light), so the logo looks the same where the font isn't installed: on GitHub, in image viewers, in print |
+| `tykerf-logo-docs.svg` | The logo for the header of the Markdown pages (22 px high): the same drawing with 11 units of clear space at the top and sides, so a viewer that rounds every image (Markdown Preview on the Mac) doesn't cut into it |
 | `png/` | PNG versions, transparent: the mark (16–1024 px; 16–32 px use the small drawing), white and mono marks (32–512), the app icon (32, 180, 192, 512, 1024) and the logo (mark 32–512 px high, plus the same clear space on every side, so the files are about a third taller than the mark, for the descender of the y). Regenerate with `npx tsx scripts/brand-png.ts` |
 
 In the editor panel the logo is the white mark plus the wordmark "tykerf" (IBM Plex Sans Light), followed by a thin divider and the path of the selected block. Below 700 px only the mark is shown.

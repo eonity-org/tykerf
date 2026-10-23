@@ -1,7 +1,7 @@
 <!-- tykerf:header -->
 &nbsp;
 
-[<img src="../../src/editor/public/brand/tykerf-logo.svg" alt="TYKERF" height="20" style="border-radius:0">](../../README.md) › [Roadmap](../../ROADMAP.md) › **Templates redesign: modern, light, launch pages**
+[<img src="../../src/editor/public/brand/tykerf-logo-docs.svg" alt="TYKERF" height="22">](../../README.md) › [Roadmap](../../ROADMAP.md) › **Templates redesign: modern, light, launch pages**
 <!-- /tykerf:header -->
 
 # Templates redesign: modern, light, launch pages
