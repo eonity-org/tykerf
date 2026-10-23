@@ -1,12 +1,12 @@
 <!-- tykerf:header -->
 &nbsp;
 
-[<img src="src/editor/public/brand/tykerf-logo.svg" alt="TYKERF" height="20" style="border-radius:0">](README.md) › **Contributing to TYKERF**
+[<img src="src/editor/public/brand/tykerf-logo-docs.svg" alt="TYKERF" height="22">](README.md) › **Contributing to TYKERF**
 <!-- /tykerf:header -->
 
 # Contributing to TYKERF
 
-Thanks for helping. TYKERF is an eonity project; issues and pull requests are welcome at https://github.com/eonity-org/tykerf.
+Thanks for helping. TYKERF is an eonity project; issues and pull requests are welcome at https://github.com/eonity-org/tykerf. Everyone taking part follows the [code of conduct](CODE_OF_CONDUCT.md).
 
 The [developer guide](docs/developer-guide/en/README.md) explains how TYKERF works and how to extend it, step by step: components, layouts, theme presets, moves, MCP tools, AI runners, editor operations and translations.
 
