@@ -68,7 +68,7 @@ export async function buildMcpb(out = join(root, 'dist', 'mcpb'), opts: { pack?:
       'named, validated moves instead of rewriting HTML: it can split, group, move and resize blocks, write a box\'s code, use ready-made components, change the theme, ' +
       'add responsive rules, and look at the result with screenshots. Every change is recorded in the page\'s history and can be undone, also from the TYKERF editor. ' +
       'Ask Claude to focus on one block to keep every other part of the page safe. Screenshots and layout checks need Chromium (npx playwright install chromium).',
-    author: { name: 'eonity', url: 'https://github.com/eonity-org' },
+    author: { name: 'Eonity', url: 'https://eonity.org' },
     repository: { type: 'git', url: 'https://github.com/eonity-org/tykerf' },
     homepage: 'https://github.com/eonity-org/tykerf',
     documentation: 'https://github.com/eonity-org/tykerf/blob/main/docs/user-guide/en/claude-desktop.md',

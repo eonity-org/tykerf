@@ -8,7 +8,7 @@
 
 ## Reporting a vulnerability
 
-Please report vulnerabilities privately through GitHub's **Report a vulnerability** button on the repository's Security tab (https://github.com/eonity-org/tykerf/security), not in a public issue. We'll acknowledge the report and keep you informed while we fix it.
+Please report vulnerabilities privately through GitHub's **Report a vulnerability** button on the repository's Security tab (https://github.com/eonity-org/tykerf/security), or by email to [dev@eonity.org](mailto:dev@eonity.org), not in a public issue. We'll acknowledge the report and keep you informed while we fix it.
 
 ## What TYKERF trusts
 
