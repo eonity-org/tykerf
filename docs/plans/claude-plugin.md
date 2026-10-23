@@ -6,7 +6,7 @@
 
 # TYKERF in Anthropic's directory: a Claude plugin
 
-Status: **planned, not started** (October 2026). Two decisions are open (below); nothing is built until they're made.
+Status: **planned, not started** (October 2026). One decision is open (below); nothing is built until it's made.
 
 ## Context
 TYKERF 0.1.0 ships the Claude Desktop extension (`tykerf.mcpb`, attached to each GitHub release). People can install it by hand, but Anthropic's directory no longer lists desktop extensions: it accepts a local MCP server only inside a **plugin**, submitted from a GitHub repository through the developer portal (claude.ai/directory/manage, *Submit new* → *Plugin bundle*).
@@ -19,11 +19,13 @@ Anthropic's pages this plan follows:
 - [Plugin structure and testing](https://claude.com/docs/plugins/build)
 - [Submit a connector](https://claude.com/docs/connectors/building/submission) (tool annotations, privacy policy for local servers)
 
-## Open decisions
-1. **How the server finds the page folder.** The extension asks for it on install (`user_config.page_folder` → `--dir`). A plugin's install-time questions (`userConfig`) only work in Claude Code. For Cowork, choose one:
-   - **Claude asks or creates it:** the server starts without a page, and a tool opens or creates one by path (like `open_page`/`new_page` for a site, with a path instead of a page name). Every other tool refuses until a page is open. This works everywhere, and Claude Code can still pass `--dir` from `userConfig`.
-   - **A fixed default folder** such as `~/TYKERF`, used as a site: simple, but people don't choose where their pages live.
-2. **Who appears as the author.** The listing shows `plugin.json`'s `author`. Settle the copyright holder in `NOTICE` (John Pree or Eonity) first, so the two match.
+## Open decision
+**How the server finds the page folder.** The extension asks for it on install (`user_config.page_folder` → `--dir`). A plugin's install-time questions (`userConfig`) only work in Claude Code. For Cowork, choose one:
+- **Claude asks or creates it:** the server starts without a page, and a tool opens or creates one by path (like `open_page`/`new_page` for a site, with a path instead of a page name). Every other tool refuses until a page is open. This works everywhere, and Claude Code can still pass `--dir` from `userConfig`.
+- **A fixed default folder** such as `~/TYKERF`, used as a site: simple, but people don't choose where their pages live.
+
+## Decided
+- **Author and contact,** as in TYDAL and FullFrame: copyright "John Pree (eonity.org)" in `NOTICE` and `LICENSE`, the names and logos trademarks of Eonity, and the author shown in listings `{ "name": "Eonity", "url": "https://eonity.org" }` (the extension's manifest says the same). The contact for people is `dev@eonity.org`, also the GitHub organization's email.
 
 ## Steps
 
@@ -32,9 +34,9 @@ Anthropic's pages this plan follows:
    - change the page (`readOnlyHint: false`): the moves, `set_content`, `edit_content`, `add_picture`, `use_component`, `use_theme`, `set_theme`, `rename`, `optimize`, `undo`, `redo`, `render`, `new_page`, `open_page`, `focus`/`unfocus`;
    - also `destructiveHint: true`: the tools that remove blocks or replace a whole page or box (`use_layout`, `use_page`, the removing moves, `set_content`). Every change can be undone, but the hint is about the step itself.
    A test checks that every tool from `createTykerfServer` has a title and a hint, and the extension's manifest keeps listing them.
-2. **The page folder**, as decided in open decision 1.
+2. **The page folder**, as the open decision settles it.
 3. **The plugin folder** (`plugin/`, built by a script next to `scripts/build-mcpb.ts`, sharing its esbuild step):
-   - `.claude-plugin/plugin.json`: `name: "tykerf"`, `displayName: "TYKERF"`, `version` from `package.json` (raised every release), `description`, `author`, `license: "Apache-2.0"`, and `userConfig.page_folder` for Claude Code if decision 1 keeps it;
+   - `.claude-plugin/plugin.json`: `name: "tykerf"`, `displayName: "TYKERF"`, `version` from `package.json` (raised every release), `description`, `author` (see Decided), `license: "Apache-2.0"`, and `userConfig.page_folder` for Claude Code if the open decision keeps it;
    - `.mcp.json`: `node ${CLAUDE_PLUGIN_ROOT}/server/index.js` with plain arguments (no `tsx`, `npm run`, shell or `-c`, which hold the submission for a reviewer);
    - `server/index.js`: the esbuild bundle, **not minified** (the security scan holds code it can't read). It is about 1.5 MB: under the 5 MiB limit, over 256 KiB, so a reviewer reads it;
    - `package.json` + `package-lock.json` with only `playwright`, which Claude Code installs with the plugin, instead of committing Playwright's files (it would pass the 512-file limit);
