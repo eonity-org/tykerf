@@ -6,7 +6,7 @@
 
 # TYKERF in Anthropic's directory: a Claude plugin
 
-Status: **planned, not started** (October 2026). One decision is open (below); nothing is built until it's made.
+Status: **planned, not started** (October 2026). The decisions are made (below); one detail is checked while building (where Cowork starts the server).
 
 ## Context
 TYKERF 0.1.0 ships the Claude Desktop extension (`tykerf.mcpb`, attached to each GitHub release). People can install it by hand, but Anthropic's directory no longer lists desktop extensions: it accepts a local MCP server only inside a **plugin**, submitted from a GitHub repository through the developer portal (claude.ai/directory/manage, *Submit new* → *Plugin bundle*).
@@ -19,12 +19,12 @@ Anthropic's pages this plan follows:
 - [Plugin structure and testing](https://claude.com/docs/plugins/build)
 - [Submit a connector](https://claude.com/docs/connectors/building/submission) (tool annotations, privacy policy for local servers)
 
-## Open decision
-**How the server finds the page folder.** The extension asks for it on install (`user_config.page_folder` → `--dir`). A plugin's install-time questions (`userConfig`) only work in Claude Code. For Cowork, choose one:
-- **Claude asks or creates it:** the server starts without a page, and a tool opens or creates one by path (like `open_page`/`new_page` for a site, with a path instead of a page name). Every other tool refuses until a page is open. This works everywhere, and Claude Code can still pass `--dir` from `userConfig`.
-- **A fixed default folder** such as `~/TYKERF`, used as a site: simple, but people don't choose where their pages live.
-
 ## Decided
+- **The page folder: Claude opens or creates it, with a default.** The extension asks for the folder on install (`user_config.page_folder` → `--dir`), but a plugin's install-time questions (`userConfig`) only work in Claude Code, so the plugin's server starts with **no folder open**:
+  - a new tool, `open_folder(path?)`, opens a page or a site at a path, and creates an empty site there when the folder is empty or new; every other tool answers "open a folder first" until one is open, and `open_folder` can switch to another folder later in the conversation;
+  - without a path it opens **the default folder**: `--dir` (Claude Code's `userConfig.page_folder`), else `TYKERF_DIR` (the environment, or a `.env` loaded the way the editor loads it, `TYKERF_DOTENV=off` skipping it), else **`~/TYKERF`** by construction;
+  - Claude says which folder it opens, so the person can name another before anything is written;
+  - the stdio server keeps today's behavior for existing setups: with `--dir` (the extension, `claude mcp add … --dir`) that folder is open from the start.
 - **Author and contact,** as in TYDAL and FullFrame: copyright "John Pree (eonity.org)" in `NOTICE` and `LICENSE`, the names and logos trademarks of Eonity, and the author shown in listings `{ "name": "Eonity", "url": "https://eonity.org" }` (the extension's manifest says the same). The contact for people is `dev@eonity.org`, also the GitHub organization's email.
 
 ## Steps
@@ -34,9 +34,14 @@ Anthropic's pages this plan follows:
    - change the page (`readOnlyHint: false`): the moves, `set_content`, `edit_content`, `add_picture`, `use_component`, `use_theme`, `set_theme`, `rename`, `optimize`, `undo`, `redo`, `render`, `new_page`, `open_page`, `focus`/`unfocus`;
    - also `destructiveHint: true`: the tools that remove blocks or replace a whole page or box (`use_layout`, `use_page`, the removing moves, `set_content`). Every change can be undone, but the hint is about the step itself.
    A test checks that every tool from `createTykerfServer` has a title and a hint, and the extension's manifest keeps listing them.
-2. **The page folder**, as the open decision settles it.
+2. **The page folder** (see Decided), in `src/mcp/server.ts` and `src/mcp/tools.ts`:
+   - a "no folder" state in `createTykerfServer` (every tool reads `ws` when it runs, so `open_folder` reassigns it as `open_page` does);
+   - `open_folder` reuses `siteKind` and the site's empty-folder start; it refuses a path that is neither a page, a site nor empty, and is refused under a run scope like the other page tools;
+   - the plugin starts the server with a flag that means "don't open yet" (for example `--lazy`), so the extension and `claude mcp add` keep opening `--dir` at once;
+   - check where Claude Code and Cowork start the server (its working folder and environment): that decides whether a `.env` there can set `TYKERF_DIR`, or whether most Cowork users get `~/TYKERF`;
+   - tests: no folder → tools refuse; `open_folder()` → the default; an empty path → a new site; a non-TYKERF folder → refused; switching folders.
 3. **The plugin folder** (`plugin/`, built by a script next to `scripts/build-mcpb.ts`, sharing its esbuild step):
-   - `.claude-plugin/plugin.json`: `name: "tykerf"`, `displayName: "TYKERF"`, `version` from `package.json` (raised every release), `description`, `author` (see Decided), `license: "Apache-2.0"`, and `userConfig.page_folder` for Claude Code if the open decision keeps it;
+   - `.claude-plugin/plugin.json`: `name: "tykerf"`, `displayName: "TYKERF"`, `version` from `package.json` (raised every release), `description`, `author` (see Decided), `license: "Apache-2.0"`, and an optional `userConfig.page_folder` (the default folder, for Claude Code);
    - `.mcp.json`: `node ${CLAUDE_PLUGIN_ROOT}/server/index.js` with plain arguments (no `tsx`, `npm run`, shell or `-c`, which hold the submission for a reviewer);
    - `server/index.js`: the esbuild bundle, **not minified** (the security scan holds code it can't read). It is about 1.5 MB: under the 5 MiB limit, over 256 KiB, so a reviewer reads it;
    - `package.json` + `package-lock.json` with only `playwright`, which Claude Code installs with the plugin, instead of committing Playwright's files (it would pass the 512-file limit);
@@ -45,7 +50,7 @@ Anthropic's pages this plan follows:
    Decide whether `plugin/` is committed on `main` or built into its own branch or repository: the directory reads a folder on a tracked branch or tag, and the plugin should be at the root of what it reads to avoid the "scripts the validator couldn't follow" hold.
 4. **A skill** (`plugin/skills/tykerf/SKILL.md`): when to use TYKERF (a request to build or change a web page in a TYKERF folder) and in what order: read the outline with `get_layout`, `focus` the block, change it, `screenshot` at 375 and 1440 px, `check_page` before saying it's done. Short; the tool descriptions already carry the details.
 5. **README for the listing** (`plugin/README.md`, at least 40 words outside code):
-   - what TYKERF does and how to start (an empty folder or an existing page);
+   - what TYKERF does and how to start (Claude opens `~/TYKERF` or the folder you name; an empty folder becomes a new site);
    - **Privacy policy** section: the server reads and writes only the page folder, sends nothing to any server, has no key and calls no API (Claude does the thinking with the person's account); Chromium runs locally for screenshots; nothing is kept outside the folder (its history is in `.history.jsonl` and can be deleted with it); contact `dev@eonity.org`;
    - the one manual step: `npx playwright install chromium` for `screenshot` and `evaluate` (the other tools work without it).
 6. **Check and test:**
