@@ -526,7 +526,7 @@ export function createTykerfServer(start: Workspace | null, opts: TykerfServerOp
 
   server.registerTool('get_content', {
     title: 'Read box code', annotations: READ,
-    description: 'Get the HTML content of one leaf/overlay, or all contents if id is omitted.',
+    description: 'Get the HTML code of one box (leaf) or overlay: name the box you are about to change. Without id it returns every box\'s code at once, which is long and rarely needed (get_layout is the overview, and use_component already replies with the code it wrote).',
     inputSchema: { id: id.describe('box (leaf) reference or overlay id').optional() },
   }, guard(({ id: ref }: { id?: string }) => {
     if (!ref) return JSON.stringify(ws.contents(), null, 2);
