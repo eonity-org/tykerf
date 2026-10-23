@@ -137,7 +137,7 @@ The chooser's `openMadePage` then opens the page with the panel on, on the root'
 
 Anthropic's directory lists a local MCP server only inside a plugin, which runs in Claude Code and in Cowork on the person's computer. `npm run build:plugin` (`scripts/build-plugin.ts`) writes the plugin folder to `dist/plugin/`:
 - the same server bundle as the extension (`bundleServer` in `build-mcpb.ts`: readable, not minified, since the directory's scan holds code it can't read) and `library/`;
-- `.claude-plugin/plugin.json`: name, version from `package.json`, author Eonity, the directory's listing fields (`icon`, `documentationUrl`, `supportUrl`, `privacyPolicyUrl`), and one setting, `page_folder`, whose default is empty: Cowork never asks, and leaves out a server whose setting has no default;
+- `.claude-plugin/plugin.json`: name, version from `package.json`, author `eonity.org`, the directory's listing fields (`icon`, `documentationUrl`, `supportUrl`, `privacyPolicyUrl`), and one setting, `page_folder`, whose default is empty: Cowork never asks, and leaves out a server whose setting has no default;
 - `.mcp.json`: `node ${CLAUDE_PLUGIN_ROOT}/server/index.js --lazy --dir ${user_config.page_folder}` (see *No folder yet* above);
 - `package.json` and `package-lock.json` with only Playwright, taken from the repository's lockfile: Claude Code installs exact registry versions from them, without scripts, when the plugin is installed;
 - `README.md` (the listing, with the privacy policy) and anything else in `plugin/`, plus `LICENSE`, `NOTICE` and the icon.
