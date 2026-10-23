@@ -12,14 +12,14 @@ The extension holds no key and calls no API itself. Claude Desktop does the thin
 
 ## Install
 
-1. Build the extension once (or download `tykerf.mcpb` from a release when one is published):
+1. Download `tykerf.mcpb` from the [latest release](https://github.com/eonity-org/tykerf/releases/latest), or build it yourself:
 
    ```bash
    npm install
    npm run build:mcpb        # makes dist/tykerf.mcpb
    ```
 
-2. Open `dist/tykerf.mcpb` (double-click it, or drag it into Claude Desktop's *Settings → Extensions*) and choose *Install*.
+2. Open `tykerf.mcpb`, the download or `dist/tykerf.mcpb` (double-click it, or drag it into Claude Desktop's *Settings → Extensions*), and choose *Install*.
 3. When Claude Desktop asks for the **Page folder**, choose one of these:
    - **a site** (a folder of page folders, such as the one the editor makes): Claude lists its pages, opens the one you name and makes new ones ("make a page about Munich next to Rome"), from a layout or as a copy of another page ("like Rome");
    - **a page** (a folder with a `layout.slice`, made with the editor or with `npm run cli -- new my-page launch`): Claude works on it, and on the other pages of its site when it has one;

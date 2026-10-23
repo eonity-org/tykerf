@@ -72,18 +72,11 @@ export async function buildPlugin(out = join(root, 'dist', 'plugin')): Promise<s
     documentationUrl: `${REPO}/blob/main/docs/user-guide/README.md`,
     supportUrl: `${REPO}/issues`,
     privacyPolicyUrl: `${REPO}/blob/main/plugin/README.md#privacy-policy`,
-    userConfig: {
-      // Cowork doesn't ask and leaves out a server whose setting has no default: empty means TYKERF_DIR, else ~/TYKERF
-      page_folder: {
-        type: 'directory',
-        title: 'Default page folder',
-        description: 'The folder Claude opens when you name none: a TYKERF page, a site of pages, or an empty folder to start in. Leave it empty for ~/TYKERF.',
-        default: '',
-      },
-    },
   });
+  // no setting: Claude Code flags an empty one as not set, and Cowork never asks; the default folder is TYKERF_DIR
+  // (the environment, or a .env where Claude Code starts), else ~/TYKERF, the same in both
   json(join(out, '.mcp.json'), {
-    mcpServers: { tykerf: { command: 'node', args: ['${CLAUDE_PLUGIN_ROOT}/server/index.js', '--lazy', '--dir', '${user_config.page_folder}'] } },
+    mcpServers: { tykerf: { command: 'node', args: ['${CLAUDE_PLUGIN_ROOT}/server/index.js', '--lazy'] } },
   });
   // the server is an ES module; no dependencies and no lockfile, so nothing is installed: Playwright is shipped
   json(join(out, 'package.json'), { name: 'tykerf-plugin', version, private: true, license: 'Apache-2.0', type: 'module' });

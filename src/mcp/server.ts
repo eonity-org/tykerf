@@ -17,8 +17,8 @@ const flag = (name: string) => {
 };
 if (process.argv.includes('--lazy')) {
   // the Claude plugin: Cowork can't ask for a folder on install, so none is open until Claude opens one. Without a path it
-  // opens the default: --dir (Claude Code's page_folder setting), else TYKERF_DIR (the environment, or a .env in the
-  // folder the server starts in, as the editor reads it), else ~/TYKERF. A setting left empty may arrive as "" or unfilled.
+  // opens the default: --dir when given, else TYKERF_DIR (the environment, or a .env in the folder the server starts
+  // in, as the editor reads it), else ~/TYKERF. A client's setting left empty may arrive as "" or unfilled.
   if (process.env.TYKERF_DOTENV !== 'off' && existsSync('.env')) process.loadEnvFile('.env');
   const given = [flag('--dir'), process.env.TYKERF_DIR].map((v) => v?.trim()).find((v) => v && !v.startsWith('${'));
   const defaultDir = folderPath(given ?? '~/TYKERF');

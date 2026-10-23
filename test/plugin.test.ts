@@ -25,8 +25,9 @@ describe('the Claude plugin', async () => {
     expect(manifest).toMatchObject({ name: 'tykerf', version: read('.', 'package.json').version, license: 'Apache-2.0', author: { name: 'eonity.org', email: 'dev@eonity.org' }, icon: './icon.png' });
     expect(manifest.privacyPolicyUrl).toMatch(/^https:\/\/.*plugin\/README\.md#privacy-policy$/);
     // Cowork leaves out a server whose setting has no default
-    expect(manifest.userConfig.page_folder).toMatchObject({ type: 'directory', default: '' });
-    expect(read(out, '.mcp.json').mcpServers.tykerf).toEqual({ command: 'node', args: ['${CLAUDE_PLUGIN_ROOT}/server/index.js', '--lazy', '--dir', '${user_config.page_folder}'] });
+    // no setting to fill in (Claude Code flags an empty one, Cowork never asks): the default folder is TYKERF_DIR, else ~/TYKERF
+    expect(manifest.userConfig).toBeUndefined();
+    expect(read(out, '.mcp.json').mcpServers.tykerf).toEqual({ command: 'node', args: ['${CLAUDE_PLUGIN_ROOT}/server/index.js', '--lazy'] });
     const readme = readFileSync(join(out, 'README.md'), 'utf8');
     expect(readme.replace(/```[\s\S]*?```/g, '').split(/\s+/).length).toBeGreaterThan(40);
     for (const part of ['data collection', 'stored', 'third parties', 'Retention', 'Contact']) expect(readme.toLowerCase()).toContain(part.toLowerCase().split(' ')[0]);

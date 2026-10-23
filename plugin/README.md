@@ -13,7 +13,7 @@ TYKERF is open source (Apache-2.0): https://github.com/eonity-org/tykerf
 
 Ask Claude for a page: "make a landing page for my bakery", or "change the pricing section of the page in ~/Sites/bakery".
 
-- Claude opens a folder first and tells you which one. Without a folder named, it uses the default folder: the plugin's **Default page folder** setting (Claude Code), else `TYKERF_DIR`, else `~/TYKERF`.
+- Claude opens a folder first and tells you which one. Without a folder named, it uses the default folder: `TYKERF_DIR` (set in the environment, or in a `.env` file where you start Claude Code), else `~/TYKERF`.
 - An empty or new folder becomes a new page or a site of pages; an existing TYKERF page or site opens as it is. A folder that holds other files is refused, so TYKERF never writes among your own files.
 - Ask Claude to focus on one block ("only the header") to keep every other part of the page safe: changes outside it are refused.
 - To see the page in your browser, with the TYKERF editor over it, run TYKERF from its repository (`npm start -- <folder>`), or export it as plain files for any web host.
