@@ -9,7 +9,7 @@
 | Guide | For | |
 |---|---|---|
 | [User guide](user-guide/README.md) | People who make pages and sites with TYKERF | [English](user-guide/en/README.md) |
-| [Developer guide](developer-guide/README.md) | People who work on TYKERF, extend it, or build on it | [English](developer-guide/en/README.md) |
+| [Developer guide](developer-guide/README.md) | People who work on TYKERF, extend it, or build on it (scripts, their own agents, CI) | [English](developer-guide/en/README.md) |
 | [The slicing notation](slicing-notation.md) | The formal specification of TYKERF's page notation | |
 | [Demo video](media/tykerf-builds-lisbon.mp4) | Anyone: Kaity builds a page about Lisbon from one sentence (2:48) | |
 

@@ -67,7 +67,7 @@ Add an entry to `library/themes.json` with values for **existing** theme variabl
 ```
 
 - **Colours:** check contrast. The design test fails if secondary text or eyebrows on the alternate or soft band, or text on the accent, fall under WCAG AA (4.5:1).
-- **Fonts:** installed fonts, or the bundled families in `FONTS` (`library.ts`): Inter, Manrope, DM Sans, Newsreader. To bundle another font:
+- **Fonts:** installed fonts, or the bundled families in `FONTS` (`library.ts`): Inter, Manrope, DM Sans, Newsreader, Playfair Display and Plus Jakarta Sans. To bundle another font:
   1. Add the Latin variable `.woff2` and its OFL licence to `library/fonts/`.
   2. Add the family to `FONTS`.
   3. Credit it in `NOTICE`.
@@ -110,17 +110,19 @@ In `createTykerfServer` (`src/mcp/tools.ts`):
 
 - **For a tree move,** use `moveTool`:
   ```ts
-  moveTool('flip', 'Turn a row into a column or a column into a row (rotation).', { op: id }, (l, a) => M.flip(l, a.op));
+  moveTool('flip', 'Flip a row or column', CHANGE, 'Turn a row into a column or a column into a row (rotation).', { op: id }, (l, a) => M.flip(l, a.op));
   ```
   Arguments declared with the shared `id` or `ids` schema are resolved through `resolveRef`. The change is scope-checked in `commit`, and the reply lists only the lines that changed.
-- **For anything else,** use `server.registerTool(name, { description, inputSchema }, guard(...))`:
+- **For anything else,** use `server.registerTool(name, { title, annotations, description, inputSchema }, guard(...))`:
   - run read-modify-write inside `ws.transaction()`;
   - call `assertInScope` for the blocks it touches;
   - write a description that tells the model when to use the tool.
 
+Every tool has a short **title** for people ("Flip a row or column") and **annotations** that say what it does to the page folder: `READ` (only reads), `CHANGE` (changes it, adding or adjusting), `REPLACE` (removes or overwrites something whole: a block, a box's code, the page), or `LOOK` (reads, but renders the page in Chromium, whose code may load files from other servers). Clients show them and may ask before a change; `test/mcp-tools.test.ts` fails for a tool without them.
+
 Speak *row* and *column* in descriptions and replies, never H/V. The Claude Desktop manifest picks up new tools by itself.
 
-**Tests:** `test/mcp-scope.test.ts` (with and without a scope), and `test/runners.test.ts` if the API runners must handle it.
+**Tests:** `test/mcp-scope.test.ts` (with and without a scope), `test/mcp-tools.test.ts` (title and annotations), and `test/runners.test.ts` if the API runners must handle it.
 
 ## An AI runner
 
@@ -163,7 +165,7 @@ Speak *row* and *column* in descriptions and replies, never H/V. The Claude Desk
 <!-- tykerf:footer -->
 ---
 
-← [The AI and MCP](ai-and-mcp.md) · [Developer guide index](README.md) · [Writing the docs](documentation.md) →
+← [The AI and MCP](ai-and-mcp.md) · [Developer guide index](README.md) · [Building on TYKERF](building-on-tykerf.md) →
 
 [TYKERF](../../../README.md) · [Documentation](../../README.md) · [GitHub](https://github.com/eonity-org/tykerf) · Apache-2.0 · an [eonity](https://eonity.org) project
 <!-- /tykerf:footer -->

@@ -26,20 +26,12 @@ Anthropic's pages this plan follows:
   - Claude says which folder it opens, so the person can name another before anything is written;
   - the stdio server keeps today's behavior for existing setups: with `--dir` (the extension, `claude mcp add … --dir`) that folder is open from the start.
 - **Author and contact,** as in TYDAL and FullFrame: copyright "John Pree (eonity.org)" in `NOTICE` and `LICENSE`, the names and logos trademarks of Eonity, and the author shown in listings `{ "name": "Eonity", "url": "https://eonity.org" }` (the extension's manifest says the same). The contact for people is `dev@eonity.org`, also the GitHub organization's email.
+- **The account that submits:** a claude.ai account on `dev@eonity.org`, Eonity's, used for TYKERF only. The listing belongs to the account it's submitted from, so this one can go with the domain if Eonity becomes a company, and personal chats stay apart. It needs a paid plan (Pro is enough), and the form's contact email is `dev@eonity.org` too. Plugin listings show the repository (`eonity-org/tykerf`) and `plugin.json`, not the account; check the portal's **Listing details** preview before submitting.
 
 ## Steps
 
-1. **Tool annotations** (`src/mcp/tools.ts`), useful in every MCP client, so they come first. Every tool gets a `title` and `readOnlyHint: true`, or `destructiveHint` when it can remove something:
-   - read-only: `get_layout`, `get_theme`, `list_themes`, `list_layouts`, `list_components`, `get_types`, `resolve`, `estimate`, `get_content`, `list_pages`, `check_page`, `evaluate`, `screenshot`;
-   - change the page (`readOnlyHint: false`): the moves, `set_content`, `edit_content`, `add_picture`, `use_component`, `use_theme`, `set_theme`, `rename`, `optimize`, `undo`, `redo`, `render`, `new_page`, `open_page`, `focus`/`unfocus`;
-   - also `destructiveHint: true`: the tools that remove blocks or replace a whole page or box (`use_layout`, `use_page`, the removing moves, `set_content`). Every change can be undone, but the hint is about the step itself.
-   A test checks that every tool from `createTykerfServer` has a title and a hint, and the extension's manifest keeps listing them.
-2. **The page folder** (see Decided), in `src/mcp/server.ts` and `src/mcp/tools.ts`:
-   - a "no folder" state in `createTykerfServer` (every tool reads `ws` when it runs, so `open_folder` reassigns it as `open_page` does);
-   - `open_folder` reuses `siteKind` and the site's empty-folder start; it refuses a path that is neither a page, a site nor empty, and is refused under a run scope like the other page tools;
-   - the plugin starts the server with a flag that means "don't open yet" (for example `--lazy`), so the extension and `claude mcp add` keep opening `--dir` at once;
-   - check where Claude Code and Cowork start the server (its working folder and environment): that decides whether a `.env` there can set `TYKERF_DIR`, or whether most Cowork users get `~/TYKERF`;
-   - tests: no folder → tools refuse; `open_folder()` → the default; an empty path → a new site; a non-TYKERF folder → refused; switching folders.
+1. **Tool annotations** (`src/mcp/tools.ts`): **done.** Every tool has a `title` and one of four sets of hints (`READ`, `CHANGE`, `REPLACE`, `LOOK`); `test/mcp-tools.test.ts` checks every tool has them. Replaces: `use_layout`, `use_page`, `use_component`, `use_theme`, `set_content`, `remove`, `unwrap`, `normalize`, `remove_rule`, `detach_overlay`. Read-only also covers `open_page` (it writes nothing); `screenshot` and `evaluate` are read-only with `openWorldHint`, since the page Chromium renders may load files from other servers.
+2. **The page folder** (see Decided): **done.** `server.ts --lazy` starts with no folder open; `open_folder(path?)` opens a page, a site or an empty or new folder (the default without a path: `--dir`, else `TYKERF_DIR` from the environment or the starting folder's `.env`, else `~/TYKERF`), writes nothing itself, refuses a folder of other files and keeps the open one. Every other tool but the library lists answers "no folder is open". Only the plugin gets it (`folders` option). Tests: `test/mcp-folder.test.ts`. Still to check with the plugin: where Claude Code and Cowork start the server, which decides whether a `.env` there can set `TYKERF_DIR`.
 3. **The plugin folder** (`plugin/`, built by a script next to `scripts/build-mcpb.ts`, sharing its esbuild step):
    - `.claude-plugin/plugin.json`: `name: "tykerf"`, `displayName: "TYKERF"`, `version` from `package.json` (raised every release), `description`, `author` (see Decided), `license: "Apache-2.0"`, and an optional `userConfig.page_folder` (the default folder, for Claude Code);
    - `.mcp.json`: `node ${CLAUDE_PLUGIN_ROOT}/server/index.js` with plain arguments (no `tsx`, `npm run`, shell or `-c`, which hold the submission for a reviewer);
@@ -58,13 +50,17 @@ Anthropic's pages this plan follows:
    - Claude Code: `claude --plugin-dir ./plugin`, then build a page from an empty folder and change one block;
    - Cowork on the computer: zip the folder, *Customize → Plugins → Add → Upload plugin*, and repeat;
    - a test in `test/` like `test/mcpb.test.ts`: the plugin builds, the manifest parses, the server starts and lists its tools.
-7. **Submit** from the developer portal (any paid Claude plan; in a Team or Enterprise organization, an Owner):
-   - connect the GitHub account that can push to `eonity-org/tykerf`;
+7. **Submit** from the developer portal, signed in as `dev@eonity.org` (see Decided):
+   - connect, in that claude.ai account, the GitHub account that can push to `eonity-org/tykerf`;
    - *Validate*, fix every **Blocking** finding;
    - data handling: reads and stores no personal data, sends nothing to other services, keeps nothing outside the page folder, not aimed at people under 18;
    - set up the GitHub push webhook so new releases reach the directory.
    Expect a reviewer to read the first version: the bundled server, the lockfile install and the large file each hold it, which is normal and not a rejection.
 8. **Docs:** a user-guide page or a section in `claude-desktop.md` for the plugin (Claude Code and Cowork), the change in `CHANGELOG.md`, and this plan's status.
+
+## Before submitting
+Open, and it doesn't block steps 1–6 (`NOTICE` stays as it is, the same as in TYDAL and FullFrame):
+- **Registering the names** (TYKERF, and maybe TYDAL and Eonity) before the listing makes them visible: the plugin's `name` is permanent, and an unregistered name is weak protection against someone registering it first.
 
 ## Kept as it is
 - `tykerf.mcpb` stays on each release for people who install the extension by hand in Claude Desktop.
