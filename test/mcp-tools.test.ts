@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
 import { describe, expect, it } from 'vitest';
@@ -17,6 +18,16 @@ async function tools() {
 }
 
 describe('the MCP tools', () => {
+  it('report the package\'s version', async () => {
+    const server = createTykerfServer(new Workspace(new MemoryStore('memory:version')));
+    const [a, b] = InMemoryTransport.createLinkedPair();
+    const client = new Client({ name: 'test', version: '0' });
+    await Promise.all([server.connect(a), client.connect(b)]);
+    const { version } = JSON.parse(readFileSync('package.json', 'utf8'));
+    expect(client.getServerVersion()?.version).toBe(version);
+    await client.close();
+  });
+
   it('each say what they do to the page: a title, read-only or not, and whether a change replaces something', async () => {
     const all = await tools();
     for (const [name, t] of all) {
