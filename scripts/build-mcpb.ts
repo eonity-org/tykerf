@@ -22,7 +22,7 @@ import { Workspace } from '../src/workspace.js';
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 
 /** The tools, as the manifest lists them (name and the first sentence of the description). */
-async function toolList() {
+export async function toolList() {
   // as Claude Desktop starts it: on a folder (home), so the site's page tools are listed too
   const server = createTykerfServer(new Workspace(new MemoryStore('memory:manifest')), { home: root });
   const [a, b] = InMemoryTransport.createLinkedPair();
@@ -33,11 +33,11 @@ async function toolList() {
   return tools.map((t) => ({ name: t.name, description: (t.description ?? '').split(/(?<=\.)\s/)[0] }));
 }
 
-export async function buildMcpb(out = join(root, 'dist', 'mcpb'), opts: { pack?: boolean } = {}): Promise<string> {
-  const pkg = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8'));
-  rmSync(out, { recursive: true, force: true });
-  mkdirSync(join(out, 'server'), { recursive: true });
-
+/**
+ * The MCP server as one readable file, `<out>/server/index.js`, with the page library beside it (library.ts finds its
+ * folder next to the code: <out>/server/../library). Playwright stays outside: the extension and the plugin each bring it.
+ */
+export async function bundleServer(out: string) {
   await build({
     entryPoints: [join(root, 'src', 'mcp', 'server.ts')],
     outfile: join(out, 'server', 'index.js'),
@@ -45,14 +45,21 @@ export async function buildMcpb(out = join(root, 'dist', 'mcpb'), opts: { pack?:
     platform: 'node',
     format: 'esm',
     target: 'node20',
-    // loaded only for screenshots and checks, from server/node_modules below
+    // loaded only for screenshots and checks
     external: ['playwright', 'playwright-core'],
     // some dependencies are CommonJS and call require()
     banner: { js: "import { createRequire as __tykerfRequire } from 'node:module'; const require = __tykerfRequire(import.meta.url);" },
     logLevel: 'warning',
   });
-  // library.ts finds its folder next to the code: <out>/server/../library
   cpSync(join(root, 'library'), join(out, 'library'), { recursive: true });
+}
+
+export async function buildMcpb(out = join(root, 'dist', 'mcpb'), opts: { pack?: boolean } = {}): Promise<string> {
+  const pkg = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8'));
+  rmSync(out, { recursive: true, force: true });
+  mkdirSync(join(out, 'server'), { recursive: true });
+
+  await bundleServer(out);
   for (const p of ['playwright', 'playwright-core']) cpSync(join(root, 'node_modules', p), join(out, 'server', 'node_modules', p), { recursive: true, dereference: true });
   cpSync(join(root, 'src', 'editor', 'public', 'brand', 'png', 'tykerf-app-icon-512.png'), join(out, 'icon.png'));
   cpSync(join(root, 'LICENSE'), join(out, 'LICENSE'));
@@ -68,7 +75,7 @@ export async function buildMcpb(out = join(root, 'dist', 'mcpb'), opts: { pack?:
       'named, validated moves instead of rewriting HTML: it can split, group, move and resize blocks, write a box\'s code, use ready-made components, change the theme, ' +
       'add responsive rules, and look at the result with screenshots. Every change is recorded in the page\'s history and can be undone, also from the TYKERF editor. ' +
       'Ask Claude to focus on one block to keep every other part of the page safe. Screenshots and layout checks need Chromium (npx playwright install chromium).',
-    author: { name: 'Eonity', url: 'https://eonity.org' },
+    author: { name: 'eonity.org', url: 'https://eonity.org' },
     repository: { type: 'git', url: 'https://github.com/eonity-org/tykerf' },
     homepage: 'https://github.com/eonity-org/tykerf',
     documentation: 'https://github.com/eonity-org/tykerf/blob/main/docs/user-guide/en/claude-desktop.md',

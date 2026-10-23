@@ -133,6 +133,17 @@ The chooser's `openMadePage` then opens the page with the panel on, on the root'
 
 **No folder yet (the Claude plugin).** `server.ts --lazy` starts `createTykerfServer(null, { folders: { defaultDir } })`: Cowork can't ask for a folder on install, so none is open, and every tool but `open_folder` and the library lists (`FOLDERLESS`) answers "no folder is open" (one wrapper around `server.registerTool` checks it). `open_folder` takes a path (`folderPath`: `~` is the home folder, spaces trimmed) or opens the default: `--dir` (Claude Code's `page_folder` setting), else `TYKERF_DIR` (the environment, or a `.env` in the folder the server starts in), else `~/TYKERF`. It checks the folder with `siteKind`, then replaces `ws` and `home`, so the page tools above work there; a folder of other files is refused and the open one stays. It writes nothing: `use_layout` or `new_page` make the folder when they first write. Only the plugin gets it: the extension and `claude mcp add --dir` open their folder at once and keep to it, and the editor's runs never get `folders`.
 
+## The Claude plugin
+
+Anthropic's directory lists a local MCP server only inside a plugin, which runs in Claude Code and in Cowork on the person's computer. `npm run build:plugin` (`scripts/build-plugin.ts`) writes the plugin folder to `dist/plugin/`:
+- the same server bundle as the extension (`bundleServer` in `build-mcpb.ts`: readable, not minified, since the directory's scan holds code it can't read) and `library/`;
+- `.claude-plugin/plugin.json`: name, version from `package.json`, author Eonity, the directory's listing fields (`icon`, `documentationUrl`, `supportUrl`, `privacyPolicyUrl`), and one setting, `page_folder`, whose default is empty: Cowork never asks, and leaves out a server whose setting has no default;
+- `.mcp.json`: `node ${CLAUDE_PLUGIN_ROOT}/server/index.js --lazy --dir ${user_config.page_folder}` (see *No folder yet* above);
+- `package.json` and `package-lock.json` with only Playwright, taken from the repository's lockfile: Claude Code installs exact registry versions from them, without scripts, when the plugin is installed;
+- `README.md` (the listing, with the privacy policy) and anything else in `plugin/`, plus `LICENSE`, `NOTICE` and the icon.
+
+The directory follows the `claude-plugin` branch, which holds the built folder at its root: the release workflow commits it there for each published release, next to the extension. `test/plugin.test.ts` checks the directory's file rules (under 512 files, nothing over 5 MiB, only the server over 256 KiB, no symbolic links or `bin/`), the lockfile, and that the bundled server starts with no folder open and edits the one it opens. `claude plugin validate dist/plugin` runs Claude Code's own checks. To try it, `claude --plugin-dir dist/plugin` (loaded in place, so Playwright isn't installed: screenshots need a marketplace install).
+
 Code the server imports must have no module-level side effects. Playwright is imported lazily (`launchChromium`), so the server works without Chromium. `test/mcpb.test.ts` builds the bundle and drives it over stdio from another folder.
 
 ## Testing AI code without a model
