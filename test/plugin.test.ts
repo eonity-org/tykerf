@@ -7,7 +7,9 @@ import { join, relative } from 'node:path';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StdioClientTransport, getDefaultEnvironment } from '@modelcontextprotocol/sdk/client/stdio.js';
 import { describe, expect, it, vi } from 'vitest';
+import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
 import { buildPlugin } from '../scripts/build-plugin.js';
+import { createTykerfServer } from '../src/mcp/tools.js';
 
 vi.setConfig({ testTimeout: 60_000 });
 
@@ -27,6 +29,21 @@ describe('the Claude plugin', async () => {
     const readme = readFileSync(join(out, 'README.md'), 'utf8');
     expect(readme.replace(/```[\s\S]*?```/g, '').split(/\s+/).length).toBeGreaterThan(40);
     for (const part of ['data collection', 'stored', 'third parties', 'Retention', 'Contact']) expect(readme.toLowerCase()).toContain(part.toLowerCase().split(' ')[0]);
+  });
+
+  it('has a skill that names only tools the server has', async () => {
+    const skill = readFileSync(join(out, 'skills', 'tykerf', 'SKILL.md'), 'utf8');
+    const front = /^---\nname: (.+)\ndescription: (.+)\n---\n/.exec(skill);
+    expect(front?.[1]).toBe('tykerf'); // the folder's name
+    expect(front?.[2]).toMatch(/^Build or change a web page.*Not for pages inside an application's codebase/);
+    const [a, b] = InMemoryTransport.createLinkedPair();
+    const client = new Client({ name: 'test', version: '0' });
+    await Promise.all([createTykerfServer(null, { folders: { defaultDir: tmpdir() } }).connect(a), client.connect(b)]);
+    const tools = new Set((await client.listTools()).tools.map((t) => t.name));
+    await client.close();
+    const named = [...skill.matchAll(/`([a-z][a-z_]*)`/g)].map((m) => m[1]);
+    expect(named.length).toBeGreaterThan(15);
+    expect(named.filter((n) => !tools.has(n))).toEqual([]);
   });
 
   it('keeps to the directory\'s file rules', () => {
