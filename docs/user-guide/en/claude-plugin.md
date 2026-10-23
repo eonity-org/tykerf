@@ -48,7 +48,7 @@ npm run build:plugin        # makes the plugin folder, dist/plugin
 The plugin starts with no folder open. Before it changes anything, Claude opens one and tells you which:
 
 - **The folder you name:** "make a landing page for my bakery in ~/Sites/bakery". A path may start with `~`, your home folder.
-- **Otherwise, the default folder:** the plugin's **Default page folder** setting in Claude Code (`/config`), else `TYKERF_DIR`, else `~/TYKERF`. `TYKERF_DIR` comes from the environment or from a `.env` file in the folder where you start Claude Code (`TYKERF_DIR=/Users/you/Sites`), so each project folder can have its own. Cowork doesn't ask for settings, so there it is `~/TYKERF` unless `TYKERF_DIR` is set.
+- **Otherwise, the default folder:** `TYKERF_DIR`, else `~/TYKERF`. `TYKERF_DIR` comes from the environment or from a `.env` file in the folder where you start Claude Code (`TYKERF_DIR=/Users/you/Sites`), so each project folder can have its own. In Cowork it is `~/TYKERF` unless `TYKERF_DIR` is set in its environment.
 
 What Claude finds there decides what happens:
 

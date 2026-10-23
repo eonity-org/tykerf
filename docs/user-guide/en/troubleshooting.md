@@ -55,6 +55,20 @@ Run `npx playwright install chromium` once. Without it Kaity still edits, but ca
 **Kaity's text or facts are wrong.**
 She writes plausible text when she has none to go on. Give her the real facts in the request, or fix the words yourself by double-clicking them. See [Getting good results from Kaity](asking-kaity.md).
 
+## The Claude plugin
+
+**The TYKERF tools don't appear in Claude Code or Cowork.**
+The plugin's server is a Node.js program: install [Node.js](https://nodejs.org) 20 or later, so that `node` works in a terminal, then restart the app. In Cowork, start the task on your computer: a task in the cloud doesn't run plugins' servers, and neither does chat on claude.ai. In Claude Code, `/mcp` shows whether `tykerf` is connected.
+
+**Claude Code says *1 userConfig option not yet set* after installing the plugin.**
+Version 0.2.0 asked for a default page folder. Update the plugin (`claude plugin update tykerf@eonity.org`, or *Check for updates* in Cowork): later versions ask for nothing.
+
+**Claude opens `~/TYKERF`, but your pages are elsewhere.**
+Name the folder in your request ("in ~/Sites/bakery"), or set `TYKERF_DIR` to it: in your environment, or in a `.env` file in the folder where you start Claude Code. See [the folder Claude works in](claude-plugin.md#the-folder-claude-works-in).
+
+**Claude says *screenshots and checks need Chromium*.**
+Run `npx playwright install chromium` once. Everything else works without it.
+
 ## Editing
 
 **Links and buttons don't react on the page.**

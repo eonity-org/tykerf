@@ -101,7 +101,7 @@ describe('the default folder of server.ts --lazy', () => {
     expect((await withDir.call('get_layout')).text).toContain(`the default folder, ${given})`);
     expect((await withDir.call('open_folder')).text).toMatch(new RegExp(`^ok: ${given} is open`));
 
-    // a page_folder setting left empty arrives as "" or unfilled
+    // a client's setting left empty arrives as "" or unfilled (the extension's page_folder, say)
     for (const dir of ['', '${user_config.page_folder}']) expect((await (await stdio(['--lazy', '--dir', dir], { TYKERF_DIR: env })).call('get_layout')).text).toContain(`the default folder, ${env})`);
     expect((await (await stdio(['--lazy'])).call('get_layout')).text).toContain(`the default folder, ${join(homedir(), 'TYKERF')})`);
   });

@@ -125,7 +125,9 @@ TYKERF_PUBLIC_URL=https://cities.example.org  # the site's address: allowed as a
 
 ## 3. Connect the MCP server to an AI client
 
-The MCP server speaks stdio, so the client starts it on your machine. Use absolute paths.
+For Claude Code and Cowork, the simplest way is the TYKERF plugin from TYKERF's own marketplace (`/plugin marketplace add eonity-org/tykerf`, then `/plugin install tykerf@eonity.org`; see [the guide](docs/user-guide/en/claude-plugin.md)). For Claude Desktop, the extension `tykerf.mcpb` from the [latest release](https://github.com/eonity-org/tykerf/releases/latest) ([guide](docs/user-guide/en/claude-desktop.md)).
+
+To connect the server by hand: it speaks stdio, so the client starts it on your machine. Use absolute paths.
 
 Claude Code:
 
@@ -150,10 +152,28 @@ The `screenshot` and `evaluate` tools need Chromium (`npx playwright install chr
 
 ## 4. Release a new version of TYKERF (maintainers)
 
-1. `npm test && npm run typecheck`, and try the editor on `examples/widgets`.
-2. Update `CHANGELOG.md` and the version in `package.json` (and the version the MCP server reports, in `createTykerfServer` in `src/mcp/tools.ts`).
-3. If the notation changed, check that `docs/slicing-notation.md` matches.
-4. Commit, check that CI passes, tag `v<version>`, push the tag, and create a GitHub release with the changelog section as its notes. The release workflow then builds `tykerf.mcpb` and attaches it to the release.
+A release ships three things at once: the editor and CLI (people install them from the repository), the Claude Desktop extension (`tykerf.mcpb`), and the Claude plugin, which people get from TYKERF's own marketplace and, once it is listed, from Anthropic's directory.
+
+1. **Check.** `npm test && npm run typecheck`, and try the editor on `examples/widgets`. If the notation changed, check that `docs/slicing-notation.md` matches.
+2. **Try the plugin** if the MCP tools, the skill or `plugin/` changed: `npm run build:plugin`, `claude plugin validate dist/plugin`, then a page with a screenshot in Claude Code (`claude --plugin-dir dist/plugin`) and in Cowork (zip `dist/plugin`, *Customize → Plugins → Add → Upload plugin*, a new local task).
+3. **Raise the version** everywhere it appears:
+   - `npm version <version> --no-git-tag-version` (`package.json` and `package-lock.json`; the plugin and the extension take theirs from it);
+   - the version the MCP server reports (`createTykerfServer` in `src/mcp/tools.ts`; a test checks it matches) and the editor's client (`openTools` in `src/editor/tools-client.ts`);
+   - `CHANGELOG.md`: turn *Unreleased* into `## <version> (<date>): <what it brings>`.
+
+   Raise it even when only the plugin changed: people's Claude apps update the plugin only when its version goes up.
+4. **Merge** `develop` into `main` with a pull request (*Create a merge commit*), once CI passes.
+5. **Release.** Tag `v<version>` on `main` and create a GitHub release with the changelog section as its notes:
+
+   ```bash
+   gh release create v<version> --target main --title "TYKERF <version>" \
+     --notes-file <(sed -n '/^## <version>/,/^## /p' CHANGELOG.md | sed '1d;$d')
+   ```
+
+   The release workflow attaches `tykerf.mcpb` to the release and commits the built plugin to the `claude-plugin` branch.
+6. **Check what went out:** the release has `tykerf.mcpb`; the `claude-plugin` branch has a new commit, "TYKERF plugin v<version>", whose `.claude-plugin/plugin.json` says the new version; `claude plugin validate` passes on it (`git archive origin/claude-plugin | tar -x -C /tmp/plugin`).
+
+From there the plugin reaches people by itself: the marketplace points at the `claude-plugin` branch, and Anthropic's directory, once it lists TYKERF, picks up the new commit through its GitHub webhook, checks it, and publishes it (a version a reviewer holds waits in the developer portal at claude.ai/directory/manage).
 
 TYKERF is not published to npm; people install it from the repository.
 

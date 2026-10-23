@@ -58,7 +58,7 @@ TYKERF edits the page folder in place. Every change is recorded in its history, 
 
 ## MCP server
 
-The same moves, for any MCP client. For Claude Desktop there is a one-click extension: `npm run build:mcpb`, then open `dist/tykerf.mcpb` ([guide](docs/user-guide/en/claude-desktop.md)). For Claude Code and Cowork there is a plugin: `npm run build:plugin` ([guide](docs/user-guide/en/claude-plugin.md)). For other clients:
+The same moves, for any MCP client. For Claude Code and Cowork there is a plugin, in TYKERF's own marketplace: `/plugin marketplace add eonity-org/tykerf`, then `/plugin install tykerf@eonity.org` ([guide](docs/user-guide/en/claude-plugin.md)). For Claude Desktop there is a one-click extension: open `tykerf.mcpb` from the [latest release](https://github.com/eonity-org/tykerf/releases/latest) ([guide](docs/user-guide/en/claude-desktop.md)). For other clients:
 
 ```bash
 claude mcp add tykerf -- /path/to/tykerf/node_modules/.bin/tsx /path/to/tykerf/src/mcp/server.ts --dir /path/to/page
@@ -93,7 +93,7 @@ TYKERF borrows the slicing floorplans of IC design: Otten (1982) for slicing str
 
 ## License
 
-TYKERF is licensed under the [Apache License 2.0](LICENSE). It bundles the IBM Plex typefaces under the SIL Open Font License 1.1 (see [NOTICE](NOTICE)). "TYKERF", "TYDAL" and "Eonity" and their logos are trademarks of Eonity (see [NOTICE](NOTICE) and [BRAND.md](BRAND.md)).
+TYKERF is licensed under the [Apache License 2.0](LICENSE). It bundles the IBM Plex typefaces under the SIL Open Font License 1.1 (see [NOTICE](NOTICE)). "TYKERF", "TYDAL" and "Eonity" and their logos are trademarks of Eonity (see [NOTICE](NOTICE) and [BRAND.md](BRAND.md)). 
 
 <!-- tykerf:footer -->
 ---
