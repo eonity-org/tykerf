@@ -8,7 +8,7 @@ import { readFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import type { Browser } from 'playwright';
-import { launchChromium } from './screenshot.js';
+import { type PageFiles, launchChromium, openPage } from './screenshot.js';
 
 export const DEFAULT_WIDTHS = [375, 768, 1440];
 export const VIEWPORT_H = 900;
@@ -130,15 +130,19 @@ function measure(vh: number) {
 
 export async function evaluateHTML(
   html: string,
-  opts: { widths?: number[]; shotsDir?: string; baseURL?: string; browser?: Browser } = {},
+  opts: { widths?: number[]; shotsDir?: string; baseURL?: string; browser?: Browser; files?: PageFiles | null } = {},
 ): Promise<Report> {
   const browser = opts.browser ?? (await launchChromium());
   try {
     const widths: WidthReport[] = [];
     for (const width of opts.widths ?? DEFAULT_WIDTHS) {
       const page = await browser.newPage({ viewport: { width, height: VIEWPORT_H } });
-      if (opts.baseURL) await page.goto(opts.baseURL);
-      await page.setContent(html, { waitUntil: 'load' });
+      // with the page's files (the MCP tools), its pictures and fonts load and are measured as they are
+      if (opts.files) await openPage(page, html, opts.files);
+      else {
+        if (opts.baseURL) await page.goto(opts.baseURL);
+        await page.setContent(html, { waitUntil: 'load' });
+      }
       // tsx/esbuild may wrap named functions in __name(); define it in the page.
       await page.evaluate('window.__name = (f) => f');
       const m = await page.evaluate(measure, VIEWPORT_H);

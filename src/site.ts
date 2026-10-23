@@ -21,13 +21,29 @@ const isPage = (dir: string) => existsSync(join(dir, 'layout.slice'));
 const entries = (dir: string) => (existsSync(dir) ? readdirSync(dir) : []);
 
 /**
- * What a folder is: a page (it has a layout.slice), a site (it is empty or new, or its subfolders
- * are pages), or neither: then it holds other files and TYKERF won't write into it.
+ * Whether a folder is a site: empty or new, or a folder of pages. Besides its pages it may hold files (head.html,
+ * site.json, a README) and folders that are TYKERF's own (assets/, out/) or empty. Any other folder means it holds
+ * other things that happen to include a page, such as a home folder with Desktop and Documents: not a site.
+ */
+function isSite(dir: string): boolean {
+  let pages = 0;
+  for (const f of entries(dir).filter((f) => !f.startsWith('.'))) {
+    const path = join(dir, f);
+    if (!statSync(path).isDirectory()) continue;
+    if (isPage(path)) pages++;
+    else if (!RESERVED.has(f) && entries(path).some((g) => !g.startsWith('.'))) return false;
+  }
+  return pages > 0 || !entries(dir).some((f) => !f.startsWith('.'));
+}
+
+/**
+ * What a folder is: a page (it has a layout.slice), a site (see isSite), or neither: then it holds other
+ * files and TYKERF won't write into it.
  */
 export function siteKind(dir: string): 'page' | 'site' {
   if (isPage(dir)) return 'page';
-  const files = entries(dir).filter((f) => !f.startsWith('.'));
-  if (!files.length || sitePages(dir).length) return 'site';
+  if (isSite(dir)) return 'site';
+  if (sitePages(dir).length) throw new Error(`${dir} holds other folders besides its pages, so it isn't a site, and TYKERF won't start a page or a site there; open one of its pages, or a folder of pages only`);
   throw new Error(`${dir} holds other files and no pages, so TYKERF won't start a page or a site there`);
 }
 
@@ -325,7 +341,7 @@ export function siteHead(dir: string): string {
 }
 
 /** What a page of this site needs to render with the site's shared head. */
-export const siteLink = (dir: string): SiteLink => ({ head: () => siteHead(dir), pages: () => sitePages(dir).length, pageNames: () => sitePages(dir), files: () => (existsSync(join(dir, 'assets')) ? readdirSync(join(dir, 'assets')) : []), icon: () => iconLink(dir), setHead: (html, label) => setSiteHead(dir, html, label) });
+export const siteLink = (dir: string): SiteLink => ({ head: () => siteHead(dir), pages: () => sitePages(dir).length, pageNames: () => sitePages(dir), files: () => (existsSync(join(dir, 'assets')) ? readdirSync(join(dir, 'assets')) : []), asset: (f) => siteStore(dir).readBytes(`assets/${f}`), icon: () => iconLink(dir), setHead: (html, label) => setSiteHead(dir, html, label) });
 
 /** A page of the site, with the site's shared head. */
 export const pageWorkspace = (dir: string, name: string) => new Workspace(join(dir, name), { site: siteLink(dir) });
@@ -334,7 +350,8 @@ export const pageWorkspace = (dir: string, name: string) => new Workspace(join(d
 export function siteOf(pageDir: string): SiteLink | null {
   const parent = dirname(pageDir);
   try {
-    return sitePages(parent).includes(basename(pageDir)) ? siteLink(parent) : null;
+    // a page in a folder of other things (a home folder) stands on its own
+    return sitePages(parent).includes(basename(pageDir)) && isSite(parent) ? siteLink(parent) : null;
   } catch {
     return null;
   }

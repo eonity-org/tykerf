@@ -13,6 +13,9 @@ The problems people meet most often, what TYKERF says, and what to do. Most mess
 **`npm start` stops with *… holds other files and no pages, so TYKERF won't start a page or a site there*.**
 TYKERF opens a folder as a **page** (it has a `layout.slice`) or a **site** (empty, new, or its subfolders are pages). A folder with other files in it is neither, so TYKERF won't guess. Start it on a new folder, or on the site's folder rather than a folder inside a page.
 
+**It stops with *… holds other folders besides its pages, so it isn't a site*.**
+Besides its pages, a site holds only files (its theme, a README) and its own `assets/` and `out/` folders. A folder that also holds other folders, such as your home folder with *Desktop* and *Documents*, isn't a site, even if a page sits in it: open the page itself, or move your pages into a folder of their own (`~/TYKERF`, say).
+
 **The port is already in use.**
 Another TYKERF (or another program) is using 4400. Stop it, or start this one with `--port 4500`.
 
@@ -84,7 +87,7 @@ Search the [issues](https://github.com/eonity-org/tykerf/issues) or open one. Sa
 <!-- tykerf:footer -->
 ---
 
-← [TYKERF in Claude Desktop](claude-desktop.md) · [User guide index](README.md)
+← [TYKERF in Claude Code and Cowork](claude-plugin.md) · [User guide index](README.md)
 
 [TYKERF](../../../README.md) · [Documentation](../../README.md) · [GitHub](https://github.com/eonity-org/tykerf) · Apache-2.0 · an [eonity](https://eonity.org) project
 <!-- /tykerf:footer -->

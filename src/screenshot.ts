@@ -2,7 +2,9 @@
 // spacing, alignment, text spilling out) instead of only reading metrics. The block gets a dashed
 // frame drawn on top (it changes no layout) and a little of its surroundings for context.
 
-import type { Browser } from 'playwright';
+import type { Browser, Page } from 'playwright';
+import { ASSET_TYPES } from './assets.js';
+import type { Workspace } from './workspace.js';
 
 let browser: Promise<Browser> | null = null;
 const getBrowser = () => (browser ??= launchChromium());
@@ -31,27 +33,77 @@ export async function closeScreenshots() {
   browser = null;
 }
 
+/**
+ * The files a rendered page asks for, by address, as the editor serves them: the page at `base`, its own files at
+ * `<base>assets/`, and in a site the site's files (its theme's fonts) at `/assets/`.
+ */
+export interface PageFiles {
+  base: string;
+  read(path: string): Uint8Array | null;
+}
+
+// a stand-in address: Chromium never reaches the network for it, every request is answered from the page's files
+const ORIGIN = 'http://tykerf.page';
+
+/**
+ * Show `html` in `page`. With `files`, at a stand-in address that serves them, so the page's pictures and fonts load,
+ * as in the editor (a page opened on about:blank can't resolve assets/<file>); without, as it is.
+ */
+export async function openPage(page: Page, html: string, files?: PageFiles | null) {
+  if (!files) {
+    await page.setContent(html, { waitUntil: 'load' });
+    return;
+  }
+  await page.route(`${ORIGIN}/**`, (route) => {
+    const path = decodeURIComponent(new URL(route.request().url()).pathname);
+    if (path === files.base) return route.fulfill({ contentType: 'text/html; charset=utf-8', body: html });
+    let bytes: Uint8Array | null = null;
+    try {
+      bytes = files.read(path);
+    } catch {} // a path the store refuses (..)
+    if (!bytes) return route.fulfill({ status: 404, body: 'not found' });
+    return route.fulfill({ contentType: ASSET_TYPES[path.split('.').pop()!.toLowerCase()] ?? 'application/octet-stream', body: Buffer.from(bytes) });
+  });
+  await page.goto(ORIGIN + files.base, { waitUntil: 'load' });
+}
+
+/** A workspace's files for openPage: a page of a site sits one folder down, below the site's /assets/; a lone page at the root. */
+export function pageFiles(ws: Workspace): PageFiles {
+  const base = ws.site ? '/page/' : '/';
+  return {
+    base,
+    read: (path) => {
+      if (path.startsWith(`${base}assets/`)) return ws.store.readBytes(path.slice(base.length));
+      if (path.startsWith('/assets/')) return ws.site?.asset?.(path.slice('/assets/'.length)) ?? null;
+      return null;
+    },
+  };
+}
+
 export interface Shot {
   png: Buffer;
   width: number; // viewport width
   box: { x: number; y: number; w: number; h: number } | null; // the block, in page px (null = whole page)
   cropped: boolean; // the picture was cut at maxHeight
+  from: number; // where it starts, in px from the top of the whole picture
+  total: number; // the whole picture's height (block plus context, or the page)
 }
 
 /**
  * Screenshot `html` at viewport `width`. With `id`, the picture is that block plus `context` px
- * around it (framed); otherwise the whole page. Heights over `maxHeight` are cut.
+ * around it (framed); otherwise the whole page. Heights over `maxHeight` are cut; `from` starts that
+ * many px down the picture, to see the rest of a long one.
  */
-export async function screenshot(html: string, opts: { width?: number; id?: string | null; context?: number; maxHeight?: number } = {}): Promise<Shot> {
+export async function screenshot(html: string, opts: { width?: number; id?: string | null; context?: number; maxHeight?: number; from?: number; files?: PageFiles | null } = {}): Promise<Shot> {
   const width = opts.width ?? 1440, context = opts.context ?? 24, maxHeight = opts.maxHeight ?? 2000;
   const page = await (await getBrowser()).newPage({ viewport: { width, height: 900 } });
   try {
-    await page.setContent(html, { waitUntil: 'load' });
+    await openPage(page, html, opts.files);
     await page.addStyleTag({ content: '*,*::before,*::after{animation:none!important;transition:none!important;caret-color:transparent!important}' });
     await page.evaluate(() => document.fonts.ready);
     const docH = await page.evaluate(() => document.documentElement.scrollHeight);
     let box: Shot['box'] = null;
-    let clip = { x: 0, y: 0, width, height: Math.min(docH, maxHeight) };
+    let clip = { x: 0, y: 0, width, height: docH }; // cut at maxHeight below, which the reply then says
     if (opts.id) {
       box = await page.evaluate((id) => {
         const el = document.querySelector(`[data-sw="${CSS.escape(id)}"]`);
@@ -69,10 +121,14 @@ export async function screenshot(html: string, opts: { width?: number; id?: stri
       const x = Math.max(0, box.x - context), y = Math.max(0, box.y - context);
       clip = { x, y, width: Math.min(width, box.x + box.w + context) - x, height: Math.min(docH, box.y + box.h + context) - y };
     }
+    const total = Math.round(clip.height), from = Math.max(0, opts.from ?? 0);
+    if (from >= total) throw new Error(`the picture is ${total} px tall, so there is nothing from ${from} px on`);
+    clip.y += from;
+    clip.height -= from;
     const cropped = clip.height > maxHeight;
     clip.height = Math.min(clip.height, maxHeight);
     const png = await page.screenshot({ clip, fullPage: true });
-    return { png, width, box, cropped };
+    return { png, width, box, cropped, from, total };
   } finally {
     await page.close();
   }

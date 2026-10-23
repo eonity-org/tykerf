@@ -49,7 +49,7 @@ TYKERF edits the page folder in place. Every change is recorded in its history, 
 
 | | |
 |---|---|
-| [User guide](docs/user-guide/README.md) | [Why TYKERF](docs/user-guide/en/why-tykerf.md), [getting started](docs/user-guide/en/getting-started.md) (with the AI, from a website, from a layout), [editing a page](docs/user-guide/en/editor.md), [layouts, components and the theme](docs/user-guide/en/layouts.md), [working with the AI](docs/user-guide/en/ai.md) (including Claude Desktop and other MCP clients), [getting good results from Kaity](docs/user-guide/en/asking-kaity.md), [copying a website](docs/user-guide/en/importing.md), [your site](docs/user-guide/en/sites.md) (the site manager), [publishing and serving](docs/user-guide/en/publishing.md), [exporting](docs/user-guide/en/exporting.md), [TYKERF in Claude Desktop](docs/user-guide/en/claude-desktop.md), [pages and the notation](docs/user-guide/en/workspaces.md), [when something goes wrong](docs/user-guide/en/troubleshooting.md) |
+| [User guide](docs/user-guide/README.md) | [Why TYKERF](docs/user-guide/en/why-tykerf.md), [getting started](docs/user-guide/en/getting-started.md) (with the AI, from a website, from a layout), [editing a page](docs/user-guide/en/editor.md), [layouts, components and the theme](docs/user-guide/en/layouts.md), [working with the AI](docs/user-guide/en/ai.md) (including Claude Desktop and other MCP clients), [getting good results from Kaity](docs/user-guide/en/asking-kaity.md), [copying a website](docs/user-guide/en/importing.md), [your site](docs/user-guide/en/sites.md) (the site manager), [publishing and serving](docs/user-guide/en/publishing.md), [exporting](docs/user-guide/en/exporting.md), [TYKERF in Claude Desktop](docs/user-guide/en/claude-desktop.md), [in Claude Code and Cowork](docs/user-guide/en/claude-plugin.md), [pages and the notation](docs/user-guide/en/workspaces.md), [when something goes wrong](docs/user-guide/en/troubleshooting.md) |
 | [Developer guide](docs/developer-guide/README.md) | [Setup and tests](docs/developer-guide/en/setup.md), [architecture](docs/developer-guide/en/architecture.md), [following a change](docs/developer-guide/en/following-a-change.md), [the editor](docs/developer-guide/en/editor.md), [the AI and MCP](docs/developer-guide/en/ai-and-mcp.md), [extending TYKERF](docs/developer-guide/en/extending.md), [building on TYKERF](docs/developer-guide/en/building-on-tykerf.md), [writing the docs](docs/developer-guide/en/documentation.md) |
 | [DEPLOY.md](DEPLOY.md) | Publishing sites, running the editor for others, serving a site with sign-in, connecting MCP clients |
 | [ROADMAP.md](ROADMAP.md) | What's done and what's next: Tydal storage, a hosted MCP server, a Chrome extension |
@@ -58,7 +58,7 @@ TYKERF edits the page folder in place. Every change is recorded in its history, 
 
 ## MCP server
 
-The same moves, for any MCP client. For Claude Desktop there is a one-click extension: `npm run build:mcpb`, then open `dist/tykerf.mcpb` ([guide](docs/user-guide/en/claude-desktop.md)). For other clients:
+The same moves, for any MCP client. For Claude Desktop there is a one-click extension: `npm run build:mcpb`, then open `dist/tykerf.mcpb` ([guide](docs/user-guide/en/claude-desktop.md)). For Claude Code and Cowork there is a plugin: `npm run build:plugin` ([guide](docs/user-guide/en/claude-plugin.md)). For other clients:
 
 ```bash
 claude mcp add tykerf -- /path/to/tykerf/node_modules/.bin/tsx /path/to/tykerf/src/mcp/server.ts --dir /path/to/page

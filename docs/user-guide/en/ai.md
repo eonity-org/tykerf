@@ -81,7 +81,7 @@ A hosted TYKERF server will use these runners with its own key; see the [roadmap
 
 TYKERF's moves are also an MCP server, so any MCP client can edit a TYKERF page directly. The client starts the server on your computer. Use absolute paths.
 
-**Claude Code:**
+**Claude Code and Cowork:** install the TYKERF plugin (see [TYKERF in Claude Code and Cowork](claude-plugin.md)). Or add the server by hand in Claude Code:
 
 ```bash
 claude mcp add tykerf -- /path/to/tykerf/node_modules/.bin/tsx /path/to/tykerf/src/mcp/server.ts --dir /path/to/page
@@ -109,6 +109,7 @@ Restart the client after editing the config. The tools, by what they do:
 | Change a box | `set_content`, `edit_content` (one exact piece of the code), `add_picture` (an SVG it draws, or an attached picture) |
 | Library and theme | `list_layouts`, `use_layout`, `list_components`, `use_component`, `use_page`, `list_themes`, `use_theme`, `get_theme`, `set_theme` |
 | Pages of a site | `list_pages`, `open_page`, `new_page` |
+| Open a folder (the plugin only) | `open_folder` (a page, a site or an empty folder; without a path, the default folder). Only the plugin starts with no folder open and offers it |
 | Stay inside one block | `focus`, `unfocus` |
 | Check the result | `screenshot`, `evaluate` (layout checks at several widths), `check_page` (what is left unfinished), `estimate`, `optimize` |
 | History | `undo`, `redo`, `render` |

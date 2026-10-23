@@ -15,10 +15,11 @@ Never edit `layout.slice`, `boxes/` or `head.html` with file tools or shell comm
 
 ## The steps
 
-1. **Open a folder.** If the person named one, `open_folder` with that path. Otherwise `open_folder` without a path, and tell them which folder opened (the default), so they can name another before anything is written. A folder that holds other files is refused: ask for another.
+1. **Open a folder.** If the person named one, `open_folder` with that path. Otherwise `open_folder` without a path (the default folder). Then, before any other tool, write one line saying which folder is open, so the person can stop you and name another before anything is written. A folder that holds other files is refused: ask for another.
 2. **Start or read the page.**
    - An empty folder: for one page, pick a layout and a theme (`list_layouts`, `list_themes`) and `use_layout`; for several pages, `new_page` for each.
    - An existing page: `get_layout` first. In a site, `list_pages` and `open_page`.
+   - Read a box's code with `get_content` and its name, when you are about to change that box. Without a name it returns every box at once, which is long and rarely needed: `get_layout` is the overview.
 3. **Focus before you change.** When the request is about one block ("the header", "the pricing"), `focus` on it, so nothing outside it can change. `unfocus` when you move on to another part.
 4. **Change it.**
    - A new section: start from a component (`list_components`, `use_component`), then rewrite its text and pictures for this page.
@@ -26,8 +27,9 @@ Never edit `layout.slice`, `boxes/` or `head.html` with file tools or shell comm
    - Colours, fonts and spacing for the whole page: `set_theme` or `use_theme`.
    - Narrow screens: `add_rule` (flip a row into a column, hide a box), not a different base layout.
    - Pictures: draw an SVG or place one the person attached with `add_picture`. You can't download pictures; never make up a file name.
+   - Links to a section of the page: the block's element is `#sw-<name>` (the block "faq" is `#sw-faq`), not `#faq`.
 5. **Ask before replacing a page.** `use_layout` and `use_page` replace a whole existing page. Undo brings it back, but say what will happen and ask first.
-6. **Look at it.** `screenshot` at 1440 and 375 px wide, and fix what looks wrong: spacing, alignment, contrast, text that spills out.
+6. **Look at it.** `screenshot` at 1440 and 375 px wide, and fix what looks wrong: spacing, alignment, contrast, text that spills out. A picture over 2000 px tall is cut, and the reply says where to continue (from: 2000): look at the rest before you call the page done.
 7. **Finish.** `check_page` lists placeholder text and pictures left from layouts and components, and links that go nowhere: fix them, or tell the person what is still needed from them.
 
 ## When you answer

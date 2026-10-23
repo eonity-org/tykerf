@@ -1,7 +1,8 @@
 // The Claude plugin: a folder that passes the directory's file rules, whose bundled server starts on its own (no tsx,
-// no repository) with no folder open, and edits the folder Claude opens.
+// no repository, no install) with no folder open, edits the folder Claude opens, and takes screenshots with the
+// Playwright it ships.
 
-import { cpSync, lstatSync, mkdtempSync, readFileSync, readdirSync } from 'node:fs';
+import { cpSync, existsSync, lstatSync, mkdtempSync, readFileSync, readdirSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, relative } from 'node:path';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
@@ -51,18 +52,26 @@ describe('the Claude plugin', async () => {
     expect(all.length).toBeLessThan(512);
     expect(all.filter((f) => /(^|\/)(\.DS_Store|Thumbs\.db|desktop\.ini)$/.test(f) || f.startsWith('bin/'))).toEqual([]);
     expect(all.filter((f) => lstatSync(join(out, f)).isSymbolicLink())).toEqual([]);
-    // under 5 MiB each; only the bundled server is over 256 KiB (a reviewer reads it), and it is not minified
+    // under 5 MiB each; only the bundled server (not minified) and Playwright's two bundles are over 256 KiB: a reviewer reads them
     expect(all.filter((f) => lstatSync(join(out, f)).size > 5 * 1024 * 1024)).toEqual([]);
-    expect(all.filter((f) => lstatSync(join(out, f)).size > 256 * 1024 && !/\.(png|woff2)$/.test(f))).toEqual(['server/index.js']);
+    expect(all.filter((f) => lstatSync(join(out, f)).size > 256 * 1024 && !/\.(png|woff2)$/.test(f)).sort()).toEqual(['node_modules/playwright-core/lib/coreBundle.js', 'node_modules/playwright-core/lib/utilsBundle.js', 'server/index.js']);
+    // only text, pictures and fonts: no binaries, no scripts for a shell, no skills other than the plugin's own
+    expect(all.filter((f) => !/\.(js|mjs|json|md|txt|html|svg|png|woff2)$|(^|\/)(LICENSE|NOTICE)$|\.LICENSE$/.test(f))).toEqual([]);
+    expect(all.filter((f) => f.endsWith('SKILL.md'))).toEqual(['skills/tykerf/SKILL.md']);
     expect(readFileSync(join(out, 'server/index.js'), 'utf8').split('\n').length).toBeGreaterThan(10_000);
   });
 
-  it('installs exactly the Playwright the repository uses, from registry packages only', () => {
-    const pkg = read(out, 'package.json'), lock = read(out, 'package-lock.json');
-    expect(lock.lockfileVersion).toBe(3);
-    expect(lock.packages[''].dependencies).toEqual(pkg.dependencies);
-    expect(pkg.dependencies.playwright).toBe(read('.', 'package-lock.json').packages['node_modules/playwright'].version);
-    for (const [k, v] of Object.entries(lock.packages).filter(([k]) => k)) expect(v, k).toMatchObject({ resolved: expect.stringMatching(/^https:\/\/registry\.npmjs\.org\//), integrity: expect.stringMatching(/^sha512-/) });
+  it('ships the Playwright the repository uses, trimmed to what screenshots need, and installs nothing', () => {
+    // Cowork doesn't install a plugin's packages, so Playwright comes along; no lockfile, so Claude Code installs nothing either
+    expect(read(out, 'package.json')).toEqual({ name: 'tykerf-plugin', version: read('.', 'package.json').version, private: true, license: 'Apache-2.0', type: 'module' });
+    expect(existsSync(join(out, 'package-lock.json'))).toBe(false);
+    for (const p of ['playwright', 'playwright-core']) {
+      expect(read(out, `node_modules/${p}/package.json`).version).toBe(read('.', 'package-lock.json').packages[`node_modules/${p}`].version);
+      for (const f of ['LICENSE', 'NOTICE', 'ThirdPartyNotices.txt']) expect(existsSync(join(out, 'node_modules', p, f)), `${p}/${f}`).toBe(true);
+    }
+    const core = files(join(out, 'node_modules/playwright-core'));
+    expect(core.filter((f) => /^(bin|types|lib\/(vite|tools|entry))\/|xdg-open|webp_codec|\.d\.ts$/.test(f))).toEqual([]);
+    expect(files(join(out, 'node_modules/playwright')).sort()).toEqual(['LICENSE', 'NOTICE', 'ThirdPartyNotices.txt', 'index.js', 'index.mjs', 'package.json']);
   });
 
   it('starts with no folder open, and edits the folder Claude opens', async () => {
@@ -82,6 +91,11 @@ describe('the Claude plugin', async () => {
       expect((await call('open_folder')).text).toMatch(new RegExp(`^ok: ${page} is open, a page`));
       expect(await call('set_content', { id: 'title', html: '<h1>from the plugin</h1>' })).toMatchObject({ error: false });
       expect(readFileSync(join(page, 'boxes', 'title.html'), 'utf8')).toContain('from the plugin');
+      // the shipped Playwright takes pictures and measures the page
+      const shot = (await client.callTool({ name: 'screenshot', arguments: { width: 375 } })) as { content: { type: string }[]; isError?: boolean };
+      expect(shot.isError).toBeFalsy();
+      expect(shot.content.map((c) => c.type)).toEqual(['image', 'text']);
+      expect(await call('evaluate', { widths: [375] })).toMatchObject({ error: false });
     } finally {
       await client.close();
     }

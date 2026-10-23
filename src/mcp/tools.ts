@@ -137,6 +137,7 @@ export function createTykerfServer(start: Workspace | null, opts: TykerfServerOp
       'The page theme (colours, fonts, radius, spacing, content width) is a set of CSS variables that every box uses: read it with get_theme ' +
       'and change it with set_theme, which restyles the whole page. Only allowed when the scope is the whole page (or there is no scope); ' +
       'inside a smaller block, change that block\'s own code instead, or ask the user to select the page block. ' +
+      'To link to a block on the page, use its element\'s id: #sw-<name> (the block "faq" is #sw-faq). ' +
       'Pictures are files in the page\'s assets/, written assets/<file> (no leading slash). You can\'t download pictures: draw one as SVG, or place one the user attached, with add_picture; when neither fits, say what picture is needed. Never make up a file name. ' +
       'For a new section (hero, features, FAQ, pricing, footer...), start from a ready-made component (list_components, use_component) ' +
       'and adapt its text and images, instead of writing the code from scratch. To make a page like another page of its site, use_page copies that page\'s blocks. ' +
@@ -525,7 +526,7 @@ export function createTykerfServer(start: Workspace | null, opts: TykerfServerOp
 
   server.registerTool('get_content', {
     title: 'Read box code', annotations: READ,
-    description: 'Get the HTML content of one leaf/overlay, or all contents if id is omitted.',
+    description: 'Get the HTML code of one box (leaf) or overlay: name the box you are about to change. Without id it returns every box\'s code at once, which is long and rarely needed (get_layout is the overview, and use_component already replies with the code it wrote).',
     inputSchema: { id: id.describe('box (leaf) reference or overlay id').optional() },
   }, guard(({ id: ref }: { id?: string }) => {
     if (!ref) return JSON.stringify(ws.contents(), null, 2);
@@ -663,26 +664,35 @@ export function createTykerfServer(start: Workspace | null, opts: TykerfServerOp
     inputSchema: { widths: z.array(z.number().int()).optional() },
   }, guard(async ({ widths }: { widths?: number[] }) => {
     const { evaluateHTML } = await import('../metrics.js');
-    const r = await evaluateHTML(ws.page(), { widths });
+    const { pageFiles } = await import('../screenshot.js');
+    const r = await evaluateHTML(ws.page(), { widths, files: pageFiles(ws) });
     return JSON.stringify(r, null, 2);
   }) as never);
 
   server.registerTool('screenshot', {
     title: 'Take a screenshot', annotations: LOOK,
     description: 'Look at the page: a PNG of one block (with a dashed red frame and a little context around it) or of the whole page, at a viewport width. ' +
-      'Defaults to the scope block if one is set. Use it to check how a change looks, not only the metrics.',
-    inputSchema: { id: id.optional().describe('block to look at; default: the scope, else the whole page'), width: z.number().int().min(320).max(2560).optional().describe('viewport width in px (default 1440; 375 = phone)') },
-  }, (async (raw: { id?: string; width?: number }) => {
+      'Defaults to the scope block if one is set. Use it to check how a change looks, not only the metrics. ' +
+      'A picture over 2000 px tall is cut; the reply says which from shows the rest.',
+    inputSchema: {
+      id: id.optional().describe('block to look at; default: the scope, else the whole page'),
+      width: z.number().int().min(320).max(2560).optional().describe('viewport width in px (default 1440; 375 = phone)'),
+      from: z.number().int().min(0).optional().describe('px down the picture to start at, to see the rest after a cut (default 0)'),
+    },
+  }, (async (raw: { id?: string; width?: number; from?: number }) => {
     try {
       const l = ws.load();
       const target = raw.id ? resolveRef(l, raw.id) : scope(l);
-      const { screenshot } = await import('../screenshot.js');
-      const shot = await screenshot(ws.page(), { width: raw.width ?? 1440, id: target && target !== l.root.id ? target : null });
+      const { pageFiles, screenshot } = await import('../screenshot.js');
+      const shot = await screenshot(ws.page(), { width: raw.width ?? 1440, id: target && target !== l.root.id ? target : null, from: raw.from, files: pageFiles(ws) });
       const what = shot.box ? `${pathOf(l, target!)}: ${Math.round(shot.box.w)}×${Math.round(shot.box.h)} px (dashed red frame), with 24 px around it` : 'the whole page';
+      const end = Math.min(shot.total, shot.from + 2000);
+      const part = shot.from || shot.cropped ? `; this is ${shot.from}–${end} px of ${shot.total}` : '';
+      const rest = shot.cropped ? `; for the rest, call screenshot again with from: ${end}` : '';
       return {
         content: [
           { type: 'image' as const, data: shot.png.toString('base64'), mimeType: 'image/png' },
-          { type: 'text' as const, text: `${what} at ${shot.width} px wide${shot.cropped ? '; cut at 2000 px tall, look at smaller blocks to see the rest' : ''}.` },
+          { type: 'text' as const, text: `${what} at ${shot.width} px wide${part}${rest}.` },
         ],
       };
     } catch (e) {

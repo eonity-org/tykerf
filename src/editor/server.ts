@@ -24,7 +24,8 @@ import { Workspace } from '../workspace.js';
 import { AI, type Runner, SITE_CHAT } from './ai.js';
 import { type DesignZip, designContext, designNote, readDesignZip } from './design-zip.js';
 import { createAuth, loginPage } from './auth.js';
-import { ASSET_TYPES, type PageHost, body, createPageHost, json } from './page.js';
+import { ASSET_TYPES } from '../assets.js';
+import { type PageHost, body, createPageHost, json } from './page.js';
 import { runnerFromEnv } from './runners/index.js';
 
 const here = dirname(fileURLToPath(import.meta.url));
