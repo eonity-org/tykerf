@@ -1,7 +1,7 @@
 {
   "name": "tykerf",
   "private": true,
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "TYKERF \u2014 MCP server and editor that let AI agents change web pages safely, through validated moves on a slicing tree. An eonity project.",
   "license": "Apache-2.0",
   "type": "module",

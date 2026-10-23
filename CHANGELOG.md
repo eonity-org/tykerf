@@ -6,7 +6,9 @@
 
 # Changelog
 
-## Unreleased
+## 0.2.0 (2026-10-23): the Claude plugin
+
+TYKERF as a plugin for Claude Code and Cowork, on its way to Anthropic's directory, and fixes found while testing it: screenshots now show the page's pictures and fonts, and long pages in pieces.
 
 - **A page in your home folder is no longer taken for part of a site.** A site holds its pages, files, and its own `assets/` and `out/`; a folder that also holds other folders (a home folder with *Desktop* and *Documents*) isn't one, so the page tools can't list or make pages there.
 - **Long screenshots in pieces.** A screenshot cut at 2000 px says so, for the whole page too, and which part it shows; a new `from` option shows the rest, so the AI can look at a long page or block all the way down.
