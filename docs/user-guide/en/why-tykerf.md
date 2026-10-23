@@ -47,10 +47,8 @@ One sentence on the start screen, a two-minute build, then a page whose every pa
   - every layout is checked for readable contrast and for working on phones.
 - **One theme for the whole site.** Change colours or fonts once and every page follows.
 - **Your AI, your choice:**
-  - your own Claude Code;
-  - the Anthropic API or a compatible service;
-  - Gemini;
-  - Claude Desktop through a one-click extension;
+  - in the editor, Kaity runs on your own Claude Code, the Anthropic API or a compatible service, or Gemini;
+  - Claude Code and Cowork through the TYKERF plugin, and Claude Desktop through a one-click extension;
   - any MCP client.
 
   TYKERF holds no key of its own on your computer.

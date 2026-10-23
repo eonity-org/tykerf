@@ -6,7 +6,7 @@
 
 # Changelog
 
-## Unreleased
+## 0.2.1 (2026-10-23): the plugin from TYKERF's own marketplace
 
 - **The plugin has no setting to fill in.** Installing it no longer ends with "1 userConfig option not yet set": the folder Claude opens when you name none is `TYKERF_DIR` (the environment, or a `.env` where you start Claude Code), else `~/TYKERF`, in Claude Code and Cowork alike.
 - **Install the plugin from TYKERF's own marketplace.** The repository is a plugin marketplace, *eonity.org*: `/plugin marketplace add eonity-org/tykerf` in Claude Code, or *Add marketplace* in Cowork, then install TYKERF. It follows the releases.

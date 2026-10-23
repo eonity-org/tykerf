@@ -81,7 +81,7 @@ A hosted TYKERF server will use these runners with its own key; see the [roadmap
 
 TYKERF's moves are also an MCP server, so any MCP client can edit a TYKERF page directly. The client starts the server on your computer. Use absolute paths.
 
-**Claude Code and Cowork:** install the TYKERF plugin (see [TYKERF in Claude Code and Cowork](claude-plugin.md)). Or add the server by hand in Claude Code:
+**Claude Code and Cowork:** install the TYKERF plugin from TYKERF's own marketplace. In Claude Code, `/plugin marketplace add eonity-org/tykerf`, then `/plugin install tykerf@eonity.org`; in Cowork, *Customize → Plugins → Add marketplace* and `eonity-org/tykerf`. It brings a skill that tells Claude how to work with TYKERF, and starts with no folder open: Claude opens the one you name (see [TYKERF in Claude Code and Cowork](claude-plugin.md)). Or add the server by hand in Claude Code:
 
 ```bash
 claude mcp add tykerf -- /path/to/tykerf/node_modules/.bin/tsx /path/to/tykerf/src/mcp/server.ts --dir /path/to/page

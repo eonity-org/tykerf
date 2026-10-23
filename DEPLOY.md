@@ -125,7 +125,9 @@ TYKERF_PUBLIC_URL=https://cities.example.org  # the site's address: allowed as a
 
 ## 3. Connect the MCP server to an AI client
 
-The MCP server speaks stdio, so the client starts it on your machine. Use absolute paths.
+For Claude Code and Cowork, the simplest way is the TYKERF plugin from TYKERF's own marketplace (`/plugin marketplace add eonity-org/tykerf`, then `/plugin install tykerf@eonity.org`; see [the guide](docs/user-guide/en/claude-plugin.md)). For Claude Desktop, the extension `tykerf.mcpb` from the [latest release](https://github.com/eonity-org/tykerf/releases/latest) ([guide](docs/user-guide/en/claude-desktop.md)).
+
+To connect the server by hand: it speaks stdio, so the client starts it on your machine. Use absolute paths.
 
 Claude Code:
 
