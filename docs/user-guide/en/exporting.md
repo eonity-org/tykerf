@@ -1,3 +1,9 @@
+<!-- tykerf:header -->
+&nbsp;
+
+[<img src="../../../src/editor/public/brand/tykerf-logo.svg" alt="TYKERF" height="20" style="border-radius:0">](../../../README.md) › [Documentation](../../README.md) › [User guide](README.md) › **Exporting a page or a site**
+<!-- /tykerf:header -->
+
 # Exporting a page or a site
 
 An export is the page, or every page of the site, as plain files you can put on any web host: HTML, the page's images and other files from `assets/`, and nothing of TYKERF. The history, the conversations with Kaity, box types and TYKERF's script stay out.
@@ -13,14 +19,9 @@ The editor downloads a `.zip` named after the folder and the date. **Export the 
 
 **Export this page…** (in a site) holds only the page you're on, with the site's theme and fonts, in a `.zip` named after the page. Its links to other pages of the site are listed before you download: they lead nowhere until those pages are next to it.
 
-## Publishing to GitHub, Cloudflare Pages or Netlify
+## Publishing instead
 
-Instead of downloading the export, the site manager's **Publish** commits it to a GitHub repository, and GitHub Pages, Cloudflare Pages or Netlify, connected to that repository once, put it live. You need a GitHub token in `.env` (`TYKERF_GITHUB_TOKEN`); the steps for each host are in [DEPLOY.md](../../../DEPLOY.md#publish-a-site-to-github-cloudflare-pages-or-netlify).
-
-- **Publish** shows what went: how many files are new, changed and removed, with links to the commit and the site. When nothing changed since the last publish, nothing is sent.
-- TYKERF only replaces and removes files it published itself, so the repository's other files stay.
-- Every published page ends with a small **Made with TYKERF** line, linking to TYKERF's repository. Untick *Add "Made with TYKERF" at the bottom of every page* in **Publish** to leave it out. Exports you download don't have it.
-- The same checks as an export apply: links to pages that don't exist, and files still loaded from other servers.
+To put the site online without downloading anything, **Publish** in the site manager sends it to a GitHub repository that GitHub Pages, Cloudflare Pages or Netlify serve: see [Publishing and serving](publishing.md).
 
 ## From the command line
 
@@ -55,3 +56,11 @@ The export reports two things:
 - **Images, fonts or files that still load from other servers:** a file a [copy of a website](importing.md) couldn't download, or an address you typed. The export works while those servers answer, but you usually may not republish someone else's images or fonts. Copy each image you're allowed to use into the page (the image tool's *Copy into the page*), and replace the rest.
 
 An export only includes the files in `assets/` that a page uses. Earlier versions of cropped images and pictures of removed boxes stay behind.
+
+<!-- tykerf:footer -->
+---
+
+← [Publishing and serving a site](publishing.md) · [User guide index](README.md) · [Pages and the notation](workspaces.md) →
+
+[TYKERF](../../../README.md) · [Documentation](../../README.md) · [GitHub](https://github.com/eonity-org/tykerf) · Apache-2.0 · an [eonity](https://eonity.org) project
+<!-- /tykerf:footer -->

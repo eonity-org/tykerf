@@ -1,4 +1,4 @@
-<p align="center"><img src="src/editor/public/brand/tykerf-logo.svg" alt="TYKERF" width="360"></p>
+<p align="center"><img src="src/editor/public/brand/tykerf-logo.svg" alt="TYKERF" width="360" style="border-radius:0"></p>
 
 # TYKERF
 
@@ -14,7 +14,11 @@ TYKERF gives people and AI a shared language for building and changing web pages
   All the pages of a site share one theme.
 - **An editor that lives on the real page.** Open the page, press *Edit with TYKERF*, and a floating panel shows the tree. Select a block on the page or in the tree, then edit its text, its code, its size, or ask the AI to change it.
 - **Kaity, an AI that works on one block.** Each block keeps its own conversation. Kaity only gets TYKERF's moves (no file or shell access), can only change the selected block, and looks at screenshots of its work at desktop and phone widths.
+- **A whole site, managed in one place.** The site manager lists the pages (home page, titles, rename, duplicate, remove), the links between them with broken ones first, the code every page shares, the site's icon, and where Kaity is working. Kaity can also work across every page at once.
+- **Publish in one click.** The site goes to a GitHub repository that GitHub Pages, Cloudflare Pages or Netlify serve, one commit per publish, only what changed. Or export a `.zip`, or let TYKERF serve the site itself while you sign in to edit it.
 - **An MCP server** with the same moves, so any MCP client can edit a TYKERF page.
+
+![A page in TYKERF's editor: the page's tree, a box selected on the page, and its text ready to edit](docs/user-guide/images/editor.png)
 
 TYKERF is an [eonity](https://eonity.org) project.
 
@@ -41,9 +45,9 @@ TYKERF edits the page folder in place. Every change is recorded in its history, 
 
 | | |
 |---|---|
-| [User guide](docs/user-guide/README.md) | [Why TYKERF](docs/user-guide/en/why-tykerf.md), [getting started](docs/user-guide/en/getting-started.md) (with the AI, from a website, from a layout), [editing a page](docs/user-guide/en/editor.md), [layouts, components and the theme](docs/user-guide/en/layouts.md), [working with the AI](docs/user-guide/en/ai.md) (including Claude Desktop and other MCP clients), [copying a website](docs/user-guide/en/importing.md), [exporting](docs/user-guide/en/exporting.md), [TYKERF in Claude Desktop](docs/user-guide/en/claude-desktop.md), [workspaces and the notation](docs/user-guide/en/workspaces.md) |
+| [User guide](docs/user-guide/README.md) | [Why TYKERF](docs/user-guide/en/why-tykerf.md), [getting started](docs/user-guide/en/getting-started.md) (with the AI, from a website, from a layout), [editing a page](docs/user-guide/en/editor.md), [layouts, components and the theme](docs/user-guide/en/layouts.md), [working with the AI](docs/user-guide/en/ai.md) (including Claude Desktop and other MCP clients), [copying a website](docs/user-guide/en/importing.md), [your site](docs/user-guide/en/sites.md) (the site manager), [publishing and serving](docs/user-guide/en/publishing.md), [exporting](docs/user-guide/en/exporting.md), [TYKERF in Claude Desktop](docs/user-guide/en/claude-desktop.md), [pages and the notation](docs/user-guide/en/workspaces.md) |
 | [Developer guide](docs/developer-guide/README.md) | [Setup and tests](docs/developer-guide/en/setup.md), [architecture](docs/developer-guide/en/architecture.md), [the editor](docs/developer-guide/en/editor.md), [the AI and MCP](docs/developer-guide/en/ai-and-mcp.md), [extending TYKERF](docs/developer-guide/en/extending.md) |
-| [DEPLOY.md](DEPLOY.md) | Publishing pages, running the editor for others, connecting MCP clients |
+| [DEPLOY.md](DEPLOY.md) | Publishing sites, running the editor for others, serving a site with sign-in, connecting MCP clients |
 | [ROADMAP.md](ROADMAP.md) | What's done and what's next: Tydal storage, a hosted MCP server, a Chrome extension |
 | [docs/slicing-notation.md](docs/slicing-notation.md) | The formal specification of the notation |
 | [BRAND.md](BRAND.md) | Name, mark, colours and type |
@@ -56,7 +60,7 @@ The same moves, for any MCP client. For Claude Desktop there is a one-click exte
 claude mcp add tykerf -- /path/to/tykerf/node_modules/.bin/tsx /path/to/tykerf/src/mcp/server.ts --dir /path/to/page
 ```
 
-Tools include `get_layout`, `split`, `wrap`, `flip`, `swap`, `move`, `set_ratios`, `set_content`, `edit_content`, `rename`, `undo`, `redo`, `get_theme`, `set_theme`, `evaluate` (layout metrics at several widths) and `screenshot`. Each call validates the tree and replies with only the lines that changed.
+Tools include `get_layout`, `split`, `wrap`, `flip`, `swap`, `move`, `set_ratios`, `set_content`, `edit_content`, `add_picture`, `rename`, `undo`, `redo`, `get_theme`, `set_theme`, `evaluate` (layout metrics at several widths) and `screenshot`. Each call validates the tree and replies with only the lines that changed.
 
 ## Command line
 
@@ -86,3 +90,9 @@ TYKERF borrows the slicing floorplans of IC design: Otten (1982) for slicing str
 ## License
 
 TYKERF is licensed under the [Apache License 2.0](LICENSE). It bundles the IBM Plex typefaces under the SIL Open Font License 1.1 (see [NOTICE](NOTICE)). "TYKERF", "TYDAL" and "Eonity" and their logos are trademarks of Eonity (see [NOTICE](NOTICE) and [BRAND.md](BRAND.md)).
+
+<!-- tykerf:footer -->
+---
+
+[TYKERF](README.md) · [Documentation](docs/README.md) · [GitHub](https://github.com/eonity-org/tykerf) · Apache-2.0 · an [eonity](https://eonity.org) project
+<!-- /tykerf:footer -->

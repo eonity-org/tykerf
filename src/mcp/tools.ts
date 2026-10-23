@@ -414,7 +414,7 @@ export function createTykerfServer(ws: Workspace, opts: TykerfServerOptions = {}
     description: 'Add a picture to the page\'s files (assets/), to use in a box as <img src="assets/<name>.<ext>">: either an SVG you draw (an illustration, an icon, a pattern), ' +
       'or a picture the user attached to the request (its file name, as the request says). You can\'t download pictures from the internet.',
     inputSchema: {
-      name: z.string().regex(/^[a-z0-9][a-z0-9-]{0,59}$/).describe('file name without extension: lowercase letters, digits and dashes (e.g. plaza-de-espana)'),
+      name: z.string().regex(/^[a-z0-9][a-z0-9-]{0,59}$/).describe('file name without extension: lowercase letters, digits and dashes (e.g. marienplatz)'),
       svg: z.string().optional().describe('the SVG code, from <svg> to </svg>: no scripts, no event attributes, no external files'),
       attached: z.string().optional().describe('the file name of a picture the user attached (e.g. 3f2a….png)'),
     },

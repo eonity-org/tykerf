@@ -150,7 +150,7 @@ describe('export', () => {
         const file = join(out, path.endsWith('/') ? `${path}index.html` : path);
         return existsSync(file) ? r.fulfill({ path: file }) : r.fulfill({ status: 404, path: join(out, '404.html') });
       });
-      await page.goto('http://site.test/seville2/deeper/');
+      await page.goto('http://site.test/munich2/deeper/');
       expect(await page.locator('a', { hasText: 'about' }).first().evaluate((a: HTMLAnchorElement) => a.href)).toBe('http://site.test/about/');
     } finally {
       await browser.close();

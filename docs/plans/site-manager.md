@@ -1,3 +1,9 @@
+<!-- tykerf:header -->
+&nbsp;
+
+[<img src="../../src/editor/public/brand/tykerf-logo.svg" alt="TYKERF" height="20" style="border-radius:0">](../../README.md) › [Roadmap](../../ROADMAP.md) › **Site manager**
+<!-- /tykerf:header -->
+
 # Site manager
 
 Status: **mostly built** (October 2026). TYKERF manages a whole site: a folder of pages with a shared theme, a home page, a list of pages, styles and scripts for every page, Kaity working across pages, exports, and serving the site to visitors. Sections (nested folders) and media are still to do. The rest of this file says what is built, where it differs from the first plan, and what is left.
@@ -28,3 +34,11 @@ A place to manage a site: rename pages, sections where pages live, links, multim
 2. **Media:** the site's `assets/` as a grid, upload and delete, with the pages that use each file.
 3. **A navigation menu filled from the site:** `<nav data-tykerf-menu></nav>` filled at render time, with `aria-current`, and a "Site menu" component.
 4. **Reorder pages** in the manager (needs the order in `site.json`).
+
+<!-- tykerf:footer -->
+---
+
+↑ [Roadmap](../../ROADMAP.md)
+
+[TYKERF](../../README.md) · [Documentation](../README.md) · [GitHub](https://github.com/eonity-org/tykerf) · Apache-2.0 · an [eonity](https://eonity.org) project
+<!-- /tykerf:footer -->

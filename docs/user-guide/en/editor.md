@@ -1,6 +1,14 @@
+<!-- tykerf:header -->
+&nbsp;
+
+[<img src="../../../src/editor/public/brand/tykerf-logo.svg" alt="TYKERF" height="20" style="border-radius:0">](../../../README.md) › [Documentation](../../README.md) › [User guide](README.md) › **Editing a page**
+<!-- /tykerf:header -->
+
 # Editing a page
 
 Open the page in the browser (by default http://localhost:4400) and press **Edit with TYKERF** in the bottom right corner. The page stays the real page, exactly as it renders; TYKERF draws its panel and frames on top of it and never changes the site's look.
+
+![A page in the editor: the panel with the page's tree, a box selected and its Text tab](../images/editor.png)
 
 ## Selecting
 
@@ -20,7 +28,7 @@ Drag it by its header, resize it from its corner, collapse it with **–**. On p
 
 | Zone | What it shows |
 |---|---|
-| Header | The **Site** button (*Export…*, *Kaity status…*). In a site, the current page: it lists the pages to switch to, with *Rename* and *Remove* on the current one and *New page…* at the end; the path of the selected block, Dim/Blur, Undo, Redo and collapse |
+| Header | The **Site** button (*Manage the site…*, *Export the site…*, *Export this page…*, *Kaity status…*). In a site, the current page: it lists the pages to switch to, with *Rename* and *Remove* on the current one, *All pages* (the [site manager](sites.md#the-site-manager)) and *New page…* at the end; the path of the selected block, Dim/Blur, Undo, Redo and collapse |
 | Tree | The whole page. **Boxes** (a small square) hold code; **containers** hold blocks. A container's icon shows its cut: a vertical line for blocks side by side (a *row*), a horizontal line for stacked blocks (a *column*). Hover a line to see the block on the page |
 | Work area | Everything for the selected block. Each block keeps its own tab, unsaved drafts and conversation with Kaity |
 
@@ -84,3 +92,11 @@ For a container, the code of all its boxes goes together, in reading order. Both
 ## Not yet
 
 Blocks can't be dragged to new places (use Up/Down and Kaity), and wheel layouts are shown as plain containers. Images that are no longer used stay in `assets/` (so undo can bring them back) until you clean them up in the top block's **Page** tab: *Unused files* lists those that no box, the head, the paste buffer or an undo step uses, and *Move them to the trash* puts them in the page's `.trash/` folder.
+
+<!-- tykerf:footer -->
+---
+
+← [Getting started](getting-started.md) · [User guide index](README.md) · [Working with Kaity](ai.md) →
+
+[TYKERF](../../../README.md) · [Documentation](../../README.md) · [GitHub](https://github.com/eonity-org/tykerf) · Apache-2.0 · an [eonity](https://eonity.org) project
+<!-- /tykerf:footer -->

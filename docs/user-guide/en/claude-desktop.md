@@ -1,3 +1,9 @@
+<!-- tykerf:header -->
+&nbsp;
+
+[<img src="../../../src/editor/public/brand/tykerf-logo.svg" alt="TYKERF" height="20" style="border-radius:0">](../../../README.md) › [Documentation](../../README.md) › [User guide](README.md) › **TYKERF in Claude Desktop**
+<!-- /tykerf:header -->
+
 # TYKERF in Claude Desktop
 
 The TYKERF extension lets Claude Desktop change a TYKERF page on your computer, with the same tools Kaity uses in the editor. Claude reads the page as a tree of blocks and changes it through named, validated moves, and every change goes into the page's history.
@@ -43,3 +49,11 @@ What to expect:
 - It works on one page at a time: the open one. In a site it can list the pages, open another and make new ones, but not rename or remove pages, change the site's shared theme or export. Use the editor for those.
 - It can't run commands or touch files outside the page folder. It reads and writes the page only through TYKERF's tools.
 - Box scripts are code like any other. Check what Claude writes in a `<script>` before you publish the page (see [SECURITY.md](../../../SECURITY.md)).
+
+<!-- tykerf:footer -->
+---
+
+← [Pages and the notation](workspaces.md) · [User guide index](README.md)
+
+[TYKERF](../../../README.md) · [Documentation](../../README.md) · [GitHub](https://github.com/eonity-org/tykerf) · Apache-2.0 · an [eonity](https://eonity.org) project
+<!-- /tykerf:footer -->

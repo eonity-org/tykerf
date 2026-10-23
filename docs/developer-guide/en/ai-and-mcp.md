@@ -1,3 +1,9 @@
+<!-- tykerf:header -->
+&nbsp;
+
+[<img src="../../../src/editor/public/brand/tykerf-logo.svg" alt="TYKERF" height="20" style="border-radius:0">](../../../README.md) › [Documentation](../../README.md) › [Developer guide](README.md) › **The AI and MCP**
+<!-- /tykerf:header -->
+
 # The AI and MCP
 
 TYKERF never lets a model rewrite a page. A model gets TYKERF's **MCP tools**: validated moves on the tree, plus reading and writing box code, all limited to one block. Every AI path goes through the same tools:
@@ -132,3 +138,11 @@ Code the server imports must have no module-level side effects. Playwright is im
   - covers keys, cancel, the step cap, screenshots and memory.
 - **`test/start-ai.test.ts`:** runs the whole AI-first start in a browser against the fake API.
 - **`test/concurrency.test.ts`:** uses a fake `Runner` to test the block lock and rename-following.
+
+<!-- tykerf:footer -->
+---
+
+← [The editor](editor.md) · [Developer guide index](README.md) · [Extending TYKERF](extending.md) →
+
+[TYKERF](../../../README.md) · [Documentation](../../README.md) · [GitHub](https://github.com/eonity-org/tykerf) · Apache-2.0 · an [eonity](https://eonity.org) project
+<!-- /tykerf:footer -->

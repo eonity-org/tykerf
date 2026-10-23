@@ -1,3 +1,9 @@
+<!-- tykerf:header -->
+&nbsp;
+
+[<img src="src/editor/public/brand/tykerf-logo.svg" alt="TYKERF" height="20" style="border-radius:0">](README.md) › **Security**
+<!-- /tykerf:header -->
+
 # Security
 
 ## Reporting a vulnerability
@@ -24,3 +30,9 @@ TYKERF is a local development tool. Know what it can do before you run it:
 - **API keys stay on the machine.** With `TYKERF_RUNNER=anthropic` or `gemini`, the editor reads the key from `.env` (ignored by git) or the environment, and sends it only to that API. It is never sent to the browser or written to the page. Anyone who can reach the editor can spend that key's usage, as with Claude Code.
 - **The AI has no file or shell access.** It is started with `--tools ""` and only the TYKERF MCP tools. The selected block is its scope for that run, passed to the MCP server for that run only. Moves and code changes outside it are refused by the workspace layer, and if the block disappears every change is refused. While the AI works, the editor can't change that block either.
 - **The importer** (`npm run cli -- import <url>`) loads the given site in a headless browser.
+
+<!-- tykerf:footer -->
+---
+
+[TYKERF](README.md) · [Documentation](docs/README.md) · [GitHub](https://github.com/eonity-org/tykerf) · Apache-2.0 · an [eonity](https://eonity.org) project
+<!-- /tykerf:footer -->
