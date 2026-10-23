@@ -1,3 +1,9 @@
+<!-- tykerf:header -->
+&nbsp;
+
+[<img src="../../../src/editor/public/brand/tykerf-logo.svg" alt="TYKERF" height="20" style="border-radius:0">](../../../README.md) › [Documentation](../../README.md) › **TYKERF developer guide**
+<!-- /tykerf:header -->
+
 # TYKERF developer guide
 
 For people who work on TYKERF itself, extend it (components, layouts, moves, MCP tools, AI runners), or build on it. To *use* TYKERF, read the [user guide](../../user-guide/en/README.md).
@@ -17,3 +23,11 @@ Other references:
 - [DEPLOY.md](../../../DEPLOY.md): running TYKERF for others.
 - [ROADMAP.md](../../../ROADMAP.md) and [docs/plans/](../../plans/): what comes next.
 - [CLAUDE.md](../../../CLAUDE.md): a dense map of the code for AI coding assistants. It is also a quick reference for people.
+
+<!-- tykerf:footer -->
+---
+
+[Setup and tests](setup.md) →
+
+[TYKERF](../../../README.md) · [Documentation](../../README.md) · [GitHub](https://github.com/eonity-org/tykerf) · Apache-2.0 · an [eonity](https://eonity.org) project
+<!-- /tykerf:footer -->

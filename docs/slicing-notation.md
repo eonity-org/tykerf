@@ -1,3 +1,9 @@
+<!-- tykerf:header -->
+&nbsp;
+
+[<img src="../src/editor/public/brand/tykerf-logo.svg" alt="TYKERF" height="20" style="border-radius:0">](../README.md) › [Documentation](README.md) › **Slicing notation — specification v0.2 (draft)**
+<!-- /tykerf:header -->
+
 # Slicing notation — specification v0.2 (draft)
 
 A shared, textual representation of a web page's layout that **people and AIs use to identify, track and change blocks**. Every block has a name, a kind, a position and a canonical textual form, and every change is a named operation on those names.
@@ -185,3 +191,11 @@ rule r1 below=700 flip row2
 ```
 
 A change set is a list of such lines. It can be **reviewed** (the affected boxes are highlighted in the editor), **accepted** or **rejected** as a unit, and **replayed** on another copy of the page.
+
+<!-- tykerf:footer -->
+---
+
+↑ [Documentation](README.md)
+
+[TYKERF](../README.md) · [Documentation](README.md) · [GitHub](https://github.com/eonity-org/tykerf) · Apache-2.0 · an [eonity](https://eonity.org) project
+<!-- /tykerf:footer -->

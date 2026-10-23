@@ -317,11 +317,11 @@ describe("the site's styles and scripts", () => {
   it('has an icon: made from the home page and the theme, or a file of its own, checked', () => {
     const dir = tmp();
     newSitePage(dir, 'rome', 'blank');
-    newSitePage(dir, 'seville', 'blank');
-    setHome(dir, 'seville');
+    newSitePage(dir, 'munich', 'blank');
+    setHome(dir, 'munich');
     const accent = readTheme(siteHead(dir))['--color-accent'];
     expect(madeIcon(dir)).toContain(`fill="${/^#/.test(accent) ? accent : '#0A5475'}"`);
-    expect(madeIcon(dir)).toMatch(/>S<\/text><\/svg>/);
+    expect(madeIcon(dir)).toMatch(/>M<\/text><\/svg>/);
     expect(iconLink(dir)).toBe('<link rel="icon" href="/favicon.svg" type="image/svg+xml">\n');
     expect(pageWorkspace(dir, 'rome').page()).toContain('<link rel="icon" href="/favicon.svg"');
     // a file of its own
@@ -336,6 +336,6 @@ describe("the site's styles and scripts", () => {
     expect(readdirSync(dir).filter((f) => f.startsWith('favicon'))).toEqual(['favicon.svg']); // one icon at a time
     setSiteIcon(dir, null);
     expect(siteIcon(dir)).toMatchObject({ file: 'favicon.svg', own: false });
-    expect(sitePages(dir)).toEqual(['rome', 'seville']); // icon files aren't pages
+    expect(sitePages(dir)).toEqual(['munich', 'rome']); // icon files aren't pages
   });
 });

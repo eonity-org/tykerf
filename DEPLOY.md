@@ -1,3 +1,9 @@
+<!-- tykerf:header -->
+&nbsp;
+
+[<img src="src/editor/public/brand/tykerf-logo.svg" alt="TYKERF" height="20" style="border-radius:0">](README.md) › **Deploying**
+<!-- /tykerf:header -->
+
 # Deploying
 
 TYKERF has two parts with very different deployment stories:
@@ -150,3 +156,9 @@ The `screenshot` and `evaluate` tools need Chromium (`npx playwright install chr
 4. Commit, check that CI passes, tag `v<version>`, push the tag, and create a GitHub release with the changelog section as its notes. The release workflow then builds `tykerf.mcpb` and attaches it to the release.
 
 TYKERF is not published to npm; people install it from the repository.
+
+<!-- tykerf:footer -->
+---
+
+[TYKERF](README.md) · [Documentation](docs/README.md) · [GitHub](https://github.com/eonity-org/tykerf) · Apache-2.0 · an [eonity](https://eonity.org) project
+<!-- /tykerf:footer -->

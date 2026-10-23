@@ -1,3 +1,9 @@
+<!-- tykerf:header -->
+&nbsp;
+
+[<img src="src/editor/public/brand/tykerf-logo.svg" alt="TYKERF" height="20" style="border-radius:0">](README.md) › **TYKERF brand**
+<!-- /tykerf:header -->
+
 # TYKERF brand
 
 TYKERF is a product of eonity. A *kerf* is the cut a saw leaves: the product is about cutting a page into blocks and working on one of them. The **TY** signature, inherited from EONI**TY**, connects TYKERF to the **EONITY** product family, as in TYDAL.
@@ -28,7 +34,7 @@ The channels between the blocks (the kerfs) draw a **T**. The channels between 4
 | `tykerf-mark-white.svg` | On TYKERF blue or photos |
 | `tykerf-mark-mono.svg` | One colour (greyscale, black-and-white print): no accent cell, recolour freely |
 | `tykerf-app-icon.svg` | App icon / social avatar: the white small mark on a TYKERF-blue tile |
-| `tykerf-logo.svg` | Mark plus the wordmark "tykerf" (IBM Plex Sans Light 300, tracking −0.02em). The wordmark spans the mark's full height: baseline on the mark's bottom edge, the tops of k and f on its top edge, the y descending below it; the file includes 2.5 units of clear space on every side. Convert the text to outlines before print |
+| `tykerf-logo.svg` | Mark plus the wordmark "tykerf" (IBM Plex Sans Light 300, tracking −0.02em). The wordmark spans the mark's full height: baseline on the mark's bottom edge, the tops of k and f on its top edge, the y descending below it; the file includes 2.5 units of clear space on every side. The wordmark is in outlines (from the bundled Plex Sans Light), so the logo looks the same where the font isn't installed: on GitHub, in image viewers, in print |
 | `png/` | PNG versions, transparent: the mark (16–1024 px; 16–32 px use the small drawing), white and mono marks (32–512), the app icon (32, 180, 192, 512, 1024) and the logo (mark 32–512 px high, plus the same clear space on every side, so the files are about a third taller than the mark, for the descender of the y). Regenerate with `npx tsx scripts/brand-png.ts` |
 
 In the editor panel the logo is the white mark plus the wordmark "tykerf" (IBM Plex Sans Light), followed by a thin divider and the path of the selected block. Below 700 px only the mark is shown.
@@ -93,3 +99,9 @@ TYKERF is inspired by slicing floorplans in IC design: Otten (1982), Wong & Liu 
   - the start screen's *Show or describe it*, and the window that follows a page being built;
   - *Kaity status…* in the Site menu.
 - **The model stays visible:** the model that answers (Claude Code, the Anthropic API, Gemini) is shown next to the name. Kaity is the assistant, the model is its engine.
+
+<!-- tykerf:footer -->
+---
+
+[TYKERF](README.md) · [Documentation](docs/README.md) · [GitHub](https://github.com/eonity-org/tykerf) · Apache-2.0 · an [eonity](https://eonity.org) project
+<!-- /tykerf:footer -->

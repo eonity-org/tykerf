@@ -109,8 +109,9 @@
   .pages .list { flex: 1 1 auto; min-height: 96px; overflow: auto; align-content: start; padding-right: 2px; }
   .acts-top { display: grid; gap: 6px; margin-bottom: 14px; }
   .acts-top button { margin: 0; }
-  .pages .route { font: 12px ui-monospace, SFMono-Regular, Menlo, monospace; opacity: .7; margin-left: 6px; font-weight: 400; }
-  .pages .who .name { display: flex; flex-wrap: wrap; align-items: baseline; }
+  .pages .route { font: 12px ui-monospace, SFMono-Regular, Menlo, monospace; opacity: .7; font-weight: 400; }
+  /* the gap, not a margin: an address that wraps under the name starts where the name does */
+  .pages .who .name { display: flex; flex-wrap: wrap; align-items: baseline; column-gap: 6px; }
   /* Kaity's three balls (as in the editor): still at rest, pulsing while she works */
   .kmark { display: inline-grid; place-items: center; flex: none; margin-right: 6px; vertical-align: -1px; }
   .kmark svg { width: 20px; height: 10px; overflow: visible; }
@@ -146,6 +147,8 @@
   .links h3 { font-size: 13px; font-weight: 600; }
   .links p { margin: 0; font-size: 13px; }
   .links .summary { opacity: .8; }
+  .links .body { display: grid; gap: 10px; }
+  .links .body h3 + ul, .links .body h3 + p { margin-top: -6px; }
   .links ul { list-style: none; margin: 4px 0 0; padding: 0; display: grid; gap: 4px; font-size: 13px; }
   .links li { display: flex; flex-wrap: wrap; gap: 4px 8px; align-items: baseline; }
   .links code { font: 12px ui-monospace, SFMono-Regular, Menlo, monospace; }

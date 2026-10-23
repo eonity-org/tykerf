@@ -1,3 +1,9 @@
+<!-- tykerf:header -->
+&nbsp;
+
+[<img src="../../../src/editor/public/brand/tykerf-logo.svg" alt="TYKERF" height="20" style="border-radius:0">](../../../README.md) › [Documentation](../../README.md) › [User guide](README.md) › **Why TYKERF**
+<!-- /tykerf:header -->
+
 # Why TYKERF
 
 TYKERF is a web page editor for people and AI working together. What sets it apart: **its assistant, Kaity, changes one clearly named block at a time, and nothing else.**
@@ -60,3 +66,11 @@ Website builders give you a friendlier editor, with AI added on top. But that AI
 ## Try it
 
 Follow [Getting started](getting-started.md): install, start a site, and have a first page in a few minutes.
+
+<!-- tykerf:footer -->
+---
+
+← [User guide](README.md) · [User guide index](README.md) · [Getting started](getting-started.md) →
+
+[TYKERF](../../../README.md) · [Documentation](../../README.md) · [GitHub](https://github.com/eonity-org/tykerf) · Apache-2.0 · an [eonity](https://eonity.org) project
+<!-- /tykerf:footer -->
