@@ -28,7 +28,7 @@ Website builders give you a friendlier editor, with AI added on top. But that AI
 
 ## See it
 
-[![Watch Kaity build a page about Lisbon from one sentence (2:48)](../../media/tykerf-builds-lisbon.jpg)](../../media/tykerf-builds-lisbon.mp4)
+[![Watch Kaity build a page about Lisbon from one sentence (2:48)](../../media/tykerf-builds-lisbon.jpg)](https://eonity.org/tykerf-guides/videos/tykerf-builds-lisbon.mp4)
 
 One sentence on the start screen, a two-minute build, then a page whose every part is a named block you can select, change and undo.
 

@@ -40,6 +40,7 @@ Ask in plain words, naming the blocks you mean:
 What to expect:
 
 - **Claude looks at its work.** It takes screenshots at desktop and phone widths and fixes what looks wrong.
+- **Bigger changes may need your OK.** Every tool tells Claude Desktop whether it only reads the page, changes it, or replaces something whole (a block, a box's code, the whole page), so Claude Desktop, like other clients, may ask you before the bigger changes.
 - **Keep the rest of the page safe.** Ask Claude to *focus* on a block: after that, changes outside it are refused. A scope you set yourself (a `.scope` file with `<block> user`, which the editor also uses) can't be lifted by Claude.
 - **Everything can be undone.** Ask Claude to undo, or use *Undo* in the editor. The history records each change as made by an AI (`ai`).
 - **Use it with the editor.** Keep `npm start -- my-page` open in the browser: Claude's changes appear there as they happen, and you can keep editing. Started on an empty folder, the editor shows its start screen until Claude makes the page, then opens it by itself; pages Claude makes in subfolders are offered on the start screen.

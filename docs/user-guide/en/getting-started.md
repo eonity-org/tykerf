@@ -59,7 +59,7 @@ When it is done, the window shows Kaity's summary and a short guide to go on. Th
 
 Every step is an ordinary change, so you can undo any of them.
 
-[![Watch Kaity build a page about Lisbon from one sentence (2:48)](../../media/tykerf-builds-lisbon.jpg)](../../media/tykerf-builds-lisbon.mp4)
+[![Watch Kaity build a page about Lisbon from one sentence (2:48)](../../media/tykerf-builds-lisbon.jpg)](https://eonity.org/tykerf-guides/videos/tykerf-builds-lisbon.mp4)
 
 *This video shows the whole flow, from the start screen to the finished page, with this request: "Create a page in English about Lisbon. Include facts, trivia, games, animations and illustrations about the city. Make it joyful and colourful." For what makes a request work, see [Getting good results from Kaity](asking-kaity.md).*
 
