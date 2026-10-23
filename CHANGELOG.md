@@ -8,6 +8,8 @@
 
 ## Unreleased
 
+- **A page in your home folder is no longer taken for part of a site.** A site holds its pages, files, and its own `assets/` and `out/`; a folder that also holds other folders (a home folder with *Desktop* and *Documents*) isn't one, so the page tools can't list or make pages there.
+- **A screenshot cut at 2000 px says so** for the whole page too, not only for a block.
 - **Screenshots and checks show the page's pictures and fonts.** Kaity's and every MCP client's screenshots showed the page's pictures as broken and its fonts as Georgia, and `evaluate` measured the page that way; they now load the page's files, and the site's, as the editor does.
 - **Links to a section:** a block's element is `#sw-<name>`. The tools' instructions say so, and *what's left unfinished* names the right address when a link uses the block's bare name (`#faq`).
 - **Tools say what they do.** Every MCP tool has a short title ("Replace the page with a layout") and tells the client whether it only reads the page, changes it, or replaces something whole, so Claude Desktop, Claude Code and other clients can show it and ask before the bigger changes.

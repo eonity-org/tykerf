@@ -100,7 +100,7 @@ export async function screenshot(html: string, opts: { width?: number; id?: stri
     await page.evaluate(() => document.fonts.ready);
     const docH = await page.evaluate(() => document.documentElement.scrollHeight);
     let box: Shot['box'] = null;
-    let clip = { x: 0, y: 0, width, height: Math.min(docH, maxHeight) };
+    let clip = { x: 0, y: 0, width, height: docH }; // cut at maxHeight below, which the reply then says
     if (opts.id) {
       box = await page.evaluate((id) => {
         const el = document.querySelector(`[data-sw="${CSS.escape(id)}"]`);

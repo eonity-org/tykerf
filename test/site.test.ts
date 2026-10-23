@@ -2,7 +2,7 @@ import { existsSync, mkdirSync, mkdtempSync, readdirSync, writeFileSync } from '
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { iconLink, madeIcon, setSiteIcon, siteIcon, lastSiteHeadChange, linkedPage, newPageLike, newSitePage, pageLinks, pageNameError, pageWorkspace, removePage, renamePage, setSiteHead, emptyTrash, pageTitle, readSite, setHome, setSiteCode, setTitle, shareTheme, siteCode, siteHead, siteKind, sitePages, trashedPages, undoSiteHead, usePage } from '../src/site.js';
+import { iconLink, madeIcon, setSiteIcon, siteIcon, lastSiteHeadChange, linkedPage, newPageLike, newSitePage, pageLinks, pageNameError, pageWorkspace, removePage, renamePage, setSiteHead, emptyTrash, pageTitle, readSite, setHome, setSiteCode, setTitle, shareTheme, siteCode, siteHead, siteKind, siteOf, sitePages, trashedPages, undoSiteHead, usePage } from '../src/site.js';
 import { NO_SITE_HEAD, Workspace } from '../src/workspace.js';
 import { createPage, readTheme, themes } from '../src/library.js';
 
@@ -21,6 +21,27 @@ describe('sites', () => {
     const other = tmp();
     writeFileSync(join(other, 'notes.txt'), 'hello');
     expect(() => siteKind(other)).toThrow(/holds other files/);
+  });
+
+  it('keep a page in a folder of other things, such as a home folder, on its own', () => {
+    // a site may hold, besides its pages, files and TYKERF's own folders, and empty ones
+    const site = tmp();
+    newSitePage(site, 'home', 'blank', 'studio');
+    for (const d of ['out', 'empty']) mkdirSync(join(site, d));
+    writeFileSync(join(site, 'README.md'), '# Our site');
+    expect(siteKind(site)).toBe('site');
+    expect(new Workspace(join(site, 'home'), { site: siteOf(join(site, 'home')) }).site).not.toBeNull();
+
+    // a home folder: two pages next to Desktop and Documents
+    const home = tmp();
+    for (const p of ['bakery', 'florist']) createPage(new Workspace(join(home, p)), 'blank');
+    for (const d of ['Desktop', 'Documents']) {
+      mkdirSync(join(home, d));
+      writeFileSync(join(home, d, 'notes.txt'), 'mine');
+    }
+    expect(() => siteKind(home)).toThrow(/holds other folders besides its pages, so it isn't a site/);
+    expect(siteOf(join(home, 'bakery'))).toBeNull();
+    expect(siteKind(join(home, 'bakery'))).toBe('page');
   });
 
   it("list their pages and add new ones from a layout; the first page's theme is shared by all", () => {

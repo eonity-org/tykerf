@@ -88,7 +88,7 @@ my-page/
 ## Sites
 
 A **site** is a folder of page folders (`site.ts`):
-- `siteKind` tells a page from a site;
+- `siteKind` tells a page from a site. Besides its pages, a site may hold files and TYKERF's own folders (`assets/`, `out/`) or empty ones; a folder that also holds other folders (a home folder with `Desktop`) is no site, and `siteOf` keeps a page in it on its own, so the page tools never list or make pages there;
 - `sitePages` lists the pages;
 - `newSitePage`, `newPageLike`, `renamePage` (which rewrites the links in every page) and `removePage` (which moves the page to `.trash/`) manage them.
 

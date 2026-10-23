@@ -137,6 +137,11 @@ describe('screenshot', () => {
     expect(shot.box!.w).toBeGreaterThan(300);
     await expect(screenshot(html, { id: 'zz' })).rejects.toThrow(/no block/);
     await expect(screenshot(html, { width: 400, id: 'b' })).rejects.toThrow(/hidden/);
+    // a page taller than the limit is cut, and says so (the whole page as well as a block)
+    const tall = toHTML(l, { a: '<div style="height:3000px">A</div>', b: '<p>B</p>', c: '<p>C</p>' });
+    expect(await screenshot(tall, { width: 800 })).toMatchObject({ cropped: true, box: null });
+    expect((await screenshot(tall, { width: 800, id: 'a' })).cropped).toBe(true);
+    expect((await screenshot(html, { width: 800 })).cropped).toBe(false);
     await closeScreenshots();
   });
 });
