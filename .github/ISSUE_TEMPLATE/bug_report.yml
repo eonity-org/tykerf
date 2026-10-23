@@ -1,0 +1,61 @@
+name: Bug report
+description: Something in TYKERF doesn't work as it should
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting. For a security problem, don't open an issue: see [SECURITY.md](https://github.com/eonity-org/tykerf/blob/main/SECURITY.md).
+  - type: dropdown
+    id: part
+    attributes:
+      label: Where
+      options:
+        - The editor
+        - Kaity (the editor's AI)
+        - The MCP server
+        - The Claude Desktop extension
+        - Copying a website
+        - Exporting or publishing
+        - The command line
+        - The docs
+        - Something else
+    validations:
+      required: true
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: What you did, what you expected and what you got instead. Paste error messages as text; a screenshot helps for the editor.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: How to make it happen again
+      description: The steps from a fresh start, for example from `npm start -- examples/widgets`. If it needs a page, attach its `layout.slice` or a small copy of the folder.
+      placeholder: |
+        1. npm start -- examples/widgets
+        2. Select the block …
+        3. …
+  - type: input
+    id: version
+    attributes:
+      label: TYKERF version
+      description: The release, or the commit (`git rev-parse --short HEAD`)
+    validations:
+      required: true
+  - type: input
+    id: environment
+    attributes:
+      label: Node.js, system and browser
+      placeholder: Node 22.12, macOS 15, Chrome 141
+  - type: dropdown
+    id: runner
+    attributes:
+      label: AI runner (for Kaity problems)
+      options:
+        - Not about the AI
+        - Claude Code (the default)
+        - Anthropic API or compatible
+        - Gemini

@@ -6,9 +6,11 @@
 
 # Changelog
 
-## Unreleased
+## 0.1.0 (2026-10-23): first public release
 
-- **Kerf is now TYKERF** (wordmark *tykerf*), with the TY signature of the eonity family. Everything follows the name: the package, the MCP server (`mcp__tykerf`), the extension (`dist/tykerf.mcpb`), the editor's addresses (`/_tykerf/…`), the page state folder (`.tykerf/`), the lock (`.tykerf.lock`) and the settings (`TYKERF_RUNNER`, `TYKERF_MODEL`, `TYKERF_API_KEY`…). Pages from before the rename keep their blocks and boxes; rename `KERF_` settings in `.env` to `TYKERF_`.
+TYKERF's first public release, under the Apache License 2.0. [The first milestone](#the-first-milestone) lists the foundations; this list is what came after it.
+
+- **Kerf is now TYKERF** (wordmark *tykerf*), with the TY signature of the eonity family. Pages made with Kerf keep their blocks and boxes; rename `KERF_` settings in `.env` to `TYKERF_`.
 - **Copies bring their images and fonts.** Copying a website now downloads its images, fonts and font stylesheets into the page's `assets/` (recognised by their bytes; SVGs only without scripts), so the copy loads nothing from the original servers and its fonts work wherever it's served. What can't be downloaded stays linked and the export lists it. The command line says how many files came along.
 - **Copies keep more of the site:** blocks centred with `margin: 0 auto` stay centred at every width, and animations play (their `@keyframes`, with perspective and 3D settings, come along). Copied fonts are named after their family (`font-manrope-….woff2`).
 - **Kaity edits part of a box.** A new tool, `edit_content`, replaces one exact piece of a box's code, so a small change to a long box (a copied site's boxes carry tens of KB of CSS) no longer means writing the whole box again. That was slow with Claude and too long for other models.
@@ -138,7 +140,7 @@
 - `import` prints advice on what you may do with a copied site.
 - The editor accepts IP-address host names when shared with `--host`.
 
-## 0.1.0 (first public release)
+## The first milestone
 
 - Slicing notation v0.2: rows, columns, periphery and wheel operators; ratios, minimum heights and widths; responsive rules; overlays; block references by name, path or position; box types; AI scope.
 - Validated moves, shape functions and a ratio optimizer.

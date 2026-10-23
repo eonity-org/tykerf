@@ -17,9 +17,9 @@ describe('the docs', () => {
   it('give every page its header and footer (npm run docs:nav writes them)', () => {
     const stale = docsNav().filter((p) => p.before !== p.after).map((p) => p.file);
     expect(stale, 'run npm run docs:nav').toEqual([]);
-    // every Markdown file but CLAUDE.md (for AI coding assistants) has them
+    // every Markdown file but CLAUDE.md (for AI coding assistants) and .github/ (GitHub's forms) has them
     const covered = new Set(docsNav().map((p) => p.file));
-    expect(files.filter((f) => !covered.has(f) && f !== 'CLAUDE.md' && !f.startsWith('node_modules/'))).toEqual([]);
+    expect(files.filter((f) => !covered.has(f) && f !== 'CLAUDE.md' && !f.startsWith('.github/') && !f.startsWith('node_modules/'))).toEqual([]);
   });
 
   it('link only to files and sections that exist', () => {

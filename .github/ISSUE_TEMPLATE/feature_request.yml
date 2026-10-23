@@ -1,0 +1,25 @@
+name: Idea or request
+description: Something TYKERF should do, or do differently
+labels: [enhancement]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Check the [roadmap](https://github.com/eonity-org/tykerf/blob/main/ROADMAP.md) first: it may already be planned. TYKERF stays a page editor where AI edits safely block by block, not a CMS.
+  - type: textarea
+    id: problem
+    attributes:
+      label: What you're trying to do
+      description: The task, and where TYKERF gets in the way today.
+    validations:
+      required: true
+  - type: textarea
+    id: idea
+    attributes:
+      label: What would help
+      description: How you'd like it to work. A sketch or a screenshot is welcome.
+  - type: textarea
+    id: meanwhile
+    attributes:
+      label: What you do meanwhile
+      description: Any workaround, or another tool that does it well.
