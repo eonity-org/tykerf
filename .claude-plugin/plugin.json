@@ -1,7 +1,7 @@
 {
   "name": "tykerf",
   "displayName": "TYKERF",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Build and edit real web pages block by block: Claude changes one named block at a time through validated moves, looks at the result, and every change can be undone. Plain HTML files in a folder, no platform.",
   "author": {
     "name": "eonity.org",
@@ -22,13 +22,5 @@
   "icon": "./icon.png",
   "documentationUrl": "https://github.com/eonity-org/tykerf/blob/main/docs/user-guide/README.md",
   "supportUrl": "https://github.com/eonity-org/tykerf/issues",
-  "privacyPolicyUrl": "https://github.com/eonity-org/tykerf/blob/main/plugin/README.md#privacy-policy",
-  "userConfig": {
-    "page_folder": {
-      "type": "directory",
-      "title": "Default page folder",
-      "description": "The folder Claude opens when you name none: a TYKERF page, a site of pages, or an empty folder to start in. Leave it empty for ~/TYKERF.",
-      "default": ""
-    }
-  }
+  "privacyPolicyUrl": "https://github.com/eonity-org/tykerf/blob/main/plugin/README.md#privacy-policy"
 }
