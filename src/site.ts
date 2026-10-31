@@ -8,14 +8,17 @@ import { cpSync, existsSync, mkdirSync, readFileSync, readdirSync, renameSync, r
 import { basename, dirname, join } from 'node:path';
 import { type Layout, type Node, find, isOp, walk } from './model.js';
 import * as M from './moves.js';
+import { serializeSlice } from './notation.js';
 import { FolderStore } from './store.js';
-import { DEFAULT_THEME, componentCode, createPage, hasTheme, readTheme, theme, themes, withFonts, withPresetName, withThemeValues } from './library.js';
+import { DEFAULT_THEME, componentCode, createPage, hasTheme, readTheme, theme, themes, withFonts, withOverrides, withPresetName, withThemeValues } from './library.js';
 import { NO_SITE_HEAD, type SiteLink, Workspace } from './workspace.js';
+import { kitBlock, kitList, kitLoaderTag, kitStyles, kitTypes, kitWrite } from './kit.js';
+import type { Registry } from './types.js';
 
 /** Page names: they are folder names and the first part of the page's address in the editor. */
 export const PAGE_NAME = /^[a-z0-9][a-z0-9-]{0,62}$/;
 /** Names the editor uses at the top of its addresses. */
-const RESERVED = new Set(['_tykerf', 'assets', 'out', 'pages', 'sitemap.xml']);
+const RESERVED = new Set(['_tykerf', 'assets', 'out', 'pages', 'sitemap.xml', 'kit']);
 
 const isPage = (dir: string) => existsSync(join(dir, 'layout.slice'));
 const entries = (dir: string) => (existsSync(dir) ? readdirSync(dir) : []);
@@ -76,7 +79,40 @@ export function newSitePage(dir: string, name: string, layout = 'blank', themeNa
   const shared = hasTheme(siteHead(dir)) || fresh;
   createPage(ws, layout, themeName, { ownTheme: !shared });
   if (fresh) startSiteTheme(dir, themeName);
+  // a box named like one of the site's shared blocks (its navigation, its footer) shows that block
+  const blocks = new Set(kitList(dir).blocks);
+  const start = ws.load();
+  let l = start;
+  walk(start.root, (n) => { if (n.type === 'leaf' && blocks.has(n.id)) l = M.setLeaf(l, n.id, { use: n.id }); });
+  // written as the page's starting point: a new page starts with nothing to undo
+  if (l !== start) ws.store.write('layout.slice', serializeSlice(l));
   return ws;
+}
+
+/** A name for a new page of the site: `wish` when it's free, else `wish-2`, `wish-3`… */
+export function freePageName(dir: string, wish: string): string {
+  const base = wish.toLowerCase().replace(/[^a-z0-9-]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 56) || 'page';
+  for (let i = 1; ; i++) {
+    const name = i === 1 ? base : `${base}-${i}`;
+    if (!pageNameError(dir, name)) return name;
+  }
+}
+
+/**
+ * Add a page to a site with an explicit theme (the CLI's `new` on a site): as `newSitePage`, but in a
+ * site that shares one theme, a preset asked for by name becomes this page's own values over the shared
+ * theme (only those that differ), so the page looks as asked and the other pages don't change.
+ * `ownValues` says whether that happened.
+ */
+export function addSitePage(dir: string, name: string, layout: string, themeName?: string): { ws: Workspace; ownValues: boolean } {
+  const ws = newSitePage(dir, name, layout, themeName ?? DEFAULT_THEME);
+  const wanted = themeName ? themes().find((t) => t.name === themeName) : undefined;
+  if (!wanted || hasTheme(ws.head())) return { ws, ownValues: false };
+  const shared = readTheme(siteHead(dir));
+  const differ = Object.fromEntries(Object.entries(wanted.values).filter(([k, v]) => k in shared && shared[k].trim() !== String(v).trim()));
+  if (!Object.keys(differ).length) return { ws, ownValues: false };
+  ws.store.write('head.html', withFonts(ws, withOverrides(ws.head(), differ)));
+  return { ws, ownValues: true };
 }
 
 // ---------- the site's settings (site.json): its home page, its pages' titles, where it's published ----------
@@ -341,17 +377,24 @@ export function siteHead(dir: string): string {
 }
 
 /** What a page of this site needs to render with the site's shared head. */
-export const siteLink = (dir: string): SiteLink => ({ head: () => siteHead(dir), pages: () => sitePages(dir).length, pageNames: () => sitePages(dir), files: () => (existsSync(join(dir, 'assets')) ? readdirSync(join(dir, 'assets')) : []), asset: (f) => siteStore(dir).readBytes(`assets/${f}`), icon: () => iconLink(dir), setHead: (html, label) => setSiteHead(dir, html, label) });
+export const siteLink = (dir: string, page?: string): SiteLink => ({
+  head: () => siteHead(dir), pages: () => sitePages(dir).length, pageNames: () => sitePages(dir),
+  files: () => (existsSync(join(dir, 'assets')) ? readdirSync(join(dir, 'assets')) : []), asset: (f) => siteStore(dir).readBytes(`assets/${f}`),
+  icon: () => iconLink(dir), setHead: (html, label) => setSiteHead(dir, html, label),
+  // the site kit (src/kit.ts): styles and behaviours for every page, shared blocks, box types
+  dir, page, kit: () => kitStyles(dir) + kitLoaderTag(dir), block: (name) => kitBlock(dir, name),
+  setBlock: (name, code, author) => kitWrite(dir, 'blocks', name, code, `edit the shared block ${name}`, author), types: () => kitTypes(dir) as Registry,
+});
 
 /** A page of the site, with the site's shared head. */
-export const pageWorkspace = (dir: string, name: string) => new Workspace(join(dir, name), { site: siteLink(dir) });
+export const pageWorkspace = (dir: string, name: string) => new Workspace(join(dir, name), { site: siteLink(dir, name) });
 
 /** The site a page folder belongs to (its parent folder, when that is a site and lists it), or null. */
 export function siteOf(pageDir: string): SiteLink | null {
   const parent = dirname(pageDir);
   try {
     // a page in a folder of other things (a home folder) stands on its own
-    return sitePages(parent).includes(basename(pageDir)) && isSite(parent) ? siteLink(parent) : null;
+    return sitePages(parent).includes(basename(pageDir)) && isSite(parent) ? siteLink(parent, basename(pageDir)) : null;
   } catch {
     return null;
   }
@@ -655,4 +698,97 @@ export function removePage(dir: string, name: string): { trash: string; broken: 
   mkdirSync(join(dir, '.trash'), { recursive: true });
   renameSync(join(dir, name), join(dir, trash));
   return { trash, broken: pageLinks(dir).filter((l) => l.to === name).length };
+}
+
+// ---------- the site kit's shared blocks (src/kit.ts) ----------
+// A box with use=<name> shows kit/blocks/<name>.html on every page that links it. Sharing a box makes
+// the block from its code and links it; making a page's own copy puts the block's code back in the box.
+
+/** The pages whose boxes show a shared block, with the box names: { home: ['nav'], about: ['nav'] }. */
+export function blockUsers(dir: string, name: string): Record<string, string[]> {
+  const out: Record<string, string[]> = {};
+  for (const p of sitePages(dir)) {
+    const boxes: string[] = [];
+    try {
+      walk(pageWorkspace(dir, p).load().root, (n) => { if (n.type === 'leaf' && n.use === name) boxes.push(n.id); });
+    } catch {}
+    if (boxes.length) out[p] = boxes;
+  }
+  return out;
+}
+
+/** A free name for a new shared block, from a wish (the box's name, usually). */
+function freeBlockName(dir: string, wish: string): string {
+  const taken = new Set(kitList(dir).blocks);
+  const base = wish.toLowerCase().replace(/[^a-z0-9-]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 36) || 'block';
+  for (let i = 1; ; i++) {
+    const name = i === 1 ? base : `${base}-${i}`;
+    if (!taken.has(name)) return name;
+  }
+}
+
+/** Share a box with every page: its code becomes a shared block, and this box shows it. Returns the block's name. */
+export function shareBlock(dir: string, ws: Workspace, box: string, wish = box, author = 'user'): string {
+  const l = ws.load();
+  const n = find(l.root, box)?.node;
+  if (n?.type !== 'leaf') throw new Error(`"${box}" is not a box`);
+  if (n.use) throw new Error(`"${box}" already shows the shared block "${n.use}"`);
+  const name = freeBlockName(dir, wish);
+  kitWrite(dir, 'blocks', name, ws.content(box) ?? '', `share ${box} as the shared block ${name}`, author);
+  ws.save(M.setLeaf(l, box, { use: name }), `share ${box} with every page as ${name}`, author);
+  return name;
+}
+
+/** Make a box show a shared block of the site (its own code stays, for when it's unlinked). */
+export function linkBlock(dir: string, ws: Workspace, box: string, name: string, author = 'user') {
+  if (kitBlock(dir, name) === null) throw new Error(`the site has no shared block "${name}"`);
+  const l = ws.load();
+  if (find(l.root, box)?.node.type !== 'leaf') throw new Error(`"${box}" is not a box`);
+  ws.save(M.setLeaf(l, box, { use: name }), `use the shared block ${name} in ${box}`, author);
+}
+
+/** Make a box this page's own again: it gets the shared block's code as it is now, and stops following it. One undo step. */
+export function unlinkBlock(ws: Workspace, box: string, author = 'user') {
+  const l = ws.load();
+  const n = find(l.root, box)?.node;
+  if (n?.type !== 'leaf' || !n.use) throw new Error(`"${box}" doesn't show a shared block`);
+  const code = ws.content(box);
+  ws.group(`make ${box} this page's own copy of ${n.use}`, author, () => {
+    ws.save(M.setLeaf(ws.load(), box, { use: null }), `unlink ${box} from ${n.use}`, author);
+    if (code !== null) ws.setContent(box, code, author);
+  });
+}
+
+/**
+ * Boxes that are already the same on several pages and not shared yet (a navigation, a footer):
+ * the box name, the pages, and whether a shared block of that name exists.
+ */
+export function identicalBoxes(dir: string): { box: string; pages: string[] }[] {
+  const seen = new Map<string, Map<string, string[]>>(); // box name → code → pages
+  for (const p of sitePages(dir)) {
+    const ws = pageWorkspace(dir, p);
+    let l: Layout;
+    try { l = ws.load(); } catch { continue; }
+    walk(l.root, (n) => {
+      if (n.type !== 'leaf' || n.use) return;
+      const code = ws.ownContent(n.id);
+      if (!code?.trim()) return;
+      const byCode = seen.get(n.id) ?? new Map<string, string[]>();
+      byCode.set(code, [...(byCode.get(code) ?? []), p]);
+      seen.set(n.id, byCode);
+    });
+  }
+  const out: { box: string; pages: string[] }[] = [];
+  for (const [box, byCode] of seen) for (const pages of byCode.values()) if (pages.length > 1) out.push({ box, pages });
+  return out.sort((a, b) => b.pages.length - a.pages.length || a.box.localeCompare(b.box));
+}
+
+/** Share a box that is the same on several pages: one shared block from it, linked on each of those pages. */
+export function shareIdentical(dir: string, box: string, author = 'user'): { name: string; pages: string[] } {
+  const group = identicalBoxes(dir).find((g) => g.box === box);
+  if (!group) throw new Error(`no box "${box}" is the same on several pages`);
+  const [first, ...rest] = group.pages;
+  const name = shareBlock(dir, pageWorkspace(dir, first), box, box, author);
+  for (const p of rest) linkBlock(dir, pageWorkspace(dir, p), box, name, author);
+  return { name, pages: group.pages };
 }

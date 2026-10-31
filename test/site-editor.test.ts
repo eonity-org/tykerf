@@ -51,8 +51,8 @@ describe('a new site', () => {
     await page.locator('.chooser').waitFor();
     expect(await page.locator('[data-from]').evaluateAll((b) => b.map((x) => (x as HTMLElement).dataset.from))).toEqual(['idea', 'layout', 'website']);
     await page.locator('[data-from="layout"]').click();
-    expect(await page.locator('[data-layout]').count()).toBe(9);
-    expect(await page.locator('[data-theme]:not([data-theme="auto"])').count()).toBe(6);
+    expect(await page.locator('[data-layout]').count()).toBe(10);
+    expect(await page.locator('[data-theme]:not([data-theme="auto"])').count()).toBe(7);
     await page.locator('[data-layout="launch"]').click();
     await page.locator('[data-theme="dark"]').click();
     await expect.poll(() => page.locator('.ch-frame iframe').getAttribute('src')).toBe('/_tykerf/preview/launch/dark/');

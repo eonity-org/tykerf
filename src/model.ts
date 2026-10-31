@@ -23,6 +23,7 @@ export interface Leaf {
   variant: number;
   minW?: number; // optimizer hint only (not rendered)
   boxType?: string; // box type (spec §7): placement + content grammar from types/<type>.json
+  use?: string; // a shared block of the site (kit/blocks/<use>.html) shown instead of the box's own code
   maxW?: number; // rendered: max-width + centered
   minH?: number; // rendered: min-height in px (taller than its content, never shorter)
 }

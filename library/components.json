@@ -122,5 +122,45 @@
   "image-banner": {
     "label": "Picture banner",
     "description": "A wide picture with its caption over a dark fade, and a strip with a button"
+  },
+  "steps-rail": {
+    "label": "Steps on a line",
+    "description": "Three or four steps hanging from one line that fills as the section scrolls into view, each with a figure"
+  },
+  "hero-switch": {
+    "label": "Hero with a switcher",
+    "description": "A hero that speaks to several audiences: pills switch the headline, text, figures and the card over the picture"
+  },
+  "case-intro": {
+    "label": "Case opening",
+    "description": "A case study's title with a highlighter stroke on its key words, a short lead and a strip of facts under a heavy rule"
+  },
+  "case-cover": {
+    "label": "Work in a frame",
+    "description": "The finished work in a plain window frame, with a caption and a link to see it live"
+  },
+  "case-brief": {
+    "label": "Story in three parts",
+    "description": "The brief, what was done and what changed: three numbered columns, each under its own rule"
+  },
+  "case-decisions": {
+    "label": "Decisions",
+    "description": "Cards that each say what was chosen over what, why, and what it cost"
+  },
+  "case-compare": {
+    "label": "Before and after",
+    "description": "The same view before and after, side by side, each with a tag and a caption"
+  },
+  "case-quote": {
+    "label": "Pull quote",
+    "description": "A quote in words only: a large opening mark, the quote and who said it"
+  },
+  "case-credits": {
+    "label": "Credits",
+    "description": "Who made it, role by role, and what it was built with, as chips"
+  },
+  "case-next": {
+    "label": "Next case",
+    "description": "One wide link to the next case study, between two rules"
   }
 }

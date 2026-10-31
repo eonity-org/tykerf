@@ -47,6 +47,13 @@ const S = {
   lastChange: null,
   nextRedo: null, // the label of the step redo would bring back
   per: new Map(), // per block: { tab, codeTab, box, text, code, sheet, aiDraft }
+  tasks: [], // tasks left on the page (src/tasks.ts), every one, done too
+  tasksText: '', // the open ones in words, for copying to any agent
+  taskMode: false, // task mode: a click on the page adds a task there
+  showPins: store.get('pins', true),
+  taskAt: null, // in task mode, what the pointer is on: { el, block }
+  taskTarget: null, // the element whose task is being written
+  kit: { site: false, blocks: [], tags: {}, users: {} }, // the site kit: shared blocks (and the pages that show them), the site's own tags
 };
 const per = (id) => {
   if (!S.per.has(id)) S.per.set(id, {});
@@ -101,6 +108,12 @@ const UI = {
   image: '<rect x="1.5" y="2.5" width="13" height="11" rx="1.5"/><circle cx="5.5" cy="6.5" r="1.3"/><path d="m2 12 4-4 3 3 2-2 3.5 3.5"/>',
   page: '<path d="M8 1.5a6.5 6.5 0 1 0 0 13c1 0 1.5-.6 1.5-1.3 0-.9-.8-1.2-.8-2 0-.7.6-1.2 1.3-1.2h1.6a2.9 2.9 0 0 0 2.9-2.9C14.5 4 11.6 1.5 8 1.5z"/><circle cx="4.8" cy="7.2" r=".9"/><circle cx="7.2" cy="4.6" r=".9"/><circle cx="10.4" cy="5" r=".9"/>',
   component: '<rect x="1.5" y="1.5" width="13" height="4" rx="1"/><rect x="1.5" y="7.5" width="6" height="7" rx="1"/><rect x="9.5" y="7.5" width="5" height="7" rx="1"/>',
+  // a task on the page: a box with a check in it
+  task: '<rect x="2" y="2" width="12" height="12" rx="2.5"/><path d="m5 8.2 2.1 2.1L11.2 6"/>',
+  copy: '<rect x="5.5" y="5.5" width="8" height="9" rx="1.5"/><path d="M10.5 5.5V3A1.5 1.5 0 0 0 9 1.5H3.5A1.5 1.5 0 0 0 2 3v6.5A1.5 1.5 0 0 0 3.5 11h2"/>',
+  list: '<path d="M5.5 4h8M5.5 8h8M5.5 12h8"/><circle cx="2.5" cy="4" r=".6"/><circle cx="2.5" cy="8" r=".6"/><circle cx="2.5" cy="12" r=".6"/>',
+  eye: '<path d="M1.5 8S4 3.5 8 3.5 14.5 8 14.5 8 12 12.5 8 12.5 1.5 8 1.5 8z"/><circle cx="8" cy="8" r="2"/>',
+  check: '<path d="m3 8.5 3 3 7-7"/>',
 };
 const ic = (name) => `<svg class="i" viewBox="0 0 16 16" aria-hidden="true">${UI[name]}</svg>`;
 /**
@@ -146,6 +159,9 @@ ui.innerHTML = `
   <div class="hhandles"></div>
   <div class="whandle" title="${t('Drag to make it narrower (it stays centred) · double-click: full width')}"><i></i><span></span></div>
   <div class="hover"><svg class="frame"><rect class="under"/><rect class="ants"/></svg><span class="tag"></span></div>
+  <div class="nhover"><span class="tag"></span></div>
+  <div class="pins"></div>
+  <div class="kwork" aria-hidden="true"></div>
 </div>
 <div class="dock">
   <a class="managebtn" href="/_tykerf/site/" hidden title="${t('Manage the site: its pages, home page, styles and trash')}">${ic('site')}<span>${t('Manage the site')}</span></a>
@@ -163,6 +179,7 @@ ui.innerHTML = `
         <button data-view="dim" title="${t('Darken everything outside the selection')}">${t('Dim')}</button>
         <button data-view="blur" title="${t('Blur everything outside the selection (for colourful pages)')}">${t('Blur')}</button>
       </div>
+      <button class="tasksbtn" aria-pressed="false" title="${t('Tasks: point at anything on the page and leave a task there, for you, a colleague or Kaity')}">${ic('task')}<span class="label">${t('Tasks')}</span><span class="count" hidden></span></button>
       <button class="undo" title="${t('Undo the last change (⌘Z)')}" aria-label="${t('Undo')}">${ic('undo')}<span class="label">${t('Undo')}</span></button>
       <button class="redo" title="${t('Redo (⇧⌘Z)')}" aria-label="${t('Redo')}">${ic('redo')}<span class="label">${t('Redo')}</span></button>
       <button class="minimize" title="${t('Collapse / expand the panel')}">–</button>
@@ -174,6 +191,13 @@ ui.innerHTML = `
   </div>
   <div class="toast" role="status"></div>
 </section>
+<div class="taskbar" role="toolbar" aria-label="${t('Tasks')}" hidden>
+  <span class="nb-say">${ic('task')}<span></span></span>
+  <button data-nb="list" title="${t('Every task on this page')}">${ic('list')}<span>${t('List')}</span></button>
+  <button data-nb="pins" title="${t('Show or hide the task tabs on the page')}">${ic('eye')}<span>${t('Tabs')}</span></button>
+  <button data-nb="copy" title="${t('Copy the open tasks as text, to give them to any AI agent or a colleague')}">${ic('copy')}<span>${t('Copy all')}</span></button>
+  <button data-nb="done" class="primary" title="${t('Leave task mode (Esc)')}">${t('Done')}</button>
+</div>
 <div class="menu" role="menu" hidden></div>
 <div class="pop" role="dialog" hidden></div>
 <div class="tbar" role="toolbar" aria-label="${t('Text formatting')}" hidden>
@@ -229,7 +253,8 @@ function draw() {
   Object.assign(layer.style, { width: `${W}px`, height: `${H}px` });
   layer.dataset.view = S.view;
   const isRoot = S.sel === S.tree?.id;
-  const r = S.sel && !isRoot ? rectOf(S.sel) : null;
+  // in task mode the whole page is for pointing: no shade, no selection
+  const r = S.sel && !isRoot && !S.taskMode ? rectOf(S.sel) : null;
   const shade = (k, x, y, w, h) => Object.assign(layer.querySelector(`[data-s="${k}"]`).style, { left: `${x}px`, top: `${y}px`, width: `${Math.max(0, w)}px`, height: `${Math.max(0, h)}px` });
   if (r) {
     shade('t', 0, 0, W, r.y);
@@ -237,9 +262,9 @@ function draw() {
     shade('l', 0, r.y, r.x, r.h);
     shade('r', r.x + r.w, r.y, W - r.x - r.w, r.h);
   } else for (const k of 'tblr') shade(k, 0, 0, 0, 0);
-  placeFrame($('.frame.sel'), S.sel && !isRoot ? r : null);
+  placeFrame($('.frame.sel'), r);
   const hv = $('.hover');
-  const hr = S.hover && S.hover !== S.sel ? rectOf(S.hover) : null;
+  const hr = S.hover && S.hover !== S.sel && !S.taskMode ? rectOf(S.hover) : null;
   hv.style.display = hr ? 'block' : 'none';
   if (hr) {
     Object.assign(hv.style, { left: `${hr.x}px`, top: `${hr.y}px`, width: `${hr.w}px`, height: `${hr.h}px` });
@@ -247,6 +272,8 @@ function draw() {
     hv.querySelector('.tag').textContent = S.hover;
     hv.classList.toggle('tag-inside', hr.y < 22);
   }
+  drawTasks();
+  drawKaity();
   drawHandles();
   drawHeightHandles();
   drawWidthHandle();
@@ -305,7 +332,7 @@ async function commitWeights(row, ws) {
 
 const handlesEl = layer.querySelector('.handles');
 function drawHandles() {
-  const row = S.on && S.sel ? sizingRow(S.sel) : null;
+  const row = S.on && S.sel && !S.taskMode ? sizingRow(S.sel) : null;
   const els = row ? row.children.map((c) => childEl(row.id, c.id)?.getBoundingClientRect()) : [];
   const want = Math.max(0, els.length - 1);
   while (handlesEl.children.length > want) handlesEl.lastChild.remove();
@@ -382,7 +409,7 @@ async function commitHeight(id, px) {
 
 const hHandlesEl = layer.querySelector('.hhandles');
 function drawHeightHandles() {
-  const col = S.on && S.sel ? sizingColumn(S.sel) : null;
+  const col = S.on && S.sel && !S.taskMode ? sizingColumn(S.sel) : null;
   const kids = col ? col.children : [];
   while (hHandlesEl.children.length > kids.length) hHandlesEl.lastChild.remove();
   while (hHandlesEl.children.length < kids.length) hHandlesEl.insertAdjacentHTML('beforeend', `<div class="hhandle" title="${t('Drag to make it taller · double-click: height follows the content')}"><i></i><span></span></div>`);
@@ -451,7 +478,7 @@ async function commitWidth(id, px) {
 
 const wHandle = layer.querySelector('.whandle');
 function drawWidthHandle() {
-  const id = S.on ? widthBlock() : null;
+  const id = S.on && !S.taskMode ? widthBlock() : null;
   const r = id && elOf(id)?.getBoundingClientRect();
   if (!r || !r.width) return (wHandle.style.display = 'none');
   // on a full-width block the right edge is the window's: keep the whole handle inside it
@@ -565,7 +592,7 @@ function renderTree() {
     const kids = n.kind === 'container' && open ? n.children.map((c) => row(c, depth + 1)).join('') : '';
     return `<div class="item${n.id === S.sel ? ' sel' : ''}" data-id="${esc(n.id)}" style="--depth:${depth}" title="${esc(kindLabel(n))}">
       ${n.kind === 'container' ? `<button class="twist${open ? ' open' : ''}" aria-label="${open ? t('collapse') : t('expand')}">${ICON.chevron}</button>` : '<span class="twist"></span>'}
-      <span class="icon ${n.kind}">${iconOf(n)}</span><span class="name">${esc(n.id)}</span>${n.id === S.ai?.id ? `<span class="at-work" title="${t('Kaity is working here')}">${kaityMark(true)}</span>` : ''}
+      <span class="icon ${n.kind}">${iconOf(n)}</span><span class="name">${esc(n.id)}</span>${n.shared ? `<span class="chip shared" title="${t('Shows the shared block {name}', { name: esc(n.shared) })}">${t('shared')}</span>` : ''}${n.id === S.ai?.id ? `<span class="at-work" title="${t('Kaity is working here')}">${kaityMark(true)}</span>` : ''}
     </div>${kids}`;
   };
   const list = $('.tree');
@@ -632,8 +659,13 @@ function renderWork() {
     n.kind === 'container' && !isRoot ? `<button data-act="ungroup" title="${t('Remove the container, keep its blocks')}">${ic('ungroup')}${t('Ungroup')}</button>` : '',
     `<button data-act="rename" title="${t('Give this block a name people and Kaity can refer to')}">${ic('rename')}${t('Rename')}</button>`,
     S.buffer.length ? `<button data-act="paste" title="${t('Paste code from the buffer')}">${ic('paste')}${t('Paste…')}</button>` : '',
+    n.kind === 'box' && S.kit.site && !n.shared ? `<button data-act="share" title="${t('Make this box a shared block: every page of the site can show it, and a change to it changes them all')}">${ic('site')}${t('Share…')}</button>` : '',
     !isRoot ? `<button data-act="remove" class="danger" title="${t('Delete (code goes into the previous box) or remove (code goes to the buffer)')}">${ic('delete')}${t('Delete…')}</button>` : '',
   ].join('');
+  const users = n.shared ? S.kit.users[n.shared] ?? [] : [];
+  const sharedNote = n.shared ? `<p class="shared-note">${ic('site')}<span>${users.length > 1
+    ? t('This box shows the shared block {name}, which {n} pages show: a change here changes all of them.', { name: `<b>${esc(n.shared)}</b>`, n: users.length })
+    : t('This box shows the shared block {name}: a change here changes it on every page that shows it.', { name: `<b>${esc(n.shared)}</b>` })}</span><button data-act="unlink" title="${t('This page gets its own copy of the block, which stops following the shared one')}">${t('Make this page\'s own copy')}</button></p>` : '';
 
   w.innerHTML = `
     <div class="w-head">
@@ -641,6 +673,7 @@ function renderWork() {
       <span class="w-kind">${esc(kindLabel(n))}</span>
     </div>
     <div class="actions">${actions}</div>
+    ${sharedNote}
     <div class="sheet" hidden></div>
     <div class="tabs" role="tablist">${tabs.map(([k, l]) => `<button role="tab" data-tab="${k}" aria-selected="${p.tab === k}">${k === 'ai' ? kaityMark(S.ai?.id === id) : ic(TAB_ICON[k])}${l()}</button>`).join('')}</div>
     <div class="tab-body"></div>`;
@@ -783,6 +816,24 @@ async function act(what, id, data = {}) {
       pendingSelect = id;
       return op({ op: 'section', id, token: imp.token, section: data.section }, () => t('{section} imported into {id}. Undo takes it out again.', { section: data.section, id }));
     }
+    case 'share':
+      if (S.sel !== id) select(id);
+      per(id).sheet = 'share';
+      return renderSheet();
+    case 'share-do': {
+      const name = $('.work .share-name')?.value.trim() || id;
+      per(id).sheet = null;
+      const r = await op({ op: 'share', id, name }, (b) => t('{id} is now the shared block {b}. Other pages show it with Use a shared block…', { id, b }));
+      if (r) loadKit();
+      return;
+    }
+    case 'link-do':
+      per(id).sheet = null;
+      await op({ op: 'link', id, name: data.name }, () => t('{id} shows the shared block {name}', { id, name: data.name }));
+      return loadKit();
+    case 'unlink':
+      await op({ op: 'unlink', id }, () => t('{id} is this page\'s own copy now; the other pages keep the shared block. Undo links it again.', { id }));
+      return loadKit();
     case 'size': return select(id, { tab: 'size' });
     case 'parent': return parentOf(id) && select(parentOf(id), { scroll: true });
     case 'tab': return select(id, { tab: data.tab });
@@ -800,6 +851,14 @@ async function renderSheet() {
   const n = info(id).node;
   const cancel = `<button data-act="sheet-close">${t('Cancel')}</button>`;
   if (mode === 'import') return renderImport(c, id);
+  if (mode === 'share') {
+    const free = S.kit.blocks.includes(id) ? '' : id;
+    c.innerHTML = `<p>${t('Share {id} with every page of the site: its code becomes a shared block, which any page can show (Use a shared block…). A change to it then changes every page that shows it.', { id: `<b>${esc(id)}</b>` })}</p>
+      <label class="pop-field"><span>${t('Name of the shared block')}</span><input class="share-name" value="${esc(free)}" spellcheck="false" placeholder="${t('e.g. nav')}"></label>
+      ${S.kit.blocks.length ? `<p class="muted">${t('Or show one the site already has:')} ${S.kit.blocks.map((b) => `<button class="link" data-act="link-do" data-name="${esc(b)}">${esc(b)}</button>`).join(' ')}</p>` : ''}
+      <div class="row">${cancel}<button class="primary" data-act="share-do">${t('Share')}</button></div>`;
+    return;
+  }
   if (mode === 'paste') {
     const hows = n.kind === 'box'
       ? [['into', t('Into this box')], ['beside', t('New box beside')], ['below', t('New box below')]]
@@ -1142,6 +1201,7 @@ async function renderPage(body) {
   const heading = scope === 'site' ? t('Site theme') : scope === 'page' ? t('This page\'s theme') : t('Theme');
   const sub = scope === 'site' ? t('(colours, fonts and spacing for every page of the site)') : scope === 'page' ? t('(values set here apply to this page only; the rest comes from the site theme)') : t('(colours, fonts and spacing for the whole page)');
   body.innerHTML = `
+    <a class="handbook-link" href="${API}/handbook" target="_blank" rel="noopener" title="${t('The page\'s theme and every block, with chips to copy into a request, and their tasks')}">${ic('blocks')}<span><b>${t('Handbook')}</b> ${t('the page\'s system on one page')}</span>${ic('right')}</a>
     <section class="size-sec">
       ${status ? `<p class="theme-status ${status.cls}">${status.text}</p>` : ''}
       <p class="size-head">${heading} <span class="muted">${sub}</span></p>
@@ -1286,11 +1346,11 @@ async function exportZip(files, page) {
     a.download = name;
     a.click();
     setTimeout(() => URL.revokeObjectURL(a.href), 10_000);
-    const notes = [
+    const details = [
       report.broken ? (page ? t('{n} links lead to other pages of the site, which aren\'t in this export.', { n: report.broken }) : t('{n} links point at pages that don\'t exist.', { n: report.broken })) : '',
       report.remote ? t('{n} images, fonts or files still load from other servers; copy the ones you may use into the page before publishing.', { n: report.remote }) : '',
     ].filter(Boolean).join(' ');
-    toast(`${t('Exported {pages} pages ({kb} KB).', { pages: report.pages ?? 1, kb: Math.round((report.bytes ?? 0) / 1024) })}${notes ? ` ${notes}` : ''}`, !!report.broken);
+    toast(`${t('Exported {pages} pages ({kb} KB).', { pages: report.pages ?? 1, kb: Math.round((report.bytes ?? 0) / 1024) })}${details ? ` ${details}` : ''}`, !!report.broken);
   } catch (err) {
     toast(err.message, true);
   }
@@ -1387,6 +1447,7 @@ function renderSize(body, id) {
       ${choice('tone', '', !tone, t('None'), t('The page\'s background'))}${choice('tone', 'alt', tone === 'alt', t('Alternate'), t('A shade of the background, to set a section apart'))}${choice('tone', 'soft', tone === 'soft', t('Soft'), t('A soft wash of the accent'))}${choice('tone', 'dark', tone === 'dark', t('Dark'), t('The dark band: its text turns light. Once or twice a page, for a footer or a strong section'))}</div></div>
     <div class="look-row"><span class="look-label">${t('Density')}</span><div class="choice-seg" role="radiogroup" aria-label="${t('Density')}">
       ${choice('dense', 'no', !dense, t('Normal'), t('The space the theme gives'))}${choice('dense', 'yes', dense, t('Dense'), t('Less space around it and smaller titles, whatever the theme'))}</div></div>
+    ${Object.keys(S.kit.tags).length ? `<div class="look-row"><span class="look-label">${t('Site tags')}</span><div class="tag-row">${Object.entries(S.kit.tags).map(([tg, v]) => `<button data-sitetag="${esc(tg)}" aria-pressed="${tags.includes(tg)}" title="${esc(v.description ?? v.label)}">${esc(v.label)}</button>`).join('')}</div></div>` : ''}
   </section>`;
   html += lookHtml;
   if (row) {
@@ -1461,6 +1522,11 @@ function renderSize(body, id) {
     if (e.target.closest('[data-size=equal]')) commitWeights(row, row.children.map(() => 1));
     const tb = e.target.closest('[data-tone]');
     if (tb) return op({ op: 'look', id, tone: tb.dataset.tone || null }, () => (tb.dataset.tone ? t('{id}: band {band}', { id, band: tb.textContent }) : t('{id}: no band', { id })));
+    const st = e.target.closest('[data-sitetag]');
+    if (st) {
+      const on = st.getAttribute('aria-pressed') !== 'true';
+      return op({ op: 'tag', id, tag: st.dataset.sitetag, on }, () => (on ? t('{id}: {tag}', { id, tag: st.textContent }) : t('{id}: no {tag}', { id, tag: st.textContent })));
+    }
     const db = e.target.closest('[data-dense]');
     if (db) return op({ op: 'look', id, dense: db.dataset.dense === 'yes' }, () => (db.dataset.dense === 'yes' ? t('{id}: dense', { id }) : t('{id}: normal density', { id })));
   };
@@ -1769,7 +1835,7 @@ async function aiStatus() {
   const running = st.running.map((x) => (x.page ? t('{id} in the page {page}', { id: `<b>${esc(x.id)}</b>`, page: esc(x.page) }) : `<b>${esc(x.id)}</b>`));
   popover(r.left, r.bottom + 6, `<p class="kaity-title">${kaityMark(st.running.length > 0)}<b>Kaity</b> <span class="runner">${esc(RUNNER_LABEL[st.runner]?.() ?? st.runner)}${st.model ? ` · ${esc(st.model)}` : ''}</span></p>
     <p class="hint">${RUNNER_HELP[st.runner]?.() ?? ''}</p>
-    <p class="status-line ${st.ready ? 'ok' : 'bad'}">${st.ready ? '●' : '○'} ${esc(st.note)}</p>
+    <p class="status-line ${st.ready ? 'ok' : 'bad'}">${st.ready ? '●' : '○'} ${esc(st.task)}</p>
     <p class="hint">${running.length ? t('Working now on {what}.', { what: running.join(', ') }) : t('Not working on anything now.')}</p>
     <p class="hint">${t('Change the runner and the model with TYKERF_RUNNER and TYKERF_MODEL in .env (see .env.example), then restart TYKERF.')}</p>
     <div class="test-result" hidden></div>
@@ -2597,6 +2663,300 @@ function closeTool() {
   afterInPlace();
 }
 
+// ---------- tasks on the page ----------
+// In task mode a click anywhere on the page adds a task on that element: for later, for a colleague
+// or for Kaity. A task keeps its block, the element inside it (its element path) and the window
+// width it was written at (src/tasks.ts). Open tasks show as numbered tabs that follow their element.
+
+const tasksBtn = $('.tasksbtn');
+const taskBar = $('.taskbar');
+const pinsEl = $('.pins');
+
+/** The site kit as the panel needs it: the shared blocks (with the pages that show them) and the site's own tags. */
+async function loadKit() {
+  S.kit = await api('/kit').catch(() => S.kit);
+  if (S.sel && info(S.sel)) renderWork();
+}
+
+async function loadTasks() {
+  const r = await api('/tasks').catch(() => null);
+  if (!r) return;
+  S.tasks = r.tasks;
+  S.tasksText = r.text;
+  renderTasksCount();
+  redraw();
+}
+
+const openTasks = () => S.tasks.filter((x) => !x.done);
+
+function renderTasksCount() {
+  const n = openTasks().length;
+  const count = $('.count', tasksBtn);
+  count.hidden = !n;
+  count.textContent = n;
+  $('.nb-say span', taskBar).textContent = n
+    ? (n === 1 ? t('Click anything to add a task · 1 open') : t('Click anything to add a task · {n} open', { n }))
+    : t('Click anything to add a task');
+  $('[data-nb="pins"]', taskBar).setAttribute('aria-pressed', S.showPins);
+}
+
+/** The element a task is on, on the page now: its block, then the element inside it (the block itself when the element is gone). */
+function taskEl(x) {
+  const block = elOf(x.block);
+  if (!block || !x.path?.length) return block;
+  return atPath(block, x.path) ?? block;
+}
+
+/** An element in a few words, as the person sees it: its tag, then its first words or its picture's description. */
+function describeEl(el) {
+  const tag = el.nodeName.toLowerCase();
+  const words = (el.nodeName === 'IMG' ? el.alt : el.textContent ?? '').replace(/\s+/g, ' ').trim();
+  return words ? `${tag} "${words.length > 40 ? `${words.slice(0, 39)}…` : words}"` : tag;
+}
+
+/** Where a task added on this element goes: the nearest block in the tree, and the element's place inside it. */
+function taskSpot(el) {
+  const block = blockAt(el);
+  if (!block) return null;
+  const blockEl = elOf(block);
+  // an element the code doesn't count (inside a <script> or <template>, say) pins to the nearest one it does
+  for (let x = el; x && x !== blockEl; x = x.parentElement) {
+    const path = elementPath(x, blockEl);
+    if (path) return { block, el: x, path, label: describeEl(x) };
+  }
+  return { block, el: blockEl, path: null, label: '' };
+}
+
+function drawTasks() {
+  // the element under the pointer (or the one whose task is being written): outlined, with its place in words
+  const nh = $('.nhover');
+  // (the element a task is being written for shows outside task mode too: the context menu's Add a task for Kaity here…)
+  const at = S.taskTarget ?? (S.taskMode ? S.taskAt : null);
+  const ar = at?.el.isConnected ? at.el.getBoundingClientRect() : null;
+  nh.style.display = ar ? 'block' : 'none';
+  if (ar) {
+    Object.assign(nh.style, { left: `${ar.left + scrollX}px`, top: `${ar.top + scrollY}px`, width: `${ar.width}px`, height: `${ar.height}px` });
+    $('.tag', nh).textContent = at.label ? `${at.block} › ${at.label}` : at.block;
+    nh.classList.toggle('tag-inside', ar.top + scrollY < 22);
+  }
+  // one tab per open task, on its element's top-right corner (sharp corner on the element; the outline's label keeps the
+  // top left); tabs on the same element line up leftwards
+  const show = S.showPins || S.taskMode;
+  const shown = show ? openTasks().filter((x) => !x.gone) : [];
+  const taken = new Map();
+  pinsEl.innerHTML = shown.map((x) => {
+    const el = taskEl(x);
+    const r = el?.getBoundingClientRect();
+    if (!r || (!r.width && !r.height)) return '';
+    const i = taken.get(el) ?? 0;
+    taken.set(el, i + 1);
+    // above the element's top edge; inside it when there is no room above (the top of the page) or on a whole block
+    const inside = !x.path?.length || r.top + scrollY < 24;
+    const right = Math.min(r.right, innerWidth) + scrollX - i * 34, top = inside ? r.top + scrollY : r.top + scrollY - 20;
+    return `<button class="pin${inside ? ' inside' : ''}" data-pin="${x.n}" style="left:${right}px;top:${top}px" title="${esc(x.text.length > 120 ? `${x.text.slice(0, 119)}…` : x.text)}" aria-label="${t('Task {n}', { n: x.n })}">${x.n}</button>`;
+  }).join('');
+}
+
+// ---------- Kaity at work, on the page ----------
+// While Kaity works, her block gets a live frame with her latest step, and each open task she has
+// left in it pulses; a task she closes stops. On the whole page (a run from the top block) the label
+// rides on the first task left, or sits at the top of the window.
+
+const kwork = $('.kwork');
+function drawKaity() {
+  if (!S.ai || !info(S.ai.id)) return void (kwork.innerHTML = '');
+  const id = S.ai.id, whole = id === S.tree.id;
+  const inside = (b) => whole || b === id || ancestors(b).includes(id);
+  const given = S.ai.tasks ? new Set(S.ai.tasks) : null;
+  const left = openTasks().filter((x) => !x.gone && inside(x.block) && (!given || given.has(x.n)));
+  const step = S.aiStep ? esc(S.aiStep.length > 90 ? `${S.aiStep.slice(0, 89)}…` : S.aiStep) : t('Kaity is working');
+  const box = (r, cls, tag = '') => `<div class="${cls}" style="left:${r.left + scrollX}px;top:${r.top + scrollY}px;width:${r.width}px;height:${r.height}px">${tag}</div>`;
+  const label = () => `<span class="ktag">${kaityMark(true)}<b>${esc(whole ? t('Kaity') : id)}</b><span>${step}</span></span>`;
+  let html = '', labelled = false;
+  const fr = whole ? null : elOf(id)?.getBoundingClientRect();
+  if (fr && (fr.width || fr.height)) {
+    html += box(fr, 'kframe', label());
+    labelled = true;
+  }
+  for (const x of left) {
+    const r = taskEl(x)?.getBoundingClientRect();
+    if (!r || (!r.width && !r.height)) continue;
+    html += box(r, 'ktask', labelled ? '' : label());
+    labelled = true;
+  }
+  if (!labelled) html += `<div class="kfloat" style="top:${scrollY + 12}px">${label()}</div>`;
+  kwork.innerHTML = html;
+}
+
+function setTaskMode(v) {
+  if (v && !S.on) setOn(true);
+  if (v) finishEdit(true);
+  S.taskMode = v;
+  S.taskAt = S.taskTarget = null;
+  tasksBtn.setAttribute('aria-pressed', v);
+  taskBar.hidden = !v;
+  host.classList.toggle('task-mode', v);
+  document.documentElement.style.cursor = v ? 'crosshair' : '';
+  closePop();
+  renderTasksCount();
+  redraw();
+}
+tasksBtn.addEventListener('click', () => setTaskMode(!S.taskMode));
+
+const when = (iso) => new Date(iso).toLocaleString(LANG, { dateStyle: 'medium', timeStyle: 'short' });
+const placeOf = (x) => `<b>${esc(x.block)}</b>${x.label ? ` › ${esc(x.label)}` : ''}`;
+
+/** The form for a new task, next to where the person clicked; `forKaity` adds Add and give it to Kaity (the context menu's Add a task for Kaity here…). */
+function openTaskForm(x, y, spot, { forKaity = false } = {}) {
+  S.taskTarget = spot;
+  redraw();
+  const width = innerWidth;
+  popover(x + 12, y + 12, `<div class="taskform">
+    <div class="task-place">${ic('task')}<span>${placeOf(spot)}</span></div>
+    <textarea rows="3" placeholder="${t('What should change here, or what do you want to ask?')}"></textarea>
+    <div class="row"><span class="muted">${t('Seen {px} px wide', { px: width })}</span><span class="spacer"></span><button data-n="cancel">${t('Cancel')}</button>${forKaity
+      ? `<button data-n="add">${t('Add task')}</button><button data-n="ask" class="primary" ${S.ai ? `disabled title="${t('Kaity is working on {id}', { id: esc(S.ai.id) })}"` : ''}>${kaityMark()}${t('Add and give it to Kaity')}</button>`
+      : `<button data-n="add" class="primary">${t('Add task')}</button>`}</div>
+  </div>`);
+  const ta = $('.pop textarea');
+  ta.focus();
+  // how = cancel | add | ask (add, then Kaity works through the block's open tasks)
+  const done = async (how) => {
+    const text = ta.value.trim();
+    if (how !== 'cancel' && !text) return ta.focus();
+    closePop();
+    S.taskTarget = null;
+    redraw();
+    if (how === 'cancel') return;
+    try {
+      const r = await api('/tasks/add', { block: spot.block, path: spot.path, label: spot.label, width, text });
+      await loadTasks();
+      if (how === 'ask') return askTasks(spot.block);
+      toast(t('Task {n} added on {id}', { n: r.result.n, id: spot.block }));
+    } catch (err) {
+      toast(err.message, true);
+    }
+  };
+  pop.onclick = (e) => {
+    const b = e.target.closest('[data-n]');
+    if (b && !b.disabled) done(b.dataset.n);
+  };
+  ta.onkeydown = (e) => {
+    if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) e.preventDefault(), done(forKaity && !S.ai ? 'ask' : 'add');
+    if (e.key === 'Escape') e.preventDefault(), done('cancel');
+  };
+}
+
+/** One task, from its tab or the list: what it says, and what to do with it. */
+function openTask(n, x, y) {
+  const task = S.tasks.find((z) => z.n === n);
+  if (!task) return;
+  const busy = !!S.ai;
+  popover(x, y, `<div class="taskview">
+    <div class="task-head"><span class="pin static">${task.n}</span><span class="task-place"><span>${placeOf(task)}</span></span></div>
+    <p class="task-text">${esc(task.text)}</p>
+    <p class="muted">${task.width ? t('Written {when}, {px} px wide', { when: esc(when(task.at)), px: task.width }) : t('Written {when}', { when: esc(when(task.at)) })}${task.gone ? ` · ${t('its block is gone')}` : ''}</p>
+    ${task.done ? `<p class="task-reply">${ic('check')}<span>${task.done.reply ? esc(task.done.reply) : t('Done')}<br><span class="muted">${task.done.by === 'ai' ? t('Kaity, {when}', { when: esc(when(task.done.at)) }) : esc(when(task.done.at))}</span></span></p>` : ''}
+    <div class="row">
+      <button data-n="remove" class="danger">${t('Remove')}</button><span class="spacer"></span>
+      ${task.done ? `<button data-n="reopen">${t('Open again')}</button>`
+        : `${task.gone ? '' : `<button data-n="ask" ${busy ? 'disabled' : ''} title="${busy ? t('Kaity is working on {id}', { id: esc(S.ai.id) }) : t('Kaity works through the open tasks on {id}', { id: esc(task.block) })}">${kaityMark()}${t('Give it to Kaity')}</button>`}<button data-n="close" class="primary">${ic('check')}${t('Done')}</button>`}
+    </div>
+  </div>`);
+  pop.onclick = async (e) => {
+    const b = e.target.closest('[data-n]');
+    if (!b) return;
+    closePop();
+    try {
+      if (b.dataset.n === 'ask') return askTasks(task.block);
+      await api(`/tasks/${b.dataset.n}`, { n });
+      await loadTasks();
+    } catch (err) {
+      toast(err.message, true);
+    }
+  };
+}
+
+/** Kaity works through the open tasks on a block (and inside it), in that block's conversation. */
+async function askTasks(block) {
+  try {
+    const r = await api('/tasks/ask', { id: block });
+    S.ai = { id: block, tasks: r.result };
+    if (S.taskMode) setTaskMode(false);
+    select(block, { scroll: true, tab: 'ai' });
+  } catch (err) {
+    toast(err.message, true);
+  }
+}
+
+/** Every task on the page, by block: the open ones, then the ones that are done. */
+function openTaskList() {
+  const open = openTasks(), done = S.tasks.filter((x) => x.done);
+  const blocks = [...new Set(open.map((x) => x.block))];
+  const row = (x) => `<li><button class="task-row" data-open="${x.n}"><span class="pin static${x.done ? ' done' : ''}">${x.n}</span><span><span class="task-place">${x.label ? esc(x.label) : esc(x.block)}</span><span class="task-text">${esc(x.text)}</span></span></button></li>`;
+  const r = taskBar.getBoundingClientRect();
+  const all = open.filter((x) => !x.gone).length;
+  popover(r.left, r.top - 8, `<div class="tasklist">
+    ${all > 1 ? `<button class="primary ask-all" data-ask="${esc(S.tree.id)}" ${S.ai ? 'disabled' : ''} title="${t('One run from the top block: Kaity works through every open task on the page')}">${kaityMark()}${t('Give Kaity every task ({n})', { n: all })}</button>` : ''}
+    ${open.length ? blocks.map((b) => {
+      const mine = open.filter((x) => x.block === b);
+      const gone = mine[0].gone;
+      return `<section><header><b>${esc(b)}</b>${gone ? `<span class="muted">${t('gone')}</span>` : `<button class="link" data-ask="${esc(b)}" ${S.ai ? 'disabled' : ''}>${kaityMark()}${mine.length === 1 ? t('Give it to Kaity') : t('Give Kaity these {n}', { n: mine.length })}</button>`}</header><ol>${mine.map(row).join('')}</ol></section>`;
+    }).join('') : `<p class="muted">${t('No open tasks. Click anything on the page to add one.')}</p>`}
+    <a class="handbook-link" href="${API}/handbook" target="_blank" rel="noopener">${ic('blocks')}<span>${t('Every task in the handbook, with the page\'s theme and blocks')}</span>${ic('right')}</a>
+    ${done.length ? `<details><summary>${done.length === 1 ? t('1 task done') : t('{n} tasks done', { n: done.length })}</summary><ol>${done.map(row).join('')}</ol><div class="row"><button data-clear>${t('Remove the tasks that are done')}</button></div></details>` : ''}
+  </div>`);
+  // above the bar: the list grows upwards
+  pop.style.top = `${Math.max(8, r.top - pop.offsetHeight - 8)}px`;
+  pop.onclick = async (e) => {
+    const o = e.target.closest('[data-open]');
+    if (o) {
+      const task = S.tasks.find((z) => z.n === +o.dataset.open);
+      const el = task && !task.gone ? taskEl(task) : null;
+      el?.scrollIntoView({ block: 'center', behavior: stillMotion ? 'auto' : 'smooth' });
+      return setTimeout(() => openTask(+o.dataset.open, r.left, r.top - 8), el ? 350 : 0);
+    }
+    const a = e.target.closest('[data-ask]');
+    if (a) return closePop(), askTasks(a.dataset.ask);
+    if (e.target.closest('[data-clear]')) {
+      closePop();
+      await api('/tasks/clear', {}).catch((err) => toast(err.message, true));
+      loadTasks();
+    }
+  };
+}
+
+async function copyTasks() {
+  if (!S.tasksText) return toast(t('No open tasks to copy'), true);
+  const name = S.site?.current ?? document.title;
+  const text = `${t('Tasks on the page {name}, from the TYKERF editor. Each names the block, the element inside it and the window width it was written at:', { name })}\n${S.tasksText}\n`;
+  try {
+    await navigator.clipboard.writeText(text);
+    toast(t('Copied: paste them into any AI agent or a message'));
+  } catch {
+    toast(t('Could not copy to the clipboard'), true);
+  }
+}
+
+taskBar.addEventListener('click', (e) => {
+  const b = e.target.closest('[data-nb]')?.dataset.nb;
+  if (b === 'done') setTaskMode(false);
+  if (b === 'list') openTaskList();
+  if (b === 'copy') copyTasks();
+  if (b === 'pins') {
+    S.showPins = !S.showPins;
+    store.set('pins', S.showPins);
+    renderTasksCount();
+    redraw();
+  }
+});
+pinsEl.addEventListener('click', (e) => {
+  const b = e.target.closest('[data-pin]');
+  if (!b) return;
+  const r = b.getBoundingClientRect();
+  openTask(+b.dataset.pin, r.right + 6, r.top);
+});
+
 // ---------- context menu (right button) ----------
 
 const menu = $('.menu');
@@ -2610,7 +2970,7 @@ function openMenu(x, y, id, target = null) {
   // what can be edited right where the pointer is
   const boxEl = n.kind === 'box' ? elOf(id) : null;
   const img = boxEl && target?.closest?.('img');
-  const here = { x, y, img: img && boxEl.contains(img) ? img : null, text: null };
+  const here = { x, y, img: img && boxEl.contains(img) ? img : null, text: null, target };
   if (boxEl && !here.img && target) here.text = editableAt(target, boxEl);
   menuAt = here;
   menu.innerHTML = `<div class="menu-title">${esc(id)} <span>${esc(kindLabel(n))}</span></div>` + [
@@ -2618,6 +2978,7 @@ function openMenu(x, y, id, target = null) {
     here.img ? item('image-here', 'image', t('Edit image…')) : '',
     n.kind === 'box' ? item('tab', 'code', t('Edit code'), 'data-tab="code"') : '',
     item('tab', 'ai', t('Ask Kaity here…'), 'data-tab="ai"'),
+    item('task-here', 'task', t('Add a task for Kaity here…')),
     n.kind === 'box' ? item('import', 'import', t('Import a section…')) : '',
     '<hr>',
     item('size', 'size', t('Sizes…')),
@@ -2650,6 +3011,10 @@ menu.addEventListener('click', (e) => {
   if (b.dataset.act === 'edit-here') return startTextEdit(id, here.text);
   if (b.dataset.act === 'image-here') return openImageTool(id, here.img);
   if (b.dataset.act === 'rename-here') return renameHere(id, here.x, here.y);
+  if (b.dataset.act === 'task-here') {
+    const spot = (here.target && taskSpot(here.target)) || { block: id, el: elOf(id), path: null, label: '' };
+    return openTaskForm(here.x, here.y, spot, { forKaity: true });
+  }
   if (b.dataset.act === 'remove-here') return removeHere(id, here.x, here.y);
   act(b.dataset.act, id, b.dataset);
   if (b.dataset.act === 'tab') setTimeout(() => $('.work .tab-body textarea')?.focus(), 150);
@@ -2678,6 +3043,14 @@ const boxAt = (el) => {
 
 addEventListener('pointermove', (e) => {
   if (!S.on || fromUI(e)) return;
+  if (S.taskMode) {
+    const spot = S.taskTarget ? null : taskSpot(e.target);
+    if (spot?.el !== S.taskAt?.el) {
+      S.taskAt = spot;
+      redraw();
+    }
+    return;
+  }
   const id = boxAt(e.target);
   if (id !== S.hover) {
     S.hover = id;
@@ -2707,6 +3080,12 @@ for (const type of ['click', 'dblclick', 'auxclick', 'mousedown', 'mouseup', 'po
     if (editing && type === 'pointerdown') finishEdit(true);
     e.preventDefault();
     e.stopImmediatePropagation();
+    // task mode: a click adds a task where it lands; nothing else happens on the page
+    if (S.taskMode) {
+      const spot = type === 'click' && e.button === 0 && taskSpot(e.target);
+      if (spot) openTaskForm(e.clientX, e.clientY, spot);
+      return;
+    }
     if (type === 'click' && e.button === 0) {
       closeMenu();
       const id = boxAt(e.target) ?? blockAt(e.target);
@@ -2741,6 +3120,7 @@ addEventListener('keydown', (e) => {
   if (e.key === 'Escape' && !menu.hidden) return closeMenu();
   if (e.key === 'Escape' && !pop.hidden) return closePop();
   if (typing()) return;
+  if (e.key === 'Escape' && S.taskMode) return setTaskMode(false);
   if (e.key === 'Escape' && S.sel && parentOf(S.sel)) {
     e.preventDefault();
     select(parentOf(S.sel), { scroll: true });
@@ -2858,6 +3238,7 @@ function setOn(v) {
   toggle.querySelector('span').textContent = v ? t('Back to the page') : t('Edit with TYKERF');
   panel.hidden = !v;
   if (!v) {
+    if (S.taskMode) setTaskMode(false);
     finishEdit(true);
     closePop();
     if (tool) closeTool();
@@ -2945,6 +3326,8 @@ async function reloadPage() {
     s.textContent = old.textContent;
     old.replaceWith(s);
   }
+  // the site's behaviours (kit/scripts) run on the new elements
+  document.dispatchEvent(new Event('tykerf:render'));
 }
 
 async function refresh() {
@@ -2974,10 +3357,15 @@ events.addEventListener('changed', () => refresh().catch((e) => toast(e.message,
 // the page was renamed or removed (maybe from another tab): go where it went
 events.addEventListener('moved', (e) => location.replace(JSON.parse(e.data).url));
 events.addEventListener('job', (e) => renderJob(JSON.parse(e.data)));
+events.addEventListener('tasks', () => loadTasks());
 events.addEventListener('ai', (e) => {
   const m = JSON.parse(e.data);
-  if (m.role === 'start') S.ai = { id: m.id };
+  if (m.role === 'start') S.ai = { id: m.id, ...(m.tasks ? { tasks: m.tasks } : {}) };
   if (m.role === 'end') S.ai = null;
+  // her latest step rides on the frame around her block (drawKaity)
+  if (m.role === 'start' || m.role === 'end') S.aiStep = null;
+  if (m.role === 'step' && m.text) S.aiStep = m.text.replace(/^refused: /, '');
+  if (['start', 'end', 'step'].includes(m.role)) redraw();
   if (m.role === 'start' || m.role === 'end') renderTree(); // her balls on the block she works on
   if (m.role === 'end' && m.id !== S.sel) toast(t('Kaity finished on {id}', { id: m.id }));
   if (S.sel && per(S.sel).tab === 'ai' && (m.id === S.sel || m.role === 'start' || m.role === 'end')) renderAI($('.work .tab-body'), S.sel);
@@ -3012,4 +3400,6 @@ setOn(S.on);
 keepPanelOnScreen();
 // a page that is still being made (the AI building it, a copy) opens with its progress
 api('/job').then((j) => renderJob(j.job)).catch(() => {});
+loadTasks();
+loadKit();
 window.TYKERF = S; // for debugging from the console

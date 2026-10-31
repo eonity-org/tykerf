@@ -20,6 +20,13 @@ describe('the library', () => {
     for (const c of components()) expect(c.label && c.description).toBeTruthy();
   });
 
+  it('uses every component in some page layout, so each one is seen and kept working', () => {
+    // Image fills a box sized by hand (its handles): a building block for pages people compose themselves
+    const BUILDING_BLOCKS = ['image'];
+    const used = new Set(pageLayouts().flatMap((p) => Object.values(p.boxes)));
+    expect(components().map((c) => c.name).filter((c) => !used.has(c) && !BUILDING_BLOCKS.includes(c))).toEqual([]);
+  });
+
   it('builds components only on theme variables that the theme defines', () => {
     const defined = new Set([...theme().matchAll(/(--[\w-]+)\s*:/g)].map((m) => m[1]));
     for (const c of components()) {
@@ -185,7 +192,7 @@ describe('theme presets', () => {
   it('set only variables the theme has, with values the theme accepts', () => {
     const vars = Object.keys(readTheme(theme()));
     const raw = JSON.parse(readFileSync(join(LIBRARY, 'themes.json'), 'utf8')) as Record<string, { values: Record<string, string> }>;
-    expect(themes().map((t) => t.name)).toEqual(['studio', 'product', 'ivory', 'gallery', 'dark', 'warm']);
+    expect(themes().map((t) => t.name)).toEqual(['studio', 'product', 'ivory', 'gallery', 'dark', 'warm', 'biased']);
     for (const [name, p] of Object.entries(raw)) {
       for (const [k, v] of Object.entries(p.values)) {
         expect(vars, `${name} sets ${k}`).toContain(k);

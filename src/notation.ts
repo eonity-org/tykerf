@@ -43,6 +43,12 @@ function num(s: string, what: string): number {
   return v;
 }
 
+/** A shared block's name (kit/blocks/<name>.html in the site). */
+function blockName(s: string, tok: string): string {
+  if (!/^[a-z0-9][a-z0-9-]{0,40}$/.test(s)) throw new NotationError(`bad shared block name "${s}" in "${tok}"`);
+  return s;
+}
+
 function typeName(s: string, tok: string): string {
   if (!/^[a-z][a-z0-9-]*$/.test(s)) throw new NotationError(`bad type "${s}" in "${tok}" (lowercase letters, digits, -)`);
   return s;
@@ -81,6 +87,7 @@ function parseLeaf(tok: string): Leaf {
       else if (a.startsWith('maxw=')) leaf.maxW = num(a.slice(5), tok);
       else if (a.startsWith('minh=')) leaf.minH = num(a.slice(5), tok);
       else if (a.startsWith('type=')) leaf.boxType = typeName(a.slice(5), tok);
+      else if (a.startsWith('use=')) leaf.use = blockName(a.slice(4), tok);
       else throw new NotationError(`unknown leaf attribute "${a}" in "${tok}"`);
     }
   }
@@ -181,6 +188,7 @@ export function serialize(n: Node, opts: SerializeOptions = {}): string {
       if (n.maxW !== undefined) attrs.push(`maxw=${fmt(n.maxW)}`);
       if (n.minH !== undefined) attrs.push(`minh=${fmt(n.minH)}`);
       if (n.boxType) attrs.push(`type=${n.boxType}`);
+      if (n.use) attrs.push(`use=${n.use}`);
       return out.push(attrs.length ? `${n.id}[${attrs.join(' ')}]` : n.id);
     }
     n.children.forEach(rec);
@@ -251,7 +259,7 @@ export function outline(layout: Layout): string {
     else if (n.type === 'leaf') {
       const bits = [n.role && `role=${n.role}`, ...n.tags.map((t) => `#${t}`),
         n.variants.length && `shape=${n.variants.map(shapeToString).join('|')}${n.variants.length > 1 ? ` (variant ${n.variant})` : ''}`,
-        n.minW !== undefined && `minw=${n.minW}`, n.maxW !== undefined && `maxw=${n.maxW}`, n.minH !== undefined && `minh=${n.minH}`, n.boxType && `type=${n.boxType}`].filter(Boolean);
+        n.minW !== undefined && `minw=${n.minW}`, n.maxW !== undefined && `maxw=${n.maxW}`, n.minH !== undefined && `minh=${n.minH}`, n.boxType && `type=${n.boxType}`, n.use && `use=${n.use} (shared block)`].filter(Boolean);
       lines.push(`${prefix}${[n.id, 'leaf', ...bits, where].join(' ')}`);
     } else {
       const bits = [n.ratios && `ratios=${n.ratios.map(fmt).join(':')}`, n.gap !== undefined && `gap=${n.gap}`,

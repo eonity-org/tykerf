@@ -1,0 +1,14 @@
+<style>
+:scope { background: var(--section-bg, transparent); }
+.wrap { max-width: var(--max-width); margin: 0 auto; padding: calc(var(--space-section) * .5) var(--gap) calc(var(--space-section) * .7); }
+/* the way on to the next case: one wide link between two heavy rules */
+a { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: end; gap: 8px 24px; padding: clamp(24px, 4vw, 44px) 0; border-top: 3px solid var(--color-text); border-bottom: 1px solid var(--color-border); color: var(--color-text); text-decoration: none; }
+span { grid-column: 1 / -1; font-size: 12px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--color-muted); }
+b { font: var(--weight-heading) var(--text-title)/1.1 var(--font-heading); letter-spacing: var(--tracking-heading); }
+i { font-style: normal; font-size: clamp(28px, 3vw, 40px); color: var(--color-accent); transition: translate .2s; }
+a:hover i { translate: 6px 0; }
+a:hover b { text-decoration: underline; text-decoration-thickness: 2px; text-underline-offset: 6px; }
+</style>
+<div class="wrap">
+  <a href="#"><span>Next case</span><b>The next project's name</b><i aria-hidden="true">→</i></a>
+</div>

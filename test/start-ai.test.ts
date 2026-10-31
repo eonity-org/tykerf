@@ -397,6 +397,7 @@ describe('Kaity for the whole site', () => {
     const rename = await post('_tykerf/site/rename', { name: 'rome', to: 'roma' });
     expect([rename.status, (await rename.json()).error]).toEqual([409, 'Kaity is working on the whole site; wait for her to finish before you rename a page']);
     expect((await post('rome/_tykerf/ask', { id: 'nav', prompt: 'hi' })).status).toBe(409);
+    expect((await post('rome/_tykerf/tasks/ask', { id: 'nav' })).status).toBe(409); // a page's tasks too
 
     await page.locator('.kaity .msg.ai', { hasText: 'Both navigations now link to every page.' }).waitFor({ timeout: 20_000 });
     for (const name of ['rome', 'munich']) expect(readFileSync(join(site, name, 'boxes', 'nav.html'), 'utf8')).toContain('<a href="/munich/">Munich</a>');

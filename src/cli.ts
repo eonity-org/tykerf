@@ -6,9 +6,11 @@
 //   npx tsx src/cli.ts export   <page-or-site-dir> <out-dir> [--zip] [--files]   plain files for any web host
 //   npx tsx src/cli.ts optimize <workspace-dir> <width> [--write]
 //   npx tsx src/cli.ts import   <url> <workspace-dir> [--structure-only]
-//   npx tsx src/cli.ts new      <workspace-dir> [layout] [--theme <name>]   start a page from a layout (default: blank)
+//   npx tsx src/cli.ts new      <workspace-dir> [layout] [--theme <name>] [--name <page>]   start a page from a layout (default: blank);
+//                                                       on a site, the page is added to it (a warning, not an error)
 //   npx tsx src/cli.ts layouts                              list layouts, themes and components
 
+import { existsSync, readdirSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { assertValid } from './model.js';
 import { normalize, outline, parse, serialize } from './notation.js';
@@ -80,22 +82,42 @@ switch (cmd) {
     break;
   }
   case 'new': {
-    const { createPage } = await import('./library.js');
+    const { DEFAULT_THEME, createPage } = await import('./library.js');
     if (!arg) {
-      console.error('usage: new <workspace-dir> [layout] [--theme <name>]');
+      console.error('usage: new <workspace-dir> [layout] [--theme <name>] [--name <page>]');
       process.exit(1);
     }
-    const ws = new Workspace(resolve(arg));
-    if (ws.store.list('').some((f) => !f.startsWith('.'))) {
-      console.error(`${ws.store.location} is not empty; a new page needs a new or empty folder`);
+    const option = (o: string) => (rest.indexOf(o) >= 0 ? rest[rest.indexOf(o) + 1] : undefined);
+    const asked = option('--theme');
+    const layout = rest.find((r, i) => !r.startsWith('--') && !['--theme', '--name'].includes(rest[i - 1])) ?? 'blank';
+    const dir = resolve(arg);
+    const ws = new Workspace(dir);
+    // an empty or new folder: the page goes in it (folders count too: a site may hold only its pages)
+    if (!existsSync(dir) || !readdirSync(dir).some((f) => !f.startsWith('.'))) {
+      const theme = asked ?? DEFAULT_THEME;
+      createPage(ws, layout, theme);
+      console.log(`new page in ${ws.store.location} from the "${layout}" layout with the "${theme}" theme`);
+      break;
+    }
+    let kind: 'page' | 'site';
+    try {
+      kind = siteKind(dir);
+    } catch (e) {
+      console.error(`${(e as Error).message}. Give a new or empty folder for the page, such as ${join(dir, layout)}`);
       process.exit(1);
     }
-    const themeAt = rest.indexOf('--theme');
-    const { DEFAULT_THEME } = await import('./library.js');
-    const theme = themeAt >= 0 ? rest[themeAt + 1] : DEFAULT_THEME;
-    const layout = rest.find((r, i) => !r.startsWith('--') && rest[i - 1] !== '--theme') ?? 'blank';
-    createPage(ws, layout, theme);
-    console.log(`new page in ${ws.store.location} from the "${layout}" layout with the "${theme}" theme`);
+    if (kind === 'page') {
+      console.error(`${dir} is already a page; a new page there would replace it. Give a new or empty folder, or change this page in the editor (npm start -- ${arg})`);
+      process.exit(1);
+    }
+    // a site (a folder of pages): not an error; the page is added to it, beside the others
+    const { addSitePage, freePageName } = await import('./site.js');
+    const wish = option('--name');
+    const name = freePageName(dir, wish ?? layout);
+    const { ownValues } = addSitePage(dir, name, layout, asked);
+    console.warn(`warning: ${dir} is a site with ${sitePages(dir).length - 1} pages, so the new page was added to it as "${name}"${wish && wish !== name ? ` ("${wish}" was taken)` : ''}, not written over the site folder`);
+    if (ownValues) console.warn(`warning: the site shares one theme; the "${asked}" theme was given to "${name}" as its own values, so the other pages keep their look`);
+    console.log(`new page ${join(dir, name)} from the "${layout}" layout${asked ? ` with the "${asked}" theme` : ''}`);
     break;
   }
   case 'layouts': {

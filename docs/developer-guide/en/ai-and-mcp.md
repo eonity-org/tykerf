@@ -28,6 +28,8 @@ TYKERF never lets a model rewrite a page. A model gets TYKERF's **MCP tools**: v
 | Tree | `split`, `wrap`, `unwrap`, `flip`, `swap`, `move`, `add_leaf`, `remove`, `set_ratios`, `set_op`, `set_leaf`, `set_variant`, `tag`, `untag`, `add_rule`, `remove_rule`, `attach_overlay`, `detach_overlay`, `rename`, `normalize`, `optimize` |
 | Code and look | `use_page` (this page with another page's blocks, code and images: `usePage` in `site.ts`), `set_content` (a box's whole code), `edit_content` (replace one exact piece of it: quick on long code, such as a copied site's; both warn when the code uses a file the page doesn't have, `missingFiles` in `check.ts`), `add_picture` (an SVG the model draws, or a picture the user attached, into `assets/`: models can't download pictures), `use_component`, `set_theme`, `use_theme` (a preset), `use_layout` (replaces the whole page with a page layout; page root in scope) |
 | History | `undo`, `redo` |
+| Site kit | `list_kit`, `get_kit_file`, `set_kit_file`, `share_block`, `link_block`, `unlink_block` (`src/kit.ts`, shared blocks in `site.ts`); like the page tools, only with `home` or `folders` and no scope. `set_content`/`edit_content` refuse a box that shows a shared block under a scope, or without a site (`assertMayChangeShared`) |
+| Tasks | `list_tasks` (the open tasks inside the scope, or every task with `all`: number, block, element, window width, text), `close_task` (a task inside the scope, with a reply for the person): `src/tasks.ts` |
 | Look and check | `check_page` (what the scope block has left unfinished: `src/check.ts`), `screenshot` (a PNG of a block with a dashed frame, or of the page, at a width), `evaluate` (sideways scroll, overflow, line length, tap targets… at several widths), `render` |
 
 How every tool behaves:
@@ -65,6 +67,10 @@ The `AI` class keeps, per block:
 `AI.ask` keeps the page's leftovers when a request starts (`leftoverKey`) and compares at the end, so only what that request added is reported, less what the person kept (`.tykerf/kept.json`):
 - **A whole page** (a `brief`, as from the start screen, or a `use layout` step in the request) gets one more pass in the same run: `fixPrompt(left)` goes to the model, and the chat shows a `check` message with `state: 'auto'`. The block lock, the job and *Stop* cover both passes.
 - **Otherwise** the chat ends with a `check` message with `state: 'open'`: `POST /_tykerf/check/fix` asks Kaity with the list (`state: 'fixing'`), and `POST /_tykerf/check/leave` keeps the items (`state: 'left'`).
+
+### Tasks (`src/tasks.ts`)
+
+People add tasks on elements of the page in the editor; they live in `.tykerf/tasks.json`, outside the page's history. A task keeps the block's name and when it was last that name (`since`), and `tasks()` follows renames through `Workspace.followRenames`, so a renamed block keeps its tasks; a task whose block is gone says so (`gone`). `within` keeps the tasks inside a scope, which is how `list_tasks` and `close_task` respect it. *Give it to Kaity* (`AI.askTasks`) shows the tasks in the block's chat as they were written and gives Kaity each in full, with its element path, as the request's context (`tasksPrompt`): she works through them and closes each with `close_task`. The run remembers which tasks it was given (`running().tasks`, also on the `start` event), so a task added meanwhile is left for the next request and doesn't pulse on the page.
 
 ### Kaity for the whole site
 

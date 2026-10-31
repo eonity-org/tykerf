@@ -82,13 +82,14 @@ Pick a page layout and a theme while the preview shows them at desktop or phone 
 | Layout | For |
 |---|---|
 | Product launch | A big headline over the product, features, numbers, quotes, pricing, FAQ (airy) |
-| Company | A statement, the latest news, what you do, numbers |
+| Company | A headline for each audience, the latest news, what you do, steps, numbers |
 | Magazine | A front page of stories with a most-read list (packed) |
 | Catalogue | Products or services in a grid of cards, with filters (packed) |
-| Portfolio | A statement, a gallery of work, quotes, contact |
+| Portfolio | A headline beside a picture, a gallery of work, quotes, contact |
+| Biased | A case study told through its decisions: what was chosen over what, why, and the results |
 | Article, Documentation, Blank | Reading pages, and an almost empty start |
 
-The six themes cover different styles: *Studio* (airy), *Product* (packed), *Ivory* (editorial), *Gallery* (soft), *Dark* (for developers) and *Warm* (warm editorial, a serif over a sans, gilt details). Any layout works with any theme, so the pair sets the page's colour, type and density.
+The seven themes cover different styles: *Studio* (airy), *Product* (packed), *Ivory* (editorial), *Gallery* (soft), *Dark* (for developers), *Warm* (warm editorial, a serif over a sans, gilt details) and *Biased* (ink on warm paper, an indigo accent, a lime highlighter). Any layout works with any theme, so the pair sets the page's colour, type and density.
 
 A layout is a whole page made of **components**, ready-made sections such as a hero, features or pricing. Later you can drop any component into any box on its own (*Use a component*), and the **theme** styles them all; see [how they differ](layouts.md).
 

@@ -89,6 +89,10 @@ Build the first page well, then add pages with *New page…* → *Like this page
 
 Select `page` and ask about the theme: "make the accent a deep green", "headings in a serif", "more space between sections". In a site with several pages, Kaity changes only this page's values; change the look of every page in the Page tab (*Every page*).
 
+### Several small changes at once
+
+Go through the page in task mode and add a task on each thing to change, at the width where you see it (see [Tasks](editor.md#tasks)). Then **Give Kaity every task** in the list, or **Give it to Kaity** on one block's tasks: she gets each open task with where it is and how wide the window was, works through them and closes each one with a short reply you'll see next to it. Tasks she couldn't do stay open, and she says why. From Claude Code or another MCP client, ask it to work through the page's tasks: it reads them with `list_tasks` and closes them with `close_task`.
+
 ## When to do it yourself
 
 Kaity is quick at building and restructuring; you are quicker at small, exact changes:

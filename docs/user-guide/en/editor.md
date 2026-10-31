@@ -40,6 +40,7 @@ Drag it by its header, resize it from its corner, collapse it with **–**. On p
 - **Rename**, or click the name: every reference follows, and so does the block's conversation with Kaity.
 - **Paste…**: put back code you removed (see below), into this box or as a new box beside, below or inside.
 - **Delete…**: see below.
+- **Share…** (a box in a site): make it a shared block that every page can show, or show one the site already has. A box that shows one is marked **shared** and offers **Make this page's own copy**; see [the site kit](sites.md#the-site-kit).
 
 ## Editing in place
 
@@ -69,6 +70,8 @@ Drag it by its header, resize it from its corner, collapse it with **–**. On p
     - **Band:** *None*, *Alternate* (a shade of the background), *Soft* (a wash of the accent) or *Dark* (its text turns light).
     - **Density:** *Normal* or *Dense* (less space around it, smaller titles).
 
+    - **Site tags**, in a site whose kit has them: the site's own tags, on or off (see [the site kit](sites.md#the-site-kit)).
+
     The theme gives the colours, so a band always matches the page. It works on any block: a box, whatever its code, or a whole container. Each change is one undo step.
   - **Widths** of blocks side by side, with *Equal widths*. Handles also sit on the page between the blocks.
   - **Width** of the selected block when it isn't side by side with others: narrower than the space it has, and centred. The handle on its right edge does the same on the page; double-click it, or press *full*, to make it full width again.
@@ -79,6 +82,22 @@ Drag it by its header, resize it from its corner, collapse it with **–**. On p
 
 An empty box's Text tab offers **Use a component** (ready-made sections with placeholders), **Import a section** (a part of another website, see [copying a website](importing.md)), **Write code** and **Ask Kaity**. *Import a section…* is also in the right-click menu of every box.
 - **Kaity:** see [Working with Kaity](ai.md).
+
+## Tasks
+
+A task is something to be done, left on the exact place on the page it is about: a change to make, a question, something to check. It is for you, a colleague or Kaity.
+
+- **Tasks** in the panel's header turns task mode on. The element under the pointer is outlined, with its place in words (`hero › h1 "The short promise…"`). Click it, write the task and press **Enter** (or **Add task**). Nothing else happens on the page while task mode is on; **Esc** or **Done** leaves it.
+- Without task mode: right-click anything and choose *Add a task for Kaity here…*. The same form opens on the element you clicked, with **Add task** (for later) and **Add and give it to Kaity** (Kaity works on the block's open tasks at once; **Enter** does this).
+- Each open task shows as a **numbered tab** (`T3`) on its element's top-right corner, which follows it when the page changes. The header shows how many are open. Click a tab to read the task: **Done** closes it, **Remove** deletes it, **Give it to Kaity** hands every open task on that block to Kaity.
+- **While Kaity works**, her block glows on the page with a light sweeping across it, each task she still has to do pulses, and a small label shows what she's doing right now. Her conversation shows the tasks she was given, word for word. You can keep adding tasks meanwhile, on her block too: they don't change what she's doing, she leaves them for the next request, and only the tasks she was given pulse.
+- A task remembers **how wide the window was** when you wrote it, so whoever does it looks at the page at that width ("too big on a phone").
+- The bar at the bottom in task mode: **List** shows every task by block (**Give Kaity every task** for one run over the whole page, *Give Kaity these…* for a block's tasks, and the tasks that are done, with Kaity's reply), **Tabs** shows or hides the tabs, **Copy all** copies the open tasks as text to paste into any AI agent or a message.
+- Tasks aren't part of the page: they aren't undone with Undo, and they don't go with an export. They follow a block when it is renamed; a task whose block was deleted says so.
+
+## The handbook
+
+*Handbook* at the top of the **Page** tab opens the page's system on one page, in a tab of its own: the theme (colours as swatches, fonts as samples, sizes and spacing as bars) and every block in page order, with chips to copy its name, its path or its link (`#sw-<name>`) into a request, and its tasks: the open ones, then the ones that are done with their reply, a record of what was decided. It is made from the page as it is now, so it is never out of date. **Markdown** downloads the same as text, for an AI agent or a colleague.
 
 ## Delete or Remove
 

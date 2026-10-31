@@ -1,0 +1,19 @@
+<style>
+:scope { background: var(--section-bg, transparent); }
+.wrap { max-width: var(--max-width); margin: 0 auto; padding: calc(var(--space-section) * .7) var(--gap); }
+h2 { font-size: var(--text-title); max-width: 18ch; margin: 0 0 clamp(24px, 4vw, 40px); }
+/* the same view before and after, side by side (stacked when narrow) */
+.pair { display: grid; padding-top: 13px; grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr)); gap: var(--gap); }
+figure { margin: 0; position: relative; }
+figure img { display: block; width: 100%; border-radius: var(--radius); border: 1px solid var(--color-border); background: var(--color-surface); }
+.tag { position: absolute; top: -13px; left: 16px; padding: 4px 10px; border-radius: var(--radius-button); font-size: 13px; font-weight: 700; background: var(--color-text); color: var(--color-bg); }
+.after .tag { background: var(--color-accent); color: var(--color-on-accent); }
+figcaption { margin-top: 10px; font-size: 15px; color: var(--color-muted); }
+</style>
+<div class="wrap">
+  <h2>Before and after</h2>
+  <div class="pair">
+    <figure><img src="assets/placeholder-wide.svg" alt="Describe the page before"><span class="tag">Before</span><figcaption>What was in the way: one line on the old version.</figcaption></figure>
+    <figure class="after"><img src="assets/mockup-detail.svg" alt="Describe the page after"><span class="tag">After</span><figcaption>What is better: one line on the new version.</figcaption></figure>
+  </div>
+</div>

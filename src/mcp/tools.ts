@@ -15,7 +15,9 @@ import { pathOf, positionOf, resolveRef } from '../refs.js';
 import { inScope, scopeViolation } from '../scope.js';
 import { cost, optimize } from '../shape.js';
 import { leftovers, missingFiles, say } from '../check.js';
-import { newSitePage, pageWorkspace, siteHead, siteKind, unsafeSVG, siteOf, sitePages, usePage } from '../site.js';
+import { closeTask, sayTask, tasks } from '../tasks.js';
+import { type KitKind, kitList, kitRead, kitTags, kitWrite } from '../kit.js';
+import { blockUsers, linkBlock, newSitePage, pageWorkspace, shareBlock, siteHead, siteKind, unlinkBlock, unsafeSVG, siteOf, sitePages, usePage } from '../site.js';
 import { DEFAULT_THEME, components, createPage, hasTheme, pageLayouts, readOverrides, readTheme, setTheme, themeTarget, themes, useComponent, useLayout } from '../library.js';
 import { FolderStore, MemoryStore } from '../store.js';
 import { Workspace } from '../workspace.js';
@@ -177,6 +179,12 @@ export function createTykerfServer(start: Workspace | null, opts: TykerfServerOp
   function assertInScope(l: Layout, target: string) {
     const sc = scope(l);
     if (sc && !inScope(l, sc, target)) throw new Error(`refused: "${target}" is outside the scope "${pathOf(l, sc)}"; ask the user to widen the scope.`);
+  }
+
+  /** A box that shows a shared block changes every page that shows it: only from a run on the whole site. */
+  function assertMayChangeShared(l: Layout, target: string) {
+    const use = ws.sharedBlock(target, l);
+    if (use && (scope(l) || !(home || folders))) throw new Error(`refused: "${target}" shows the shared block "${use}", which other pages of the site show too. Changing it is for a request about the whole site (Kaity in the site manager); if only this page should change, ask the user to make it this page's own copy first (right-click → Make this page's own copy)`);
   }
 
   /** A box or overlay: an overlay id as is, anything else as a node reference. */
@@ -499,6 +507,7 @@ export function createTykerfServer(start: Workspace | null, opts: TykerfServerOp
     const ov = l.overlays.find((o) => o.id === target);
     if (!ov && find(l.root, target)?.node.type !== 'leaf') throw new Error(`"${ref}" is not a box (leaf) or overlay`);
     assertInScope(l, ov ? ov.target : target);
+    if (html !== null) assertMayChangeShared(l, target);
     ws.setContent(target, html);
     return `ok: content of "${target}" ${html === null ? 'removed' : 'set'}${noFiles(html ?? '')}`;
   })) as never);
@@ -514,6 +523,7 @@ export function createTykerfServer(start: Workspace | null, opts: TykerfServerOp
     const ov = l.overlays.find((o) => o.id === target);
     if (!ov && find(l.root, target)?.node.type !== 'leaf') throw new Error(`"${ref}" is not a box (leaf) or overlay`);
     assertInScope(l, ov ? ov.target : target);
+    assertMayChangeShared(l, target);
     const code = ws.content(target);
     if (code === null) throw new Error(`"${target}" has no code yet; use set_content`);
     const n = code.split(old).length - 1;
@@ -587,6 +597,68 @@ export function createTykerfServer(start: Workspace | null, opts: TykerfServerOp
 
   // a run on one block (the editor's Kaity) never sees them
   if ((home || folders) && !runScope) {
+    // ---------- the site kit (src/kit.ts): what every page shares besides its theme ----------
+    const kindArg = z.enum(['styles', 'scripts', 'blocks', 'types', 'tags']);
+    const reach = (site: string, kind: KitKind, name: string) => {
+      if (kind !== 'blocks') return `every page of the site (${sitePages(site).length})`;
+      const users = Object.keys(blockUsers(site, name));
+      return users.length ? `the pages that show it: ${users.join(', ')}` : 'no page yet (link_block shows it in a box)';
+    };
+    server.registerTool('list_kit', {
+      title: 'Read the site kit', annotations: READ,
+      description: 'The site kit: what every page of the site shares besides the theme. styles: CSS in every page, after the theme and before the page\'s own. scripts: behaviours, an ES module whose default export gets each element marked data-use="<name>". ' +
+        'blocks: shared blocks; a box with use=<name> (see get_layout) shows kit/blocks/<name>.html on every page that links it. types: box types for every page. tags: the site\'s own tags (#name on a block, styled as .t-<name> in kit styles).',
+    }, guard(() => {
+      const site = siteOnly();
+      const f = kitList(site);
+      const tags = Object.entries(kitTags(site)).map(([t, v]) => `#${t}: ${v.label}${v.description ? ` (${v.description})` : ''}`);
+      const blocks = f.blocks.map((b) => { const u = Object.keys(blockUsers(site, b)); return `${b} (on ${u.length ? u.join(', ') : 'no page'})`; });
+      return [`styles: ${f.styles.join(', ') || 'none'}`, `scripts: ${f.scripts.join(', ') || 'none'}`, `blocks: ${blocks.join(', ') || 'none'}`, `types: ${f.types.join(', ') || 'none'}`, `tags: ${tags.join('; ') || 'none'}`].join('\n');
+    }));
+    server.registerTool('get_kit_file', {
+      title: 'Read a site kit file', annotations: READ,
+      description: 'One file of the site kit (see list_kit). For tags, the name is ignored: it is kit/tags.json.',
+      inputSchema: { kind: kindArg, name: z.string().optional() },
+    }, guard(({ kind, name }: { kind: KitKind; name?: string }) => kitRead(siteOnly(), kind, name ?? 'tags') ?? `the kit has no ${kind} file "${name ?? 'tags'}"`));
+    server.registerTool('set_kit_file', {
+      title: 'Change a site kit file', annotations: REPLACE,
+      description: 'Create, replace or remove (text null) one file of the site kit. It changes every page that uses it, so only do it when the request is about what pages share; say in your answer which pages it reaches. ' +
+        'CSS: no @import and nothing loaded from other servers (put files in the site\'s assets/, written url(/assets/<file>)). A behaviour: export default function (el) { …; return () => { /* undo */ } }. tags: { "<tag>": { "label": "…", "description": "…" } }.',
+      inputSchema: { kind: kindArg, name: z.string().optional().describe('file name without extension: lowercase letters, digits and -'), text: z.string().nullable() },
+    }, guard(({ kind, name, text }: { kind: KitKind; name?: string; text: string | null }) => {
+      const site = siteOnly();
+      kitWrite(site, kind, name ?? 'tags', text, undefined, 'ai');
+      return `ok: kit/${kind === 'tags' ? 'tags.json' : `${kind}/${name}`} ${text === null ? 'removed' : 'saved'}; it reaches ${reach(site, kind, name ?? 'tags')}`;
+    }));
+    server.registerTool('share_block', {
+      title: 'Share a box with every page', annotations: CHANGE,
+      description: 'Make a box of the open page a shared block of the site: its code becomes kit/blocks/<name>.html and the box shows it. Other pages show it with link_block.',
+      inputSchema: { id: id.describe('box (leaf) reference'), name: z.string().optional().describe('the shared block\'s name (default: the box\'s)') },
+    }, guard(({ id: ref, name }: { id: string; name?: string }) => {
+      const site = siteOnly();
+      const box = resolveRef(ws.load(), ref);
+      return `ok: "${box}" is now the shared block "${shareBlock(site, ws, box, name ?? box, 'ai')}"`;
+    }));
+    server.registerTool('link_block', {
+      title: 'Show a shared block in a box', annotations: CHANGE,
+      description: 'Make a box of the open page show one of the site\'s shared blocks (see list_kit) instead of its own code, which waits until unlink_block.',
+      inputSchema: { id: id.describe('box (leaf) reference'), name: z.string() },
+    }, guard(({ id: ref, name }: { id: string; name: string }) => {
+      const box = resolveRef(ws.load(), ref);
+      linkBlock(siteOnly(), ws, box, name, 'ai');
+      return `ok: "${box}" shows the shared block "${name}"`;
+    }));
+    server.registerTool('unlink_block', {
+      title: 'Make a shared box this page\'s own', annotations: CHANGE,
+      description: 'Make a box that shows a shared block this page\'s own copy: it gets the block\'s code as it is now and stops following it. Other pages keep the shared block.',
+      inputSchema: { id: id.describe('box (leaf) reference') },
+    }, guard(({ id: ref }: { id: string }) => {
+      siteOnly();
+      const box = resolveRef(ws.load(), ref);
+      unlinkBlock(ws, box, 'ai');
+      return `ok: "${box}" is this page's own copy now`;
+    }));
+
     server.registerTool('list_pages', { title: 'List the site\'s pages', annotations: READ, description: 'The pages of the site (a folder of page folders), and which one is open: the one every other tool works on.' },
       guard(() => {
         const site = siteOnly();
@@ -657,6 +729,21 @@ export function createTykerfServer(start: Workspace | null, opts: TykerfServerOp
     const left = leftovers(ws, { within: scope() });
     return left.length ? `${left.length} left unfinished:\n${left.map(say).join('\n')}` : 'nothing left: no placeholder text or pictures, and every link has a target';
   }));
+
+  server.registerTool('list_tasks', {
+    title: 'Read the tasks people left', annotations: READ,
+    description: 'Tasks people added to the page in the TYKERF editor: changes to make, questions, things to check. Each says its number, the block, the element inside it (as the person saw it, and its element path: child indexes from the block down), and the window width it was written at; look at the page at that width. Only the open tasks inside the scope (the whole page without one); done ones too with all.',
+    inputSchema: { all: z.boolean().optional().describe('also the tasks that are done, with how they ended') },
+  }, guard(({ all }: { all?: boolean }) => {
+    const list = tasks(ws, { open: !all, within: scope() });
+    return list.length ? list.map(sayTask).join('\n') : all ? 'no tasks on this part of the page' : 'no open tasks on this part of the page';
+  }));
+
+  server.registerTool('close_task', {
+    title: 'Close a task', annotations: CHANGE,
+    description: 'Mark a task done once what it asks for is done (or answered), with a short reply the person will read next to it: what you changed, or why nothing changed. Only tasks inside the scope.',
+    inputSchema: { n: z.number().int().min(1).describe('the task\'s number, as list_tasks gives it'), reply: z.string().max(2000).optional().describe('one or two sentences for the person') },
+  }, guard(({ n, reply }: { n: number; reply?: string }) => `closed ${sayTask(closeTask(ws, n, 'ai', reply, scope()))}`));
 
   server.registerTool('evaluate', {
     title: 'Score the page in a browser', annotations: LOOK,

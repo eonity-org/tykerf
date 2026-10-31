@@ -45,6 +45,17 @@ A folder is either one page (it has `layout.slice`) or a site (`siteKind`):
 | `GET /_tykerf/export/report`, `/_tykerf/export.zip[?links=files][&page=<name>]` | What an export holds, and the export itself: the page or the whole site, or with `page` one page of the site (404 for a name that isn't a page) |
 | `GET /_tykerf/ai/status`, `POST /_tykerf/ai/test` | Which runner and model answer, whether it's ready (never a key), and one tiny real request |
 
+### The site kit's addresses
+
+| Endpoint | What it does |
+|---|---|
+| `GET /kit/loader.js`, `/kit/scripts/<name>.js` | The behaviours' loader (`KIT_LOADER`) and the site's behaviours, for every page of the site (visitors too); also for a lone page of a site |
+| `GET /_tykerf/site/kit` | The manager's view: files by kind, the last change, `identicalBoxes`, and the pages that show each block |
+| `GET /_tykerf/site/kit/file?kind=&name=`; `POST /_tykerf/site/kit/file` | One kit file; create, replace or remove it (`text: null`) through `kitWrite` |
+| `POST /_tykerf/site/kit/undo`, `/_tykerf/site/kit/share` | Undo the last kit change; share a box that is the same on several pages (`shareIdentical`) |
+
+Every kit change refreshes every open page (a watcher on the site's `kit/` folder catches changes from Kaity's MCP process and from shared blocks edited on a page); a change to the kit's styles or behaviours changes `state().head`, so open pages reload. After it re-renders the page, the client dispatches `tykerf:render` for the behaviours.
+
 ### One page's endpoints (`createPageHost` in `page.ts`)
 
 Paths are relative to the page: `/_tykerf/…` for a single page, `/<page>/_tykerf/…` in a site.
@@ -54,8 +65,8 @@ Paths are relative to the page: `/_tykerf/…` for a single page, `/<page>/_tyke
 | `GET /` | The page as it renders, plus `<script src="_tykerf/tykerf.js">` |
 | `GET /assets/*` | The page's images and files (sandboxed CSP, nosniff) |
 | `GET /_tykerf/state` | The panel's tree, the layout, the AI's run, the runner, undo and redo labels, the head version, the site's pages |
-| `GET /_tykerf/events` | Server-sent events: `changed` (refresh), `ai` (a run's steps and answer), `moved` (the page was renamed or removed) |
-| `POST /_tykerf/op` | A named operation (`OPS`): `insert`, `add`, `flip`, `ungroup`, `reorder`, `rename`, `ratios`, `height`, `width`, `look` (band tone and density: the `tone-*` and `dense` tags, one step), `delete`, `remove`, `paste`, `drop`, `component`, `section` |
+| `GET /_tykerf/events` | Server-sent events: `changed` (refresh), `ai` (a run's steps and answer), `moved` (the page was renamed or removed), `tasks` (the tasks changed) |
+| `POST /_tykerf/op` | A named operation (`OPS`): `insert`, `add`, `flip`, `ungroup`, `reorder`, `rename`, `ratios`, `height`, `width`, `look` (band tone and density: the `tone-*` and `dense` tags, one step), `tag` (one of the site kit's tags, on or off), `share`, `link`, `unlink` (shared blocks: `shareBlock`, `linkBlock`, `unlinkBlock` in `site.ts`), `delete`, `remove`, `paste`, `drop`, `component`, `section` |
 | `GET/POST /_tykerf/box`, `GET /_tykerf/page` | One box's code (content and style apart), and the rendered parts |
 | `GET/POST /_tykerf/head` | The page's head, whether its theme is the site's (`sharedTheme`), its own values over it (`overrides`) and whether it keeps its own look (`ownLook`) |
 | `POST /_tykerf/head/override` | This page's own theme values over the site theme (`{values}`: only those that differ; `{}` follows the site again); checked like theme values, one undo step |
@@ -63,6 +74,9 @@ Paths are relative to the page: `/_tykerf/…` for a single page, `/<page>/_tyke
 | `POST /_tykerf/undo`, `/redo` | One step; refused (409) while the AI runs |
 | `POST /_tykerf/import` | Copy a page and list its sections, for *Import a section* (token-checked `section` op) |
 | `POST /_tykerf/ask`, `/ask/cancel`, `/chat/reset`; `GET /chat`, `/image/<file>` | The AI conversation of a block |
+| `GET /_tykerf/tasks`; `POST /_tykerf/tasks/add`, `/close`, `/reopen`, `/remove`, `/clear`, `/ask` | Tasks left on the page (`src/tasks.ts`): every task, under its block's current name, plus the open ones as text (`sayTask`) for *Copy all*; add one (`block`, `path`, `label`, `width`, `text`), close (`n`, `reply`), reopen, remove, remove the done ones, and have Kaity work through a block's open tasks (`AI.askTasks`). A change broadcasts the SSE `tasks` event, as does a change to `.tykerf/tasks.json` from outside (the AI's MCP process closing one) |
+| `GET /_tykerf/kit` | The site kit as the panel needs it: the shared blocks, the pages that show each (`users`), and the site's tags |
+| `GET /_tykerf/handbook`, `/handbook.md` | The handbook (`src/handbook.ts`): the page's theme and blocks with their tasks, as a page for people (`<base href="../">`, so the page's fonts and the link back resolve) and as Markdown |
 | `GET /_tykerf/job`; `POST /_tykerf/job/stop`, `/job/seen` | The page's background job (a copy, or the AI building the page): its steps and how it ended; stop it; forget it once seen. Changes stream as the SSE `job` event |
 
 Every operation runs inside `ws.transaction()`, then broadcasts `changed`. Changes from outside (the AI's MCP process, a text editor) reach open pages through the store's watcher.

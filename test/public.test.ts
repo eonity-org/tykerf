@@ -118,3 +118,28 @@ describe('behind an HTTPS proxy', () => {
     expect((await via('/_tykerf/login', 'http://cities.example.org.evil.com', { password: 'open sesame' })).status).toBe(403);
   });
 });
+
+describe('a single page served to visitors', () => {
+  it('signs the admin in to the page itself: a page has no site manager', async () => {
+    const dir = join(mkdtempSync(join(tmpdir(), 'tykerf-public-page-')), 'cv');
+    createPage(new Workspace(dir), 'blank');
+    const port = await freePort();
+    const one = spawn(process.execPath, ['--import', 'tsx', 'src/editor/server.ts', dir, '--port', String(port)], { stdio: ['ignore', 'pipe', 'inherit'], env: { ...process.env, TYKERF_ADMIN_PASSWORD: 'open sesame' } });
+    try {
+      await new Promise<void>((ok) => one.stdout!.on('data', (d) => String(d).includes('TYKERF: http') && ok()));
+      const at = (path: string, cookie = '') => fetch(`http://localhost:${port}${path}`, { redirect: 'manual', headers: cookie ? { cookie } : {} });
+      expect(await (await at('/_tykerf/login')).text()).toContain('location.replace("/")');
+      // an editor address opened in the browser while signed out (after a restart, say) leads to sign-in and back
+      const opened = await fetch(`http://localhost:${port}/_tykerf/handbook?x=1`, { redirect: 'manual', headers: { accept: 'text/html,application/xhtml+xml' } });
+      expect([opened.status, opened.headers.get('location')]).toEqual([302, '/_tykerf/login?next=%2F_tykerf%2Fhandbook%3Fx%3D1']);
+      expect((await at('/_tykerf/state')).status).toBe(401); // the editor's own requests still just refuse
+      const ok = await fetch(`http://localhost:${port}/_tykerf/login`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ password: 'open sesame' }) });
+      const cookie = ok.headers.get('set-cookie')!.split(';')[0];
+      const manager = await at('/_tykerf/site/', cookie);
+      expect([manager.status, manager.headers.get('location')]).toEqual([302, '/']);
+      expect(await (await at('/', cookie)).text()).toContain('_tykerf/tykerf.js');
+    } finally {
+      one.kill();
+    }
+  });
+});

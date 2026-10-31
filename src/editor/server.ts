@@ -12,13 +12,14 @@
 //
 //   npm start -- <folder> [--port 4400] [--host <addr>] [--layout <name> [--theme <name>]]
 
-import { existsSync, mkdirSync, readFileSync, readdirSync, statSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, readdirSync, statSync, watch, writeFileSync } from 'node:fs';
 import { type IncomingMessage, type ServerResponse, createServer } from 'node:http';
 import { isIP } from 'node:net';
 import { basename, dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { type PublishSettings, emptyTrash, lastSiteHeadChange, newPageLike, newSitePage, pageLinks, pageNameError, pageTitle, pageWorkspace, readSite, duplicatePage, removePage, renamePage, setHome, setPublish, setSiteIcon, siteIcon, setSiteCode, setSiteHead, setTitle, shareTheme, siteCode, siteHead, siteIndex, siteKind, siteLink, siteMap, siteOf, sitePages, trashedPages, undoSiteHead } from '../site.js';
+import { type PublishSettings, emptyTrash, lastSiteHeadChange, newPageLike, newSitePage, pageLinks, pageNameError, pageTitle, pageWorkspace, readSite, duplicatePage, removePage, renamePage, setHome, setPublish, setSiteIcon, siteIcon, setSiteCode, setSiteHead, setTitle, shareTheme, siteCode, siteHead, siteIndex, siteKind, siteLink, siteMap, siteOf, sitePages, trashedPages, undoSiteHead, blockUsers, identicalBoxes, shareIdentical } from '../site.js';
 import { FolderStore, MemoryStore } from '../store.js';
+import { KIT_LOADER, type KitKind, kitList, kitRead, kitWrite, lastKitChange, undoKit } from '../kit.js';
 import { DEFAULT_THEME, EMPTY_LAYOUT, createPage, hasTheme, pageLayouts, libraryAsset, theme, themes } from '../library.js';
 import { Workspace } from '../workspace.js';
 import { AI, type Runner, SITE_CHAT } from './ai.js';
@@ -147,6 +148,15 @@ const sharedTheme = () => kind === 'site' && hasTheme(siteHead(dir));
 const refreshAll = () => {
   for (const h of hosts.values()) h.refresh();
 };
+// the site kit changes every page: a shared block edited on one page, Kaity's site run, a text editor
+let kitTimer: NodeJS.Timeout | undefined;
+try {
+  watch(dir, { recursive: true }, (_e, f) => {
+    if (kind !== 'site' || !f || String(f).split(/[\\/]/)[0] !== 'kit') return;
+    clearTimeout(kitTimer);
+    kitTimer = setTimeout(refreshAll, 120);
+  });
+} catch {}
 
 /** The host of a page of the site (made on first use), or null when there is no such page. */
 function hostOf(name: string): PageHost | null {
@@ -434,6 +444,37 @@ async function serveGlobal(req: IncomingMessage, res: ServerResponse, p: string,
     refreshAll(); // the pages link to the new file
     return json(res, 200, { ok: true, own: siteIcon(dir).own, file: siteIcon(dir).file }), true;
   }
+  // the site kit's behaviours and their loader (src/kit.ts), which every page of the site loads from /kit/
+  const kitDir = kind === 'site' ? dir : siteOf(dir)?.dir;
+  if (req.method === 'GET' && kitDir && p.startsWith('/kit/')) {
+    const m = /^\/kit\/(?:loader|scripts\/([a-z0-9][a-z0-9-]{0,40}))\.js$/.exec(p);
+    const code = !m ? null : m[1] ? kitRead(kitDir, 'scripts', m[1]) : KIT_LOADER;
+    if (code === null) return res.writeHead(404).end('not found'), true;
+    res.writeHead(200, { 'content-type': 'text/javascript; charset=utf-8', 'cache-control': 'no-cache', 'x-content-type-options': 'nosniff' });
+    return res.end(code), true;
+  }
+  // the site kit in the manager: its files by kind, the boxes already the same on several pages, undo
+  if (p.startsWith('/_tykerf/site/kit')) {
+    if (kind !== 'site') return json(res, 422, { ok: false, error: 'a site kit is for a site; this folder is a single page' }), true;
+    if (req.method === 'GET' && p === '/_tykerf/site/kit') {
+      const files = kitList(dir);
+      return json(res, 200, { ok: true, files, last: lastKitChange(dir), identical: identicalBoxes(dir), users: Object.fromEntries(files.blocks.map((b) => [b, Object.keys(blockUsers(dir, b))])) }), true;
+    }
+    if (req.method === 'GET' && p === '/_tykerf/site/kit/file') {
+      const kitKind = String(url.searchParams.get('kind')) as KitKind;
+      return json(res, 200, { ok: true, text: kitRead(dir, kitKind, url.searchParams.get('name') ?? 'tags') }), true;
+    }
+    if (req.method === 'POST') {
+      const a = await body(req);
+      let result: unknown = null;
+      if (p === '/_tykerf/site/kit/file') kitWrite(dir, a.kind as KitKind, String(a.name ?? 'tags'), typeof a.text === 'string' ? a.text : null);
+      else if (p === '/_tykerf/site/kit/undo') result = undoKit(dir);
+      else if (p === '/_tykerf/site/kit/share') result = shareIdentical(dir, String(a.box ?? ''));
+      else return res.writeHead(404).end('not found'), true;
+      refreshAll();
+      return json(res, 200, { ok: true, result, last: lastKitChange(dir) }), true;
+    }
+  }
   // the site's own files (the shared theme's fonts), at /assets/ like an export has them
   if (req.method === 'GET' && kind === 'site' && p.startsWith('/assets/')) {
     const f = decodeURIComponent(p.slice('/assets/'.length));
@@ -633,7 +674,7 @@ createServer(async (req, res) => {
   try {
     followFolder();
     // signing in and out, and what visitors may see when TYKERF serves the site (auth.ts)
-    if (p === '/_tykerf/login' && req.method === 'GET') return res.writeHead(200, { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store' }).end(loginPage(url.searchParams.get('next') ?? MANAGER)), undefined;
+    if (p === '/_tykerf/login' && req.method === 'GET') return res.writeHead(200, { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store' }).end(loginPage(url.searchParams.get('next') ?? (single ? '/' : MANAGER))), undefined;
     if (p === '/_tykerf/login' && req.method === 'POST') {
       const r = await auth.login(req, res, String((await body(req)).password ?? ''));
       return json(res, r === 'ok' ? 200 : r === 'locked' ? 429 : 401, { ok: r === 'ok' });
@@ -641,13 +682,16 @@ createServer(async (req, res) => {
     if (p === '/_tykerf/logout' && req.method === 'POST') return auth.logout(req, res), json(res, 200, { ok: true });
     const admin = auth.admin(req);
     if (!admin && !visitorMay(req, p)) {
-      // the manager leads to sign-in; the editor's addresses just refuse
-      if (req.method === 'GET' && p === MANAGER) return redirect(res, `/_tykerf/login?next=${encodeURIComponent(p)}`);
+      // the manager, and any editor address opened in the browser (the handbook, say), lead to sign-in and back;
+      // the editor's own requests just refuse
+      if (req.method === 'GET' && (p === MANAGER || /\btext\/html\b/.test(req.headers.accept ?? ''))) return redirect(res, `/_tykerf/login?next=${encodeURIComponent(p + url.search)}`);
       return json(res, 401, { ok: false, error: 'sign in to edit this site' });
     }
     // a visitor at a site without a home page gets the list of its pages, not the manager
     if (!admin && !single && p === '/' && !readSite(dir).home) return redirect(res, '/pages/');
     if (serveStatic(req, res, p) || (await serveGlobal(req, res, p, url))) return;
+    // a single page has no site manager: its address leads to the page (signing in goes there too)
+    if (single && req.method === 'GET' && p === MANAGER) return redirect(res, '/');
     if (single) return notThere(req, p) ? notFound(res, admin) : await single.handle(req, res, p, url);
     // the list of the site's pages, and its sitemap when its public address is known
     if (p === '/pages') return redirect(res, '/pages/');
@@ -669,7 +713,7 @@ createServer(async (req, res) => {
     if (!m[2]) return redirect(res, `/${m[1]}/${url.search}`);
     if (serveStatic(req, res, m[2])) return;
     if (notThere(req, m[2])) return notFound(res, admin);
-    if (req.method === 'POST' && m[2] === '/_tykerf/ask' && siteAI.running()) return json(res, 409, { ok: false, error: 'Kaity is working on the whole site; wait for her to finish' });
+    if (req.method === 'POST' && (m[2] === '/_tykerf/ask' || m[2] === '/_tykerf/tasks/ask') && siteAI.running()) return json(res, 409, { ok: false, error: 'Kaity is working on the whole site; wait for her to finish' });
     await host.handle(req, res, m[2], url);
   } catch (e) {
     json(res, 422, { ok: false, error: (e as Error).message });

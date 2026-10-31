@@ -15,7 +15,8 @@
 //   .tykerf/           editor state (AI conversations, attached images, the removed-code buffer)
 
 import { join } from 'node:path';
-import { type Layout, find } from './model.js';
+import { type Layout, find, walk } from './model.js';
+import { markCurrentPage } from './kit.js';
 import { FolderStore, type Store } from './store.js';
 import * as M from './moves.js';
 import { type Registry, contentErrors, loadTypes, newTypeErrors } from './types.js';
@@ -89,6 +90,18 @@ export interface SiteLink {
   icon?(): string;
   /** Replace the shared head (the site keeps the previous one for its own undo). */
   setHead?(html: string, label: string): void;
+  /** This page's name in the site (for marking links to it in shared blocks). */
+  page?: string;
+  /** The site's folder (its kit: shared blocks, styles, tags). */
+  dir?: string;
+  /** The site kit's part of every page's head: its styles and the behaviours' loader (src/kit.ts). */
+  kit?(): string;
+  /** A shared block's code (kit/blocks/<name>.html), or null. */
+  block?(name: string): string | null;
+  /** Change a shared block: every page that uses it changes (the site keeps the previous version for its undo). */
+  setBlock?(name: string, code: string | null, author: string): void;
+  /** The box types every page of the site has (kit/types/). */
+  types?(): Registry;
 }
 
 /** A page head with this marker keeps its own look: the site's shared head is left out (imported copies). */
@@ -108,6 +121,18 @@ export class Workspace {
   siteHead(): string {
     if (!this.site) return '';
     return this.head().includes(NO_SITE_HEAD) ? '' : this.site.head();
+  }
+
+  /** The site kit's part of this page's head ('' outside a site, or when the page keeps its own look). */
+  kitHead(): string {
+    if (!this.site?.kit) return '';
+    return this.head().includes(NO_SITE_HEAD) ? '' : this.site.kit();
+  }
+
+  /** The shared block a box shows instead of its own code (its use=), when the site has it. */
+  sharedBlock(id: string, l: Layout = this.load()): string | null {
+    const n = find(l.root, id)?.node;
+    return n?.type === 'leaf' && n.use ? n.use : null;
   }
 
   /** The folder, for workspaces on disk (tools that need real files: the CLI, child processes). */
@@ -205,7 +230,8 @@ export class Workspace {
   }
 
   types(): Registry {
-    return loadTypes(this.store);
+    // the site's types first: a page's own type of the same name wins
+    return { ...(this.site?.types?.() ?? {}), ...loadTypes(this.store) };
   }
 
   /** Throw if `next` introduces box-type violations that `prev` did not have. */
@@ -444,11 +470,29 @@ export class Workspace {
       const css = this.store.read(`${BOXES}/${id}.css`);
       c[id] = css !== null ? joinStyle(html, css) : html;
     }
+    // a box linked to a shared block shows the block (its own code waits, for when it's unlinked)
+    if (this.site?.block) walk(this.load().root, (n) => {
+      if (n.type === 'leaf' && n.use) {
+        const b = this.site!.block!(n.use);
+        if (b !== null) c[n.id] = b;
+      }
+    });
     return c;
   }
 
   /** The code of one box (reads only its own files). */
   content(id: string): string | null {
+    if (!BOX_ID.test(id)) return null;
+    const use = this.site?.block ? this.sharedBlock(id) : null;
+    if (use) {
+      const b = this.site!.block!(use);
+      if (b !== null) return b;
+    }
+    return this.ownContent(id);
+  }
+
+  /** A box's own code, even while it shows a shared block. */
+  ownContent(id: string): string | null {
     if (!BOX_ID.test(id)) return null;
     const html = this.store.read(`${BOXES}/${id}.html`);
     if (html !== null) {
@@ -544,7 +588,16 @@ export class Workspace {
       const errs = def ? contentErrors(html, t, def) : [];
       if (errs.length) throw new Error(`refused by box type: ${errs.join('; ')}`);
     }
-    const prev = this.content(id);
+    // a box that shows a shared block changes the block, on every page (the site keeps its undo);
+    // emptying it only empties the box's own code
+    const use = node?.type === 'leaf' ? node.use : undefined;
+    if (use && html !== null && this.site?.setBlock && this.site.block?.(use) != null) {
+      if (this.site.block(use) === html) return;
+      this.checkGuards({ kind: 'content', id, layout });
+      this.site.setBlock(use, html, author);
+      return;
+    }
+    const prev = this.ownContent(id);
     if (prev === html) return;
     this.checkGuards({ kind: 'content', id, layout });
     this.log({ kind: 'content', label: `set_content ${id}${html === null ? ' (removed)' : ` (${html.length} chars)`}`, author, at: new Date().toISOString(), id, prev });
@@ -583,7 +636,13 @@ export class Workspace {
   /** The full page: layout + box code + the site's shared head + head.html. Every renderer (CLI, editor, MCP) goes through this. */
   page(opts: { title?: string; head?: string; bodyEnd?: string } = {}): string {
     // the site's icon first: a page that has its own (an imported copy) declares it later, and that one wins
-    return toHTML(this.load(), this.contents(), { ...opts, head: (this.site?.icon?.() ?? '') + this.siteHead() + this.head() + (opts.head ?? '') });
+    const l = this.load();
+    const c = this.contents();
+    // a site menu in a shared block shows which page this is
+    if (this.site?.page) walk(l.root, (n) => {
+      if (n.type === 'leaf' && n.use && c[n.id] !== undefined) c[n.id] = markCurrentPage(c[n.id], this.site!.page);
+    });
+    return toHTML(l, c, { ...opts, head: (this.site?.icon?.() ?? '') + this.siteHead() + this.kitHead() + this.head() + (opts.head ?? '') });
   }
 
   /** Write the rendered page to out/index.html; returns where it went (a file path for folders). */

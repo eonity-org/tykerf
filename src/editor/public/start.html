@@ -41,6 +41,29 @@
   /* the code every page gets from the site head */
   main > .code { min-height: 0; display: grid; grid-template-rows: auto auto auto minmax(0, 1fr) auto; gap: 8px; padding: 18px; border-radius: 12px; background: #fff; box-shadow: 0 6px 24px rgb(0 0 0 / .08); }
   main > .code[hidden] { display: none; }
+  /* the site kit: its files by kind, the boxes the same on several pages, and an editor for one file */
+  main > .kitsec { display: grid; gap: 10px; align-content: start; padding: 18px; border-radius: 12px; background: #fff; box-shadow: 0 6px 24px rgb(0 0 0 / .08); }
+  main > .kitsec[hidden] { display: none; }
+  .kitsec h2 { margin: 0; }
+  .kitsec > p { margin: 0; font-size: 13px; opacity: .8; }
+  .kitsec .kinds { display: grid; gap: 6px; }
+  .kitsec .kind { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: 8px 10px; border-radius: 8px; background: #F2F7F9; font-size: 13px; }
+  .kitsec .kind b { min-width: 112px; }
+  .kitsec .kind .file { font: 12.5px ui-monospace, SFMono-Regular, Menlo, monospace; }
+  .kitsec .kind .users { font-size: 12px; opacity: .7; }
+  .kitsec .suggest { display: grid; gap: 6px; padding: 10px 12px; border-radius: 8px; background: #FFF6E6; font-size: 13px; }
+  .kitsec .suggest p { margin: 0; }
+  .kitsec .editor { display: grid; gap: 8px; }
+  .kitsec .kname { display: flex; align-items: center; gap: 8px; font-size: 13px; }
+  .kitsec .kname input { font: 13px ui-monospace, SFMono-Regular, Menlo, monospace; padding: 5px 8px; border: 1px solid #9DB8C4; border-radius: 6px; }
+  .kitsec textarea { min-height: 220px; font: 13px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace; padding: 10px 12px; border: 1px solid #9DB8C4; border-radius: 8px; resize: vertical; tab-size: 2; }
+  .kitsec .acts { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+  .kitsec .acts .msg { flex: 1 1 220px; font-size: 13px; }
+  .kitsec .msg.error { color: #B42318; }
+  .kitsec button { font: inherit; font-size: 13px; padding: 5px 11px; border: 1px solid #C6D7DE; border-radius: 6px; background: #fff; color: #10303F; cursor: pointer; }
+  .kitsec button.primary { background: #0A5475; border-color: #0A5475; color: #fff; font-weight: 600; }
+  .kitsec button.danger { color: #B42318; }
+  .kitsec button.link { border: 0; background: none; padding: 2px 4px; color: #2A7699; text-decoration: underline; }
   .code h2 { margin: 0; }
   .code p { margin: 0; font-size: 13px; opacity: .8; }
   /* the site's icon (favicon): its own file, or the one made from its name */
@@ -196,7 +219,11 @@
     .pages .add[aria-expanded=true] { background: #1B3B4A; color: #EAF3F7; }
     .trash { border-color: #2B5566; }
     .idle { border-color: #2B5566; }
-    main > .code, main > .publish, main > .links { background: #12303D; box-shadow: none; }
+    main > .code, main > .publish, main > .links, main > .kitsec { background: #12303D; box-shadow: none; }
+    .kitsec .kind { background: #0B1D26; }
+    .kitsec .suggest { background: #2A2412; }
+    .kitsec textarea, .kitsec .kname input { background: #0B1D26; border-color: #2B5566; color: #EAF3F7; }
+    .kitsec button { background: #12303D; border-color: #2B5566; color: #EAF3F7; }
     .links button { background: #12303D; border-color: #2B5566; color: #EAF3F7; }
     .links .bad { color: #FF8A80; }
     .now { background: #0B1D26; }
@@ -261,6 +288,18 @@
       <div class="icon-row"><img class="icon-preview" alt=""><span class="icon-say"></span><button type="button" data-icon="pick" data-t>Upload an icon…</button><button type="button" data-icon="reset" hidden data-t>Use the made one</button><span class="icon-msg" role="status"></span></div>
       <textarea spellcheck="false" aria-label="The code of every page's head"></textarea>
       <div class="acts"><span class="msg" role="status"></span><button type="button" data-code="undo" hidden></button><button type="button" data-code="close" data-t>Close</button><button type="button" class="primary" data-code="save" data-t>Save</button></div>
+    </section>
+    <section class="kitsec" id="site-kit" hidden aria-labelledby="kit-h">
+      <h2 id="kit-h" data-t>The site kit</h2>
+      <p data-t>What every page shares besides the theme, one small file each: styles for every page, behaviours (scripts an element turns on with data-use), shared blocks (a navigation or a footer the same on every page), box types and the site's own tags.</p>
+      <div class="suggest" hidden></div>
+      <div class="kinds"></div>
+      <div class="editor" hidden>
+        <label class="kname"><span></span><input spellcheck="false" placeholder="name"></label>
+        <textarea spellcheck="false" aria-label="The file's code"></textarea>
+        <div class="acts"><button type="button" class="danger" data-kit="remove" data-t>Remove</button><span class="msg" role="status"></span><button type="button" data-kit="cancel" data-t>Close</button><button type="button" class="primary" data-kit="save" data-t>Save</button></div>
+      </div>
+      <div class="acts"><span class="msg kmsg" role="status"></span><button type="button" data-kit="undo" hidden></button></div>
     </section>
     <section class="links" id="site-links" hidden aria-labelledby="links-h">
       <h2 id="links-h" data-t>Links between pages</h2>
@@ -367,13 +406,108 @@ async function openCode() {
   idle.hidden = true;
   stylesBtn.setAttribute('aria-expanded', 'true');
   codeBox.focus();
+  openKit();
 }
 
 function closeCode() {
   code.hidden = true;
+  kitSec.hidden = true;
   stylesBtn.setAttribute('aria-expanded', 'false');
   if (newBox.hidden && kaity.hidden && publish.hidden && links.hidden && pages.length) idle.hidden = false;
 }
+
+// ---------- the site kit (src/kit.ts): what every page shares besides the theme ----------
+// It opens with Styles & scripts. Each kind lists its files; a file opens in the editor below; boxes
+// already the same on several pages (a navigation, a footer) are offered as one shared block.
+
+const kitSec = document.querySelector('.kitsec'), kinds = kitSec.querySelector('.kinds'), suggest = kitSec.querySelector('.suggest');
+const kEditor = kitSec.querySelector('.editor'), kName = kEditor.querySelector('input'), kText = kEditor.querySelector('textarea');
+const kMsg = kEditor.querySelector('.msg'), kitMsg = kitSec.querySelector('.kmsg'), kUndo = kitSec.querySelector('[data-kit="undo"]');
+const KINDS = [
+  ['styles', () => t('Styles'), () => t('CSS for every page, after the theme and before each page\'s own styles.'), '/* every page */\n'],
+  ['scripts', () => t('Behaviours'), () => t('A module per behaviour; an element with data-use="<name>" turns it on.'), 'export default function (el) {\n  // what it does to el\n  return () => { /* undo it */ };\n}\n'],
+  ['blocks', () => t('Shared blocks'), () => t('A box shows one with Use a shared block… in the editor; a change reaches every page that shows it.'), '<nav>\n</nav>\n'],
+  ['types', () => t('Box types'), () => t('Rules for boxes of a type, on every page (a page\'s own type of the same name wins).'), '{\n  "content": { "scripts": false }\n}\n'],
+  ['tags', () => t('Tags'), () => t('The site\'s own tags, offered in Size & look; style each as .t-<tag> in a styles file.'), '{\n  "highlighted": { "label": "Highlighted", "description": "A thin accent border" }\n}\n'],
+];
+let kitOpen = null; // the file in the editor: { kind, name, isNew }
+
+async function openKit() {
+  kitSec.hidden = false;
+  const j = await fetch('/_tykerf/site/kit').then((r) => r.json()).catch(() => null);
+  if (!j?.ok) return (kitSec.hidden = true);
+  kUndo.hidden = !j.last;
+  if (j.last) kUndo.textContent = t('Undo: {label}', { label: j.last.label });
+  kinds.replaceChildren(...KINDS.map(([kind, label, help, ]) => {
+    const files = kind === 'tags' ? (j.files.tags ? ['tags'] : []) : j.files[kind];
+    return el('div', { className: 'kind', title: help() }, el('b', { textContent: label() }),
+      ...files.map((n) => {
+        const users = kind === 'blocks' ? j.users[n] ?? [] : null;
+        const b = el('button', { type: 'button', className: 'link file', textContent: kind === 'tags' ? 'tags.json' : n });
+        b.onclick = () => editKit(kind, n);
+        return users ? el('span', {}, b, el('span', { className: 'users', textContent: users.length ? ` (${users.join(', ')})` : ` (${t('no page')})` })) : b;
+      }),
+      ...(kind === 'tags' && files.length ? [] : [Object.assign(el('button', { type: 'button', textContent: t('+ New') }), { onclick: () => editKit(kind, null) })]));
+  }));
+  // boxes already the same on several pages: one click shares them
+  suggest.hidden = !j.identical.length;
+  suggest.replaceChildren(el('p', { textContent: t('These boxes are the same on several pages. Share one, and a change to it reaches them all:') }),
+    ...j.identical.slice(0, 6).map((g) => {
+      const b = el('button', { type: 'button', textContent: t('Share {box}', { box: g.box }) });
+      b.onclick = () => kitDo('/_tykerf/site/kit/share', { box: g.box }, (r) => t('{box} is now a shared block on {pages}.', { box: g.box, pages: r.result.pages.join(', ') }));
+      return el('p', {}, el('span', { textContent: t('{box} on {pages} ', { box: g.box, pages: g.pages.join(', ') }) }), b);
+    }));
+}
+
+async function editKit(kind, name) {
+  const def = KINDS.find((k) => k[0] === kind);
+  kitOpen = { kind, name, isNew: !name };
+  kName.parentElement.hidden = kind === 'tags';
+  kName.previousElementSibling.textContent = def[1]();
+  kName.value = name ?? '';
+  kName.disabled = !!name;
+  kText.value = name ? (await fetch(`/_tykerf/site/kit/file?kind=${kind}&name=${encodeURIComponent(name)}`).then((r) => r.json())).text ?? '' : def[3];
+  kEditor.querySelector('[data-kit="remove"]').hidden = !name;
+  kMsg.className = 'msg';
+  kMsg.textContent = '';
+  kEditor.hidden = false;
+  (name || kind === 'tags' ? kText : kName).focus();
+}
+
+async function kitDo(path, data, say) {
+  kitMsg.className = 'msg kmsg';
+  try {
+    const r = await post(path, data);
+    kitMsg.textContent = say(r);
+    await openKit();
+    return true;
+  } catch (err) {
+    kitMsg.className = 'msg kmsg error';
+    kitMsg.textContent = err.message;
+    return false;
+  }
+}
+
+kitSec.onclick = async (e) => {
+  const a = e.target.closest('[data-kit]')?.dataset.kit;
+  if (!a) return;
+  if (a === 'cancel') return (kEditor.hidden = true);
+  if (a === 'undo') return kitDo('/_tykerf/site/kit/undo', {}, (r) => (r.result ? t('Undone: {label}', { label: r.result }) : t('Nothing to undo.')));
+  if (!kitOpen) return;
+  const name = kitOpen.kind === 'tags' ? 'tags' : kName.value.trim();
+  kMsg.className = 'msg';
+  try {
+    await post('/_tykerf/site/kit/file', { kind: kitOpen.kind, name, text: a === 'remove' ? null : kText.value });
+    kEditor.hidden = a === 'remove';
+    kitOpen = a === 'remove' ? null : { ...kitOpen, name, isNew: false };
+    kName.disabled = true;
+    kMsg.textContent = a === 'remove' ? '' : t('Saved: every page that uses it shows it now.');
+    await openKit();
+  } catch (err) {
+    kMsg.className = 'msg error';
+    kMsg.textContent = err.message;
+  }
+};
 
 // ---------- Kaity for the whole site: her conversation, her steps live ----------
 
@@ -599,13 +733,13 @@ publish.onclick = async (e) => {
       pubMsg.textContent = t('Publishing…');
       const { result: r, last } = await post('/_tykerf/site/publish', {});
       showLast(last);
-      const notes = [
+      const details = [
         r.report.broken.length ? t('{n} links point at pages that don\'t exist.', { n: r.report.broken.length }) : '',
         r.report.remote.length ? t('{n} images, fonts or files still load from other servers.', { n: r.report.remote.length }) : '',
       ].filter(Boolean).join(' ');
       pubMsg.textContent = `${r.commit
         ? t('Published: {added} new, {changed} changed and {removed} removed files. The host puts it live in a minute or two.', { added: r.added, changed: r.changed, removed: r.removed })
-        : t('Nothing changed since the last publish.')}${notes ? ` ${notes}` : ''}`;
+        : t('Nothing changed since the last publish.')}${details ? ` ${details}` : ''}`;
     }
   } catch (err) {
     pubMsg.className = 'msg error';

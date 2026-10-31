@@ -299,6 +299,8 @@ export interface LeafAttrs {
   maxW?: number | null;
   minH?: number | null;
   boxType?: string | null;
+  /** a shared block of the site to show instead of the box's own code; null unlinks */
+  use?: string | null;
 }
 
 function checkMinH(h: number): number {
@@ -321,6 +323,11 @@ function applyLeafAttrs(leaf: Leaf, a: LeafAttrs) {
   else if (a.minH !== undefined) leaf.minH = checkMinH(a.minH);
   if (a.boxType === null) delete leaf.boxType;
   else if (a.boxType !== undefined) leaf.boxType = a.boxType;
+  if (a.use === null) delete leaf.use;
+  else if (a.use !== undefined) {
+    if (!/^[a-z0-9][a-z0-9-]{0,40}$/.test(a.use)) throw new MoveError(`bad shared block name "${a.use}"`);
+    leaf.use = a.use;
+  }
 }
 
 export function setLeaf(layout: Layout, leafId: string, attrs: LeafAttrs): Layout {

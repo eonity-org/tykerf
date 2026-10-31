@@ -17,6 +17,7 @@ import { fileURLToPath } from 'node:url';
 import { KIND_WORD, find, isOp } from '../model.js';
 import { pathOf } from '../refs.js';
 import { type Leftover, leftoverKey, leftovers, say } from '../check.js';
+import { type TaskNow, sayTask, tasks } from '../tasks.js';
 import { insideSignature } from '../scope.js';
 import { FolderStore } from '../store.js';
 import type { Change, Workspace } from '../workspace.js';
@@ -261,6 +262,8 @@ function inBlock(c: Extract<Change, { kind: 'content' }>, id: string) {
 
 export class AI {
   private run: { cancel(): void; id: string; since: string } | null = null;
+  /** The tasks the current run was asked to work through (askTasks); null for any other run. */
+  private runTasks: number[] | null = null;
 
   /**
    * `site`: Kaity for the whole site (the site manager), on `ws` over the site folder: one conversation
@@ -273,7 +276,7 @@ export class AI {
   }
 
   running() {
-    return this.run ? { id: this.follow() } : null;
+    return this.run ? { id: this.follow(), ...(this.runTasks ? { tasks: this.runTasks } : {}) } : null;
   }
 
   /**
@@ -385,7 +388,7 @@ export class AI {
     let failed = false;
     let reviewed = false;
     const now = () => (ended ? run.id : this.follow());
-    this.emit('ai', { id, role: 'start' });
+    this.emit('ai', { id, role: 'start', ...(this.runTasks ? { tasks: this.runTasks } : {}) });
     const dir = this.ws.store instanceof FolderStore ? this.ws.dir : '';
     const memory = {
       load: () => {
@@ -419,6 +422,7 @@ export class AI {
           ended = true;
           unlock();
           this.run = null;
+          this.runTasks = null;
           this.emit('ai', { id: last, role: 'end' });
         },
       }).cancel;
@@ -489,6 +493,27 @@ export class AI {
     return check ? { chat, check } : null;
   }
 
+  /** "Give it to Kaity" from the tasks: she works through the open tasks on a block (and inside it) and closes each one. */
+  askTasks(id: string) {
+    if (this.opts.site) throw new Error('tasks belong to a page: give them to Kaity from that page');
+    const open = tasks(this.ws, { open: true, within: id });
+    if (!open.length) throw new Error(`no open tasks on "${id}"`);
+    // the chat shows each task as the person wrote it; Kaity also gets the element paths (tasksPrompt)
+    const line = (x: TaskNow) => `#${x.n} · ${x.block}${x.label ? ` › ${x.label}` : ''}${x.width ? ` · ${x.width} px` : ''}\n${x.text}`;
+    const head = open.length === 1 ? 'Work through this task:' : `Work through these ${open.length} tasks:`;
+    // only these: a task added while she works waits for the next request (known before the run starts, so its start event carries them)
+    if (this.run) throw new Error(`Kaity is already working on "${this.run.id}"`);
+    const given = open.map((x) => x.n);
+    this.runTasks = given;
+    try {
+      this.ask(id, `${head}\n\n${open.map(line).join('\n\n')}`, undefined, [], undefined, tasksPrompt(open));
+    } catch (e) {
+      this.runTasks = null;
+      throw e;
+    }
+    return given;
+  }
+
   /** "Fix them": ask Kaity to finish what her last request left. */
   fix(id: string) {
     const open = this.openCheck(id);
@@ -523,9 +548,20 @@ function siteSystem(brief?: string): string {
     'Use only the tykerf tools. list_pages shows the pages; open_page opens one, and every other tool then works on that page; new_page makes a new one (copy makes it like another).',
     'For a request about several pages, go through them one at a time: open the page, read it (get_layout, get_content), change it, check it (screenshot at 1440 and 375 px, check_page), then the next. Keep what the pages share consistent: the same navigation, the same sizes, the same links. Links between pages are written /<page>/.',
     CODE_RULES.replace(/, and never touch other boxes/, ''),
-    'The site\'s shared head (the theme every page uses, and the styles and scripts in Styles & scripts) is not yours to change: tell the user it is in the site manager or a page\'s Page tab.',
+    'The site\'s shared head (the theme every page uses, and the free code in Styles & scripts) is not yours to change: tell the user it is in the site manager or a page\'s Page tab.',
+    'The site kit is yours (list_kit, get_kit_file, set_kit_file): what every page shares besides the theme. Use it for what should be the same everywhere: a navigation or footer as one shared block (share_block on one page, link_block on the others), a button or card style in kit styles, a behaviour in kit scripts, a tag the site uses. Say which pages each change reaches.',
     'Answer in a few short sentences: what you changed, page by page. If the user only asks a question, answer it without changing anything.',
     ...(brief ? [brief] : []),
+  ].join('\n');
+}
+
+/** What Kaity hears about the tasks she is asked to work through. */
+function tasksPrompt(open: TaskNow[]): string {
+  return [
+    'People added these tasks to the page in the editor. Each names the block, the element inside it and the window width it was written at:',
+    ...open.map((x) => `- ${sayTask(x)}`),
+    'Do what each task asks, looking at the page at the width it was written at (screenshot with that width). When a task is done, or answered, close it with close_task and a one-sentence reply for the person. Leave open a task you could not do, and say why in your answer.',
+    `Work only on these tasks (${open.map((x) => `#${x.n}`).join(', ')}): people may add more while you work, and list_tasks would show them; leave those for a later request, without changing or closing them.`,
   ].join('\n');
 }
 

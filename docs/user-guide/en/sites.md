@@ -13,6 +13,7 @@ my-site/
   home/          a page (layout.slice, boxes/, head.html, assets/ …)
   about/         another page
   head.html      the site's theme and the code every page gets (Styles & scripts)
+  kit/           what every page shares besides the theme (see The site kit)
   assets/        the theme's fonts
   site.json      the home page, titles set by hand, where Publish sends the site
   favicon.svg    the site's icon, when you upload one (.svg, .png or .ico)
@@ -79,6 +80,28 @@ Links between pages are written from the site root: `/about/`, `/about/#team`. T
 The code every page gets in its head, before the page's own: a stylesheet, a `<style>`, a `<script>`, meta tags. Scripts here run on every page. The theme (colours and fonts) isn't in it; that stays in the Page tab. It has its own **Undo**.
 
 Above the code is **the site's icon**, the one browser tabs and bookmarks show. TYKERF makes one from the home page's first letter on the theme's accent colour. **Upload an icon…** uses yours instead (SVG, PNG or ICO, up to 512 KB), and **Use the made one** goes back. While you edit, the editor's tabs show TYKERF's mark instead, so they're easy to find; visitors see the site's icon.
+
+## The site kit
+
+The site kit holds what every page shares besides the theme, one small named file each, in the site's `kit/` folder. It opens below **Styles & scripts** in the site manager: each kind lists its files (click one to edit it, **+ New** to add one), and **Undo** takes back the last change.
+
+| Kind | What it is | Where it shows |
+|---|---|---|
+| **Styles** (`kit/styles/<name>.css`) | CSS for every page: a button style, a card | In every page, after the theme and before the page's own styles, in file-name order |
+| **Behaviours** (`kit/scripts/<name>.js`) | A small script an element turns on with `data-use="<name>"`: `export default function (el) { … }` | On the elements that ask for it, on any page; only the behaviours a page uses load |
+| **Shared blocks** (`kit/blocks/<name>.html`) | One box's code that several pages show: the navigation, the footer | In every box that shows it (see below) |
+| **Box types** (`kit/types/<name>.json`) | Rules for boxes of a type (see box types) | On every page; a page's own type of the same name wins |
+| **Tags** (`kit/tags.json`) | The site's own tags, with a label and a description | In the editor's **Size & look** tab, under *Site tags*; style each as `.t-<tag>` in a styles file |
+
+**Shared blocks.** A navigation or a footer is the same on every page, so it should be one thing:
+- The kit lists the boxes that are already the same on several pages (*These boxes are the same on several pages…*). **Share nav** makes one shared block from it and shows it on all of those pages.
+- In the editor, **Share…** on a box does the same from one page; the dialog also offers the site's other shared blocks to show instead.
+- A box that shows a shared block has a **shared** chip in the tree and a notice above its tabs. A change to it (its text, its code, Kaity's) changes every page that shows it; the site manager's **Undo** takes that back, not the page's.
+- **Make this page's own copy** gives this page the block's code as it is now, to change on its own; the other pages keep the shared block. It's one undo step on the page.
+- A link to the page you're on, inside a shared block, is marked as the current page (`aria-current`), so a menu can show where you are.
+- A new page whose layout has a box with the same name as a shared block (`nav`, `footer`) shows the shared block from the start.
+
+Kaity changes the kit only when you ask her for the whole site in the site manager, and she says which pages a change reaches. Asked about one block, she can't change a shared block; she'll suggest making the page's own copy. Exports and Publish include the kit: its styles in each page, its behaviours as files.
 
 ## One theme for every page
 

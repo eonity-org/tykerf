@@ -1,10 +1,11 @@
 import { existsSync, mkdirSync, mkdtempSync, readdirSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { spawnSync } from 'node:child_process';
 import { describe, expect, it } from 'vitest';
-import { iconLink, madeIcon, setSiteIcon, siteIcon, lastSiteHeadChange, linkedPage, newPageLike, newSitePage, pageLinks, pageNameError, pageWorkspace, removePage, renamePage, setSiteHead, emptyTrash, pageTitle, readSite, setHome, setSiteCode, setTitle, shareTheme, siteCode, siteHead, siteKind, siteOf, sitePages, trashedPages, undoSiteHead, usePage } from '../src/site.js';
+import { freePageName, iconLink, madeIcon, setSiteIcon, siteIcon, lastSiteHeadChange, linkedPage, newPageLike, newSitePage, pageLinks, pageNameError, pageWorkspace, removePage, renamePage, setSiteHead, emptyTrash, pageTitle, readSite, setHome, setSiteCode, setTitle, shareTheme, siteCode, siteHead, siteKind, siteOf, sitePages, trashedPages, undoSiteHead, usePage } from '../src/site.js';
 import { NO_SITE_HEAD, Workspace } from '../src/workspace.js';
-import { createPage, readTheme, themes } from '../src/library.js';
+import { createPage, readOverrides, readTheme, themes } from '../src/library.js';
 
 const tmp = () => mkdtempSync(join(tmpdir(), 'tykerf-site-'));
 
@@ -358,5 +359,56 @@ describe("the site's styles and scripts", () => {
     setSiteIcon(dir, null);
     expect(siteIcon(dir)).toMatchObject({ file: 'favicon.svg', own: false });
     expect(sitePages(dir)).toEqual(['munich', 'rome']); // icon files aren't pages
+  });
+});
+
+describe('a new page from the command line', () => {
+  const cli = (...args: string[]) => spawnSync(process.execPath, ['--import', 'tsx', 'src/cli.ts', 'new', ...args], { encoding: 'utf8', env: { ...process.env, TYKERF_DOTENV: 'off' } });
+
+  it('finds a free name for a page of the site', () => {
+    const dir = tmp();
+    newSitePage(dir, 'biased', 'blank', 'studio');
+    expect(freePageName(dir, 'biased')).toBe('biased-2');
+    expect(freePageName(dir, 'Case Study!')).toBe('case-study');
+    expect(freePageName(dir, 'assets')).toBe('assets-2'); // TYKERF's own folder names are never pages
+  });
+
+  it('adds the page to a site with a warning, instead of refusing or writing over the site', () => {
+    const dir = tmp();
+    newSitePage(dir, 'home', 'blank', 'warm');
+    writeFileSync(join(dir, 'site.json'), '{"version":1,"titles":{}}');
+    const r = cli(dir, 'biased', '--theme', 'biased');
+    expect(r.status).toBe(0);
+    expect(r.stderr).toMatch(/^warning: .* is a site with 1 pages, so the new page was added to it as "biased"/);
+    expect(sitePages(dir)).toEqual(['biased', 'home']);
+    expect(siteKind(dir)).toBe('site');
+    // the site shares the warm theme: the page gets the biased values as its own, the others keep theirs
+    expect(r.stderr).toMatch(/given to "biased" as its own values/);
+    expect(readOverrides(new Workspace(join(dir, 'biased')).head())['--color-text']).toBe('#16181d');
+    expect(readTheme(siteHead(dir))['--color-text']).toBe(themes().find((t) => t.name === 'warm')!.values['--color-text']);
+    // a site of page folders only isn't taken for an empty folder
+    const bare = tmp();
+    newSitePage(bare, 'home', 'blank', 'studio');
+    expect(cli(bare, 'blank', '--name', 'home').stderr).toMatch(/added to it as "home-2" \("home" was taken\)/);
+    expect(existsSync(join(bare, 'layout.slice'))).toBe(false);
+  });
+
+  it('still refuses a page, or a folder of other things', () => {
+    const dir = tmp();
+    newSitePage(dir, 'home', 'blank', 'studio');
+    const page = cli(join(dir, 'home'), 'biased');
+    expect([page.status, page.stderr]).toEqual([1, expect.stringMatching(/is already a page; a new page there would replace it/)]);
+    const other = tmp();
+    writeFileSync(join(other, 'notes.txt'), 'hello');
+    const r = cli(other, 'biased');
+    expect([r.status, r.stderr]).toEqual([1, expect.stringMatching(/holds other files.*such as .*biased/s)]);
+    expect(readdirSync(other)).toEqual(['notes.txt']);
+  });
+
+  it('makes a page in an empty or new folder, as before', () => {
+    const dir = join(tmp(), 'new');
+    const r = cli(dir, 'biased', '--theme', 'biased');
+    expect([r.status, r.stderr]).toEqual([0, '']);
+    expect(siteKind(dir)).toBe('page');
   });
 });

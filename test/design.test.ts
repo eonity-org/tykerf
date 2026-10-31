@@ -13,7 +13,7 @@ import { Workspace } from '../src/workspace.js';
 
 vi.setConfig({ testTimeout: 60_000 });
 const LIBRARY = join(dirname(fileURLToPath(import.meta.url)), '..', 'library');
-const PRESETS = ['studio', 'product', 'ivory', 'gallery', 'dark', 'warm'];
+const PRESETS = ['studio', 'product', 'ivory', 'gallery', 'dark', 'warm', 'biased'];
 
 function page(layout: string, theme: string): string {
   const ws = new Workspace(new MemoryStore('memory:design'));

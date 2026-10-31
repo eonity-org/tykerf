@@ -98,6 +98,41 @@ textarea.head-code { min-height: 160px; }
 .hover.tag-inside .tag { left: 4px; top: 4px; }
 @media (prefers-reduced-motion: reduce) { .hover .ants { animation: none; } .shade, .frame.sel { transition: none; } }
 
+/* tasks: in task mode, the element under the pointer (a solid outline, its place in words); tabs on open tasks */
+.nhover { position: absolute; display: none; outline: 2px solid var(--amber); outline-offset: 1px; background: rgb(234 154 39 / .08); border-radius: 2px; }
+.nhover .tag { background: var(--focus-under); }
+.nhover.tag-inside .tag { left: 4px; top: 4px; }
+.pins { position: absolute; inset: 0; }
+.pin {
+  /* a tab on the element's top-right corner, like the amber cell of TYKERF's mark: square corners, the one on the element sharp */
+  position: absolute; display: inline-flex; align-items: center; gap: 3px; height: 20px; padding: 0 6px 0 5px; pointer-events: auto;
+  translate: -100% 0; border: 0; border-radius: 4px 4px 0 4px; background: var(--amber); color: var(--focus-under);
+  font: 600 11px/1 tykerf-plex-mono, ui-monospace, monospace; box-shadow: 0 1px 0 var(--focus-under), 0 3px 10px rgb(0 0 0 / .25); cursor: pointer;
+}
+.pin::before { content: "T"; font-weight: 500; opacity: .6; }
+.pin.inside { border-radius: 4px 0 4px 4px; }
+.pin:hover, .pin:focus-visible { background: var(--focus-under); color: var(--amber); outline: none; }
+.pin.static { position: static; translate: none; flex: none; pointer-events: none; box-shadow: none; border-radius: 4px 4px 0 4px; }
+.pin.static.done { background: var(--bg-2); color: var(--muted); box-shadow: inset 0 0 0 1px var(--line); }
+
+/* Kaity at work: a live frame on her block (a light sweeping across it), a pulse on each task she has left, her latest step */
+.kwork { position: absolute; inset: 0; }
+.kframe, .ktask { position: absolute; border-radius: 4px; }
+.kframe { box-shadow: 0 0 0 2px #1cb0d2, 0 0 0 6px rgb(28 176 210 / .18), 0 0 34px 6px rgb(28 176 210 / .28); overflow: visible; animation: kglow 2.4s ease-in-out infinite; }
+.kframe::before { content: ""; position: absolute; inset: 0; border-radius: inherit; overflow: hidden; background: linear-gradient(105deg, transparent 35%, rgb(28 176 210 / .16) 50%, transparent 65%) 0 0 / 250% 100% no-repeat; animation: ksweep 2.8s linear infinite; }
+.ktask { box-shadow: 0 0 0 2px #0e7ea0; animation: kpulse 1.6s ease-out infinite; }
+@keyframes kglow { 50% { box-shadow: 0 0 0 2px #1cb0d2, 0 0 0 9px rgb(28 176 210 / .1), 0 0 46px 10px rgb(28 176 210 / .32); } }
+@keyframes ksweep { from { background-position: 150% 0; } to { background-position: -150% 0; } }
+@keyframes kpulse { 0% { box-shadow: 0 0 0 2px #0e7ea0, 0 0 0 0 rgb(14 126 160 / .45); } 100% { box-shadow: 0 0 0 2px #0e7ea0, 0 0 0 14px rgb(14 126 160 / 0); } }
+/* inside the frame's top-left corner, so it never covers what's around the block */
+.ktag { position: absolute; left: 8px; top: 8px; display: inline-flex; align-items: center; gap: 7px; max-width: min(480px, calc(100% - 16px), calc(100vw - 24px)); padding: 5px 11px 5px 8px; border-radius: 7px; background: #fff; color: #0a4f6e; border: 1px solid #1cb0d2; font: 500 12px/1.3 var(--sans); box-shadow: 0 6px 20px rgb(10 79 110 / .22); white-space: nowrap; }
+.ktag b { font-weight: 700; }
+.ktag > span:last-child { overflow: hidden; text-overflow: ellipsis; opacity: .9; }
+.ktag .kaity svg { width: 20px; height: 10px; }
+.kfloat { position: absolute; left: 50%; translate: -50% 0; }
+.kfloat .ktag { position: static; max-width: min(480px, calc(100vw - 24px)); }
+@media (prefers-reduced-motion: reduce) { .kframe, .kframe::before, .ktask { animation: none; } }
+
 /* size handles between blocks side by side */
 .handles { position: absolute; inset: 0; }
 .handle { position: absolute; width: 14px; pointer-events: auto; cursor: col-resize; touch-action: none; }
@@ -144,6 +179,22 @@ textarea.head-code { min-height: 160px; }
 .i .here { fill: var(--amber); stroke: none; }
 .toggle .mark { width: 18px; height: 18px; }
 .toggle[aria-pressed="true"] { background: var(--brand); color: #fff; border-color: var(--brand); }
+
+/* the tasks button in the header (with the number of open tasks), and the bar while task mode is on */
+.head-tools > .tasksbtn[aria-pressed="true"] { background: var(--amber); border-color: var(--amber); color: var(--focus-under); }
+.tasksbtn .count { min-width: 16px; padding: 1px 4px; border-radius: 8px; background: var(--amber); color: var(--focus-under); font: 700 10px/1.2 var(--sans); text-align: center; }
+.tasksbtn[aria-pressed="true"] .count { background: var(--focus-under); color: #fff; }
+.taskbar {
+  position: fixed; left: 50%; bottom: 16px; translate: -50% 0; display: flex; align-items: center; gap: 4px; max-width: calc(100vw - 24px);
+  padding: 5px 5px 5px 12px; border-radius: 10px; background: var(--brand); color: #fff; box-shadow: 0 8px 26px rgb(0 0 0 / .32);
+}
+.taskbar .nb-say { display: flex; align-items: center; gap: 8px; margin-right: 6px; min-width: 0; font-size: 12px; }
+.taskbar .nb-say > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.taskbar .nb-say .i { color: var(--amber); }
+.taskbar button { display: inline-flex; align-items: center; gap: 6px; flex: none; padding: 6px 10px; border: 0; border-radius: 7px; background: transparent; color: #fff; }
+.taskbar button:hover { background: rgb(255 255 255 / .12); }
+.taskbar button[aria-pressed="false"] { opacity: .6; }
+.taskbar button.primary { background: var(--amber) !important; color: var(--focus-under) !important; font-weight: 700; padding-inline: 14px; }
 
 /* ---------- panel ---------- */
 
@@ -438,7 +489,52 @@ textarea.code { flex: 1; min-height: 120px; font: var(--mono); tab-size: 2; whit
 .pop button.primary, .tbar button.primary, .imgtool button.primary { background: var(--brand); border-color: var(--brand); color: #fff; }
 .pop button.danger { color: var(--danger); }
 
+/* a task: the form for a new one, one task, and the list */
+.pop .taskform, .pop .taskview, .pop .tasklist { display: grid; gap: 8px; }
+.pop .task-place { display: flex; align-items: center; gap: 6px; min-width: 0; font: var(--mono); font-size: 11px; color: var(--muted); overflow-wrap: anywhere; }
+.pop .task-place b { color: var(--brand); font-weight: 600; }
+.pop .task-place .i { color: var(--amber); }
+.pop .taskform textarea { font: inherit; color: inherit; background: var(--bg-2); border: 1px solid var(--line); border-radius: 7px; padding: 6px 8px; resize: vertical; min-height: 64px; }
+.pop .taskform textarea:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
+.pop .taskform .muted, .pop .taskview .muted, .pop .tasklist .muted { color: var(--muted); font-size: 12px; }
+.pop .spacer { flex: 1; }
+.pop .task-head { display: flex; align-items: center; gap: 8px; }
+.pop .task-text { white-space: pre-wrap; overflow-wrap: anywhere; }
+.pop .task-reply { display: flex; gap: 6px; padding: 6px 8px; border-radius: 7px; background: var(--bg-2); }
+.pop .task-reply .i { color: #2E7D4F; margin-top: 2px; }
+.pop .taskview .row button, .pop .tasklist button { display: inline-flex; align-items: center; gap: 6px; }
+.pop .tasklist { max-height: min(60vh, 480px); overflow: auto; }
+.pop .tasklist .ask-all { justify-content: center; padding: 7px 10px; font-weight: 600; }
+.pop .tasklist section { display: grid; gap: 4px; }
+.pop .tasklist header { display: flex; align-items: center; justify-content: space-between; gap: 6px; font: var(--mono); font-size: 12px; }
+.pop .tasklist header b { color: var(--brand); }
+.pop .tasklist button.link { border: 0; background: none; color: var(--brand-2); padding: 2px 4px; font-size: 12px; }
+.pop .tasklist ol { display: grid; gap: 2px; margin: 0; padding: 0; list-style: none; }
+.pop .tasklist .task-row { display: flex; align-items: flex-start; gap: 8px; width: 100%; text-align: left; border: 0; background: none; padding: 6px; border-radius: 6px; }
+.pop .tasklist .task-row:hover { background: var(--tint); }
+.pop .tasklist .task-row > span:last-child { display: grid; gap: 2px; min-width: 0; }
+.pop .tasklist .task-row .task-text { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.pop .tasklist summary { cursor: pointer; color: var(--muted); font-size: 12px; padding: 4px 0; }
+.pop .kaity svg { width: 18px; height: 9px; }
+
 .tbar { display: flex; gap: 2px; padding: 3px; }
+/* a box that shows one of the site's shared blocks: the notice above its tabs, and its chip in the tree */
+.shared-note { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 10px; margin: 0 0 10px; padding: 8px 10px; border-radius: 8px; background: color-mix(in srgb, var(--brand-2) 10%, var(--bg)); border: 1px solid color-mix(in srgb, var(--brand-2) 35%, var(--bg)); font-size: 12px; }
+.shared-note > span { flex: 1 1 220px; }
+.shared-note .i { color: var(--brand-2); }
+.shared-note button { font-size: 12px; padding: 4px 10px; border: 1px solid var(--line); border-radius: 7px; background: var(--bg); }
+.chip.shared { background: color-mix(in srgb, var(--brand-2) 16%, var(--bg)); color: var(--brand); }
+.tag-row { display: flex; flex-wrap: wrap; gap: 6px; }
+.tag-row button { padding: 4px 10px; border: 1px solid var(--line); border-radius: 999px; background: var(--bg); font-size: 12px; }
+.tag-row button[aria-pressed="true"] { background: var(--brand); border-color: var(--brand); color: #fff; }
+
+/* the handbook: a link from the Page tab and the tasks list (it opens in a tab of its own) */
+.handbook-link { display: flex; align-items: center; gap: 8px; margin: 0 0 12px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; color: var(--text); text-decoration: none; font-size: 12px; }
+.handbook-link:hover { border-color: var(--brand-3); background: var(--tint); }
+.handbook-link > span { flex: 1; }
+.handbook-link b { color: var(--brand); }
+.handbook-link .i { color: var(--brand-2); }
+.pop .handbook-link { margin: 0; }
 .tbar button { border-color: transparent; min-width: 30px; }
 
 .imgtool { width: min(360px, calc(100vw - 16px)); max-height: calc(100vh - 16px); overflow: auto; padding: 10px; display: grid; gap: 8px; }
@@ -482,6 +578,9 @@ textarea.code { flex: 1; min-height: 120px; font: var(--mono); tab-size: 2; whit
   .body { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(70px, 32%) minmax(0, 1fr); }
   .tree { border-right: 0; border-bottom: 1px solid var(--line); }
   .dock { bottom: auto; top: 12px; right: 12px; }
+  .head-tools > .tasksbtn .label, .taskbar .nb-say > span, .taskbar button:not(.primary) span { display: none; }
+  /* the panel docks at the bottom on phones: the bar goes up, under Back to the page */
+  .taskbar { bottom: auto; top: 64px; }
 }
 
 .composer .runner { color: var(--muted); font: var(--mono); font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }

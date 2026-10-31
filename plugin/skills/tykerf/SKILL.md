@@ -19,6 +19,7 @@ Never edit `layout.slice`, `boxes/` or `head.html` with file tools or shell comm
 2. **Start or read the page.**
    - An empty folder: for one page, pick a layout and a theme (`list_layouts`, `list_themes`) and `use_layout`; for several pages, `new_page` for each.
    - An existing page: `get_layout` first. In a site, `list_pages` and `open_page`.
+   - Tasks people left on the page in the TYKERF editor: `list_tasks`. When asked to work through them, look at each at the width it was written at, do it, and `close_task` with a one-sentence reply.
    - Read a box's code with `get_content` and its name, when you are about to change that box. Without a name it returns every box at once, which is long and rarely needed: `get_layout` is the overview.
 3. **Focus before you change.** When the request is about one block ("the header", "the pricing"), `focus` on it, so nothing outside it can change. `unfocus` when you move on to another part.
 4. **Change it.**

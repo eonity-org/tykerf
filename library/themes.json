@@ -149,5 +149,37 @@
       "--space-section": "clamp(56px, 7vw, 104px)",
       "--max-width": "1280px"
     }
+  },
+  "biased": {
+    "label": "Biased",
+    "description": "Ink on warm paper: an indigo accent, a lime highlighter for the words that matter, heavy rules and a tight Manrope over Inter",
+    "values": {
+      "--color-bg": "#f7f6f2",
+      "--color-band": "#eeece4",
+      "--color-surface": "#ffffff",
+      "--color-text": "#16181d",
+      "--color-muted": "#555a64",
+      "--color-border": "#dcd9d0",
+      "--color-accent": "#3438c8",
+      "--color-on-accent": "#ffffff",
+      "--color-soft": "#e6e7fa",
+      "--color-highlight": "#e2f46a",
+      "--color-dark": "#16181d",
+      "--color-on-dark": "#f7f6f2",
+      "--font-body": "\"Inter\", system-ui, sans-serif",
+      "--font-heading": "\"Manrope\", system-ui, sans-serif",
+      "--font-accent": "\"Manrope\", system-ui, sans-serif",
+      "--weight-heading": "750",
+      "--tracking-heading": "-0.035em",
+      "--text-hero": "clamp(42px, 6vw, 84px)",
+      "--text-title": "clamp(30px, 3.4vw, 46px)",
+      "--text-lead": "clamp(18px, 1.5vw, 21px)",
+      "--text-body": "17px",
+      "--radius": "10px",
+      "--radius-button": "6px",
+      "--gap": "24px",
+      "--space-section": "clamp(64px, 8vw, 112px)",
+      "--max-width": "1240px"
+    }
   }
 }

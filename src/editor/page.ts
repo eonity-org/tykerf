@@ -10,6 +10,10 @@ import { KIND_WORD, type Layout, type Node, find, freshId, isOp } from '../model
 import * as M from '../moves.js';
 import { serializeSlice } from '../notation.js';
 import { leftovers } from '../check.js';
+import { handbookMarkdown, handbookPage } from '../handbook.js';
+import { kitList, kitTags } from '../kit.js';
+import { blockUsers, linkBlock, shareBlock, unlinkBlock } from '../site.js';
+import { addTask, clearDone, closeTask, removeTask, reopenTask, sayTask, tasks } from '../tasks.js';
 import { pathOf } from '../refs.js';
 import { renderParts } from '../render.js';
 import { checkPath } from '../store.js';
@@ -107,12 +111,13 @@ export function createPageHost(ws: Workspace, opts: { name: string; site?: () =>
     maxW?: number; // max width in px, centred (absent = the full width it gets)
     ratios?: number[]; // relative sizes of the children (rows/columns); absent = equal
     tags?: string[]; // its tags: band tones (tone-alt, tone-soft, tone-dark), dense, reverse…
+    shared?: string; // a box that shows one of the site's shared blocks (kit/blocks/<shared>.html)
     children?: PanelNode[];
   }
 
   function panelTree(n: Node, codes: Set<string>): PanelNode | null {
     if (n.type === 'empty') return null;
-    if (!isOp(n)) return { id: n.id, kind: 'box', boxType: n.boxType, minH: n.minH, maxW: n.maxW, hasCode: codes.has(n.id), tags: n.tags };
+    if (!isOp(n)) return { id: n.id, kind: 'box', boxType: n.boxType, minH: n.minH, maxW: n.maxW, hasCode: codes.has(n.id) || !!n.use, tags: n.tags, ...(n.use ? { shared: n.use } : {}) };
     return {
       id: n.id, kind: 'container', arrangement: KIND_WORD[n.kind], boxType: n.boxType, minH: n.minH, maxW: n.maxW, ratios: n.ratios, tags: n.tags,
       children: n.children.map((c) => panelTree(c, codes)).filter((c): c is PanelNode => c !== null),
@@ -122,7 +127,7 @@ export function createPageHost(ws: Workspace, opts: { name: string; site?: () =>
   /** Changes when head.html changes, so open pages know to reload (the head can't be swapped in place). */
   const headVersion = () => {
     let h = 0;
-    for (const c of ws.siteHead() + ws.head()) h = (h * 31 + c.charCodeAt(0)) | 0;
+    for (const c of ws.siteHead() + ws.kitHead() + ws.head()) h = (h * 31 + c.charCodeAt(0)) | 0;
     return h;
   };
 
@@ -236,6 +241,29 @@ export function createPageHost(ws: Workspace, opts: { name: string; site?: () =>
         parts.push(a.dense ? 'dense' : 'normal density');
       }
       ws.save(l, `${a.id}: ${parts.join(', ')}`, 'user');
+      return a.id;
+    },
+    /** The site's own tags (kit/tags.json) on a block: on or off. One step. */
+    tag: (a: { id: string; tag: string; on: boolean }) => {
+      const dir = ws.site?.dir;
+      if (!dir || !(a.tag in kitTags(dir))) throw new Error(`"${a.tag}" is not one of the site's tags`);
+      ws.save(a.on ? M.tag(ws.load(), a.id, a.tag) : M.untag(ws.load(), a.id, a.tag), `${a.id}: ${a.on ? '' : 'no '}#${a.tag}`, 'user');
+      return a.id;
+    },
+    /** Share a box with every page of the site: its code becomes a shared block, which this box shows. */
+    share: (a: { id: string; name?: string }) => {
+      if (!ws.site?.dir) throw new Error('only a page of a site can share a block');
+      return shareBlock(ws.site.dir, ws, a.id, a.name || a.id);
+    },
+    /** Make a box show one of the site's shared blocks. */
+    link: (a: { id: string; name: string }) => {
+      if (!ws.site?.dir) throw new Error('only a page of a site has shared blocks');
+      linkBlock(ws.site.dir, ws, a.id, String(a.name));
+      return a.id;
+    },
+    /** Make a box that shows a shared block this page's own copy. */
+    unlink: (a: { id: string }) => {
+      unlinkBlock(ws, a.id);
       return a.id;
     },
     /** Dissolve a container: its children take its place in the parent. */
@@ -398,8 +426,11 @@ export function createPageHost(ws: Workspace, opts: { name: string; site?: () =>
     clearTimeout(debounce);
     debounce = setTimeout(() => broadcast('changed', {}), 80);
   };
+  // tasks change on their own (the page doesn't): open editors redraw their tabs
+  const tasksChanged = () => broadcast('tasks', {});
   const unwatch = store.watch?.((f) => {
     if (['layout.slice', 'contents.json', 'head.html'].includes(f) || f.startsWith('boxes/') || f.startsWith('assets/')) changed();
+    if (f === '.tykerf/tasks.json') tasksChanged();
   });
 
   async function handle(req: IncomingMessage, res: ServerResponse, p: string, url: URL) {
@@ -442,7 +473,9 @@ export function createPageHost(ws: Workspace, opts: { name: string; site?: () =>
       const l = ws.load();
       const parts = ws.parts(id) ?? { html: '', css: '' };
       const inside = find(l.root, id) ? codeOf(l, id).boxes.length : 0;
-      return json(res, 200, { id, ...parts, path: pathOf(l, id), previous: find(l.root, id) ? previousBox(l, id) : null, boxesWithCode: inside });
+      const use = ws.sharedBlock(id, l);
+      const shared = use && ws.site?.dir ? { name: use, pages: Object.keys(blockUsers(ws.site.dir, use)) } : null;
+      return json(res, 200, { id, ...parts, path: pathOf(l, id), previous: find(l.root, id) ? previousBox(l, id) : null, boxesWithCode: inside, shared });
     }
     if (req.method === 'GET' && p.startsWith('/_tykerf/image/')) {
       const name = p.slice('/_tykerf/image/'.length);
@@ -453,6 +486,19 @@ export function createPageHost(ws: Workspace, opts: { name: string; site?: () =>
       return res.end(img);
     }
     if (req.method === 'GET' && p === '/_tykerf/chat') return json(res, 200, ai.chat(url.searchParams.get('id') ?? ''));
+    // the handbook: the page's theme and blocks with their tasks, for people (HTML) and agents (Markdown)
+    if (req.method === 'GET' && (p === '/_tykerf/handbook' || p === '/_tykerf/handbook.md')) {
+      const name = opts.title?.() || opts.name || 'page';
+      const md = p.endsWith('.md');
+      res.writeHead(200, { 'content-type': md ? 'text/markdown; charset=utf-8' : 'text/html; charset=utf-8', 'cache-control': 'no-store' });
+      return res.end(md ? handbookMarkdown(ws, name) : handbookPage(ws, name));
+    }
+    if (req.method === 'GET' && p === '/_tykerf/kit') {
+      const dir = ws.site?.dir;
+      const blocks = dir ? kitList(dir).blocks : [];
+      return json(res, 200, dir ? { site: true, blocks, tags: kitTags(dir), users: Object.fromEntries(blocks.map((b) => [b, Object.keys(blockUsers(dir, b))])) } : { site: false, blocks: [], tags: {}, users: {} });
+    }
+    if (req.method === 'GET' && p === '/_tykerf/tasks') return json(res, 200, { tasks: tasks(ws), text: tasks(ws, { open: true }).map(sayTask).join('\n') });
     if (req.method === 'GET' && p === '/_tykerf/events') {
       res.writeHead(200, { 'content-type': 'text/event-stream', 'cache-control': 'no-store', connection: 'keep-alive' });
       res.write(': connected\n\n');
@@ -544,6 +590,22 @@ export function createPageHost(ws: Workspace, opts: { name: string; site?: () =>
       return json(res, 200, { ok: true });
     }
     if (p === '/_tykerf/chat/reset') return json(res, 200, { ok: ai.reset(a.id) });
+    // tasks left on the page: what to change, ask or check (src/tasks.ts); not part of the page's history
+    if (p.startsWith('/_tykerf/tasks/')) {
+      const n = Number(a.n);
+      const r = ({
+        add: () => addTask(ws, { block: String(a.block ?? ''), text: String(a.text ?? ''), path: a.path ?? null, label: a.label, width: a.width ?? null, by: 'user' }),
+        close: () => closeTask(ws, n, 'user', typeof a.reply === 'string' ? a.reply : undefined),
+        reopen: () => reopenTask(ws, n),
+        remove: () => removeTask(ws, n),
+        clear: () => clearDone(ws),
+        ask: () => ai.askTasks(String(a.id ?? '')),
+      } as Record<string, () => unknown>)[p.slice('/_tykerf/tasks/'.length)];
+      if (!r) return res.writeHead(404).end('not found');
+      const result = r();
+      tasksChanged();
+      return json(res, 200, { ok: true, result: result ?? null });
+    }
     // what Kaity's last request left unfinished: she finishes it, or the person keeps it as it is
     if (p === '/_tykerf/check/fix') return ai.fix(String(a.id ?? '')), json(res, 200, { ok: true });
     if (p === '/_tykerf/check/leave') return ai.leave(String(a.id ?? '')), json(res, 200, { ok: true });
