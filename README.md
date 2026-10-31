@@ -37,8 +37,9 @@ npm install
 npx playwright install chromium     # used for screenshots, page checks and copying websites
 
 npm start -- my-site                # a new or empty folder is a new site: open http://localhost:4400
-npm start -- examples/widgets       # a sample page
-npm start -- my-page --layout launch --theme studio   # one page directly (list: npm run cli -- layouts)
+npm start -- examples              # a sample site of one page, at /widgets/
+npm start -- my-site --layout launch --theme studio   # a new site, its home page from a layout (list: npm run cli -- layouts)
+npm start -- my-site --layout launch --name portfolio # the same, its one page named portfolio instead of home (on a site: one more page)
 ```
 
 New to TYKERF? Read [Why TYKERF](docs/user-guide/en/why-tykerf.md) and [Getting started](docs/user-guide/en/getting-started.md). To choose which AI answers, see [Working with Kaity](docs/user-guide/en/ai.md#which-ai-answers).
@@ -73,7 +74,7 @@ npm run cli -- outline "header main V footer H"     # parse and print the tree
 npm run cli -- render examples/widgets             # write examples/widgets/out/index.html
 npm run cli -- optimize examples/widgets 1440      # tune the ratios for a width (--write to save)
 npm run cli -- import https://example.com my-page  # start a page from an existing site (see the guide)
-npm run cli -- new my-page launch --theme studio   # start a page from a layout
+npm run cli -- new my-site launch --theme studio   # a new site with its home page from a layout (on a site: one more page)
 npm run cli -- layouts                           # list page layouts and components
 npm run metrics -- examples/widgets/out/index.html # overflow, line length, tap targets… at 375/768/1440
 ```

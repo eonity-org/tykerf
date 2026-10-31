@@ -3,11 +3,12 @@
 
 import { type ChildProcess, spawn } from 'node:child_process';
 import { request } from 'node:http';
-import { mkdtempSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { createPage } from '../src/library.js';
+import { newSitePage, readSite, sitePages } from '../src/site.js';
 import { Workspace } from '../src/workspace.js';
 import { freePort } from './ports.js';
 
@@ -37,6 +38,9 @@ describe('a site served to visitors', () => {
     expect(page.status).toBe(200);
     const html = await page.text();
     expect(html).not.toContain('tykerf.js');
+    // only a browser that signed in here before gets Edit with TYKERF (the login page leaves tykerf.admin)
+    expect(html).toContain("if(localStorage.getItem('tykerf.admin')==='true')");
+    expect(html).toContain("'/_tykerf/login?next='+encodeURIComponent(location.pathname+location.search)");
     expect(html).toContain('<link rel="icon" href="/favicon.svg" type="image/svg+xml">'); // the site's icon, not TYKERF's
     const list = await get('pages/');
     expect(await list.text()).toContain('<a href="/_tykerf/login?next=%2F_tykerf%2Fsite%2F" rel="nofollow">Sign in to edit</a>');
@@ -65,8 +69,15 @@ describe('a site served to visitors', () => {
     const set = ok.headers.get('set-cookie')!;
     expect(set).toMatch(/^tykerf_session=[\w-]{20,}; Path=\/; HttpOnly; SameSite=Strict; Max-Age=\d+$/);
     const cookie = set.split(';')[0];
-    expect(await (await get('rome/', cookie)).text()).toContain('_tykerf/tykerf.js');
-    expect(await (await get('_tykerf/site', cookie)).json()).toMatchObject({ kind: 'site', pages: ['munich', 'rome'], signin: true });
+    const own = await (await get('rome/', cookie)).text();
+    expect(own).toContain('_tykerf/tykerf.js');
+    expect(own).not.toContain('tykerf.admin'); // the editor, not the way to it
+    // TYKERF's own address is the manager; the sign-in page, once signed in, goes straight on
+    expect((await get('_tykerf/', cookie)).headers.get('location')).toBe('/_tykerf/site/');
+    expect((await get('_tykerf', cookie)).headers.get('location')).toBe('/_tykerf/site/');
+    expect((await get('_tykerf/login?next=%2Frome%2F', cookie)).headers.get('location')).toBe('/rome/');
+    expect((await get('_tykerf/login?next=%2F%2Fevil.example', cookie)).headers.get('location')).toBe('/_tykerf/site/');
+    expect(await (await get('_tykerf/site', cookie)).json()).toMatchObject({ pages: ['munich', 'rome'], signin: true });
     expect((await get('_tykerf/site/', cookie)).status).toBe(200);
     expect(await (await get('pages/', cookie)).text()).toContain('<a href="/_tykerf/site/" rel="nofollow">Site manager</a>');
     expect((await post('_tykerf/logout', {}, cookie)).headers.get('set-cookie')).toMatch(/Max-Age=0/);
@@ -119,27 +130,75 @@ describe('behind an HTTPS proxy', () => {
   });
 });
 
-describe('a single page served to visitors', () => {
-  it('signs the admin in to the page itself: a page has no site manager', async () => {
-    const dir = join(mkdtempSync(join(tmpdir(), 'tykerf-public-page-')), 'cv');
-    createPage(new Workspace(dir), 'blank');
-    const port = await freePort();
-    const one = spawn(process.execPath, ['--import', 'tsx', 'src/editor/server.ts', dir, '--port', String(port)], { stdio: ['ignore', 'pipe', 'inherit'], env: { ...process.env, TYKERF_ADMIN_PASSWORD: 'open sesame' } });
+describe('a page folder given to the editor', () => {
+  const started = async (dir: string, ...more: string[]) => {
+    const one = spawn(process.execPath, ['--import', 'tsx', 'src/editor/server.ts', dir, ...more, '--port', String(await freePort())], { stdio: ['ignore', 'pipe', 'pipe'], env: { ...process.env, TYKERF_DOTENV: 'off' } });
+    let out = '';
+    one.stdout!.on('data', (d) => (out += d));
+    one.stderr!.on('data', (d) => (out += d));
+    return new Promise<{ code: number | null; out: string; one: ChildProcess }>((ok) => {
+      one.stdout!.on('data', () => out.includes('TYKERF: http') && ok({ code: null, out, one }));
+      one.once('exit', (code) => ok({ code, out, one }));
+    });
+  };
+
+  it('opens the site of a page of a site', async () => {
+    const site = join(mkdtempSync(join(tmpdir(), 'tykerf-public-page-')), 'cv');
+    createPage(new Workspace(join(site, 'home')), 'blank');
+    const r = await started(join(site, 'home'));
     try {
-      await new Promise<void>((ok) => one.stdout!.on('data', (d) => String(d).includes('TYKERF: http') && ok()));
-      const at = (path: string, cookie = '') => fetch(`http://localhost:${port}${path}`, { redirect: 'manual', headers: cookie ? { cookie } : {} });
-      expect(await (await at('/_tykerf/login')).text()).toContain('location.replace("/")');
-      // an editor address opened in the browser while signed out (after a restart, say) leads to sign-in and back
-      const opened = await fetch(`http://localhost:${port}/_tykerf/handbook?x=1`, { redirect: 'manual', headers: { accept: 'text/html,application/xhtml+xml' } });
-      expect([opened.status, opened.headers.get('location')]).toEqual([302, '/_tykerf/login?next=%2F_tykerf%2Fhandbook%3Fx%3D1']);
-      expect((await at('/_tykerf/state')).status).toBe(401); // the editor's own requests still just refuse
-      const ok = await fetch(`http://localhost:${port}/_tykerf/login`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ password: 'open sesame' }) });
-      const cookie = ok.headers.get('set-cookie')!.split(';')[0];
-      const manager = await at('/_tykerf/site/', cookie);
-      expect([manager.status, manager.headers.get('location')]).toEqual([302, '/']);
-      expect(await (await at('/', cookie)).text()).toContain('_tykerf/tykerf.js');
+      expect(r.out).toContain(`is a page of the site ${site}: opening the site (the page is at /home/)`);
+      expect(r.out).toMatch(/TYKERF: http.*\(site .*cv, 1 pages/);
     } finally {
-      one.kill();
+      r.one.kill();
     }
+  });
+
+  it('starts a new site with --layout, its home page named home or --name', async () => {
+    const site = join(mkdtempSync(join(tmpdir(), 'tykerf-public-new-')), 'studio');
+    const r = await started(site, '--layout', 'blank', '--name', 'portfolio');
+    try {
+      expect(r.out).toContain(`started a new site in ${site} with its home page "portfolio" from the "blank" layout`);
+      expect([sitePages(site), readSite(site).home]).toEqual([['portfolio'], 'portfolio']);
+    } finally {
+      r.one.kill();
+    }
+    const bad = await started(join(mkdtempSync(join(tmpdir(), 'tykerf-public-new-')), 'studio'), '--layout', 'blank', '--name', 'Bad Name');
+    bad.one.kill();
+    expect([bad.code, bad.out]).toEqual([1, expect.stringContaining(`"Bad Name" can't be a page name`)]);
+  });
+
+  it('adds a page to a site with --layout and --name, once; without --name it says how', async () => {
+    const site = join(mkdtempSync(join(tmpdir(), 'tykerf-public-add-')), 'studio');
+    newSitePage(site, 'jap', 'blank', 'studio');
+    const added = await started(site, '--layout', 'biased', '--theme', 'biased', '--name', 'jap2');
+    try {
+      expect(added.out).toMatch(/added the page "jap2" to the site .*studio from the "biased" layout: http:\/\/localhost:\d+\/jap2\//);
+      expect(added.out).toContain('the "biased" theme is "jap2"\'s own values over it'); // the other pages keep their look
+      expect([sitePages(site), readSite(site).home]).toEqual([['jap', 'jap2'], 'jap']); // the home page stays
+    } finally {
+      added.one.kill();
+    }
+    const again = await started(site, '--layout', 'biased', '--name', 'jap2'); // the same command, run again
+    again.one.kill();
+    expect(again.out).toContain('already has a page "jap2"; --layout is only used for a new page');
+    expect(sitePages(site)).toEqual(['jap', 'jap2']);
+    const unnamed = await started(site, '--layout', 'biased');
+    unnamed.one.kill();
+    expect([unnamed.code, unnamed.out]).toEqual([1, expect.stringContaining('to add one from the "biased" layout, name it with --name')]);
+  });
+
+  it('refuses a page on its own, and says how to put it in a site', async () => {
+    // a page in a folder of other things (a home folder), so it belongs to no site
+    const home = mkdtempSync(join(tmpdir(), 'tykerf-public-home-'));
+    mkdirSync(join(home, 'Documents'));
+    writeFileSync(join(home, 'Documents', 'notes.txt'), 'not a page');
+    const dir = join(home, 'cv');
+    createPage(new Workspace(dir), 'blank');
+    const r = await started(dir);
+    r.one.kill(); // already gone, unless it wrongly started
+    expect(r.code).toBe(1);
+    expect(r.out).toContain(`${dir} is a page on its own; TYKERF edits sites, folders of pages`);
+    expect(r.out).toContain(`mv ${dir} my-site/home`);
   });
 });

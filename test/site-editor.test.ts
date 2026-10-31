@@ -7,7 +7,9 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { type Browser, type Page, chromium } from 'playwright';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
+import { logEnd, logStart } from '../src/editor/kaity-log.js';
 import { readTheme, themes } from '../src/library.js';
+import { removePage, renamePage } from '../src/site.js';
 import { freePort } from './ports.js';
 
 vi.setConfig({ testTimeout: 30_000 });
@@ -268,7 +270,7 @@ describe('a new site', () => {
     await page.keyboard.press('Escape');
 
     await page.locator('.sitebtn').click();
-    expect(await page.locator('.pop .sitemenu [data-site]').evaluateAll((b) => b.map((x) => (x as HTMLElement).dataset.site))).toEqual(['manage', 'export', 'export-page', 'ai']);
+    expect(await page.locator('.pop .sitemenu [data-site]').evaluateAll((b) => b.map((x) => (x as HTMLElement).dataset.site))).toEqual(['manage', 'export', 'export-page', 'work', 'ai']);
     await page.locator('.pop [data-site="export-page"]').click();
     await page.locator('.pop .choices').waitFor();
     expect(await page.locator('.pop').textContent()).toMatch(/Export this page[\s\S]*The page home/);
@@ -306,7 +308,7 @@ describe('a new site', () => {
 
   it("has a home at /: its pages to open, rename and remove, and the ways to make a new one", async () => {
     await fetch(`${url}_tykerf/site/new`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ name: 'notes', layout: 'blank' }) });
-    await page.goto(url);
+    await page.goto(`${url}_tykerf/site/`); // the site's address opens its home page (its first)
     await page.locator('.pages .who a', { hasText: /^notes$/ }).waitFor();
     // a new page waits behind + New page, and then opens step by step
     expect(await page.locator('.chooser').count()).toBe(0);
@@ -357,10 +359,8 @@ describe('a new site', () => {
     await page.locator('.trash').waitFor({ state: 'hidden' });
     expect(existsSync(join(site, '.trash'))).toBe(false);
 
-    // the home page, and a title set by hand
+    // the home page (the site's first page, from the start), and a title set by hand
     const home = page.locator('.pages li', { has: page.locator('a', { hasText: /^home$/ }) });
-    expect(await home.locator('[data-act="home"]').getAttribute('aria-label')).toBe('Make home the home page');
-    await home.locator('[data-act="home"]').click();
     await home.locator('.home-mark').waitFor();
     await home.locator('[data-act="rename"]').click();
     await page.locator('.pages form input').nth(1).fill('Our home');
@@ -377,6 +377,15 @@ describe('a new site', () => {
 
     // styles and scripts for every page, apart from the theme
     await page.locator('.pages .styles-btn').click();
+    // the site kit below: its file editor waits for a file, and tags.json has no name to give
+    await page.locator('.kitsec .kind').first().waitFor();
+    expect(await page.locator('.kitsec .editor').isVisible()).toBe(false);
+    await page.locator('.kitsec .kind', { hasText: 'Tags' }).locator('button', { hasText: '+ New' }).click();
+    expect(await page.locator('.kitsec .editor').isVisible()).toBe(true);
+    expect(await page.locator('.kitsec .kname').isVisible()).toBe(false);
+    expect(await page.locator('.kitsec [data-kit="remove"]').isVisible()).toBe(false); // nothing to remove yet
+    await page.locator('.kitsec [data-kit="cancel"]').click();
+    expect(await page.locator('.kitsec .editor').isVisible()).toBe(false);
     await page.locator('.code textarea').fill('<style>.t-note { outline: 3px solid red }</style>');
     await page.locator('.code [data-code="save"]').click();
     await page.locator('.code .msg', { hasText: 'Saved' }).waitFor();
@@ -390,8 +399,20 @@ describe('a new site', () => {
     expect(await page.locator('.code textarea').inputValue()).toBe('');
     await page.locator('.code [data-code="close"]').click();
 
+    // a page's name shows it as it is, the pencil opens it in the editor, and a name field renames it
+    const homeRow = page.locator('.pages li', { has: page.locator('.who a', { hasText: /^home$/ }) });
+    expect(await homeRow.locator('.who a').getAttribute('href')).toBe('/home/?view');
+    expect(await homeRow.locator('[data-act="edit"]').getAttribute('href')).toBe('/home/?edit');
+    expect(await homeRow.locator('[data-act="rename"]').getAttribute('aria-label')).toBe('Name and title of home');
+    await homeRow.locator('.who a').click();
+    await page.waitForURL(`${url}home/`); // the address is clean again
+    await page.locator('.toggle').waitFor();
+    expect(await page.locator('section.panel').isHidden()).toBe(true);
+    await page.goto(`${url}_tykerf/site/`);
+    await homeRow.locator('[data-act="edit"]').click();
+    await page.waitForURL(`${url}home/`);
+    await page.locator('section.panel').waitFor();
     // from a page, the page list leads back to this home
-    await page.locator('.pages .who a', { hasText: /^home$/ }).click();
     await page.locator('.pagesw').click();
     expect(await page.locator('.pop a.newpage-btn').getAttribute('href')).toBe('/_tykerf/site/');
     // and so do the Site button next to Edit with TYKERF, and the Site menu
@@ -447,6 +468,36 @@ describe('a new site', () => {
     expect(page.url()).toBe(`${url}home/`);
   });
 
+  it("follows a page renamed or removed from another process (Kaity's site run), and lists Kaity's work", async () => {
+    await fetch(`${url}_tykerf/site/new`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ name: 'draft', layout: 'blank' }) });
+    await page.goto(`${url}draft/`);
+    await page.locator('.pagesw').waitFor();
+    await page.waitForTimeout(500); // its event stream, which brings the move, is open by then
+    renamePage(site, 'draft', 'madrid'); // as MCP rename_page does, outside the editor
+    await page.waitForURL(`${url}madrid/`);
+    await page.locator('.pagesw').waitFor();
+    await page.waitForTimeout(500);
+    removePage(site, 'madrid');
+    await page.waitForURL(`${url}_tykerf/site/`);
+
+    logStart(site, { run: 'r1', page: 'home', block: 'hero', request: 'Work through this task:\n\n#1 · hero › h1 · 1280 px\nShorter title' });
+    logEnd(site, { run: 'r1', end: 'done', block: 'hero', answer: 'The title is **shorter**.', steps: 4 });
+    logStart(site, { run: 'r2', page: null, block: null, request: 'Link every page' });
+    await page.goto(`${url}_tykerf/site/#kaity-work`);
+    await page.locator('.work .run').nth(1).waitFor();
+    expect(await page.locator('.work .summary').textContent()).toBe('0 going on now, 2 finished.');
+    const [site_, home] = [page.locator('.work .run').nth(0), page.locator('.work .run').nth(1)];
+    expect(await site_.locator('.state').textContent()).toBe('Cut short: TYKERF stopped while she worked'); // no run going on now
+    expect(await site_.locator('.head button.link').textContent()).toBe('The whole site');
+    expect(await home.locator('.head a').getAttribute('href')).toBe('/home/?block=hero&tab=ai');
+    expect(await home.locator('.state').textContent()).toBe('Done');
+    await home.locator('summary').click();
+    expect(await home.locator('.md strong').textContent()).toBe('shorter');
+    expect(await home.locator('details .step').textContent()).toBe('4 steps');
+    await page.locator('.work select').selectOption('site');
+    await expect.poll(() => page.locator('.work .run').count()).toBe(1);
+  });
+
 });
 
 describe('an editor older than its code', () => {
@@ -460,15 +511,44 @@ describe('an editor older than its code', () => {
     try {
       await new Promise<void>((ok) => ed.stdout!.on('data', (d) => String(d).includes('TYKERF: http') && ok()));
       const at = `http://localhost:${port}/`;
-      expect(await (await fetch(`${at}_tykerf/version`)).json()).toEqual({ ok: true, outdated: false });
+      expect(await (await fetch(`${at}_tykerf/version`)).json()).toEqual({ ok: true, outdated: false, page: expect.any(String) });
       const tab = await browser.newPage();
       await tab.goto(at);
       await tab.locator('.toggle').waitFor();
       expect(await tab.locator('.outdated').isHidden()).toBe(true);
       utimesSync(join(code, 'a.ts'), new Date(), new Date(Date.now() + 60_000));
-      expect(await (await fetch(`${at}_tykerf/version`)).json()).toEqual({ ok: true, outdated: true });
+      expect(await (await fetch(`${at}_tykerf/version`)).json()).toMatchObject({ ok: true, outdated: true });
       await tab.reload();
       await tab.locator('.outdated', { hasText: 'Restart it' }).waitFor();
+      expect(await tab.locator('.outdated .reload').isHidden()).toBe(true);
+      await tab.close();
+    } finally {
+      ed.kill();
+    }
+  });
+
+  it('says a page older than its editor needs a reload: after an update, a page keeps the script it loaded', async () => {
+    const files = mkdtempSync(join(tmpdir(), 'tykerf-page-files-'));
+    writeFileSync(join(files, 'tykerf.js'), '// the browser part');
+    const dir = mkdtempSync(join(tmpdir(), 'tykerf-reload-'));
+    const port = await freePort();
+    const ed = spawn(process.execPath, ['--import', 'tsx', 'src/editor/server.ts', join(dir, 'site'), '--layout', 'blank', '--port', String(port)], { stdio: ['ignore', 'pipe', 'inherit'], env: { ...process.env, TYKERF_PAGE_DIR: files } });
+    try {
+      await new Promise<void>((ok) => ed.stdout!.on('data', (d) => String(d).includes('TYKERF: http') && ok()));
+      const at = `http://localhost:${port}/`;
+      const tab = await browser.newPage();
+      await tab.goto(`${at}home/`);
+      await tab.locator('.toggle').waitFor();
+      await tab.waitForTimeout(300); // it has asked which version it loaded
+      expect(await tab.locator('.outdated').isHidden()).toBe(true);
+      writeFileSync(join(files, 'tykerf.js'), '// the browser part, updated'); // as an update does
+      await tab.evaluate("document.dispatchEvent(new Event('visibilitychange'))"); // coming back to the tab
+      await tab.locator('.outdated', { hasText: 'Reload this page' }).waitFor();
+      await tab.locator('.outdated .reload').click();
+      await tab.waitForLoadState();
+      await tab.locator('.toggle').waitFor();
+      await tab.waitForTimeout(300);
+      expect(await tab.locator('.outdated').isHidden()).toBe(true); // the new script, nothing to say
       await tab.close();
     } finally {
       ed.kill();

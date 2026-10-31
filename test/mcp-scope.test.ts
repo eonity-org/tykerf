@@ -1,4 +1,4 @@
-import { cpSync, mkdtempSync, readFileSync } from 'node:fs';
+import { cpSync, existsSync, mkdtempSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
@@ -6,6 +6,7 @@ import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js'
 import { afterEach, describe, expect, it } from 'vitest';
 import * as M from '../src/moves.js';
 import { componentCode, createPage, hasTheme, themeVariables } from '../src/library.js';
+import { pageMoves, sitePages } from '../src/site.js';
 import { Workspace } from '../src/workspace.js';
 
 const clients: Client[] = [];
@@ -35,15 +36,16 @@ describe('the page folder', () => {
     expect(await call('get_layout')).toMatchObject({ error: false, text: expect.stringMatching(/^page column/) });
   });
 
-  it('can be empty, or not there yet: use_layout starts the page in it', async () => {
+  it('can be empty, or not there yet: use_layout starts a site in it, with its home page', async () => {
     const dir = join(mkdtempSync(join(tmpdir(), 'tykerf-mcp-new-')), 'rome');
     const call = await connect('--dir', dir);
-    expect(await call('get_layout')).toMatchObject({ error: true, text: expect.stringMatching(/no page is open\. In an empty folder, use_layout starts one/) });
+    expect(await call('get_layout')).toMatchObject({ error: true, text: expect.stringMatching(/no page is open\..* In an empty folder, use_layout starts a site with its home page/) });
     expect((await call('list_layouts')).text).toMatch(/^blank: /m);
     const made = await call('use_layout', { name: 'factual', theme: 'warm' });
-    expect(made).toMatchObject({ error: false, text: expect.stringMatching(/^ok: a new page from the factual layout with the warm theme/) });
+    expect(made).toMatchObject({ error: false, text: expect.stringMatching(/^ok: a new site in .*rome, with its home page "home" from the factual layout with the warm theme/) });
     expect((await call('get_layout')).text).toMatch(/nav leaf/);
-    expect(readFileSync(join(dir, 'head.html'), 'utf8')).toContain('data-tykerf-preset="warm"');
+    expect(existsSync(join(dir, 'home', 'layout.slice'))).toBe(true);
+    expect(readFileSync(join(dir, 'head.html'), 'utf8')).toContain('data-tykerf-preset="warm"'); // the site's theme, shared with its later pages
     // then it is a page like any other: use_layout replaces its blocks, and keeps its theme
     expect((await call('use_layout', { name: 'blank' })).text).toMatch(/^ok: the page now follows the blank layout/);
 
@@ -58,7 +60,7 @@ describe('a site of pages', () => {
     const site = join(mkdtempSync(join(tmpdir(), 'tykerf-mcp-site-')), 'cities');
     for (const name of ['rome', 'prague']) createPage(new Workspace(join(site, name)), 'blank');
     const call = await connect('--dir', site);
-    expect(await call('get_layout')).toMatchObject({ error: true, text: expect.stringMatching(/no page is open\..*In a site, list_pages/) });
+    expect(await call('get_layout')).toMatchObject({ error: true, text: expect.stringMatching(/no page is open\. In a site, open_page opens one of its pages \(list_pages lists them\)/) });
     expect((await call('list_pages')).text).toBe(`site ${site}\nprague\nrome\nno page is open: open_page opens one`);
     // a page made right in the site folder would hide its pages
     expect(await call('use_layout', { name: 'blank' })).toMatchObject({ error: true, text: expect.stringMatching(/refused: this folder is a site of pages \(prague, rome\)/) });
@@ -75,6 +77,23 @@ describe('a site of pages', () => {
     expect((await call('get_layout')).text).toMatch(/intro leaf/);
     expect((await call('list_pages')).text).toBe(`site ${site}\nmunich (open)\nprague\nrome`);
     expect((await call('new_page', { name: 'Bad Name' })).text).toMatch(/can't be a page name/);
+  });
+
+  it('renames and removes pages: links follow a rename, a removed page goes to the trash, and the editor hears of both', async () => {
+    const site = join(mkdtempSync(join(tmpdir(), 'tykerf-mcp-site-')), 'cities');
+    for (const name of ['page-one', 'page-two']) createPage(new Workspace(join(site, name)), 'blank');
+    const two = new Workspace(join(site, 'page-two'));
+    two.setContent(two.boxIds()[0], '<p><a href="/page-one/">Madrid</a></p>', 'user');
+    const call = await connect('--dir', site);
+    await call('open_page', { name: 'page-one' });
+    expect((await call('rename_page', { name: 'page-one', to: 'madrid' })).text).toBe('ok: "page-one" is "madrid" now, at /madrid/; links to it on 1 page follow; it is still the open page');
+    expect(readFileSync(join(site, 'page-two', 'boxes', `${two.boxIds()[0]}.html`), 'utf8')).toContain('href="/madrid/"');
+    expect((await call('list_pages')).text).toBe(`site ${site}\nmadrid (open)\npage-two`);
+    expect((await call('rename_page', { name: 'page-two', to: 'Bad Name' })).text).toMatch(/can't be a page name/);
+    expect((await call('remove_page', { name: 'madrid' })).text).toBe('ok: "madrid" is in the site\'s trash; 1 link on other pages still leads to /madrid/: change or remove them. No page is open now: open_page opens one');
+    expect(sitePages(site)).toEqual(['page-two']);
+    expect(pageMoves(site).map(({ from, to }) => [from, to])).toEqual([['page-one', 'madrid'], ['madrid', null]]);
+    expect((await call('get_layout')).text).toMatch(/no page is open/);
   });
 
   it('started on one page, can reach the others; a run on one block cannot', async () => {

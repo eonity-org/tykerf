@@ -18,10 +18,11 @@ A layout is a set of components arranged on a page. Once the page is made, it ke
 
 ## Start from a layout and a theme
 
-A page can start from a layout and a theme. On a new site (`npm start -- my-site` on a new or empty folder), the **start screen** offers them under **A layout**, with a live preview at desktop or phone width; in a site, **New page…** (the page name next to the TYKERF logo) shows the same choices. After the first page, a site's pages share its theme, so New page… shows the layouts in that theme. To make a page directly:
+A page can start from a layout and a theme. On a new site (`npm start -- my-site` on a new or empty folder), the **start screen** offers them under **A layout**, with a live preview at desktop or phone width; in a site, **New page…** (the page name next to the TYKERF logo) shows the same choices. After the first page, a site's pages share its theme, so New page… shows the layouts in that theme. To start a site with its home page from a layout directly:
 
 ```bash
-npm start -- ~/tykerf-pages/my-page --layout launch --theme studio
+npm start -- ~/tykerf-sites/my-site --layout launch --theme studio
+npm start -- ~/tykerf-sites/my-site --layout launch --theme studio --name portfolio   # named portfolio, not home
 ```
 
 TYKERF keeps a small set, each one clearly different. Layouts differ in **layout and density**, themes in **colour, type and air**. Any layout works with any theme.
@@ -51,7 +52,7 @@ TYKERF keeps a small set, each one clearly different. Layouts differ in **layout
 
 More layouts and themes, including layouts that show TYKERF's roots in chip floorplans (a pinwheel and a page frame), are kept in [`Other_Layouts/`](../../../Other_Layouts/README.md). TYKERF doesn't offer them, but any of them can be brought back.
 
-Themes use fonts bundled with TYKERF (Inter, Manrope, DM Sans, Newsreader, Playfair Display and Plus Jakarta Sans, all under the SIL Open Font License) or installed on the visitor's device. A page gets a copy of the bundled fonts its theme uses in its `assets/` folder, so it never calls a font server. `npm run cli -- layouts` lists layouts and themes, and `npm run cli -- new <folder> <layout> --theme <theme>` creates a page without opening the editor. Given a site (a folder of pages), it adds the page to it, named after the layout or `--name <page>`, and says so; in a site that shares one theme, the theme you name becomes that page's own values, so the other pages keep their look. A folder that is already a page, or holds other things, is refused.
+Themes use fonts bundled with TYKERF (Inter, Manrope, DM Sans, Newsreader, Playfair Display and Plus Jakarta Sans, all under the SIL Open Font License) or installed on the visitor's device. A page gets a copy of the bundled fonts its theme uses in its `assets/` folder, so it never calls a font server. `npm run cli -- layouts` lists layouts and themes, and `npm run cli -- new <folder> <layout> --theme <theme>` creates a page without opening the editor. In a new or empty folder it makes a site, with the page as its home page (`home`, or `--name <page>`). Given a site (a folder of pages), it adds the page to it, named after the layout or `--name <page>`, and says so; in a site that shares one theme, the theme you name becomes that page's own values, so the other pages keep their look. A folder that is already a page, or holds other things, is refused.
 
 All the text and images are **placeholders**: replace them in the **Text** tab, or ask Kaity ("fill this page for a bakery in Murcia").
 
@@ -65,7 +66,7 @@ Components adapt to their width, so they work full width, in a column or on a ph
 
 ## The theme
 
-Every layout and component uses the same **theme**: colours, fonts, corner radius, spacing and content width. In a site, the theme is shared by every page; a single page has its own. Change it in the **Page** tab of the top block (`page`):
+Every layout and component uses the same **theme**: colours, fonts, corner radius, spacing and content width. The site's theme is shared by every page; a page can have its own values over it (*This page only*). Change it in the **Page** tab of the top block (`page`):
 
 - **Where the look comes from:** a line at the top of the Page tab always says which case this page is in:
 
@@ -88,7 +89,7 @@ Every layout and component uses the same **theme**: colours, fonts, corner radiu
 - **Alternate bands**, **Cards**, **Lines** and **Soft accent** can follow the background or the accent. When they do, they are marked *auto*; pick a colour to set your own. When a preset or you set them, **make auto** makes them follow again.
 - **Head code:** everything the page adds to its `<head>` (the theme itself, fonts, page-wide styles and scripts).
 
-Saving reloads the page, because the head can only change with a reload. Undo reverts a page's own changes; the site theme has its own **Undo the last site theme change**. With `page` selected, you can ask Kaity to change the theme of a single page. In a site, Kaity changes the shared theme only while the site has a single page (so it can style a new site's first page, from a design for example; **Undo the last site theme change** reverts it). Once there are other pages, Kaity gives the page its own values over the shared theme, like *This page only*, and the other pages keep theirs. TYKERF offers its bundled fonts and fonts installed on the visitor's device: loading fonts from another server would send every visitor's IP address to that server. Choosing a bundled font copies its file into the page. To use another web font, put its files in `assets/` and declare them in the head code.
+Saving reloads the page, because the head can only change with a reload. Undo reverts a page's own changes; the site theme has its own **Undo the last site theme change**. With `page` selected, you can ask Kaity to change the page's theme. She changes the site's shared theme only while the site has that one page (so she can style a new site's first page, from a design for example; **Undo the last site theme change** reverts it). Once there are other pages, Kaity gives the page its own values over the shared theme, like *This page only*, and the other pages keep theirs. TYKERF offers its bundled fonts and fonts installed on the visitor's device: loading fonts from another server would send every visitor's IP address to that server. Choosing a bundled font copies its file into the page. To use another web font, put its files in `assets/` and declare them in the head code.
 
 ### Bands
 

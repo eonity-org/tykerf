@@ -22,8 +22,8 @@ The extension holds no key and calls no API itself. Claude Desktop does the thin
 2. Open `tykerf.mcpb`, the download or `dist/tykerf.mcpb` (double-click it, or drag it into Claude Desktop's *Settings → Extensions*), and choose *Install*.
 3. When Claude Desktop asks for the **Page folder**, choose one of these:
    - **a site** (a folder of page folders, such as the one the editor makes): Claude lists its pages, opens the one you name and makes new ones ("make a page about Munich next to Rome"), from a layout or as a copy of another page ("like Rome");
-   - **a page** (a folder with a `layout.slice`, made with the editor or with `npm run cli -- new my-page launch`): Claude works on it, and on the other pages of its site when it has one;
-   - **an empty folder**: ask Claude for a page ("start a page about our bakery from a layout") and it starts one there, or for several pages, and it makes each as a page of a new site.
+   - **a page** of a site (a folder with a `layout.slice`): Claude works on it, and on the other pages of its site;
+   - **an empty folder**: ask Claude for a page ("start a page about our bakery from a layout"). The folder becomes a site and the page its home page; ask for more pages and Claude adds them beside it.
 
    After changing the folder in the extension's settings, start a new chat.
 4. For screenshots and layout checks, install Chromium once: `npx playwright install chromium`. Without it, every other tool works, and Claude says that pictures need Chromium.

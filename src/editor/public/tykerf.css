@@ -196,7 +196,11 @@ textarea.head-code { min-height: 160px; }
 .panel.tasks-mode .head-tools > .undo .label, .panel.tasks-mode .head-tools > .redo .label { display: none; }
 .panel.tasks-mode .head-tools > .undo, .panel.tasks-mode .head-tools > .redo { padding-inline: 6px; }
 .head-tools > .tabsbtn[aria-pressed="false"] { opacity: .6; }
-.panel.min .taskpanel { display: none; }
+/* compact, in the Tasks mode: a few lines of the tasks (what Kaity is doing, the button, the first tasks), fading out; See more opens the rest */
+.panel.min.tasks-mode .taskpanel { max-height: 150px; overflow: hidden; -webkit-mask-image: linear-gradient(#000 70%, transparent); mask-image: linear-gradient(#000 70%, transparent); }
+.panel.min:not(.tasks-mode) .taskpanel { display: none; }
+.head-tools > .minimize { gap: 5px; }
+.head-tools > .closebtn { font-size: 17px; line-height: 1; padding-inline: 8px; }
 
 /* ---------- panel ---------- */
 
@@ -467,6 +471,8 @@ textarea.code { flex: 1; min-height: 120px; font: var(--mono); tab-size: 2; whit
 .outdated { position: fixed; top: 12px; left: 50%; translate: -50% 0; z-index: 2; display: flex; align-items: center; gap: 10px; max-width: min(640px, calc(100% - 24px)); padding: 9px 10px 9px 14px; border-radius: 10px; background: var(--danger); color: #fff; box-shadow: 0 4px 18px rgb(0 0 0 / .25); font-weight: 600; }
 .outdated[hidden] { display: none; }
 .outdated button { flex: none; width: 26px; height: 26px; padding: 0; border: 0; border-radius: 6px; background: rgb(255 255 255 / .18); color: #fff; font-size: 16px; cursor: pointer; }
+.outdated button.reload { width: auto; padding: 0 12px; font: inherit; font-size: 13px; background: #fff; color: var(--danger); }
+.outdated button.reload[hidden] { display: none; }
 
 /* ---------- editing in place: popovers, the text toolbar, the image tool ---------- */
 
@@ -547,10 +553,10 @@ textarea.code { flex: 1; min-height: 120px; font: var(--mono); tab-size: 2; whit
 .taskpanel .task-done .i { width: 12px; height: 12px; }
 .taskpanel .handbook-link { margin: 4px 0 0; }
 /* a box that shows one of the site's shared blocks: the notice above its tabs, and its chip in the tree */
-.shared-note { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 10px; margin: 0 0 10px; padding: 8px 10px; border-radius: 8px; background: color-mix(in srgb, var(--brand-2) 10%, var(--bg)); border: 1px solid color-mix(in srgb, var(--brand-2) 35%, var(--bg)); font-size: 12px; }
-.shared-note > span { flex: 1 1 220px; }
-.shared-note .i { color: var(--brand-2); }
-.shared-note button { font-size: 12px; padding: 4px 10px; border: 1px solid var(--line); border-radius: 7px; background: var(--bg); }
+.shared-explanation { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 10px; margin: 0 0 10px; padding: 8px 10px; border-radius: 8px; background: color-mix(in srgb, var(--brand-2) 10%, var(--bg)); border: 1px solid color-mix(in srgb, var(--brand-2) 35%, var(--bg)); font-size: 12px; }
+.shared-explanation > span { flex: 1 1 220px; }
+.shared-explanation .i { color: var(--brand-2); }
+.shared-explanation button { font-size: 12px; padding: 4px 10px; border: 1px solid var(--line); border-radius: 7px; background: var(--bg); }
 .chip.shared { background: color-mix(in srgb, var(--brand-2) 16%, var(--bg)); color: var(--brand); }
 .tag-row { display: flex; flex-wrap: wrap; gap: 6px; }
 .tag-row button { padding: 4px 10px; border: 1px solid var(--line); border-radius: 999px; background: var(--bg); font-size: 12px; }
@@ -567,7 +573,7 @@ textarea.code { flex: 1; min-height: 120px; font: var(--mono); tab-size: 2; whit
 
 .imgtool { width: min(360px, calc(100vw - 16px)); max-height: calc(100vh - 16px); overflow: auto; padding: 10px; display: grid; gap: 8px; }
 .imgtool header { display: flex; gap: 8px; align-items: baseline; }
-.imgtool .note, .imgtool .size { margin: 0; color: var(--muted); }
+.imgtool .explanation, .imgtool .size { margin: 0; color: var(--muted); }
 .stage {
   position: relative; overflow: hidden; display: flex; justify-content: center; align-items: center; min-height: 120px; padding: 6px;
   border-radius: 7px; background: repeating-conic-gradient(var(--bg-2) 0 25%, var(--bg) 0 50%) 0 0 / 16px 16px;
@@ -606,10 +612,10 @@ textarea.code { flex: 1; min-height: 120px; font: var(--mono); tab-size: 2; whit
   .body { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(70px, 32%) minmax(0, 1fr); }
   .tree { border-right: 0; border-bottom: 1px solid var(--line); }
   .dock { bottom: auto; top: 12px; right: 12px; }
-  .head-tools > .tabsbtn .label, .head-tools > .copybtn .label { display: none; }
+  .head-tools > .tabsbtn .label, .head-tools > .copybtn .label, .head-tools > .minimize .label { display: none; }
   .modesw button { padding-inline: 8px; }
   /* phones, Tasks mode: room for the switch; Copy all and Redo are in the Edit mode */
-  .panel.tasks-mode .head-tools > .copybtn, .panel.tasks-mode .head-tools > .redo { display: none !important; }
+  .panel.tasks-mode .head-tools > .copybtn, .panel.tasks-mode .head-tools > .redo, .panel.tasks-mode .head-tools > .tabsbtn { display: none !important; }
 }
 
 .composer .runner { color: var(--muted); font: var(--mono); font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }

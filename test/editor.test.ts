@@ -29,7 +29,9 @@ const tagsOf = (id: string) => {
 
 /** A landing page, plus a box whose script changes its own text (so it can't be edited on the page). */
 async function start() {
-  const dir = join(mkdtempSync(join(tmpdir(), 'tykerf-editor-')), 'site');
+  // a site with its home page, which the editor serves at /home/
+  const site = join(mkdtempSync(join(tmpdir(), 'tykerf-editor-')), 'site');
+  const dir = join(site, 'home');
   ws = new Workspace(dir);
   createPage(ws, 'launch');
   ws.setContent('stats', '<p class="n">0</p>\n<script>document.currentScript.closest(\'[data-sw]\').querySelector(\'.n\').textContent = \'42\';</script>', 'user');
@@ -37,12 +39,12 @@ async function start() {
   ws.save(M.setLeaf(ws.load(), 'testimonials', { minH: 700 }), 'taller', 'user');
   ws.setContent('cta', '<h2>Ready?</h2>\n<p>Start <a class="go" href="/start">today</a> with us.</p>', 'user');
   const port = await freePort();
-  server = spawn(process.execPath, ['--import', 'tsx', 'src/editor/server.ts', dir, '--port', String(port)], { stdio: ['ignore', 'pipe', 'inherit'] });
+  server = spawn(process.execPath, ['--import', 'tsx', 'src/editor/server.ts', site, '--port', String(port)], { stdio: ['ignore', 'pipe', 'inherit'] });
   await new Promise<void>((ok, fail) => {
     server.stdout!.on('data', (d) => String(d).includes('TYKERF: http') && ok());
     server.on('exit', (c) => fail(new Error(`editor exited with ${c}`)));
   });
-  url = `http://localhost:${port}/`;
+  url = `http://localhost:${port}/home/`;
 }
 
 beforeAll(async () => {
@@ -208,8 +210,8 @@ describe('editing images in place', () => {
     // opened again, the tool shows the whole original with the crop on it; "Original" undoes the crop
     await expect.poll(() => page.locator('[data-sw="hero"] img').getAttribute('src')).toBe(src);
     await page.locator('[data-sw="hero"] img').dblclick();
-    await page.locator('.imgtool .note').waitFor();
-    expect(await page.locator('.imgtool .note').textContent()).toMatch(/crop of an earlier one/);
+    await page.locator('.imgtool .explanation').waitFor();
+    expect(await page.locator('.imgtool .explanation').textContent()).toMatch(/crop of an earlier one/);
     await page.locator('.imgtool [data-aspect="original"]').click();
     await page.locator('.imgtool [data-i="apply"]').click();
     const back = await until(() => ws.content('hero')!, (c) => !c.includes(src!));

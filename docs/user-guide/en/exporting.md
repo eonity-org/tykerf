@@ -29,7 +29,7 @@ To put the site online without downloading anything, **Publish** in the site man
 npm run cli -- export my-site export/              # a folder
 npm run cli -- export my-site my-site.zip          # a zip
 npm run cli -- export my-site export/ --files      # links that open from disk
-npm run cli -- export my-page export/              # a single page: export/index.html
+npm run cli -- export my-site/home export/         # one page of the site: export/index.html
 ```
 
 ## What you get

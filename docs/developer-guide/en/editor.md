@@ -12,12 +12,11 @@ The editor is a small HTTP server (`src/editor/server.ts`, `src/editor/page.ts`)
 
 ## The server
 
-`npm start -- <folder> [--port 4400] [--host <addr>] [--layout t --theme th]`
+`npm start -- <folder> [--port 4400] [--host <addr>] [--layout t --theme th --name p]`
 
-A folder is either one page (it has `layout.slice`) or a site (`siteKind`):
-- **A page** is served at `/` by one page host.
-- **A site** serves each page at `/<page>/`, with a host per page made on first use (`hostOf`). The site manager is `public/start.html`, at `/_tykerf/site/` (and at `/` until the site has a home page in `site.json`: then `/` redirects there). `/pages/` is `siteIndex` and `/sitemap.xml` `siteMap` (with `TYKERF_PUBLIC_URL`). The manager shows the site's pages (open, rename and remove through `/_tykerf/site/rename` and `/site/remove`), the removed ones (`GET /_tykerf/site/trash`, `trashedPages`; **Empty the trash**: `POST /site/trash/empty`, `emptyTrash`) and **+ New page**, which opens the chooser with `stepwise` (no way chosen at first; choosing one opens its steps, preview and button). On a new site, only the chooser, as before. A removed page's open tabs go there too. `GET /_tykerf/site` also says what Kaity is doing (`kaity: {site, pages: [{page, block}]}`), which the manager lists; a page opens on a block and tab with `?block=<name>&tab=<tab>` (tykerf.js reads it and cleans the address).
-- **A folder that changes.** An empty folder starts as a new site, but the MCP server or the command line may make a page right in it: `followFolder()` (on every request) then serves it as a page. The start screen asks `/_tykerf/site` every 2 seconds: it reloads when the folder became a page, and lists the pages made in it meanwhile.
+The editor always serves a site (`siteKind`): a folder of pages, or a new or empty folder, which becomes one. Started on a page of a site (`siteOf`), it serves that site; a page folder in no site is refused, with the commands that put it in one. `--layout` on a new folder makes the site's home page, named `--name` or `HOME_PAGE` (`home`); on a site with pages, it adds the page `--name` names (`addSitePage`) unless the site has it already, and refuses without `--name`, so the same command run again only starts the editor; `newSitePage` makes a site's first page its home in `site.json`, whichever way it is made (the chooser, the CLI, MCP).
+- **The site** serves each page at `/<page>/`, with a host per page made on first use (`hostOf`). The site manager is `public/start.html`, at `/_tykerf/site/` (and at `/` until the site has a home page in `site.json`: then `/` redirects there). `/pages/` is `siteIndex` and `/sitemap.xml` `siteMap` (with `TYKERF_PUBLIC_URL`). The manager shows the site's pages (open, rename and remove through `/_tykerf/site/rename` and `/site/remove`), the removed ones (`GET /_tykerf/site/trash`, `trashedPages`; **Empty the trash**: `POST /site/trash/empty`, `emptyTrash`) and **+ New page**, which opens the chooser with `stepwise` (no way chosen at first; choosing one opens its steps, preview and button). On a new site, only the chooser, as before. A removed page's open tabs go there too. `GET /_tykerf/site` also says what Kaity is doing (`kaity: {site, pages: [{page, block}]}`), which the manager lists; a page opens on a block and tab with `?block=<name>&tab=<tab>` (tykerf.js reads it and cleans the address).
+- **Pages made elsewhere.** The MCP server or the command line may add pages to the site while the editor runs (in an empty folder, MCP `use_layout` makes the home page, never a page in the folder itself). The start screen asks `/_tykerf/site` every 2 seconds and lists the pages made meanwhile. Pages renamed or removed from another process (Kaity's site run through MCP `rename_page`/`remove_page`) are in the site's `.tykerf/moves.jsonl` (`renamePage`/`removePage` write it, `pageMoves` reads it): `followMoves()` in `server.ts`, on the folder watcher (`watchSite`, which starts once the site's folder exists) and at the end of each site run, closes the moved page's host, so its open tabs go to the new address (or the manager), and refreshes the others.
 
 `.env` is loaded from the working folder and the site or page folder. `runnerFromEnv()` then picks the AI runner once for the whole server.
 
@@ -27,7 +26,7 @@ A folder is either one page (it has `layout.slice`) or a site (`siteKind`):
 |---|---|
 | `GET /_tykerf/library` | Page layouts and theme presets, for the chooser |
 | `GET /_tykerf/preview/<layout>/<theme>/` | A layout rendered in a `MemoryStore`, sandboxed (`<theme>` = `site`: with the site's shared theme) |
-| `GET /_tykerf/site` | `kind`, `pages`, `sharedTheme`, `home`, `titles` |
+| `GET /_tykerf/site` | `pages`, `sharedTheme`, `home`, `titles`, `kaity` (what she is doing now) |
 | `POST /_tykerf/site/new` | A new page: `{name, layout, theme}`, `{name, url}` (a copy), `{name, like}` (like another page) or `{name, prompt, images, zip, theme}` (the AI builds it; `zip` is a design export `{name, data}`: answers with `select`, the block to open on). A copy and an AI build answer at once and run as the page's **job** (below) |
 | `POST /_tykerf/site/rename`, `/site/remove`; `GET /site/links` | Rename a page (links follow) or move it to `.trash/`; refused while any page's AI runs. The links between pages (the manager's *Links between pages*) |
 | `GET /favicon.<ext>`; `GET`/`POST /_tykerf/site/icon` | The site's icon (`siteIcon` in `site.ts`: `favicon.svg/png/ico` at the site root, else `madeIcon`), served to visitors too; `{type, data}` (base64) sets it, `{}` goes back to the made one. Pages link to it through `SiteLink.icon()`, which `Workspace.page()` puts first in the head. TYKERF's mark is `/_tykerf/favicon.svg`: its own screens use it, and `tykerf.js` swaps a page's icon for it while editing |
@@ -37,8 +36,9 @@ A folder is either one page (it has `layout.slice`) or a site (`siteKind`):
 | `GET/POST /_tykerf/site/code` | *Styles & scripts*: the site head without its theme and fonts blocks (`siteCode`/`setSiteCode`) |
 | `GET /_tykerf/site/trash`, `POST /site/trash/empty` | The removed pages, and deleting them for good |
 | `GET /_tykerf/site/chat`, `/site/events`; `POST /site/ask`, `/site/ask/cancel`, `/site/chat/reset` | Kaity for the whole site ([ai-and-mcp.md](ai-and-mcp.md#kaity-for-the-whole-site)) |
+| `GET /_tykerf/site/kaity` | Kaity's work: every run on any page or the whole site, from the site's log (`kaity-log.ts`), the ones going on first with their current step (`AI.progress()`) |
 | `GET /pages/`, `/sitemap.xml` | The list of pages (`siteIndex`: title, address, the home page marked; a footer with the TYKERF mark and the way to sign in or to the manager) and the sitemap (with `TYKERF_PUBLIC_URL`) |
-| `GET/POST /_tykerf/login`, `POST /_tykerf/logout` | Signing in when `TYKERF_ADMIN_PASSWORD` is set (`auth.ts`) |
+| `GET/POST /_tykerf/login`, `POST /_tykerf/logout` | Signing in when `TYKERF_ADMIN_PASSWORD` is set (`auth.ts`; sessions as token hashes in the site's `.tykerf/sessions.json`, so restarts keep them). Signed in already, `GET /_tykerf/login?next=` goes straight on; `/_tykerf` and `/_tykerf/` redirect to the manager. A visitor's page ends with `EDIT_BUTTON` (`createPageHost`'s `visitorEnd`): *Edit with TYKERF* to the sign-in page, only where the browser's `tykerf.admin` is set (the login page sets it, the manager's **Sign out** clears it) |
 | `GET /_tykerf/version` | Whether the server's code changed since it started (the restart notice) |
 | `GET /_tykerf/site/publish`, `POST /site/publish/settings {settings}`, `POST /site/publish` | Publish (`src/publish.ts`): where to (`site.json` `publish`), whether `TYKERF_GITHUB_TOKEN` is set (never the token), the last publish (`.tykerf/published.json`); the publish itself, refused while Kaity works (409) |
 | `GET /assets/*` | The site's own files (the shared theme's fonts) |
@@ -58,14 +58,14 @@ Every kit change refreshes every open page (a watcher on the site's `kit/` folde
 
 ### One page's endpoints (`createPageHost` in `page.ts`)
 
-Paths are relative to the page: `/_tykerf/…` for a single page, `/<page>/_tykerf/…` in a site.
+Paths are relative to the page: `/<page>/_tykerf/…`.
 
 | Endpoint | What it does |
 |---|---|
 | `GET /` | The page as it renders, plus `<script src="_tykerf/tykerf.js">` |
 | `GET /assets/*` | The page's images and files (sandboxed CSP, nosniff) |
 | `GET /_tykerf/state` | The panel's tree, the layout, the AI's run, the runner, undo and redo labels, the head version, the site's pages |
-| `GET /_tykerf/events` | Server-sent events: `changed` (refresh), `ai` (a run's steps and answer), `moved` (the page was renamed or removed), `tasks` (the tasks changed) |
+| `GET /_tykerf/events` | Server-sent events: `changed` (refresh), `ai` (a run's steps and answer; a step carries `where`, the block or task it is about, from `stepAt`, which the page follows: `followKaity` scrolls to a block out of sight unless the wheel, a touch or a scrolling key moved the page in the last 6 s, and `drawKaity` frames that block on a whole-page run), `moved` (the page was renamed or removed), `tasks` (the tasks changed) |
 | `POST /_tykerf/op` | A named operation (`OPS`): `insert`, `add`, `flip`, `ungroup`, `reorder`, `rename`, `ratios`, `height`, `width`, `look` (band tone and density: the `tone-*` and `dense` tags, one step), `tag` (one of the site kit's tags, on or off), `share`, `link`, `unlink` (shared blocks: `shareBlock`, `linkBlock`, `unlinkBlock` in `site.ts`), `delete`, `remove`, `paste`, `drop`, `component`, `section` |
 | `GET/POST /_tykerf/box`, `GET /_tykerf/page` | One box's code (content and style apart), and the rendered parts |
 | `GET/POST /_tykerf/head` | The page's head, whether its theme is the site's (`sharedTheme`), its own values over it (`overrides`) and whether it keeps its own look (`ownLook`) |
@@ -84,6 +84,8 @@ Every operation runs inside `ws.transaction()`, then broadcasts `changed`. Chang
 ### Code updates
 
 The client files in `public/` are read from disk on every request, but the server process keeps the TypeScript it started with. `codeStamp()` (server.ts) fingerprints `src/**/*.ts` (count, sizes, latest change) at startup; `GET /_tykerf/version` says whether it differs now. `tykerf.js` and `start.html` ask on load and when the tab comes back, and show a restart notice when it does, or when the address is missing (a server older than this check).
+
+The other way round, a page keeps the script it loaded: after an update and a restart, an open tab still runs the old `tykerf.js` (its event stream simply reconnects). `/_tykerf/version` also returns `page`, `pageStamp()` of `public/` (`TYKERF_PAGE_DIR` in tests); the page remembers the first one it gets and asks again when its event stream reconnects (the manager: when `/_tykerf/site` answers again after failing) and when the tab comes back. A different one shows *Reload this page…* with a **Reload** button; it never reloads by itself, so a draft isn't lost.
 
 ### Security
 

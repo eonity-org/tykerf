@@ -33,7 +33,7 @@ A link that opens a particular block (from the site manager, say) opens the Edit
 
 ## The panel
 
-Drag it by its header, resize it from its corner, collapse it with **–**. On phones it docks at the bottom.
+Drag it by its header and resize it from its corner. **Compact** makes it small: in the Tasks mode it keeps a few lines of the tasks (what Kaity is doing, the button that gives her the tasks, the first ones); in the Edit mode only the header. **See more** opens it again, and so does choosing **Tasks** or **Edit**. **×** closes the editor, after asking; your tasks and changes stay, and *Edit with TYKERF* brings it back. On phones it docks at the bottom.
 
 | Zone | What it shows |
 |---|---|
@@ -99,7 +99,7 @@ A task is something to be done, left on the exact place on the page it is about:
 - In the **Tasks** mode, the element under the pointer is outlined, with its place in words (`hero › h1 "The short promise…"`). Click it, write the task and press **Enter** (or **Add task**). Nothing else happens on the page in this mode; **Edit** goes back to the whole editor.
 - In the **Edit** mode: right-click anything and choose *Add a task for Kaity here…*. The same form opens on the element you clicked, with **Add task** (for later) and **Add and give it to Kaity** (Kaity works on the block's open tasks at once; **Enter** does this).
 - Each open task shows as a **numbered tab** (`T3`) on its element's top-right corner, which follows it when the page changes. The header shows how many are open. Click a tab to read the task: **Done** closes it, **Remove** deletes it, **Give it to Kaity** hands every open task on that block to Kaity.
-- **While Kaity works**, her block glows on the page with a light sweeping across it, each task she still has to do pulses, and a small label shows what she's doing right now. Her conversation shows the tasks she was given, word for word. You can keep adding tasks meanwhile, on her block too: they don't change what she's doing, she leaves them for the next request, and only the tasks she was given pulse.
+- **While Kaity works**, her block glows on the page with a light sweeping across it, each task she still has to do pulses, and a small label shows what she's doing right now. The page follows her: when she moves to a block out of sight, it scrolls there, and on a run over the whole page her frame and label move to the block she's on. Scroll yourself and it stops following for a few seconds, so it never pulls the page away from you. Her conversation shows the tasks she was given, word for word. You can keep adding tasks meanwhile, on her block too: they don't change what she's doing, she leaves them for the next request, and only the tasks she was given pulse.
 - A task remembers **how wide the window was** when you wrote it, so whoever does it looks at the page at that width ("too big on a phone").
 - The Tasks mode's panel lists every task by block: **Give Kaity every task** for one run over the whole page, *Give only these to Kaity* for one block's tasks, and the tasks that are done, with Kaity's reply. Click a task to see it on the page. In the header, **Tabs** shows or hides the tabs and **Copy all** copies the open tasks as text to paste into any AI agent or a message.
 - Tasks aren't part of the page: they aren't undone with Undo, and they don't go with an export. They follow a block when it is renamed; a task whose block was deleted says so.

@@ -132,11 +132,13 @@ describe('tasks in the editor', () => {
   let page: Page;
 
   beforeAll(async () => {
-    const dir = join(mkdtempSync(join(tmpdir(), 'tykerf-tasks-')), 'site');
+    // a site with its home page, which the editor serves at /home/
+    const site = join(mkdtempSync(join(tmpdir(), 'tykerf-tasks-')), 'site');
+    const dir = join(site, 'home');
     ws = new Workspace(dir);
     createPage(ws, 'launch');
     const port = await freePort();
-    server = spawn(process.execPath, ['--import', 'tsx', 'src/editor/server.ts', dir, '--port', String(port)], { stdio: ['ignore', 'pipe', 'inherit'] });
+    server = spawn(process.execPath, ['--import', 'tsx', 'src/editor/server.ts', site, '--port', String(port)], { stdio: ['ignore', 'pipe', 'inherit'] });
     await new Promise<void>((ok, fail) => {
       server.stdout!.on('data', (d) => String(d).includes('TYKERF: http') && ok());
       server.on('exit', (c) => fail(new Error(`editor exited with ${c}`)));
@@ -149,7 +151,7 @@ describe('tasks in the editor', () => {
       localStorage.setItem('tykerf.min', 'true');
       if (!localStorage.getItem('tykerf.mode')) localStorage.setItem('tykerf.mode', '"edit"');
     });
-    await page.goto(`http://localhost:${port}/`);
+    await page.goto(`http://localhost:${port}/home/`);
     await page.locator('.panel').waitFor();
   }, 60_000);
   afterAll(async () => {
@@ -160,10 +162,13 @@ describe('tasks in the editor', () => {
   it('adds a task on the element clicked in the Tasks mode, and closes it from its tab', async () => {
     await page.locator('[data-mode="tasks"]').click();
     await expect.poll(() => page.locator('[data-mode="tasks"]').getAttribute('aria-checked')).toBe('true');
+    // choosing Tasks opens the panel; the headline's left edge stays in view
+    await expect.poll(() => page.locator('.minimize').getAttribute('aria-expanded')).toBe('true');
     const h1 = page.locator('[data-sw="hero"] h1');
-    await h1.hover();
+    const box = (await h1.boundingBox())!;
+    await page.mouse.move(box.x + 14, box.y + 20);
     await expect.poll(() => page.locator('.nhover .tag').textContent()).toMatch(/^hero › h1 "The short promise/);
-    await h1.click();
+    await page.mouse.click(box.x + 14, box.y + 20);
     await page.locator('.pop textarea').fill('Say it in five words');
     await page.keyboard.press('Enter');
     await expect.poll(() => tasks(ws).length).toBe(1);
@@ -180,6 +185,7 @@ describe('tasks in the editor', () => {
 
     await page.locator('[data-mode="edit"]').click(); // the Edit mode: the tab stays
     await expect.poll(() => page.locator('[data-mode="edit"]').getAttribute('aria-checked')).toBe('true');
+    await page.locator('.minimize').click(); // compact again, out of the page's way
     await page.locator('.pin[data-pin="1"]').click();
     await page.locator('.pop [data-n="close"]').click();
     await expect.poll(() => tasks(ws)[0].done?.by).toBe('user');

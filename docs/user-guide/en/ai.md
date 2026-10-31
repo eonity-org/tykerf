@@ -52,8 +52,10 @@ Select a block and open the **Kaity** tab. A line above the text box says which 
 In the site manager, **Ask Kaity about the whole site** opens a conversation about every page at once: *"make the navigation the same height on every page, and link it to all the pages"*, *"add a footer like Rome's to every page"*. Kaity lists the pages, opens each in turn, changes it and checks it at desktop and phone widths, as Claude Desktop does with TYKERF's tools; her steps show as she goes, and **Stop** ends the run.
 
 - Each change goes into the history of its page, so it can be undone there.
-- While she works on the site, renaming or removing pages and asking Kaity about a single page wait; you can keep editing pages yourself. She waits for a run on a single page too.
+- While she works on the site, renaming or removing pages and asking Kaity about one page wait; you can keep editing pages yourself. She waits for a run on one page too.
+- She can make, rename and remove pages: a rename changes the page's address, and links to it on every page follow; a removed page goes to the site's trash. Open tabs of a page she renames or removes follow it.
 - She doesn't change the site's shared head (its theme, and Styles & scripts): those stay yours, in the site manager and the Page tab.
+- Every request to her, about the site or about one block of any page, is listed in [Kaity's work](sites.md#kaitys-work).
 
 ## Which AI answers
 
@@ -108,7 +110,7 @@ Restart the client after editing the config. The tools, by what they do:
 | Change the tree | `split`, `add_leaf`, `wrap`, `unwrap`, `flip`, `swap`, `move`, `remove`, `rename`, `set_ratios`, `set_op`, `set_leaf`, `set_variant`, `tag`, `untag`, `add_rule`, `remove_rule`, `attach_overlay`, `detach_overlay`, `normalize` |
 | Change a box | `set_content`, `edit_content` (one exact piece of the code), `add_picture` (an SVG it draws, or an attached picture) |
 | Library and theme | `list_layouts`, `use_layout`, `list_components`, `use_component`, `use_page`, `list_themes`, `use_theme`, `get_theme`, `set_theme` |
-| Pages of a site | `list_pages`, `open_page`, `new_page` |
+| Pages of a site | `list_pages`, `open_page`, `new_page`, `rename_page`, `remove_page` |
 | Open a folder (the plugin only) | `open_folder` (a page, a site or an empty folder; without a path, the default folder). Only the plugin starts with no folder open and offers it |
 | Stay inside one block | `focus`, `unfocus` |
 | Check the result | `screenshot`, `evaluate` (layout checks at several widths), `check_page` (what is left unfinished), `estimate`, `optimize` |

@@ -44,7 +44,7 @@ A new or empty folder is a new site. The start screen offers three ways to start
 - **A layout:** with a theme.
 - **A copy of a website.**
 
-**+ New page** in the site manager (or *New page…* in the editor's page list) adds more pages, and all the pages share one theme. **Publish** in the site manager puts the site online. To make one page directly: `npm start -- my-page --layout launch --theme studio`.
+**+ New page** in the site manager (or *New page…* in the editor's page list) adds more pages, and all the pages share one theme. **Publish** in the site manager puts the site online. The first page is the site's home page, which its address opens. To start a site with its home page from a layout directly: `npm start -- my-site --layout launch --theme studio` (add `--name portfolio` to name that page other than `home`).
 
 <!-- tykerf:footer -->
 ---

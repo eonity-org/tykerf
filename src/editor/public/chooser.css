@@ -56,7 +56,7 @@
 .ch-ai { margin: 0; font-size: 12px; padding: 8px 10px; border-radius: 8px; background: var(--bg-2); }
 .ch-ai.ok { color: var(--muted); }
 .ch-ai.bad { color: var(--danger); }
-.ch-note { margin: 0; color: var(--muted); font-size: 12px; padding: 8px 10px; border-radius: 8px; background: var(--bg-2); }
+.ch-explanation { margin: 0; color: var(--muted); font-size: 12px; padding: 8px 10px; border-radius: 8px; background: var(--bg-2); }
 .ch-panel ol { text-align: left; padding-left: 18px; display: grid; gap: 6px; }
 .ch-site { display: grid; gap: 10px; }
 .ch-site[hidden], .chooser [data-for][hidden], .ch-preview[hidden], .ch-panel [hidden] { display: none; }
@@ -90,4 +90,4 @@
 .ch-step { display: inline-grid; place-items: center; width: 20px; height: 20px; margin-right: 8px; border-radius: 50%; background: var(--teal); color: #fff; font-size: 11px; font-weight: 700; vertical-align: 1px; }
 .ch-step-head { margin: 4px 0 2px; font-weight: 600; }
 
-.ch-legend-note { font-weight: 400; color: var(--muted); font-size: 12px; margin-left: 4px; }
+.ch-legend-explanation { font-weight: 400; color: var(--muted); font-size: 12px; margin-left: 4px; }

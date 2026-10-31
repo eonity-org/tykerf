@@ -20,6 +20,7 @@ import { type Leftover, leftoverKey, leftovers, say } from '../check.js';
 import { type TaskNow, sayTask, tasks } from '../tasks.js';
 import { insideSignature } from '../scope.js';
 import { FolderStore } from '../store.js';
+import { logEnd, logStart, runId } from './kaity-log.js';
 import type { Change, Workspace } from '../workspace.js';
 
 const MCP_SERVER = join(dirname(fileURLToPath(import.meta.url)), '..', 'mcp', 'server.ts');
@@ -75,7 +76,7 @@ export interface RunRequest {
 /** What a run reports while it works. `end` comes last, once. */
 export interface RunEvents {
   session(id: string): void;
-  step(text: string): void; // a tool call, or a refused one
+  step(text: string, at?: StepAt): void; // a tool call (and where on the page it is), or a refused one
   answer(text: string): void;
   error(text: string): void;
   end(): void;
@@ -197,13 +198,13 @@ export class ClaudeCodeRunner implements Runner {
         if (e.session_id && e.session_id !== session) on.session((session = e.session_id));
         if (e.type === 'assistant') {
           for (const c of e.message?.content ?? []) {
-            if (c.type === 'tool_use') on.step(step(c.name, c.input));
+            if (c.type === 'tool_use') on.step(step(c.name, c.input), stepAt(c.name, c.input));
           }
         } else if (e.type === 'user') {
           for (const c of e.message?.content ?? []) {
             if (c?.type === 'tool_result' && c.is_error) {
               const t = typeof c.content === 'string' ? c.content : (c.content ?? []).map((x: any) => x.text ?? '').join(' ');
-              on.step(`refused: ${t.split('\n')[0].slice(0, 160)}`);
+              on.step(`refused: ${t.replace(/^(error: )?(refused: )?/, '').split('\n')[0].slice(0, 160)}`); // once, not "refused: refused:"
             }
           }
         } else if (e.type === 'result') {
@@ -261,7 +262,7 @@ function inBlock(c: Extract<Change, { kind: 'content' }>, id: string) {
 }
 
 export class AI {
-  private run: { cancel(): void; id: string; since: string } | null = null;
+  private run: { cancel(): void; id: string; since: string; key: string; steps: number; step?: string; stopped?: boolean } | null = null;
   /** The tasks the current run was asked to work through (askTasks); null for any other run. */
   private runTasks: number[] | null = null;
 
@@ -277,6 +278,11 @@ export class AI {
 
   running() {
     return this.run ? { id: this.follow(), ...(this.runTasks ? { tasks: this.runTasks } : {}) } : null;
+  }
+
+  /** The run going on now, for the site's log of Kaity's work: its id there, its block and what she is doing. */
+  progress() {
+    return this.run ? { run: this.run.key, block: this.opts.site ? undefined : this.follow(), step: this.run.step, steps: this.run.steps } : null;
   }
 
   /**
@@ -316,11 +322,12 @@ export class AI {
     this.store.write(this.file(id), JSON.stringify(chat, null, 1));
   }
 
-  private add(id: string, role: ChatMessage['role'], text: string, images?: string[]) {
+  private add(id: string, role: ChatMessage['role'], text: string, images?: string[], at?: StepAt) {
     const c = this.chat(id);
     c.messages.push({ role, text, at: new Date().toISOString(), ...(images?.length ? { images } : {}) });
     this.save(id, c);
-    this.emit('ai', { id, role, text });
+    // where a step is goes only to the open pages, which follow her there; the conversation keeps the words
+    this.emit('ai', { id, role, text, ...(at ? { where: at } : {}) });
   }
 
   /** An attached picture's bytes, by its file name (null for unknown or malformed names). */
@@ -360,6 +367,7 @@ export class AI {
 
   cancel() {
     if (!this.run) return false;
+    this.run.stopped = true;
     this.run.cancel();
     return true;
   }
@@ -380,8 +388,12 @@ export class AI {
     // what the page has left unfinished before the request: only what the request adds is reported after it
     const before = site ? new Set<string>() : new Set(leftovers(this.ws).map(leftoverKey));
     this.add(id, 'user', prompt.trim(), files);
-    const run = { cancel: () => {}, id, since: new Date().toISOString() };
+    const run: NonNullable<AI['run']> = { cancel: () => {}, id, since: new Date().toISOString(), key: runId(), steps: 0 };
     this.run = run;
+    // the site's log of Kaity's work, for every page and the whole site (kaity-log.ts)
+    const logSite = site ?? this.ws.site?.dir ?? null;
+    if (logSite) logStart(logSite, { run: run.key, page: site ? null : (this.ws.site?.page ?? null), block: site ? null : id, request: prompt.trim(), ...(this.runTasks ? { tasks: this.runTasks } : {}) });
+    let answer = '', problem = '';
     // a block is locked for the editor while Kaity works on it; a run on the whole site has no block
     const unlock = site ? () => {} : this.ws.addGuard(lockBlock(() => this.follow()));
     let ended = false;
@@ -401,10 +413,18 @@ export class AI {
       let done = false;
       run.cancel = this.runner.start({ ws: this.ws, dir, scope: site ? '' : run.id, home: site, system, prompt: text, images: pictures, session: this.chat(now()).session, memory }, {
         session: (s) => this.save(now(), { ...this.chat(now()), session: s }),
-        step: (t) => this.add(now(), 'step', t),
-        answer: (t) => this.add(now(), 'ai', t),
+        step: (t, at) => {
+          run.steps++;
+          run.step = t;
+          this.add(now(), 'step', t, undefined, at);
+        },
+        answer: (t) => {
+          answer = t;
+          this.add(now(), 'ai', t);
+        },
         error: (t) => {
           failed = true;
+          problem = t;
           this.add(now(), 'error', t);
         },
         end: () => {
@@ -421,6 +441,7 @@ export class AI {
           if (left.length) this.addCheck(last, left, 'open');
           ended = true;
           unlock();
+          if (logSite) logEnd(logSite, { run: run.key, end: run.stopped ? 'stopped' : failed ? 'failed' : 'done', block: site ? null : last, ...(answer ? { answer } : {}), ...(problem ? { error: problem } : {}), steps: run.steps });
           this.run = null;
           this.runTasks = null;
           this.emit('ai', { id: last, role: 'end' });
@@ -545,7 +566,8 @@ function siteSystem(brief?: string): string {
   return [
     'You are Kaity, the assistant of TYKERF, an editor where people and AI change web pages block by block. If you mention yourself, you are Kaity.',
     'You are working on a whole site: a folder of pages. The user is talking to you in the site manager.',
-    'Use only the tykerf tools. list_pages shows the pages; open_page opens one, and every other tool then works on that page; new_page makes a new one (copy makes it like another).',
+    'Use only the tykerf tools. list_pages shows the pages; open_page opens one, and every other tool then works on that page; new_page makes a new one (copy makes it like another); rename_page renames one (links to it follow) and remove_page puts one in the site\'s trash.',
+    'Never guess what a page holds from its name: open it and read it before you rename it, link to it or describe it. To rename pages, use rename_page, not new pages: copies leave the old pages behind.',
     'For a request about several pages, go through them one at a time: open the page, read it (get_layout, get_content), change it, check it (screenshot at 1440 and 375 px, check_page), then the next. Keep what the pages share consistent: the same navigation, the same sizes, the same links. Links between pages are written /<page>/.',
     CODE_RULES.replace(/, and never touch other boxes/, ''),
     'The site\'s shared head (the theme every page uses, and the free code in Styles & scripts) is not yours to change: tell the user it is in the site manager or a page\'s Page tab.',
@@ -576,11 +598,23 @@ function fixPrompt(left: (Leftover | string)[]): string {
   ].join('\n');
 }
 
+/** Where on the page a tool call is: the block it names, or the task close_task closes. */
+export interface StepAt { block?: string; task?: number }
+
+export function stepAt(name: string, input: Record<string, unknown>): StepAt | undefined {
+  const a = input ?? {};
+  if (name.replace(/^mcp__tykerf__/, '') === 'close_task') return typeof a.n === 'number' ? { task: a.n } : undefined;
+  const ref = [a.id, a.ref, a.leaf, a.target, Array.isArray(a.ids) ? a.ids[0] : undefined].find((v) => typeof v === 'string' && v);
+  return ref ? { block: ref as string } : undefined;
+}
+
 /** A tool call as one short readable line. */
 export function step(name: string, input: Record<string, unknown>): string {
   const n = name.replace(/^mcp__tykerf__/, '').replace(/_/g, ' ');
   const cut = (s: string, max: number) => (s.length > max ? `${s.slice(0, max)}…` : s);
   // a whole theme or a list of names is shortened like long text, so every step stays a line or two
-  const a = Object.values(input ?? {}).map((v) => cut(typeof v === 'string' ? v : JSON.stringify(v), typeof v === 'string' ? 32 : 48));
+  // set_theme's changes read as name: value
+  const pairs = (v: unknown): v is { name: unknown; value: unknown }[] => Array.isArray(v) && v.every((x) => x && typeof x === 'object' && 'name' in x && 'value' in x);
+  const a = Object.values(input ?? {}).map((v) => cut(typeof v === 'string' ? v : pairs(v) ? v.map((x) => `${x.name}: ${x.value}`).join(', ') : JSON.stringify(v), typeof v === 'string' ? 32 : 48));
   return cut(`${n} ${a.join(' ')}`.trim(), 96);
 }

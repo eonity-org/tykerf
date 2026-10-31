@@ -5,7 +5,7 @@
 import { atPath, cleanInline, editableAt, elementPath, fitAspect, moveCrop, outputSize, resizeCrop, safeHref, sameImage, turned } from './inline.js';
 import { markdown } from './markdown.js';
 
-// the page's own API: "/_tykerf" for a single page, "/<page>/_tykerf" for a page of a site
+// the page's own API: "/<page>/_tykerf" (each page of the site at /<page>/)
 const API = `${location.pathname.replace(/[^/]*$/, '')}_tykerf`;
 const $ = (sel, el = ui) => el.querySelector(sel);
 const esc = (s) => String(s).replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
@@ -92,7 +92,8 @@ const UI = {
   flip: '<path d="M2 5.5h10L9.5 3M14 10.5H4L6.5 13"/>',
   left: '<path d="M10 3 5 8l5 5"/>', right: '<path d="m6 3 5 5-5 5"/>', up: '<path d="m3 10 5-5 5 5"/>', down: '<path d="m3 6 5 5 5-5"/>',
   ungroup: '<rect x="1.5" y="1.5" width="6" height="6" rx="1"/><rect x="8.5" y="8.5" width="6" height="6" rx="1"/>',
-  rename: '<path d="M3 13.5h10M4 10.5l6.5-6.5 2 2L6 12.5H4z"/>',
+  edit: '<path d="M3 13.5h10M4 10.5l6.5-6.5 2 2L6 12.5H4z"/>', // the pencil: Edit (the mode, a page from the manager)
+  name: '<rect x="1.5" y="4.5" width="13" height="7" rx="1.5"/><path d="M5 6.5v3M4 6.5h2M4 9.5h2M8 8h4"/>', // a name field: renaming a block or a page
   paste: '<path d="M5.5 2h5v2.5h-5zM5 3.5H3.5v10.5h9V3.5H11"/>',
   import: '<path d="M8 1.5v7.5M5 6l3 3 3-3"/><path d="M2.5 9.5v3.5h11V9.5"/>',
   // three pages fanned out: the whole site; the front one (filled, with the mark's amber) is the page you're on
@@ -169,13 +170,13 @@ ui.innerHTML = `
   <a class="managebtn" href="/_tykerf/site/" hidden title="${t('Manage the site: its pages, home page, styles and trash')}">${ic('site')}<span>${t('Manage the site')}</span></a>
   <button class="toggle" title="${t('TYKERF: edit this page with people and Kaity')}">${ICON.tykerf}<span>${t('Edit with TYKERF')}</span></button>
 </div>
-<div class="outdated" role="alert" hidden><span>${t('TYKERF was updated while this editor was running. Restart it to use the new version: Ctrl+C in its terminal, then npm start again.')}</span><button aria-label="${t('Close')}">×</button></div>
+<div class="outdated" role="alert" hidden><span>${t('TYKERF was updated while this editor was running. Restart it to use the new version: Ctrl+C in its terminal, then npm start again.')}</span><button class="reload" hidden>${t('Reload')}</button><button class="close" aria-label="${t('Close')}">×</button></div>
 <section class="panel" role="dialog" aria-label="TYKERF">
   <header class="head">
     <span class="brand" title="TYKERF">${ICON.tykerf}<span class="wordmark">tykerf</span></span>
     <div class="modesw" role="radiogroup" aria-label="${t('Mode')}">
       <button data-mode="tasks" role="radio" title="${t('Tasks: click anything on the page to leave a task there, then give your tasks to Kaity')}">${ic('task')}<span class="label">${t('Tasks')}</span><span class="count" hidden></span></button>
-      <button data-mode="edit" role="radio" title="${t('Edit: every block in detail, its text, code, sizes and look')}">${ic('rename')}<span class="label">${t('Edit')}</span></button>
+      <button data-mode="edit" role="radio" title="${t('Edit: every block in detail, its text, code, sizes and look')}">${ic('edit')}<span class="label">${t('Edit')}</span></button>
     </div>
     <button class="sitebtn" aria-haspopup="menu" title="${t('Site: export and Kaity')}" aria-label="${t('Site')}">${ic('site')}</button>
     <button class="pagesw" hidden aria-haspopup="menu" title="${t('The pages of this site')}"></button>
@@ -189,7 +190,8 @@ ui.innerHTML = `
       <button class="copybtn" title="${t('Copy the open tasks as text, to give them to any AI agent or a colleague')}">${ic('copy')}<span class="label">${t('Copy all')}</span></button>
       <button class="undo" title="${t('Undo the last change (⌘Z)')}" aria-label="${t('Undo')}">${ic('undo')}<span class="label">${t('Undo')}</span></button>
       <button class="redo" title="${t('Redo (⇧⌘Z)')}" aria-label="${t('Redo')}">${ic('redo')}<span class="label">${t('Redo')}</span></button>
-      <button class="minimize" title="${t('Collapse / expand the panel')}">–</button>
+      <button class="minimize" aria-expanded="true"></button>
+      <button class="closebtn" title="${t('Close the editor (your tasks and changes stay)')}" aria-label="${t('Close the editor')}">×</button>
     </div>
   </header>
   <div class="body">
@@ -658,13 +660,13 @@ function renderWork() {
     parent ? `<button data-act="earlier" ${pos <= 0 ? 'disabled' : ''} title="${inRow ? t('Move one place left') : t('Move one place up')}">${ic(inRow ? 'left' : 'up')}${inRow ? t('Left') : t('Up')}</button>` : '',
     parent ? `<button data-act="later" ${pos >= parent.children.length - 1 ? 'disabled' : ''} title="${inRow ? t('Move one place right') : t('Move one place down')}">${ic(inRow ? 'right' : 'down')}${inRow ? t('Right') : t('Down')}</button>` : '',
     n.kind === 'container' && !isRoot ? `<button data-act="ungroup" title="${t('Remove the container, keep its blocks')}">${ic('ungroup')}${t('Ungroup')}</button>` : '',
-    `<button data-act="rename" title="${t('Give this block a name people and Kaity can refer to')}">${ic('rename')}${t('Rename')}</button>`,
+    `<button data-act="rename" title="${t('Give this block a name people and Kaity can refer to')}">${ic('name')}${t('Rename')}</button>`,
     S.buffer.length ? `<button data-act="paste" title="${t('Paste code from the buffer')}">${ic('paste')}${t('Paste…')}</button>` : '',
     n.kind === 'box' && S.kit.site && !n.shared ? `<button data-act="share" title="${t('Make this box a shared block: every page of the site can show it, and a change to it changes them all')}">${ic('site')}${t('Share…')}</button>` : '',
     !isRoot ? `<button data-act="remove" class="danger" title="${t('Delete (code goes into the previous box) or remove (code goes to the buffer)')}">${ic('delete')}${t('Delete…')}</button>` : '',
   ].join('');
   const users = n.shared ? S.kit.users[n.shared] ?? [] : [];
-  const sharedNote = n.shared ? `<p class="shared-note">${ic('site')}<span>${users.length > 1
+  const sharedExplanation = n.shared ? `<p class="shared-explanation">${ic('site')}<span>${users.length > 1
     ? t('This box shows the shared block {name}, which {n} pages show: a change here changes all of them.', { name: `<b>${esc(n.shared)}</b>`, n: users.length })
     : t('This box shows the shared block {name}: a change here changes it on every page that shows it.', { name: `<b>${esc(n.shared)}</b>` })}</span><button data-act="unlink" title="${t('This page gets its own copy of the block, which stops following the shared one')}">${t('Make this page\'s own copy')}</button></p>` : '';
 
@@ -674,7 +676,7 @@ function renderWork() {
       <span class="w-kind">${esc(kindLabel(n))}</span>
     </div>
     <div class="actions">${actions}</div>
-    ${sharedNote}
+    ${sharedExplanation}
     <div class="sheet" hidden></div>
     <div class="tabs" role="tablist">${tabs.map(([k, l]) => `<button role="tab" data-tab="${k}" aria-selected="${p.tab === k}">${k === 'ai' ? kaityMark(S.ai?.id === id) : ic(TAB_ICON[k])}${l()}</button>`).join('')}</div>
     <div class="tab-body"></div>`;
@@ -1748,7 +1750,7 @@ function openPages() {
   const r = pageSwitch.getBoundingClientRect();
   popover(r.left, r.bottom + 6, `<nav class="pages" aria-label="${t('Pages')}">${S.site.pages.map((p) => p === S.site.current
     ? `<div class="page-row" aria-current="page"><a href="/${encodeURIComponent(p)}/" aria-current="page">${esc(p)}</a>
-        <button class="mini" data-pg="rename" title="${t('Rename this page…')}" aria-label="${t('Rename this page…')}">${ic('rename')}</button>
+        <button class="mini" data-pg="rename" title="${t('Rename this page…')}" aria-label="${t('Rename this page…')}">${ic('name')}</button>
         <button class="mini danger" data-pg="remove" title="${t('Remove this page…')}" aria-label="${t('Remove this page…')}">${ic('delete')}</button></div>`
     : `<a href="/${encodeURIComponent(p)}/">${esc(p)}</a>`).join('')}</nav>
     <a class="newpage-btn" href="/_tykerf/site/">${ic('site')}${t('All pages')}</a>
@@ -1775,12 +1777,14 @@ function openSiteMenu() {
     ${S.site ? entry('manage', 'site', t('Manage the site…')) : ''}
     ${entry('export', 'download', S.site ? t('Export the site…') : t('Export the page…'))}
     ${S.site?.current ? entry('export-page', 'download', t('Export this page…')) : ''}
+    ${S.site ? entry('work', 'ai', t("Kaity's work across the site…")) : ''}
     ${entry('ai', 'ai', t('Kaity status…'))}
   </div>`);
   pop.querySelector('[data-site]')?.focus();
   pop.onclick = (e) => {
     const b = e.target.closest('[data-site]')?.dataset.site;
     if (b === 'manage') location.href = '/_tykerf/site/';
+    if (b === 'work') location.href = '/_tykerf/site/#kaity-work';
     if (b === 'export') exportPrompt();
     if (b === 'export-page') exportPrompt(S.site.current);
     if (b === 'ai') aiStatus();
@@ -2430,9 +2434,9 @@ function renderTool() {
   imgtool.innerHTML = `
     <header><b>${t('Image')}</b><span class="muted">${esc(T.id)}</span></header>
     <div class="stage">${crop ? `<canvas class="view"></canvas><div class="crop">${edges}</div>` : `<img class="still" src="${esc(shown)}" alt="">`}</div>
-    ${T.derived ? `<p class="note">${t('This image is a crop of an earlier one, shown whole here: drag the frame wider, or choose Original, to bring back what was cut.')}</p>` : ''}
-    ${T.remote ? `<p class="note">${t('This image comes from another site. Copy it into the page to crop it; the page then stops loading it from there.')}</p><div class="row start"><button data-i="copy">${t('Copy into the page')}</button></div>`
-      : !crop && T.type ? `<p class="note">${t('GIF and SVG images can be replaced, not cropped.')}</p>` : ''}
+    ${T.derived ? `<p class="explanation">${t('This image is a crop of an earlier one, shown whole here: drag the frame wider, or choose Original, to bring back what was cut.')}</p>` : ''}
+    ${T.remote ? `<p class="explanation">${t('This image comes from another site. Copy it into the page to crop it; the page then stops loading it from there.')}</p><div class="row start"><button data-i="copy">${t('Copy into the page')}</button></div>`
+      : !crop && T.type ? `<p class="explanation">${t('GIF and SVG images can be replaced, not cropped.')}</p>` : ''}
     ${crop ? `<div class="opts"><span class="lbl">${t('Shape')}</span>${ASPECTS.filter(([k]) => k !== 'page' || T.pageAspect).map(([k]) => `<button data-aspect="${k}" aria-pressed="${T.aspect === k}">${esc(aspectLabel(k))}</button>`).join('')}</div>
     <div class="opts"><span class="lbl">${t('Turn')}</span><button data-i="left" title="${t('Turn left')}">↺</button><button data-i="right" title="${t('Turn right')}">↻</button>
       <span class="lbl">${t('Largest side')}</span><select class="max">${MAXES.map((m) => `<option value="${m}" ${T.max === m ? 'selected' : ''}>${m ? `${m} px` : t('as it is')}</option>`).join('')}</select>
@@ -2781,6 +2785,12 @@ function drawKaity() {
     html += box(fr, 'kframe', label());
     labelled = true;
   }
+  // working on the whole page: the block she is on now carries the frame and her label
+  const at = whole && S.aiAt ? elOf(S.aiAt)?.getBoundingClientRect() : null;
+  if (at && (at.width || at.height)) {
+    html += box(at, 'kframe', label());
+    labelled = true;
+  }
   for (const x of left) {
     const r = taskEl(x)?.getBoundingClientRect();
     if (!r || (!r.width && !r.height)) continue;
@@ -2789,6 +2799,37 @@ function drawKaity() {
   }
   if (!labelled) html += `<div class="kfloat" style="top:${scrollY + 12}px">${label()}</div>`;
   kwork.innerHTML = html;
+}
+
+// ---------- following Kaity: the page scrolls to the block she works on ----------
+// Each of her steps says the block (or the task) it is about. When she moves to a block out of sight, the page
+// scrolls to it; scrolling yourself pauses that for a while, so it never fights you.
+
+const FOLLOW_PAUSE = 6000;
+let scrolledByHand = 0;
+for (const ev of ['wheel', 'touchmove']) addEventListener(ev, () => (scrolledByHand = Date.now()), { passive: true, capture: true });
+addEventListener('keydown', (e) => ['PageUp', 'PageDown', 'Home', 'End', 'ArrowUp', 'ArrowDown', ' '].includes(e.key) && (scrolledByHand = Date.now()), { capture: true });
+
+/** The block a step is about, as the page knows it: a name, a path's last part, or a task's block; inside her run. */
+function stepBlock(where) {
+  if (!where || !S.ai) return null;
+  let b = where.task ? S.tasks.find((x) => x.n === where.task)?.block : where.block;
+  if (b && !info(b)) b = b.split('/').pop();
+  if (!b || !info(b)) return null;
+  const id = S.ai.id;
+  return id === S.tree.id || b === id || ancestors(b).includes(id) ? b : null;
+}
+
+function followKaity(block) {
+  if (block === S.aiAt) return;
+  S.aiAt = block;
+  const el = elOf(block);
+  if (!el || Date.now() - scrolledByHand < FOLLOW_PAUSE) return;
+  const r = el.getBoundingClientRect();
+  const seen = Math.min(r.bottom, innerHeight) - Math.max(r.top, 0);
+  if (seen >= Math.min(r.height, innerHeight) * 0.6) return; // mostly in sight already
+  const still = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  el.scrollIntoView({ block: r.height > innerHeight * 0.8 ? 'start' : 'center', behavior: still ? 'auto' : 'smooth' });
 }
 
 /** A click on the page adds a task there (the Tasks mode), or selects a block (the Edit mode). */
@@ -2821,7 +2862,10 @@ function setMode(m, { keep = true } = {}) {
 }
 modeSw.addEventListener('click', (e) => {
   const b = e.target.closest('[data-mode]');
-  if (b && b.dataset.mode !== S.mode) setMode(b.dataset.mode);
+  if (!b) return;
+  // a compact panel opens: choosing Tasks means wanting to see them
+  if (S.min) setMin(false);
+  if (b.dataset.mode !== S.mode) setMode(b.dataset.mode);
 });
 $('.tabsbtn').addEventListener('click', () => {
   S.showPins = !S.showPins;
@@ -3033,7 +3077,7 @@ function openMenu(x, y, id, target = null) {
     n.kind === 'box' ? item('import', 'import', t('Import a section…')) : '',
     '<hr>',
     item('size', 'size', t('Sizes…')),
-    item('rename-here', 'rename', t('Rename…')),
+    item('rename-here', 'name', t('Rename…')),
     S.buffer.length ? item('paste', 'paste', t('Paste…')) : '',
     '<hr>',
     hasParent ? item('insert', 'beside', t('Add box beside'), 'data-as="row"') : '',
@@ -3237,14 +3281,33 @@ if (size) Object.assign(panel.style, { width: `${size.w}px`, height: `${size.h}p
 function showPanel() {
   if (S.min) setMin(false);
 }
+/** Compact: the panel shows only its header (Edit), or a few lines of the tasks (Tasks); See more opens it again. */
 function setMin(v) {
   S.min = v;
   store.set('min', v);
   panel.classList.toggle('min', v);
-  $('.minimize').textContent = v ? '+' : '–';
+  const b = $('.minimize');
+  b.innerHTML = v ? `${ic('down')}<span class="label">${t('See more')}</span>` : `${ic('up')}<span class="label">${t('Compact')}</span>`;
+  b.title = v ? t('Open the panel') : t('Make the panel compact');
+  b.setAttribute('aria-expanded', !v);
   keepPanelOnScreen();
 }
 $('.minimize').addEventListener('click', () => setMin(!S.min));
+
+// closing asks first, next to the button: the tasks and the changes stay, and Kaity keeps working
+$('.closebtn').addEventListener('click', (e) => {
+  const r = e.currentTarget.getBoundingClientRect();
+  popover(r.right - 320, r.bottom + 8, `<p><b>${t('Close the editor?')}</b></p>
+    <p class="muted">${S.ai ? t('Kaity keeps working; your tasks and changes stay. Edit with TYKERF, at the bottom right, opens it again.') : t('Your tasks and changes stay. Edit with TYKERF, at the bottom right, opens it again.')}</p>
+    <div class="row"><button data-c="stay">${t('Stay')}</button><button data-c="close" class="primary">${t('Close')}</button></div>`);
+  pop.querySelector('[data-c="close"]').focus();
+  pop.onclick = (ev) => {
+    const c = ev.target.closest('[data-c]')?.dataset.c;
+    if (!c) return;
+    closePop();
+    if (c === 'close') setOn(false);
+  };
+});
 
 $('.seg').addEventListener('click', (e) => {
   const b = e.target.closest('[data-view]');
@@ -3318,12 +3381,25 @@ function toast(text, error = false) {
 // The browser part is read fresh from disk, the server keeps the code it started with: when that code
 // changed (or the server is too old to know /_tykerf/version), new buttons may lead nowhere, so say so.
 
+// The other way round: this page keeps the script it loaded, so after an update (and a restart) it is the old one,
+// and what the new version does (following Kaity, say) doesn't happen here until the page is reloaded.
+
 const outdated = $('.outdated');
-outdated.querySelector('button').onclick = () => (outdated.hidden = true);
+outdated.querySelector('.close').onclick = () => (outdated.hidden = true);
+outdated.querySelector('.reload').onclick = () => location.reload();
+let loadedPage = null; // TYKERF's browser part as this page loaded it (/_tykerf/version's page)
 async function checkVersion() {
   const r = await fetch('/_tykerf/version').catch(() => null);
   if (!r || r.status === 401) return; // offline, or a visitor
-  outdated.hidden = !(r.status === 404 || (await r.json().catch(() => ({}))).outdated);
+  const j = r.status === 404 ? {} : await r.json().catch(() => ({}));
+  loadedPage ??= j.page ?? null;
+  const restart = r.status === 404 || !!j.outdated;
+  const reload = !restart && !!j.page && !!loadedPage && j.page !== loadedPage;
+  outdated.querySelector('span').textContent = reload
+    ? t('TYKERF was updated. Reload this page to use the new version (save what you are writing first).')
+    : t('TYKERF was updated while this editor was running. Restart it to use the new version: Ctrl+C in its terminal, then npm start again.');
+  outdated.querySelector('.reload').hidden = !reload;
+  outdated.hidden = !(restart || reload);
 }
 checkVersion();
 document.addEventListener('visibilitychange', () => document.visibilityState === 'visible' && checkVersion());
@@ -3405,6 +3481,7 @@ async function refresh() {
 }
 
 const events = new EventSource(`${API}/events`);
+events.addEventListener('open', () => checkVersion()); // back after a restart: maybe a newer TYKERF
 events.addEventListener('changed', () => refresh().catch((e) => toast(e.message, true)));
 // the page was renamed or removed (maybe from another tab): go where it went
 events.addEventListener('moved', (e) => location.replace(JSON.parse(e.data).url));
@@ -3415,8 +3492,9 @@ events.addEventListener('ai', (e) => {
   if (m.role === 'start') S.ai = { id: m.id, ...(m.tasks ? { tasks: m.tasks } : {}) };
   if (m.role === 'end') S.ai = null;
   // her latest step rides on the frame around her block (drawKaity)
-  if (m.role === 'start' || m.role === 'end') S.aiStep = null;
+  if (m.role === 'start' || m.role === 'end') (S.aiStep = null), (S.aiAt = null);
   if (m.role === 'step' && m.text) S.aiStep = m.text.replace(/^refused: /, '');
+  if (m.role === 'step' && stepBlock(m.where)) followKaity(stepBlock(m.where));
   if (['start', 'end', 'step'].includes(m.role)) redraw();
   if (S.mode === 'tasks') {
     if (m.role === 'start') S.lastRun = null;
@@ -3440,8 +3518,13 @@ try {
     if (resume.tab) per(resume.sel).tab = resume.tab;
   }
 } catch {}
-// ?block=<name>&tab=<tab> (from the site manager: where Kaity works, where a link is): open on that block and tab
+// ?block=<name>&tab=<tab> (from the site manager: where Kaity works, where a link is): open on that block and tab;
+// ?edit opens the editor, ?view leaves the page to look at (the manager's pencil and page name)
 const asked = new URLSearchParams(location.search);
+if (asked.has('edit') || asked.has('view')) {
+  S.on = asked.has('edit');
+  if (!asked.has('block')) history.replaceState(null, '', location.pathname + location.hash);
+}
 if (asked.has('block')) {
   const id = asked.get('block');
   if (info(id)) {

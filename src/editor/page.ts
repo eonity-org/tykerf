@@ -1,6 +1,6 @@
 // One page in the editor: its workspace, its AI conversations, its open browser tabs and the API
 // the panel uses (/_tykerf/... and the page's assets/), at a path relative to where the page is
-// served. A single page is served at "/"; in a site each page gets one of these, at "/<page>/".
+// served. Each page of the site gets one of these, at "/<page>/".
 // See server.ts for the server around it (addresses, security checks, the editor's own files).
 
 import { randomUUID } from 'node:crypto';
@@ -84,7 +84,7 @@ export interface PageHost {
   handle(req: IncomingMessage, res: ServerResponse, p: string, url: URL): Promise<unknown>;
 }
 
-export function createPageHost(ws: Workspace, opts: { name: string; site?: () => SiteInfo; runner?: Runner; title?: () => string; admin?: (req: IncomingMessage) => boolean }): PageHost {
+export function createPageHost(ws: Workspace, opts: { name: string; site?: () => SiteInfo; runner?: Runner; title?: () => string; admin?: (req: IncomingMessage) => boolean; visitorEnd?: string }): PageHost {
   const store = ws.store;
 
   /**
@@ -436,9 +436,10 @@ export function createPageHost(ws: Workspace, opts: { name: string; site?: () =>
   async function handle(req: IncomingMessage, res: ServerResponse, p: string, url: URL) {
     if (req.method === 'GET' && p === '/') {
       res.writeHead(200, { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store' });
-      // a visitor (TYKERF serving the site, auth.ts) gets the page as it is; the admin gets the editor too
+      // a visitor (TYKERF serving the site, auth.ts) gets the page as it is, and the way to sign in when their
+      // browser signed in here before (visitorEnd); the admin gets the editor
       const admin = opts.admin?.(req) ?? true;
-      return res.end(ws.page({ title: opts.title?.() ?? opts.name, bodyEnd: admin ? '<script type="module" src="_tykerf/tykerf.js"></script>' : '' }));
+      return res.end(ws.page({ title: opts.title?.() ?? opts.name, bodyEnd: admin ? '<script type="module" src="_tykerf/tykerf.js"></script>' : (opts.visitorEnd ?? '') }));
     }
     // the page's own files: images and other files the boxes refer to as assets/<file>
     if (req.method === 'GET' && p.startsWith('/assets/')) {

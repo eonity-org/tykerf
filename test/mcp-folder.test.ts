@@ -6,6 +6,7 @@ import { StdioClientTransport, getDefaultEnvironment } from '@modelcontextprotoc
 import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
 import { afterEach, describe, expect, it } from 'vitest';
 import { type TykerfServerOptions, createTykerfServer, folderPath } from '../src/mcp/tools.js';
+import { readSite } from '../src/site.js';
 import { MemoryStore } from '../src/store.js';
 import { Workspace } from '../src/workspace.js';
 
@@ -49,13 +50,17 @@ describe('a server with no folder open (the Claude plugin)', () => {
     expect(existsSync(dir)).toBe(false);
   });
 
-  it('opens the default folder without a path, and a new folder gets its page when something is written', async () => {
+  it('opens the default folder without a path, and a new folder becomes a site with its home page when something is written', async () => {
     const dir = join(temp(), 'mine');
     const { call } = await inProcess(null, { folders: { defaultDir: dir } });
-    expect(await call('open_folder')).toEqual({ error: false, text: expect.stringMatching(new RegExp(`^ok: ${dir} is open, a new folder \\(made when something is written\\): use_layout starts a page here`)) });
+    expect(await call('open_folder')).toEqual({ error: false, text: expect.stringMatching(new RegExp(`^ok: ${dir} is open, a new folder \\(made when something is written\\), which becomes a site: use_layout starts it with its home page`)) });
     expect(existsSync(dir)).toBe(false);
-    expect(await call('use_layout', { name: 'blank' })).toMatchObject({ error: false });
-    expect(existsSync(join(dir, 'layout.slice'))).toBe(true);
+    expect(await call('use_layout', { name: 'blank' })).toMatchObject({ error: false, text: expect.stringContaining(`ok: a new site in ${dir}, with its home page "home"`) });
+    expect(existsSync(join(dir, 'home', 'layout.slice'))).toBe(true);
+    expect(existsSync(join(dir, 'layout.slice'))).toBe(false);
+    expect(readSite(dir).home).toBe('home');
+    // the page is open, and the site's tools work on it
+    expect((await call('list_pages')).text).toMatch(/\nhome \(open\)$/);
   });
 
   it('opens a page or a site, and refuses a folder of other files, keeping the folder that was open', async () => {

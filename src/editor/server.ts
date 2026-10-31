@@ -17,12 +17,13 @@ import { type IncomingMessage, type ServerResponse, createServer } from 'node:ht
 import { isIP } from 'node:net';
 import { basename, dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { type PublishSettings, emptyTrash, lastSiteHeadChange, newPageLike, newSitePage, pageLinks, pageNameError, pageTitle, pageWorkspace, readSite, duplicatePage, removePage, renamePage, setHome, setPublish, setSiteIcon, siteIcon, setSiteCode, setSiteHead, setTitle, shareTheme, siteCode, siteHead, siteIndex, siteKind, siteLink, siteMap, siteOf, sitePages, trashedPages, undoSiteHead, blockUsers, identicalBoxes, shareIdentical } from '../site.js';
+import { HOME_PAGE, type PublishSettings, addSitePage, pageMoves, emptyTrash, lastSiteHeadChange, newPageLike, newSitePage, pageLinks, pageNameError, pageTitle, pageWorkspace, readSite, duplicatePage, removePage, renamePage, setHome, setPublish, setSiteIcon, siteIcon, setSiteCode, setSiteHead, setTitle, shareTheme, siteCode, siteHead, siteIndex, siteKind, siteLink, siteMap, siteOf, sitePages, trashedPages, undoSiteHead, blockUsers, identicalBoxes, shareIdentical } from '../site.js';
 import { FolderStore, MemoryStore } from '../store.js';
 import { KIT_LOADER, type KitKind, kitList, kitRead, kitWrite, lastKitChange, undoKit } from '../kit.js';
 import { DEFAULT_THEME, EMPTY_LAYOUT, createPage, hasTheme, pageLayouts, libraryAsset, theme, themes } from '../library.js';
 import { Workspace } from '../workspace.js';
 import { AI, type Runner, SITE_CHAT } from './ai.js';
+import { kaityRuns } from './kaity-log.js';
 import { type DesignZip, designContext, designNote, readDesignZip } from './design-zip.js';
 import { createAuth, loginPage } from './auth.js';
 import { ASSET_TYPES } from '../assets.js';
@@ -55,12 +56,36 @@ function codeStamp(): string {
   return `${n}:${bytes}:${Math.round(latest)}`;
 }
 const STARTED_CODE = codeStamp();
+/**
+ * TYKERF's browser part as it is on disk now (public/: its files' count, sizes and latest change). A page keeps
+ * the script it loaded, so when this changes (an update, then a restart) the page says to reload (tykerf.js).
+ */
+function pageStamp(): string {
+  let n = 0, bytes = 0, latest = 0;
+  const walk = (d: string) => {
+    for (const f of readdirSync(d, { withFileTypes: true })) {
+      if (f.isDirectory()) walk(join(d, f.name));
+      else if (/\.(js|css|html|json)$/.test(f.name)) {
+        const st = statSync(join(d, f.name));
+        n++, (bytes += st.size), (latest = Math.max(latest, st.mtimeMs));
+      }
+    }
+  };
+  try {
+    walk(process.env.TYKERF_PAGE_DIR ?? join(here, 'public')); // tests point it at a folder of their own
+  } catch {
+    return 'unknown';
+  }
+  return `${n}:${bytes}:${Math.round(latest)}`;
+}
 const args = process.argv.slice(2);
 const flag = (name: string) => {
   const i = args.indexOf(name);
   return i >= 0 ? String(args[i + 1]) : undefined;
 };
-const dir = resolve(args.find((a, i) => !a.startsWith('--') && !args[i - 1]?.startsWith('--')) ?? '.');
+const given = resolve(args.find((a, i) => !a.startsWith('--') && !args[i - 1]?.startsWith('--')) ?? '.');
+// TYKERF edits sites: started on a page of a site, it opens the site
+const dir = siteOf(given) ? dirname(given) : given;
 const PORT = Number(flag('--port') ?? 4400);
 // the API edits the pages and runs Claude Code on the user's account, so by default only this machine can reach it
 const HOST = flag('--host') ?? '127.0.0.1';
@@ -79,19 +104,35 @@ try {
   process.exit(1);
 }
 const themeName = flag('--theme');
+/** With --layout, the name of the page it makes: a new site's first page (`home` without it), or one more page of a site. */
+const pageName = flag('--name');
 
-// ---------- what the folder is: a page or a site ----------
+// ---------- the site: a folder of pages (a new or empty folder is a new site) ----------
 
-let kind: 'page' | 'site';
 try {
-  kind = siteKind(dir);
-  if (kind === 'site' && layout) {
-    // --layout on a new folder makes a single page, as it always has
-    if (sitePages(dir).length) throw new Error(`${dir} is a site of pages; add pages with "New page…" in the editor (--layout is for a new folder)`);
-    createPage(new Workspace(dir), layout, themeName ?? DEFAULT_THEME);
-    kind = 'page';
-    console.log(`started a new page in ${dir} from the "${layout}" layout${themeName ? ` with the "${themeName}" theme` : ''}`);
-  } else if (kind === 'page' && layout) console.log(`(${dir} already has a page; --layout is only used for new pages)`);
+  // a page folder on its own (siteKind throws for a folder of other things)
+  if (siteKind(dir) === 'page') throw new Error(`${dir} is a page on its own; TYKERF edits sites, folders of pages. Put the page in a site and start TYKERF there:\n  mkdir my-site && mv ${dir} my-site/${HOME_PAGE}\n  npm start -- my-site`);
+  if (dir !== given) console.log(`${given} is a page of the site ${dir}: opening the site (the page is at /${basename(given)}/)`);
+  if (layout && sitePages(dir).length) {
+    // --layout on a site adds the page --name names, once: the same command run again just starts
+    const name = pageName?.trim();
+    if (!name) throw new Error(`${dir} is a site of pages; to add one from the "${layout}" layout, name it with --name (or use "New page…" in the editor)`);
+    if (sitePages(dir).includes(name)) console.log(`(${dir} already has a page "${name}"; --layout is only used for a new page)`);
+    else {
+      const err = pageNameError(dir, name);
+      if (err) throw new Error(`${err} (--name)`);
+      const { ownValues } = addSitePage(dir, name, layout, themeName);
+      console.warn(`added the page "${name}" to the site ${dir} from the "${layout}" layout: http://localhost:${PORT}/${name}/`);
+      if (ownValues) console.warn(`the site's pages share one theme: the "${themeName}" theme is "${name}"'s own values over it, so the other pages keep their look`);
+    }
+  } else if (layout) {
+    // --layout on a new folder makes the site's home page, named `home` or --name
+    const name = pageName?.trim() || HOME_PAGE;
+    const err = pageNameError(dir, name);
+    if (err) throw new Error(`${err} (--name)`);
+    newSitePage(dir, name, layout, themeName ?? DEFAULT_THEME);
+    console.log(`started a new site in ${dir} with its home page "${name}" from the "${layout}" layout${themeName ? ` with the "${themeName}" theme` : ''}`);
+  } else if (pageName) console.log('(--name names the first page made with --layout; on the start screen, the page\'s name is its first step)');
 } catch (err) {
   console.error((err as Error).message);
   process.exit(1);
@@ -102,22 +143,13 @@ const MANAGER = '/_tykerf/site/';
 /** The site's public address, for its sitemap.xml (TYKERF_PUBLIC_URL in .env). */
 const PUBLIC_URL = process.env.TYKERF_PUBLIC_URL?.trim().replace(/\/+$/, '') || null;
 /** With TYKERF_ADMIN_PASSWORD, visitors see the pages and only the signed-in admin edits (auth.ts). */
-const auth = createAuth(process.env.TYKERF_ADMIN_PASSWORD, { secure: !!PUBLIC_URL?.startsWith('https:') });
-
-const pageHost = () => createPageHost(new Workspace(dir, { site: siteOf(dir) }), { name: basename(dir), runner, admin: auth.admin });
-let single = kind === 'page' ? pageHost() : null;
-
+const auth = createAuth(process.env.TYKERF_ADMIN_PASSWORD, { secure: !!PUBLIC_URL?.startsWith('https:'), keep: { read: () => new FolderStore(dir).read('.tykerf/sessions.json'), write: (text) => new FolderStore(dir).write('.tykerf/sessions.json', text) } });
 /**
- * An empty folder starts as a new site, but something else may make a page right in it meanwhile
- * (Claude Desktop through the MCP server, the command line): the editor then serves that page, and
- * the start screen, which asks /_tykerf/site, opens it.
+ * What a page shows a visitor whose browser signed in here before (the login page leaves tykerf.admin in its
+ * storage): Edit with TYKERF, to sign in and come back to this page. Other visitors see nothing of TYKERF.
  */
-function followFolder() {
-  if (kind !== 'site' || hosts.size || !existsSync(join(dir, 'layout.slice')) || sitePages(dir).length) return;
-  kind = 'page';
-  single = pageHost();
-  console.log(`TYKERF: ${dir} is a page now; serving it`);
-}
+const EDIT_BUTTON = `<script>try{if(localStorage.getItem('tykerf.admin')==='true'){const a=document.createElement('a');a.href='/_tykerf/login?next='+encodeURIComponent(location.pathname+location.search);a.textContent='Edit with TYKERF';a.dataset.tykerfEdit='';a.setAttribute('style','position:fixed;right:16px;bottom:16px;z-index:2147483647;padding:10px 16px;border-radius:999px;background:#0A5475;color:#fff;font:600 14px/1.2 system-ui,sans-serif;text-decoration:none;box-shadow:0 4px 16px rgb(0 0 0 / .2)');document.body.append(a)}}catch{}</script>`;
+
 const hosts = new Map<string, PageHost>();
 
 // Kaity for the whole site, in the site manager: one conversation kept in the site folder, her steps
@@ -125,6 +157,7 @@ const hosts = new Map<string, PageHost>();
 const siteClients = new Set<ServerResponse>();
 const siteAI = new AI(new Workspace(dir, { site: siteLink(dir) }), (event, data) => {
   for (const c of siteClients) c.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
+  if ((data as { role?: string }).role === 'end') followMoves(); // in case the folder watcher missed one
 }, runner, { site: dir });
 /** What Kaity is doing now: the whole site, and the block she works on in each page. */
 const kaityNow = () => ({ site: !!siteAI.running(), pages: [...hosts].flatMap(([page, h]) => { const r = h.ai.running(); return r ? [{ page, block: r.id }] : []; }) });
@@ -143,26 +176,49 @@ const BUILD_BRIEF = [
 ].join('\n');
 
 /** Whether the site's pages share one theme (the site's head.html has it). */
-const sharedTheme = () => kind === 'site' && hasTheme(siteHead(dir));
+const sharedTheme = () => hasTheme(siteHead(dir));
 /** After a change every open page must show: the site's theme, or links rewritten in other pages. */
 const refreshAll = () => {
   for (const h of hosts.values()) h.refresh();
 };
-// the site kit changes every page: a shared block edited on one page, Kaity's site run, a text editor
+// the site kit changes every page: a shared block edited on one page, Kaity's site run, a text editor;
+// and pages move. A new site's folder is made with its first page, so it is watched from then on.
 let kitTimer: NodeJS.Timeout | undefined;
-try {
-  watch(dir, { recursive: true }, (_e, f) => {
-    if (kind !== 'site' || !f || String(f).split(/[\\/]/)[0] !== 'kit') return;
-    clearTimeout(kitTimer);
-    kitTimer = setTimeout(refreshAll, 120);
-  });
-} catch {}
+let watching = false;
+function watchSite() {
+  if (watching || !existsSync(dir)) return;
+  try {
+    watch(dir, { recursive: true }, (_e, f) => {
+      if (f && String(f).replace(/\\/g, '/') === '.tykerf/moves.jsonl') return followMoves();
+      if (!f || String(f).split(/[\\/]/)[0] !== 'kit') return;
+      clearTimeout(kitTimer);
+      kitTimer = setTimeout(refreshAll, 120);
+    });
+    watching = true;
+  } catch {}
+}
+watchSite();
+
+// pages another process renamed or removed (Kaity's site run, through MCP): their open tabs follow them
+let movesSeen = pageMoves(dir).length;
+function followMoves() {
+  const moves = pageMoves(dir);
+  if (moves.length === movesSeen) return;
+  for (const m of moves.slice(movesSeen)) {
+    const h = hosts.get(m.from);
+    hosts.delete(m.from);
+    h?.close(m.to ? `/${m.to}/` : MANAGER);
+  }
+  movesSeen = moves.length;
+  refreshAll(); // the other pages' lists of pages, and their links
+}
 
 /** The host of a page of the site (made on first use), or null when there is no such page. */
 function hostOf(name: string): PageHost | null {
   if (!sitePages(dir).includes(name)) return null;
+  watchSite();
   let h = hosts.get(name);
-  if (!h) hosts.set(name, (h = createPageHost(pageWorkspace(dir, name), { name, runner, admin: auth.admin, title: () => pageTitle(dir, name), site: () => ({ pages: sitePages(dir), current: name, sharedTheme: sharedTheme() }) })));
+  if (!h) hosts.set(name, (h = createPageHost(pageWorkspace(dir, name), { name, runner, admin: auth.admin, visitorEnd: EDIT_BUTTON, title: () => pageTitle(dir, name), site: () => ({ pages: sitePages(dir), current: name, sharedTheme: sharedTheme() }) })));
   return h;
 }
 
@@ -219,7 +275,7 @@ const writeData = (file: string, data: unknown) => {
 function exportDir(url: URL): string | null {
   const page = url.searchParams.get('page');
   if (!page) return dir;
-  return kind === 'site' && sitePages(dir).includes(page) ? join(dir, page) : null;
+  return sitePages(dir).includes(page) ? join(dir, page) : null;
 }
 
 async function serveGlobal(req: IncomingMessage, res: ServerResponse, p: string, url: URL): Promise<boolean> {
@@ -248,14 +304,12 @@ async function serveGlobal(req: IncomingMessage, res: ServerResponse, p: string,
     return true;
   }
   if (req.method === 'GET' && p === '/_tykerf/site') {
-    if (kind !== 'site') return json(res, 200, { kind, pages: [], sharedTheme: false, home: null, titles: {}, signin: auth.on }), true;
     const pages = sitePages(dir), settings = readSite(dir);
-    json(res, 200, { kind, pages, sharedTheme: sharedTheme(), home: settings.home ?? null, titles: Object.fromEntries(pages.map((pg) => [pg, pageTitle(dir, pg, settings)])), ownTitles: settings.titles, signin: auth.on, kaity: kaityNow() });
+    json(res, 200, { pages, sharedTheme: sharedTheme(), home: settings.home ?? null, titles: Object.fromEntries(pages.map((pg) => [pg, pageTitle(dir, pg, settings)])), ownTitles: settings.titles, signin: auth.on, kaity: kaityNow() });
     return true;
   }
   // a copy of a page, next to it
   if (req.method === 'POST' && p === '/_tykerf/site/duplicate') {
-    if (kind !== 'site') return json(res, 422, { ok: false, error: 'this folder is a single page; it has no site to copy it in' }), true;
     const a = await body(req);
     const name = String(a.name ?? '');
     if (!sitePages(dir).includes(name)) return json(res, 422, { ok: false, error: `there is no page "${name}" in the site` }), true;
@@ -270,7 +324,6 @@ async function serveGlobal(req: IncomingMessage, res: ServerResponse, p: string,
   }
   // the site's settings: its home page, and a page's title set by hand
   if (req.method === 'POST' && (p === '/_tykerf/site/home' || p === '/_tykerf/site/title')) {
-    if (kind !== 'site') return json(res, 422, { ok: false, error: 'this folder is a single page; it has no site settings' }), true;
     const a = await body(req);
     if (p === '/_tykerf/site/home') setHome(dir, a.name ? String(a.name) : null);
     else setTitle(dir, String(a.name ?? ''), String(a.title ?? ''));
@@ -278,7 +331,6 @@ async function serveGlobal(req: IncomingMessage, res: ServerResponse, p: string,
     return json(res, 200, { ok: true }), true;
   }
   if (req.method === 'POST' && p === '/_tykerf/site/new') {
-    if (kind !== 'site') return json(res, 422, { ok: false, error: 'this folder is a single page; start TYKERF on a site folder to have several pages' }), true;
     const a = await body(req);
     const name = String(a.name ?? '').trim();
     if (a.url) {
@@ -320,6 +372,7 @@ async function serveGlobal(req: IncomingMessage, res: ServerResponse, p: string,
     }
     // "Show or describe it": a nearly empty page, then the AI builds it from the words and pictures
     if (a.prompt || (Array.isArray(a.images) && a.images.length) || a.zip) {
+      if (siteAI.running()) return json(res, 409, { ok: false, error: 'Kaity is working on the whole site; wait for her to finish' }), true;
       const st = runner.status?.() ?? { ready: true, note: '' };
       if (!st.ready) return json(res, 422, { ok: false, error: `Kaity is not ready: ${st.note}` }), true;
       const images = Array.isArray(a.images) ? a.images.slice(0, 3) : [];
@@ -361,22 +414,19 @@ async function serveGlobal(req: IncomingMessage, res: ServerResponse, p: string,
   }
   // the site's shared head: its theme for every page (the Page tab edits it when a page uses it)
   // whether this process still runs the code on disk (see codeStamp)
-  if (req.method === 'GET' && p === '/_tykerf/version') return json(res, 200, { ok: true, outdated: codeStamp() !== STARTED_CODE }), true;
+  if (req.method === 'GET' && p === '/_tykerf/version') return json(res, 200, { ok: true, outdated: codeStamp() !== STARTED_CODE, page: pageStamp() }), true;
   // the code every page gets from the site head (styles, scripts), apart from the theme
-  if (req.method === 'GET' && p === '/_tykerf/site/code') return json(res, 200, { ok: true, code: kind === 'site' ? siteCode(dir) : '', last: kind === 'site' ? lastSiteHeadChange(dir) : null }), true;
+  if (req.method === 'GET' && p === '/_tykerf/site/code') return json(res, 200, { ok: true, code: siteCode(dir), last: lastSiteHeadChange(dir) }), true;
   if (req.method === 'POST' && p === '/_tykerf/site/code') {
-    if (kind !== 'site') return json(res, 422, { ok: false, error: 'this folder is a single page; its head is in the Page tab' }), true;
     setSiteCode(dir, String((await body(req)).code ?? ''));
     refreshAll();
     return json(res, 200, { ok: true, last: lastSiteHeadChange(dir) }), true;
   }
   // Publish: the site's export committed to a GitHub repository (src/publish.ts); the token is TYKERF_GITHUB_TOKEN in .env
   if (req.method === 'GET' && p === '/_tykerf/site/publish') {
-    if (kind !== 'site') return json(res, 200, { ok: true, site: false }), true;
     return json(res, 200, { ok: true, site: true, settings: readSite(dir).publish ?? null, token: !!process.env.TYKERF_GITHUB_TOKEN, last: lastPublish(), running: publishing }), true;
   }
   if (req.method === 'POST' && (p === '/_tykerf/site/publish/settings' || p === '/_tykerf/site/publish')) {
-    if (kind !== 'site') return json(res, 422, { ok: false, error: 'publishing is for a site; export this page from the Site menu' }), true;
     const a = await body(req);
     if (p === '/_tykerf/site/publish/settings') {
       setPublish(dir, a.settings === null ? null : a.settings as PublishSettings); // throws on settings it can't use: a 422 that says why
@@ -402,11 +452,10 @@ async function serveGlobal(req: IncomingMessage, res: ServerResponse, p: string,
     }
   }
   if (req.method === 'GET' && p === '/_tykerf/site/head') {
-    json(res, 200, { ok: true, html: kind === 'site' ? siteHead(dir) : '', last: kind === 'site' ? lastSiteHeadChange(dir) : null });
+    json(res, 200, { ok: true, html: siteHead(dir), last: lastSiteHeadChange(dir) });
     return true;
   }
   if (req.method === 'POST' && (p === '/_tykerf/site/head' || p === '/_tykerf/site/head/undo' || p === '/_tykerf/site/theme/share')) {
-    if (kind !== 'site') return json(res, 422, { ok: false, error: 'this folder is a single page; it has no site theme' }), true;
     const a = await body(req);
     let result: unknown = null;
     if (p === '/_tykerf/site/head') setSiteHead(dir, String(a.html ?? ''));
@@ -421,7 +470,7 @@ async function serveGlobal(req: IncomingMessage, res: ServerResponse, p: string,
   }
   // the site's icon, at /favicon.<ext> like an export has it (site.ts siteIcon); /favicon.ico answers too when
   // the icon is another file, for browsers that ask for it without reading the page
-  if (req.method === 'GET' && kind === 'site' && /^\/favicon\.(svg|png|ico)$/.test(p)) {
+  if (req.method === 'GET' && /^\/favicon\.(svg|png|ico)$/.test(p)) {
     const icon = siteIcon(dir);
     if (p !== `/${icon.file}` && p !== '/favicon.ico') return res.writeHead(404).end('not found'), true;
     res.writeHead(200, { 'content-type': icon.type, 'cache-control': 'no-cache', 'x-content-type-options': 'nosniff', 'content-security-policy': 'sandbox' });
@@ -429,12 +478,10 @@ async function serveGlobal(req: IncomingMessage, res: ServerResponse, p: string,
     return true;
   }
   if (req.method === 'GET' && p === '/_tykerf/site/icon') {
-    if (kind !== 'site') return json(res, 422, { ok: false, error: 'this folder is a single page; it has no site icon' }), true;
     const icon = siteIcon(dir);
     return json(res, 200, { ok: true, own: icon.own, file: icon.file }), true;
   }
   if (req.method === 'POST' && p === '/_tykerf/site/icon') {
-    if (kind !== 'site') return json(res, 422, { ok: false, error: 'this folder is a single page; it has no site icon' }), true;
     const a = await body(req);
     try {
       setSiteIcon(dir, a.data ? { type: String(a.type ?? ''), bytes: new Uint8Array(Buffer.from(String(a.data), 'base64')) } : null);
@@ -445,17 +492,15 @@ async function serveGlobal(req: IncomingMessage, res: ServerResponse, p: string,
     return json(res, 200, { ok: true, own: siteIcon(dir).own, file: siteIcon(dir).file }), true;
   }
   // the site kit's behaviours and their loader (src/kit.ts), which every page of the site loads from /kit/
-  const kitDir = kind === 'site' ? dir : siteOf(dir)?.dir;
-  if (req.method === 'GET' && kitDir && p.startsWith('/kit/')) {
+  if (req.method === 'GET' && p.startsWith('/kit/')) {
     const m = /^\/kit\/(?:loader|scripts\/([a-z0-9][a-z0-9-]{0,40}))\.js$/.exec(p);
-    const code = !m ? null : m[1] ? kitRead(kitDir, 'scripts', m[1]) : KIT_LOADER;
+    const code = !m ? null : m[1] ? kitRead(dir, 'scripts', m[1]) : KIT_LOADER;
     if (code === null) return res.writeHead(404).end('not found'), true;
     res.writeHead(200, { 'content-type': 'text/javascript; charset=utf-8', 'cache-control': 'no-cache', 'x-content-type-options': 'nosniff' });
     return res.end(code), true;
   }
   // the site kit in the manager: its files by kind, the boxes already the same on several pages, undo
   if (p.startsWith('/_tykerf/site/kit')) {
-    if (kind !== 'site') return json(res, 422, { ok: false, error: 'a site kit is for a site; this folder is a single page' }), true;
     if (req.method === 'GET' && p === '/_tykerf/site/kit') {
       const files = kitList(dir);
       return json(res, 200, { ok: true, files, last: lastKitChange(dir), identical: identicalBoxes(dir), users: Object.fromEntries(files.blocks.map((b) => [b, Object.keys(blockUsers(dir, b))])) }), true;
@@ -476,7 +521,7 @@ async function serveGlobal(req: IncomingMessage, res: ServerResponse, p: string,
     }
   }
   // the site's own files (the shared theme's fonts), at /assets/ like an export has them
-  if (req.method === 'GET' && kind === 'site' && p.startsWith('/assets/')) {
+  if (req.method === 'GET' && p.startsWith('/assets/')) {
     const f = decodeURIComponent(p.slice('/assets/'.length));
     const store = new FolderStore(dir);
     const bytes = /^[A-Za-z0-9][A-Za-z0-9._-]*$/.test(f) ? store.readBytes(`assets/${f}`) : null;
@@ -495,9 +540,14 @@ async function serveGlobal(req: IncomingMessage, res: ServerResponse, p: string,
     req.on('close', () => siteClients.delete(res));
     return true;
   }
+  // Kaity's work across the site: every run on any page or on the whole site, the ones going on now first (kaity-log.ts)
+  if (req.method === 'GET' && p === '/_tykerf/site/kaity') {
+    const live = new Map([siteAI.progress(), ...[...hosts.values()].map((h) => h.ai.progress())].filter((r) => !!r).map((r) => [r.run, r]));
+    const runs = kaityRuns(dir, live);
+    return json(res, 200, { ok: true, runs: [...runs.filter((r) => r.state === 'working'), ...runs.filter((r) => r.state !== 'working')] }), true;
+  }
   if (req.method === 'GET' && p === '/_tykerf/site/chat') return json(res, 200, { ok: true, ...siteAI.chat(SITE_CHAT), running: !!siteAI.running() }), true;
   if (req.method === 'POST' && (p === '/_tykerf/site/ask' || p === '/_tykerf/site/ask/cancel' || p === '/_tykerf/site/chat/reset')) {
-    if (kind !== 'site') return json(res, 422, { ok: false, error: 'this folder is a single page: ask Kaity about it in the editor' }), true;
     const a = await body(req);
     if (p === '/_tykerf/site/ask/cancel') return json(res, 200, { ok: siteAI.cancel() }), true;
     if (p === '/_tykerf/site/chat/reset') return json(res, 200, { ok: siteAI.reset(SITE_CHAT) }), true;
@@ -507,14 +557,12 @@ async function serveGlobal(req: IncomingMessage, res: ServerResponse, p: string,
     return json(res, 200, { ok: true }), true;
   }
   // the pages removed into the site's .trash, and emptying it for good
-  if (req.method === 'GET' && p === '/_tykerf/site/trash') return json(res, 200, { pages: kind === 'site' ? trashedPages(dir) : [] }), true;
+  if (req.method === 'GET' && p === '/_tykerf/site/trash') return json(res, 200, { pages: trashedPages(dir) }), true;
   if (req.method === 'POST' && p === '/_tykerf/site/trash/empty') {
-    if (kind !== 'site') return json(res, 422, { ok: false, error: 'this folder is a single page; it has no site trash' }), true;
     await body(req);
     return json(res, 200, { ok: true, deleted: emptyTrash(dir) }), true;
   }
   if (req.method === 'POST' && (p === '/_tykerf/site/rename' || p === '/_tykerf/site/remove')) {
-    if (kind !== 'site') return json(res, 422, { ok: false, error: 'this folder is a single page; rename its folder outside TYKERF' }), true;
     const a = await body(req);
     const name = String(a.name ?? a.from ?? '');
     if (!sitePages(dir).includes(name)) return json(res, 422, { ok: false, error: `there is no page "${name}" in the site` }), true;
@@ -535,6 +583,7 @@ async function serveGlobal(req: IncomingMessage, res: ServerResponse, p: string,
       const h = hosts.get(name);
       hosts.delete(name);
       const r = renamePage(dir, name, to);
+      followMoves(); // its own move: the host is closed below
       h?.close(`/${to}/`);
       for (const other of hosts.values()) other.refresh();
       json(res, 200, { ok: true, url: `/${to}/`, links: r.links });
@@ -542,6 +591,7 @@ async function serveGlobal(req: IncomingMessage, res: ServerResponse, p: string,
       const h = hosts.get(name);
       hosts.delete(name);
       const r = removePage(dir, name);
+      followMoves();
       // open tabs of the page go to the site's home, where all its pages are
       h?.close(MANAGER);
       json(res, 200, { ok: true, url: MANAGER, trash: r.trash, broken: r.broken });
@@ -565,16 +615,14 @@ async function serveGlobal(req: IncomingMessage, res: ServerResponse, p: string,
     const from = exportDir(url);
     if (!from) return json(res, 404, { ok: false, error: 'no such page in this site' }), true;
     const { exportFiles } = await import('../export.js');
-    json(res, 200, { ok: true, kind, report: exportFiles(from, { publicUrl: PUBLIC_URL }).report });
+    json(res, 200, { ok: true, report: exportFiles(from, { publicUrl: PUBLIC_URL }).report });
     return true;
   }
   // the AI: which runner and model answer, whether it can run, and what is running now (never a key)
   if (req.method === 'GET' && p === '/_tykerf/ai/status') {
     // the runner's own check may be slow (Claude Code starts its whole CLI): wait for it a little, never long
     if (runner.warm) await Promise.race([runner.warm(), new Promise((ok) => setTimeout(ok, 1500))]);
-    const running = single
-      ? [single.ai.running()].filter(Boolean).map((r) => ({ page: null, id: r!.id }))
-      : [...hosts].flatMap(([page, h]) => [h.ai.running()].filter(Boolean).map((r) => ({ page, id: r!.id })));
+    const running = [...hosts].flatMap(([page, h]) => [h.ai.running()].filter(Boolean).map((r) => ({ page, id: r!.id })));
     json(res, 200, { ok: true, runner: runner.name ?? 'custom', model: runner.model ?? null, ...(runner.status?.() ?? { ready: true, note: '' }), testable: !!runner.check, running });
     return true;
   }
@@ -591,7 +639,7 @@ async function serveGlobal(req: IncomingMessage, res: ServerResponse, p: string,
     return true;
   }
   if (req.method === 'GET' && p === '/_tykerf/site/links') {
-    json(res, 200, { links: kind === 'site' ? pageLinks(dir) : [] });
+    json(res, 200, { links: pageLinks(dir) });
     return true;
   }
   return false;
@@ -622,7 +670,6 @@ function visitorMay(req: IncomingMessage, p: string): boolean {
   if (p.startsWith('/_tykerf/fonts/') || p === '/_tykerf/login' || p === '/_tykerf/favicon.svg') return true;
   if (p.startsWith('/_tykerf/')) return false;
   // anything else under a page is either the page, its files, or not there (a 404 page, not a refusal)
-  if (single) return true;
   const rel = /^\/[^/]+(\/.*)?$/.exec(p)?.[1];
   return rel === undefined || !rel.startsWith('/_tykerf/');
 }
@@ -672,9 +719,10 @@ createServer(async (req, res) => {
   // doubled slashes (//, /rome//) go to the clean address
   if (p.includes('//')) return redirect(res, `${p.replace(/\/{2,}/g, '/')}${url.search}`);
   try {
-    followFolder();
     // signing in and out, and what visitors may see when TYKERF serves the site (auth.ts)
-    if (p === '/_tykerf/login' && req.method === 'GET') return res.writeHead(200, { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store' }).end(loginPage(url.searchParams.get('next') ?? (single ? '/' : MANAGER))), undefined;
+    // signed in already: the sign-in page goes straight on
+    if (p === '/_tykerf/login' && req.method === 'GET' && auth.on && auth.admin(req)) return redirect(res, /^\/(?!\/)[^\s"<>]*$/.test(url.searchParams.get('next') ?? '') ? url.searchParams.get('next')! : MANAGER);
+    if (p === '/_tykerf/login' && req.method === 'GET') return res.writeHead(200, { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store' }).end(loginPage(url.searchParams.get('next') ?? MANAGER)), undefined;
     if (p === '/_tykerf/login' && req.method === 'POST') {
       const r = await auth.login(req, res, String((await body(req)).password ?? ''));
       return json(res, r === 'ok' ? 200 : r === 'locked' ? 429 : 401, { ok: r === 'ok' });
@@ -688,11 +736,10 @@ createServer(async (req, res) => {
       return json(res, 401, { ok: false, error: 'sign in to edit this site' });
     }
     // a visitor at a site without a home page gets the list of its pages, not the manager
-    if (!admin && !single && p === '/' && !readSite(dir).home) return redirect(res, '/pages/');
+    if (!admin && p === '/' && !readSite(dir).home) return redirect(res, '/pages/');
+    // TYKERF's own address on its own (typed by hand, or signed in from it) is the site manager
+    if (req.method === 'GET' && (p === '/_tykerf' || p === '/_tykerf/')) return redirect(res, MANAGER);
     if (serveStatic(req, res, p) || (await serveGlobal(req, res, p, url))) return;
-    // a single page has no site manager: its address leads to the page (signing in goes there too)
-    if (single && req.method === 'GET' && p === MANAGER) return redirect(res, '/');
-    if (single) return notThere(req, p) ? notFound(res, admin) : await single.handle(req, res, p, url);
     // the list of the site's pages, and its sitemap when its public address is known
     if (p === '/pages') return redirect(res, '/pages/');
     // under the list: the way in for the admin (sign-in for a visitor, the manager once in)
@@ -718,4 +765,7 @@ createServer(async (req, res) => {
   } catch (e) {
     json(res, 422, { ok: false, error: (e as Error).message });
   }
-}).listen(PORT, HOST, () => console.log(`TYKERF: http://localhost:${PORT}  (${kind === 'page' ? `page ${dir}` : `site ${dir}, ${sitePages(dir).length} pages`}; AI: ${runner.name}${runner.model ? `, ${runner.model}` : ''})`));
+}).listen(PORT, HOST, () => {
+  console.log(`TYKERF: http://localhost:${PORT}  (site ${dir}, ${sitePages(dir).length} pages; AI: ${runner.name}${runner.model ? `, ${runner.model}` : ''})`);
+  if (auth.on) console.log(`Visitors see the pages; sign in to edit at http://localhost:${PORT}/_tykerf/login (TYKERF_ADMIN_PASSWORD)`);
+});

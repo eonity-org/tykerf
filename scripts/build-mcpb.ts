@@ -92,7 +92,7 @@ export async function buildMcpb(out = join(root, 'dist', 'mcpb'), opts: { pack?:
       page_folder: {
         type: 'directory',
         title: 'Page folder',
-        description: 'The TYKERF page to edit (a folder with a layout.slice), or an empty folder: Claude then starts the page there from a layout.',
+        description: 'The TYKERF site to edit (a folder of pages), one of its pages, or an empty folder: Claude then starts a site there, with its home page from a layout.',
         required: true,
       },
     },

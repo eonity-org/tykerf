@@ -7,7 +7,7 @@ import { mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
-import { AI, type ChatMessage, claudeEnv, step } from '../src/editor/ai.js';
+import { AI, type ChatMessage, claudeEnv, step, stepAt } from '../src/editor/ai.js';
 import { AnthropicRunner } from '../src/editor/runners/anthropic.js';
 import { GeminiRunner, geminiSchema } from '../src/editor/runners/gemini.js';
 import { runnerFromEnv } from '../src/editor/runners/index.js';
@@ -92,7 +92,7 @@ describe('the Anthropic runner', () => {
       ['user', 'make it new'],
       ['step', 'set content a <p>new A</p>'],
       ['step', 'set content c <p>no</p>'],
-      ['step', expect.stringMatching(/^refused: .*outside the scope/)],
+      ['step', expect.stringMatching(/^refused: (?!refused:).*outside the scope/)],
       ['ai', 'Done: a says new A.'],
     ]);
     expect(ws.history(1)[0]).toMatchObject({ author: 'ai' });
@@ -340,8 +340,17 @@ describe('a step as Kaity\'s work shows it', () => {
   it('stays short: long text, whole themes and lists are cut', () => {
     expect(step('mcp__tykerf__use_component', { id: 'text', name: 'hero' })).toBe('use component text hero');
     expect(step('set_content', { id: 'nav', html: '<style>:scope { background: var(--section-bg); }</style>' })).toBe(`set content nav ${'<style>:scope { background: var(--section-bg); }</style>'.slice(0, 32)}…`);
-    const theme = step('set_theme', { values: { '--color-accent': '#d8491f', '--color-band': '#f4efeb', '--font-heading': '"Playfair Display", Georgia, serif' } });
-    expect(theme).toBe(`set theme ${JSON.stringify({ '--color-accent': '#d8491f', '--color-band': '#f4efeb', '--font-heading': '"Playfair Display", Georgia, serif' }).slice(0, 48)}…`);
+    const theme = step('set_theme', { changes: [{ name: '--color-accent', value: '#d8491f' }, { name: '--color-band', value: '#f4efeb' }, { name: '--font-heading', value: '"Playfair Display", Georgia, serif' }] });
+    expect(theme).toBe(`set theme ${'--color-accent: #d8491f, --color-band: #f4efeb, --font-heading: "Playfair Display", Georgia, serif'.slice(0, 48)}…`);
     expect(step('split', { leaf: 'text', kind: 'column', names: Array.from({ length: 30 }, (_, i) => `section${i}`) }).length).toBeLessThanOrEqual(97);
+  });
+
+  it('says where on the page it is, so the page can follow her: the block, or the task she closes', () => {
+    expect(stepAt('mcp__tykerf__edit_content', { id: 'faq', old: 'a', new: 'b' })).toEqual({ block: 'faq' });
+    expect(stepAt('get_layout', { ref: 'page/row2' })).toEqual({ block: 'page/row2' });
+    expect(stepAt('split', { leaf: 'hero', kind: 'row', n: 3 })).toEqual({ block: 'hero' }); // n is a count here
+    expect(stepAt('swap', { ids: ['a', 'b'] })).toEqual({ block: 'a' });
+    expect(stepAt('close_task', { n: 4, reply: 'done' })).toEqual({ task: 4 });
+    expect(stepAt('get_theme', {})).toBeUndefined();
   });
 });

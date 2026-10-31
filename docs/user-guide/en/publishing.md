@@ -73,7 +73,7 @@ TYKERF_PUBLIC_URL=https://cities.example.org  # the site's address
 ```
 
 - **Visitors** get the pages without the editor, their images, `/`, `/pages/`, `/sitemap.xml` and the site's icon. Every editor address answers *sign in first*.
-- **You** sign in at `/_tykerf/login`; the list of pages links to it (*Sign in to edit*). **Sign out** is in the site manager.
+- **You** sign in at `/_tykerf/login` (TYKERF prints it when it starts, and `/_tykerf/` leads there too); the list of pages links to it (*Sign in to edit*). You stay signed in for a week, restarts included. After that, a browser that has signed in before gets **Edit with TYKERF** on every page, which signs you in and brings you back to the same page; visitors never see it. **Sign out** is in the site manager.
 - Run it behind a proxy that does HTTPS (Caddy or nginx). [DEPLOY.md](../../../DEPLOY.md#serve-a-site-to-visitors-with-an-admin) has the setup.
 
 Without `TYKERF_ADMIN_PASSWORD`, TYKERF is a local editor: anyone who can reach it edits, and uses your AI account. Don't put it on the internet that way.

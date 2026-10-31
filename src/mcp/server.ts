@@ -26,7 +26,7 @@ if (process.argv.includes('--lazy')) {
 } else {
   // a folder pasted into a setting (Claude Desktop's "Page folder") easily brings a space at either end
   const dir = resolve((flag('--dir') ?? process.env.TYKERF_DIR ?? '.').trim());
-  if (!existsSync(join(dir, 'layout.slice'))) console.error(`TYKERF: no page in ${dir} itself: in a site, open_page and new_page work on its pages; in an empty folder, use_layout starts one`);
+  if (!existsSync(join(dir, 'layout.slice'))) console.error(`TYKERF: no page in ${dir} itself: in a site, open_page and new_page work on its pages; in an empty folder, use_layout starts a site with its home page`);
   // a page of a site renders with the site's shared head (its theme)
   const ws = new Workspace(dir, { site: siteOf(dir) });
   // --scope: the block of one editor AI run (see tools.ts)

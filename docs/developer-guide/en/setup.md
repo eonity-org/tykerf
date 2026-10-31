@@ -23,7 +23,7 @@ npm test && npm run typecheck
 ## Run it
 
 ```bash
-npm start -- examples/widgets                 # one page, at http://localhost:4400
+npm start -- examples                         # the sample site: its one page at http://localhost:4400/widgets/
 npm start -- /tmp/my-site --port 4500         # a new or empty folder is a site: the start screen
 npm run mcp -- --dir examples/widgets         # the MCP server on stdio
 npm run cli -- layouts                      # the command line (outline, render, export, import, new, …)

@@ -97,14 +97,26 @@ describe('the AI and the theme (MCP server)', () => {
 
   it('changes it when the scope is the whole page', async () => {
     scope('page');
-    const r = await call('set_theme', { values: { '--color-accent': '#c2185b' } });
+    const r = await call('set_theme', { changes: [{ name: '--color-accent', value: '#c2185b' }] });
     expect(r).toEqual({ text: 'theme changed:\n--color-accent: #1a52dd -> #c2185b', error: false });
     expect(readTheme(new Workspace(dir).head())['--color-accent']).toBe('#c2185b');
   });
 
+  it('takes the names as models write them: with quotes, spaces or no dashes; and says which exist when one does not', async () => {
+    scope('page');
+    const r = await call('set_theme', { changes: [{ name: '"--color-accent"', value: '#b0306a' }, { name: ' color_text ', value: '#101010' }, { name: 'var(--color-band)', value: '#eeeeee' }] }); // as Gemini sent them
+    expect(r).toMatchObject({ error: false, text: expect.stringContaining('--color-accent: #c2185b -> #b0306a') });
+    expect(r.text).toContain('--color-text:');
+    expect(r.text).toContain('--color-band:');
+    const bad = await call('set_theme', { changes: [{ name: 'varname_53', value: '' }] });
+    expect(bad).toMatchObject({ error: true, text: expect.stringMatching(/unknown theme variables: --varname-53 \(the theme has --color-bg, .*--color-accent/) });
+    expect((await call('set_theme', { changes: [] })).error).toBe(true);
+    await call('undo'); // as the next tests expect it
+  });
+
   it('refuses it from a smaller block, and refuses undoing it from there', async () => {
     scope('hero');
-    const r = await call('set_theme', { values: { '--color-accent': '#000000' } });
+    const r = await call('set_theme', { changes: [{ name: '--color-accent', value: '#000000' }] });
     expect(r.error).toBe(true);
     expect(r.text).toMatch(/scope is "hero".*select the page block/);
     expect((await call('undo')).text).toMatch(/refused: undoing "theme: --color-accent #c2185b" would change the page head/);

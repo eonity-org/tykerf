@@ -1,6 +1,7 @@
 // A site: a folder whose subfolders are pages (my-site/home, my-site/about), each a workspace of its
 // own. The editor serves each page at its own address (/home/, /about/) and can add pages to the
-// site. A folder that is a page itself (it has a layout.slice) is edited on its own, as before.
+// site. Every page TYKERF makes is in a site: a page in a new or empty folder makes a site with that
+// page as its home, which the site's address opens.
 //
 // This is the local shape of what Tydal will hold later: a site is a Vault, each page a resource.
 
@@ -15,6 +16,8 @@ import { NO_SITE_HEAD, type SiteLink, Workspace } from './workspace.js';
 import { kitBlock, kitList, kitLoaderTag, kitStyles, kitTypes, kitWrite } from './kit.js';
 import type { Registry } from './types.js';
 
+/** The name of a new site's first page, which becomes its home page. */
+export const HOME_PAGE = 'home';
 /** Page names: they are folder names and the first part of the page's address in the editor. */
 export const PAGE_NAME = /^[a-z0-9][a-z0-9-]{0,62}$/;
 /** Names the editor uses at the top of its addresses. */
@@ -69,16 +72,19 @@ export function pageNameError(dir: string, name: string): string | null {
  * Add a page to a site, from a layout and a theme preset. Returns the page's workspace.
  * In a site that shares one theme the page uses it (the preset is not used); a new, empty site starts
  * sharing the preset's theme with this first page; an older site whose pages each have their own
- * theme gets one more page with its own.
+ * theme gets one more page with its own. The site's first page becomes its home page.
  */
 export function newSitePage(dir: string, name: string, layout = 'blank', themeName = DEFAULT_THEME): Workspace {
   const err = pageNameError(dir, name);
   if (err) throw new Error(err);
-  const fresh = !sitePages(dir).length && !existsSync(join(dir, SITE_HEAD));
+  const first = !sitePages(dir).length;
+  const fresh = first && !existsSync(join(dir, SITE_HEAD));
   const ws = pageWorkspace(dir, name);
   const shared = hasTheme(siteHead(dir)) || fresh;
   createPage(ws, layout, themeName, { ownTheme: !shared });
   if (fresh) startSiteTheme(dir, themeName);
+  // a site's first page is its home: the site's address opens it
+  if (first && !readSite(dir).home) setHome(dir, name);
   // a box named like one of the site's shared blocks (its navigation, its footer) shows that block
   const blocks = new Set(kitList(dir).blocks);
   const start = ws.load();
@@ -625,6 +631,21 @@ export function pageLinks(dir: string): PageLink[] {
 }
 
 /** Rename a page: its folder (with its history, AI conversations and images) and every link to it. */
+/** Where pages went: one line per rename or removal, so an editor whose pages another process moved (Kaity's
+ *  site run, through MCP) sends their open tabs after them. */
+const MOVES = '.tykerf/moves.jsonl';
+export interface PageMove { from: string; to: string | null; at: string }
+
+function logMove(dir: string, from: string, to: string | null) {
+  new FolderStore(dir).append(MOVES, `${JSON.stringify({ from, to, at: new Date().toISOString() })}\n`);
+}
+
+/** Every page move the site recorded, oldest first. */
+export function pageMoves(dir: string): PageMove[] {
+  const raw = new FolderStore(dir).read(MOVES) ?? '';
+  return raw.split('\n').flatMap((l) => { try { return l ? [JSON.parse(l) as PageMove] : []; } catch { return []; } });
+}
+
 export function renamePage(dir: string, from: string, to: string): { links: number } {
   if (!sitePages(dir).includes(from)) throw new Error(`there is no page "${from}" in the site`);
   if (from === to) return { links: 0 };
@@ -638,6 +659,7 @@ export function renamePage(dir: string, from: string, to: string): { links: numb
     if (from in s.titles) (s.titles[to] = s.titles[from]), delete s.titles[from];
     writeSite(dir, s);
   }
+  logMove(dir, from, to);
   return { links: rewriteLinks(dir, from, to) };
 }
 
@@ -697,6 +719,7 @@ export function removePage(dir: string, name: string): { trash: string; broken: 
   const trash = join('.trash', `${name}-${new Date().toISOString().replace(/[:.]/g, '-')}`);
   mkdirSync(join(dir, '.trash'), { recursive: true });
   renameSync(join(dir, name), join(dir, trash));
+  logMove(dir, name, null);
   return { trash, broken: pageLinks(dir).filter((l) => l.to === name).length };
 }
 

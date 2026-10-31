@@ -1,7 +1,8 @@
 // Who may edit when TYKERF serves a site to visitors. With TYKERF_ADMIN_PASSWORD set, visitors get the
 // pages as they are (no editor, no /_tykerf/ API) and the admin signs in at /_tykerf/login: a random
-// session token in an HttpOnly cookie, kept in memory (a restart signs everyone out). Without it, TYKERF
-// is the local editor it always was, and everyone who reaches it edits.
+// session token in an HttpOnly cookie. The server keeps only the token's hash, in `keep` (the site's
+// .tykerf/sessions.json), so a restart doesn't sign anyone out; a new password ends every session.
+// Without a password, TYKERF is the local editor it always was, and everyone who reaches it edits.
 
 import { createHash, randomBytes, timingSafeEqual } from 'node:crypto';
 import type { IncomingMessage, ServerResponse } from 'node:http';
@@ -24,6 +25,13 @@ export interface Auth {
 }
 
 const digest = (s: string) => createHash('sha256').update(s).digest();
+const hashOf = (token: string) => createHash('sha256').update(token).digest('base64url');
+
+/** Where the sessions are kept between restarts: their tokens' hashes and when they end. */
+export interface SessionStore {
+  read(): string | null;
+  write(text: string): void;
+}
 
 function cookieOf(req: IncomingMessage): string | null {
   for (const part of (req.headers.cookie ?? '').split(';')) {
@@ -34,15 +42,27 @@ function cookieOf(req: IncomingMessage): string | null {
 }
 
 /** `secure`: the cookie only travels over HTTPS (the public address is https, or a proxy says so). */
-export function createAuth(password: string | null | undefined, opts: { secure?: boolean } = {}): Auth {
-  const sessions = new Map<string, number>(); // token → expiry
+export function createAuth(password: string | null | undefined, opts: { secure?: boolean; keep?: SessionStore } = {}): Auth {
+  const sessions = new Map<string, number>(); // token's hash → expiry
   const fails = new Map<string, { n: number; until: number }>(); // address → wrong passwords
   const wanted = password ? digest(password) : null;
+  // the kept sessions belong to this password: a hash of its digest says which, without saying the password
+  const which = wanted ? createHash('sha256').update(wanted).update('tykerf-sessions').digest('base64url') : '';
+  try {
+    const kept = JSON.parse(opts.keep?.read() ?? 'null');
+    if (wanted && kept?.password === which) for (const [h, until] of Object.entries(kept.sessions ?? {})) if (typeof until === 'number' && until > Date.now()) sessions.set(h, until);
+  } catch {}
+  const save = () => {
+    try {
+      opts.keep?.write(`${JSON.stringify({ password: which, sessions: Object.fromEntries([...sessions].filter(([, until]) => until > Date.now())) })}\n`);
+    } catch {}
+  };
   const valid = (req: IncomingMessage) => {
     const token = cookieOf(req);
-    const until = token ? sessions.get(token) : undefined;
+    const h = token ? hashOf(token) : '';
+    const until = token ? sessions.get(h) : undefined;
     if (!token || !until) return false;
-    if (until < Date.now()) return sessions.delete(token), false;
+    if (until < Date.now()) return sessions.delete(h), save(), false;
     return true;
   };
   const setCookie = (req: IncomingMessage, res: ServerResponse, value: string, maxAge: number) => {
@@ -66,13 +86,14 @@ export function createAuth(password: string | null | undefined, opts: { secure?:
       }
       fails.delete(who);
       const token = randomBytes(32).toString('base64url');
-      sessions.set(token, Date.now() + SESSION_MS);
+      sessions.set(hashOf(token), Date.now() + SESSION_MS);
+      save();
       setCookie(req, res, token, SESSION_MS / 1000);
       return 'ok';
     },
     logout(req, res) {
       const token = cookieOf(req);
-      if (token) sessions.delete(token);
+      if (token && sessions.delete(hashOf(token))) save();
       setCookie(req, res, '', 0);
     },
   };
@@ -126,7 +147,8 @@ export function loginPage(next: string): string {
   form.onsubmit = async (e) => {
     e.preventDefault();
     const r = await fetch('/_tykerf/login', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ password: form.password.value }) });
-    if (r.ok) return location.replace(${JSON.stringify(to)});
+    // this browser has signed in here: the site's pages offer it the way back in (server.ts EDIT_BUTTON)
+    if (r.ok) return (localStorage.setItem('tykerf.admin', 'true'), location.replace(${JSON.stringify(to)}));
     error.hidden = false;
     error.textContent = r.status === 429 ? 'Too many tries. Wait a few minutes, then try again.' : 'That password is not right.';
     form.password.select();

@@ -58,6 +58,11 @@ describe('sites', () => {
     }
     expect(existsSync(join(dir, 'assets', 'dm-sans-latin-wght-normal.woff2'))).toBe(true); // its fonts, at the site
     expect(siteHead(dir)).toContain('url("/assets/dm-sans-latin-wght-normal.woff2")');
+    // the first page is the site's home page; a later one isn't, until someone makes it so
+    expect(readSite(dir).home).toBe('home');
+    setHome(dir, null);
+    newSitePage(dir, 'blog');
+    expect(readSite(dir).home).toBeUndefined();
   });
 
   it("keep the site theme in its own history, and share one page's theme in an older site", () => {
@@ -172,7 +177,7 @@ describe('sites', () => {
     let tools = await openTools(home, home.load().root.id);
     expect((await tools.call('get_theme', {})).text).toMatch(/every page of the site shares; this is the site's only page[\s\S]*--color-accent: #2d5bff/);
     // the first page of a new site (Kaity building it from a design): its theme is the site's
-    let set = await tools.call('set_theme', { values: { '--font-heading': '"Playfair Display", Georgia, serif' } });
+    let set = await tools.call('set_theme', { changes: [{ name: '--font-heading', value: '"Playfair Display", Georgia, serif' }] });
     expect(set.text).toMatch(/^site theme changed/);
     expect(siteHead(dir)).toContain('--font-heading: "Playfair Display", Georgia, serif;');
     expect(siteHead(dir)).toContain('url("/assets/playfair-display-latin-wght-normal.woff2")'); // the font comes along
@@ -192,7 +197,7 @@ describe('sites', () => {
     // with a second page, one page's AI changes only that page
     const about = newSitePage(dir, 'about', 'launch');
     tools = await openTools(about, about.load().root.id);
-    set = await tools.call('set_theme', { values: { '--color-accent': '#ff0000', '--color-text': '#0b0e16' } });
+    set = await tools.call('set_theme', { changes: [{ name: '--color-accent', value: '#ff0000' }, { name: '--color-text', value: '#0b0e16' }] });
     expect(set.text).toMatch(/^this page's own theme values changed/);
     expect(set.text).toContain('--color-accent: #2d5bff -> #ff0000');
     expect(set.text).not.toContain('--color-text'); // already the site's value
@@ -397,7 +402,7 @@ describe('a new page from the command line', () => {
     const dir = tmp();
     newSitePage(dir, 'home', 'blank', 'studio');
     const page = cli(join(dir, 'home'), 'biased');
-    expect([page.status, page.stderr]).toEqual([1, expect.stringMatching(/is already a page; a new page there would replace it/)]);
+    expect([page.status, page.stderr]).toEqual([1, expect.stringMatching(new RegExp(`is a page; a new page there would replace it. Give its site \\(${dir}\\)`))]);
     const other = tmp();
     writeFileSync(join(other, 'notes.txt'), 'hello');
     const r = cli(other, 'biased');
@@ -405,10 +410,16 @@ describe('a new page from the command line', () => {
     expect(readdirSync(other)).toEqual(['notes.txt']);
   });
 
-  it('makes a page in an empty or new folder, as before', () => {
+  it('makes a site in an empty or new folder, with the page as its home', () => {
     const dir = join(tmp(), 'new');
     const r = cli(dir, 'biased', '--theme', 'biased');
     expect([r.status, r.stderr]).toEqual([0, '']);
-    expect(siteKind(dir)).toBe('page');
+    expect(siteKind(dir)).toBe('site');
+    expect(sitePages(dir)).toEqual(['home']);
+    expect(readSite(dir).home).toBe('home');
+    expect(readTheme(siteHead(dir))['--color-text']).toBe('#16181d'); // the theme asked for is the site's, for its next pages too
+    const named = join(tmp(), 'other');
+    expect(cli(named, 'blank', '--name', 'welcome').status).toBe(0);
+    expect([sitePages(named), readSite(named).home]).toEqual([['welcome'], 'welcome']);
   });
 });
