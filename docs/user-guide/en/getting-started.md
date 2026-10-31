@@ -55,7 +55,7 @@ It takes a few minutes and uses your AI account. The **×** stops her; what she 
 
 When it is done, the window shows Kaity's summary and a short guide to go on. Then choose:
 - **Open the editor:** you land on the page's **Kaity** tab, where you can keep talking ("make the hero shorter", "add a pricing section");
-- **See the page:** you see it as visitors will. **Edit with TYKERF**, at the bottom right, opens the editor any time.
+- **See the page:** you see it as visitors will. **Edit with TYKERF**, at the bottom right, opens the editor any time. It starts in the **Tasks** mode: point at anything and say what should change, then give your tasks to Kaity. **Edit**, next to it, is the whole editor (see [two modes](editor.md#two-modes-tasks-and-edit)).
 
 Every step is an ordinary change, so you can undo any of them.
 

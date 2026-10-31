@@ -117,6 +117,10 @@ How the client works:
 - **Text.** Every string a person sees goes through `t('English text', vars)`, with whole sentences as keys (see [Extending TYKERF](extending.md#a-translation)).
 - **Fonts.** The panel's fonts are declared in `document.head` under TYKERF-only names (`@font-face` doesn't work inside a shadow root) and served by TYKERF. Nothing loads from a CDN.
 
+### The two modes
+
+`S.mode` is `tasks` (the default, stored as `tykerf.mode`) or `edit`. `setMode` swaps the panel's body: the Edit mode shows the tree and the work area (`.body`); the Tasks mode shows `.taskpanel` (`renderTaskPanel`: Kaity's status from `kaityStatus`, her latest step updated in place by `renderKaityStep`, her last answer in `S.lastRun`, then the tasks by block) and turns `setTaskMode` on, so a click on the page adds a task. The header's `.tabsbtn` and `.copybtn` show only in the Tasks mode (the class `tasks-mode` on the panel), where the path and Dim/Blur step aside. `askTasks` keeps the Tasks mode (the panel follows Kaity) and opens the block's Kaity tab in the Edit mode. `?block=&tab=` opens the Edit mode without storing it; a finished page build (`renderJob`) shows Kaity's answer in the Tasks mode.
+
 ### Editing in place
 
 `tykerf.js` does the editing, with the pure helpers in `public/inline.js`.

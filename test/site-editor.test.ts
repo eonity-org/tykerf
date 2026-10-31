@@ -37,6 +37,7 @@ beforeAll(async () => {
   await page.addInitScript(() => {
     try {
       localStorage.setItem('tykerf.on', 'true');
+      localStorage.setItem('tykerf.mode', '"edit"'); // these tests are about the whole editor
     } catch {}
   });
 }, 60_000);

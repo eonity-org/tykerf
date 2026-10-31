@@ -180,21 +180,23 @@ textarea.head-code { min-height: 160px; }
 .toggle .mark { width: 18px; height: 18px; }
 .toggle[aria-pressed="true"] { background: var(--brand); color: #fff; border-color: var(--brand); }
 
-/* the tasks button in the header (with the number of open tasks), and the bar while task mode is on */
-.head-tools > .tasksbtn[aria-pressed="true"] { background: var(--amber); border-color: var(--amber); color: var(--focus-under); }
-.tasksbtn .count { min-width: 16px; padding: 1px 4px; border-radius: 8px; background: var(--amber); color: var(--focus-under); font: 700 10px/1.2 var(--sans); text-align: center; }
-.tasksbtn[aria-pressed="true"] .count { background: var(--focus-under); color: #fff; }
-.taskbar {
-  position: fixed; left: 50%; bottom: 16px; translate: -50% 0; display: flex; align-items: center; gap: 4px; max-width: calc(100vw - 24px);
-  padding: 5px 5px 5px 12px; border-radius: 10px; background: var(--brand); color: #fff; box-shadow: 0 8px 26px rgb(0 0 0 / .32);
-}
-.taskbar .nb-say { display: flex; align-items: center; gap: 8px; margin-right: 6px; min-width: 0; font-size: 12px; }
-.taskbar .nb-say > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.taskbar .nb-say .i { color: var(--amber); }
-.taskbar button { display: inline-flex; align-items: center; gap: 6px; flex: none; padding: 6px 10px; border: 0; border-radius: 7px; background: transparent; color: #fff; }
-.taskbar button:hover { background: rgb(255 255 255 / .12); }
-.taskbar button[aria-pressed="false"] { opacity: .6; }
-.taskbar button.primary { background: var(--amber) !important; color: var(--focus-under) !important; font-weight: 700; padding-inline: 14px; }
+/* the mode switch in the header: Tasks (leave tasks, give them to Kaity) or Edit (the whole editor) */
+.modesw { display: flex; flex: none; gap: 2px; padding: 3px; margin-right: 6px; border-radius: 9px; background: rgb(255 255 255 / .12); }
+.modesw button { display: inline-flex; align-items: center; gap: 6px; padding: 4px 11px; border: 0; border-radius: 7px; background: none; color: #fff; font-weight: 600; }
+.modesw button:hover { background: rgb(255 255 255 / .12); }
+.modesw button[aria-checked="true"] { background: #fff; color: var(--brand); }
+.modesw button[data-mode="tasks"][aria-checked="true"] { background: var(--amber); color: var(--focus-under); }
+.modesw .count { min-width: 16px; padding: 1px 4px; border-radius: 8px; background: var(--amber); color: var(--focus-under); font: 700 10px/1.2 var(--sans); text-align: center; }
+.modesw [aria-checked="true"] .count { background: var(--focus-under); color: #fff; }
+/* the Tasks mode: no path, no Dim/Blur (nothing is selected); Tabs and Copy all instead */
+.head-tools > .tabsbtn, .head-tools > .copybtn { display: none; }
+.panel.tasks-mode .head-tools > .tabsbtn, .panel.tasks-mode .head-tools > .copybtn { display: inline-flex; }
+.panel.tasks-mode .path, .panel.tasks-mode .head-tools > .seg { display: none; }
+.panel.tasks-mode .head-tools { margin-left: auto; }
+.panel.tasks-mode .head-tools > .undo .label, .panel.tasks-mode .head-tools > .redo .label { display: none; }
+.panel.tasks-mode .head-tools > .undo, .panel.tasks-mode .head-tools > .redo { padding-inline: 6px; }
+.head-tools > .tabsbtn[aria-pressed="false"] { opacity: .6; }
+.panel.min .taskpanel { display: none; }
 
 /* ---------- panel ---------- */
 
@@ -490,34 +492,60 @@ textarea.code { flex: 1; min-height: 120px; font: var(--mono); tab-size: 2; whit
 .pop button.danger { color: var(--danger); }
 
 /* a task: the form for a new one, one task, and the list */
-.pop .taskform, .pop .taskview, .pop .tasklist { display: grid; gap: 8px; }
-.pop .task-place { display: flex; align-items: center; gap: 6px; min-width: 0; font: var(--mono); font-size: 11px; color: var(--muted); overflow-wrap: anywhere; }
-.pop .task-place b { color: var(--brand); font-weight: 600; }
-.pop .task-place .i { color: var(--amber); }
+.pop .taskform, .pop .taskview, .tasklist { display: grid; gap: 8px; }
+:is(.pop, .taskpanel) .task-place { display: flex; align-items: center; gap: 6px; min-width: 0; font: var(--mono); font-size: 11px; color: var(--muted); overflow-wrap: anywhere; }
+:is(.pop, .taskpanel) .task-place b { color: var(--brand); font-weight: 600; }
+:is(.pop, .taskpanel) .task-place .i { color: var(--amber); }
 .pop .taskform textarea { font: inherit; color: inherit; background: var(--bg-2); border: 1px solid var(--line); border-radius: 7px; padding: 6px 8px; resize: vertical; min-height: 64px; }
 .pop .taskform textarea:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
-.pop .taskform .muted, .pop .taskview .muted, .pop .tasklist .muted { color: var(--muted); font-size: 12px; }
+.pop .taskform .muted, .pop .taskview .muted, .tasklist .muted { color: var(--muted); font-size: 12px; }
 .pop .spacer { flex: 1; }
 .pop .task-head { display: flex; align-items: center; gap: 8px; }
-.pop .task-text { white-space: pre-wrap; overflow-wrap: anywhere; }
+:is(.pop, .taskpanel) .task-text { white-space: pre-wrap; overflow-wrap: anywhere; }
 .pop .task-reply { display: flex; gap: 6px; padding: 6px 8px; border-radius: 7px; background: var(--bg-2); }
 .pop .task-reply .i { color: #2E7D4F; margin-top: 2px; }
-.pop .taskview .row button, .pop .tasklist button { display: inline-flex; align-items: center; gap: 6px; }
-.pop .tasklist { max-height: min(60vh, 480px); overflow: auto; }
-.pop .tasklist .ask-all { justify-content: center; padding: 7px 10px; font-weight: 600; }
-.pop .tasklist section { display: grid; gap: 4px; }
-.pop .tasklist header { display: flex; align-items: center; justify-content: space-between; gap: 6px; font: var(--mono); font-size: 12px; }
-.pop .tasklist header b { color: var(--brand); }
-.pop .tasklist button.link { border: 0; background: none; color: var(--brand-2); padding: 2px 4px; font-size: 12px; }
-.pop .tasklist ol { display: grid; gap: 2px; margin: 0; padding: 0; list-style: none; }
-.pop .tasklist .task-row { display: flex; align-items: flex-start; gap: 8px; width: 100%; text-align: left; border: 0; background: none; padding: 6px; border-radius: 6px; }
-.pop .tasklist .task-row:hover { background: var(--tint); }
-.pop .tasklist .task-row > span:last-child { display: grid; gap: 2px; min-width: 0; }
-.pop .tasklist .task-row .task-text { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
-.pop .tasklist summary { cursor: pointer; color: var(--muted); font-size: 12px; padding: 4px 0; }
-.pop .kaity svg { width: 18px; height: 9px; }
+.pop .taskview .row button, .tasklist button { display: inline-flex; align-items: center; gap: 6px; }
+.tasklist { display: grid; gap: 8px; }
+.tasklist .ask-all { justify-content: center; padding: 7px 10px; font-weight: 600; }
+.tasklist section { display: grid; gap: 4px; }
+.tasklist header { display: flex; align-items: center; justify-content: space-between; gap: 6px; font: var(--mono); font-size: 12px; }
+.tasklist header b { color: var(--brand); }
+.tasklist button.link { border: 0; background: none; color: var(--brand-2); padding: 2px 4px; font-size: 12px; }
+.tasklist ol { display: grid; gap: 2px; margin: 0; padding: 0; list-style: none; }
+.tasklist .task-row { display: flex; align-items: flex-start; gap: 8px; width: 100%; text-align: left; border: 0; background: none; padding: 6px; border-radius: 6px; }
+.tasklist .task-row:hover { background: var(--tint); }
+.tasklist .task-row > span:last-child { display: grid; gap: 2px; min-width: 0; }
+.tasklist .task-row .task-text { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.tasklist summary { cursor: pointer; color: var(--muted); font-size: 12px; padding: 4px 0; }
+.pop .kaity svg, .taskpanel .kaity svg { width: 18px; height: 9px; }
 
 .tbar { display: flex; gap: 2px; padding: 3px; }
+/* the Tasks mode's panel: what Kaity is doing (or her last answer), then the tasks */
+.taskpanel { min-height: 0; overflow: auto; padding: 14px 16px 18px; display: grid; gap: 12px; align-content: start; }
+.taskpanel button { font: inherit; color: inherit; border: 1px solid var(--line); background: var(--bg); border-radius: 7px; padding: 5px 11px; cursor: pointer; }
+.taskpanel button:hover { background: var(--tint); }
+.taskpanel button.primary { background: var(--brand); border-color: var(--brand); color: #fff; }
+.taskpanel button.primary:hover { background: var(--brand-2); }
+.taskpanel button:disabled { opacity: .45; cursor: default; }
+.tp-intro { margin: 0; color: var(--muted); font-size: 12px; }
+.tp-empty { display: grid; justify-items: center; gap: 4px; padding: 26px 18px; text-align: center; border: 1px dashed var(--line); border-radius: 12px; }
+.tp-empty p { margin: 0; max-width: 34em; color: var(--muted); }
+.tp-empty p b { color: var(--text); font-size: 14px; }
+.tp-empty .i { width: 28px; height: 28px; color: var(--amber); margin-bottom: 6px; }
+.tp-kaity { display: flex; align-items: flex-start; gap: 10px; padding: 10px 12px; border-radius: 10px; border: 1px solid color-mix(in srgb, #1cb0d2 45%, var(--bg)); background: color-mix(in srgb, #1cb0d2 8%, var(--bg)); }
+.tp-kaity > div { flex: 1; min-width: 0; display: grid; gap: 3px; }
+.tp-kaity p { margin: 0; }
+.tp-kaity .tp-step { color: var(--muted); font-size: 12px; overflow-wrap: anywhere; }
+.tp-kaity.done { border-color: var(--line); background: var(--bg-2); }
+.tp-kaity .md { font-size: 13px; }
+.tp-kaity .md p { margin: 0 0 4px; }
+.tp-kaity button.link { justify-self: start; border: 0; background: none; padding: 0; color: var(--brand-2); text-decoration: underline; font-size: 12px; }
+.tp-kaity button.mini { border: 0; background: none; padding: 0 4px; font-size: 16px; color: var(--muted); }
+.taskpanel .ask-all { display: inline-flex; align-items: center; justify-content: center; gap: 7px; padding: 8px 12px; font-weight: 600; }
+.taskpanel .tasklist header button.link { border: 0; background: none; padding: 2px 4px; color: var(--brand-2); font-size: 12px; text-decoration: underline; }
+.taskpanel .task-done { display: flex; align-items: center; gap: 4px; color: #2E7D4F; font-size: 12px; }
+.taskpanel .task-done .i { width: 12px; height: 12px; }
+.taskpanel .handbook-link { margin: 4px 0 0; }
 /* a box that shows one of the site's shared blocks: the notice above its tabs, and its chip in the tree */
 .shared-note { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 10px; margin: 0 0 10px; padding: 8px 10px; border-radius: 8px; background: color-mix(in srgb, var(--brand-2) 10%, var(--bg)); border: 1px solid color-mix(in srgb, var(--brand-2) 35%, var(--bg)); font-size: 12px; }
 .shared-note > span { flex: 1 1 220px; }
@@ -578,9 +606,10 @@ textarea.code { flex: 1; min-height: 120px; font: var(--mono); tab-size: 2; whit
   .body { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(70px, 32%) minmax(0, 1fr); }
   .tree { border-right: 0; border-bottom: 1px solid var(--line); }
   .dock { bottom: auto; top: 12px; right: 12px; }
-  .head-tools > .tasksbtn .label, .taskbar .nb-say > span, .taskbar button:not(.primary) span { display: none; }
-  /* the panel docks at the bottom on phones: the bar goes up, under Back to the page */
-  .taskbar { bottom: auto; top: 64px; }
+  .head-tools > .tabsbtn .label, .head-tools > .copybtn .label { display: none; }
+  .modesw button { padding-inline: 8px; }
+  /* phones, Tasks mode: room for the switch; Copy all and Redo are in the Edit mode */
+  .panel.tasks-mode .head-tools > .copybtn, .panel.tasks-mode .head-tools > .redo { display: none !important; }
 }
 
 .composer .runner { color: var(--muted); font: var(--mono); font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }

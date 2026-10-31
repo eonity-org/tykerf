@@ -62,6 +62,7 @@ beforeEach(async () => {
   await page.addInitScript(() => {
     localStorage.setItem('tykerf.on', 'true');
     localStorage.setItem('tykerf.min', 'true');
+    localStorage.setItem('tykerf.mode', '"edit"'); // these tests are about the whole editor
   });
   await page.goto(url);
   await page.locator('.panel').waitFor();

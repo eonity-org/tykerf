@@ -10,6 +10,15 @@ Open the page in the browser (by default http://localhost:4400) and press **Edit
 
 ![A page in the editor: the panel with the page's tree, a box selected and its Text tab](../images/editor.png)
 
+## Two modes: Tasks and Edit
+
+The switch at the top left of the panel picks how you work. TYKERF remembers your choice.
+
+- **Tasks** (where you start): point at anything on the page and say what should change. Each task stays on its spot (see [Tasks](#tasks)). The panel shows only your tasks and what Kaity is doing. When you have them all, **Give Kaity every task**: she works through them, you watch her at work on the page, and her answer appears at the top of the panel when she's done. **Tabs** shows or hides the tasks' tabs on the page, **Copy all** copies them as text, and Undo and Redo are there too.
+- **Edit**: the whole editor, described below: the page's blocks in a tree, each block's text, code, sizes and look, and Kaity block by block. Tasks still show on the page, and right-click → *Add a task for Kaity here…* adds one.
+
+A link that opens a particular block (from the site manager, say) opens the Edit mode. After Kaity builds a new page, the Tasks mode shows her answer, ready for your first tasks.
+
 ## Selecting
 
 - **Click** a box on the page, or a line in the tree, to select it.
@@ -87,12 +96,12 @@ An empty box's Text tab offers **Use a component** (ready-made sections with pla
 
 A task is something to be done, left on the exact place on the page it is about: a change to make, a question, something to check. It is for you, a colleague or Kaity.
 
-- **Tasks** in the panel's header turns task mode on. The element under the pointer is outlined, with its place in words (`hero › h1 "The short promise…"`). Click it, write the task and press **Enter** (or **Add task**). Nothing else happens on the page while task mode is on; **Esc** or **Done** leaves it.
-- Without task mode: right-click anything and choose *Add a task for Kaity here…*. The same form opens on the element you clicked, with **Add task** (for later) and **Add and give it to Kaity** (Kaity works on the block's open tasks at once; **Enter** does this).
+- In the **Tasks** mode, the element under the pointer is outlined, with its place in words (`hero › h1 "The short promise…"`). Click it, write the task and press **Enter** (or **Add task**). Nothing else happens on the page in this mode; **Edit** goes back to the whole editor.
+- In the **Edit** mode: right-click anything and choose *Add a task for Kaity here…*. The same form opens on the element you clicked, with **Add task** (for later) and **Add and give it to Kaity** (Kaity works on the block's open tasks at once; **Enter** does this).
 - Each open task shows as a **numbered tab** (`T3`) on its element's top-right corner, which follows it when the page changes. The header shows how many are open. Click a tab to read the task: **Done** closes it, **Remove** deletes it, **Give it to Kaity** hands every open task on that block to Kaity.
 - **While Kaity works**, her block glows on the page with a light sweeping across it, each task she still has to do pulses, and a small label shows what she's doing right now. Her conversation shows the tasks she was given, word for word. You can keep adding tasks meanwhile, on her block too: they don't change what she's doing, she leaves them for the next request, and only the tasks she was given pulse.
 - A task remembers **how wide the window was** when you wrote it, so whoever does it looks at the page at that width ("too big on a phone").
-- The bar at the bottom in task mode: **List** shows every task by block (**Give Kaity every task** for one run over the whole page, *Give Kaity these…* for a block's tasks, and the tasks that are done, with Kaity's reply), **Tabs** shows or hides the tabs, **Copy all** copies the open tasks as text to paste into any AI agent or a message.
+- The Tasks mode's panel lists every task by block: **Give Kaity every task** for one run over the whole page, *Give only these to Kaity* for one block's tasks, and the tasks that are done, with Kaity's reply. Click a task to see it on the page. In the header, **Tabs** shows or hides the tabs and **Copy all** copies the open tasks as text to paste into any AI agent or a message.
 - Tasks aren't part of the page: they aren't undone with Undo, and they don't go with an export. They follow a block when it is renamed; a task whose block was deleted says so.
 
 ## The handbook

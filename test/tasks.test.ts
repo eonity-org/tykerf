@@ -147,6 +147,7 @@ describe('tasks in the editor', () => {
     await page.addInitScript(() => {
       localStorage.setItem('tykerf.on', 'true');
       localStorage.setItem('tykerf.min', 'true');
+      if (!localStorage.getItem('tykerf.mode')) localStorage.setItem('tykerf.mode', '"edit"');
     });
     await page.goto(`http://localhost:${port}/`);
     await page.locator('.panel').waitFor();
@@ -156,9 +157,9 @@ describe('tasks in the editor', () => {
     server?.kill();
   });
 
-  it('adds a task on the element clicked in task mode, and closes it from its tab', async () => {
-    await page.locator('.tasksbtn').click();
-    await expect.poll(() => page.locator('.taskbar').isVisible()).toBe(true);
+  it('adds a task on the element clicked in the Tasks mode, and closes it from its tab', async () => {
+    await page.locator('[data-mode="tasks"]').click();
+    await expect.poll(() => page.locator('[data-mode="tasks"]').getAttribute('aria-checked')).toBe('true');
     const h1 = page.locator('[data-sw="hero"] h1');
     await h1.hover();
     await expect.poll(() => page.locator('.nhover .tag').textContent()).toMatch(/^hero › h1 "The short promise/);
@@ -173,16 +174,16 @@ describe('tasks in the editor', () => {
       for (const i of path) x = [...x.children].filter((c) => !['STYLE', 'SCRIPT', 'TEMPLATE', 'NOSCRIPT'].includes(c.nodeName))[i];
       return x.nodeName;
     }, tasks(ws)[0].path!)).toBe('H1');
-    await expect.poll(() => page.locator('.tasksbtn .count').textContent()).toBe('1');
-    // a click in task mode doesn't select or edit anything
+    await expect.poll(() => page.locator('[data-mode="tasks"] .count').textContent()).toBe('1');
+    // a click in the Tasks mode doesn't select or edit anything
     expect(await h1.getAttribute('contenteditable')).toBeNull();
 
-    await page.keyboard.press('Escape'); // leaves task mode; the tab stays
-    await expect.poll(() => page.locator('.taskbar').isVisible()).toBe(false);
+    await page.locator('[data-mode="edit"]').click(); // the Edit mode: the tab stays
+    await expect.poll(() => page.locator('[data-mode="edit"]').getAttribute('aria-checked')).toBe('true');
     await page.locator('.pin[data-pin="1"]').click();
     await page.locator('.pop [data-n="close"]').click();
     await expect.poll(() => tasks(ws)[0].done?.by).toBe('user');
-    await expect.poll(() => page.locator('.pin').count()).toBe(0);
+    await expect.poll(() => page.locator('.pins .pin').count()).toBe(0);
   });
 
   it('adds a task from the context menu, on the element under the pointer, ready for Kaity', async () => {
@@ -202,15 +203,27 @@ describe('tasks in the editor', () => {
   it('offers one run for every open task on the page, from the top block', async () => {
     const a = addTask(ws, { block: 'cta', text: 'One' }).n, b = addTask(ws, { block: 'faq', text: 'Two' }).n;
     await expect.poll(() => page.locator(`.pin[data-pin="${b}"]`).count()).toBe(1);
-    await page.locator('.tasksbtn').click();
-    await page.locator('[data-nb="list"]').click();
-    const all = page.locator('.pop .ask-all');
+    await page.locator('[data-mode="tasks"]').click();
+    const all = page.locator('.taskpanel .ask-all');
     await expect.poll(() => all.textContent()).toMatch(/Give Kaity every task \(\d+\)/);
     expect(await all.getAttribute('data-ask')).toBe('page');
-    await page.keyboard.press('Escape');
-    await page.keyboard.press('Escape');
+    await page.locator('[data-mode="edit"]').click();
     closeTask(ws, a);
     closeTask(ws, b);
+  });
+
+  it('opens new people in the Tasks mode, and a link to a block in the Edit mode', async () => {
+    const fresh = await browser.newPage({ viewport: { width: 1280, height: 900 } });
+    await fresh.addInitScript(() => localStorage.setItem('tykerf.on', 'true'));
+    await fresh.goto(page.url());
+    await fresh.locator('.panel').waitFor();
+    await expect.poll(() => fresh.locator('[data-mode="tasks"]').getAttribute('aria-checked')).toBe('true');
+    expect(await fresh.locator('.taskpanel').isVisible()).toBe(true);
+    expect(await fresh.locator('.panel .body').isVisible()).toBe(false);
+    await fresh.goto(`${page.url().replace(/[?#].*$/, '')}?block=hero&tab=text`);
+    await expect.poll(() => fresh.locator('[data-mode="edit"]').getAttribute('aria-checked')).toBe('true');
+    expect(await fresh.locator('.work .w-name').inputValue()).toBe('hero');
+    await fresh.close();
   });
 
   it('serves the handbook, as a page and as Markdown, with the page\'s tasks', async () => {

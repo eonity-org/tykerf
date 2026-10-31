@@ -65,6 +65,7 @@ describe('show or describe it', () => {
   it('makes the first page and opens the editor on the AI building it from the words and the picture', async () => {
     const { url, site } = await editor({ TYKERF_RUNNER: 'anthropic', TYKERF_API_KEY: 'k', TYKERF_API_BASE_URL: `http://127.0.0.1:${(api.address() as { port: number }).port}` });
     const page = await browser.newPage({ viewport: { width: 1280, height: 860 } });
+    await page.addInitScript(() => localStorage.setItem('tykerf.mode', '\"edit\"')); // her conversation is in the Edit mode
     page.setDefaultTimeout(8000);
     await page.goto(url);
     await page.locator('.chooser').waitFor();
@@ -130,6 +131,7 @@ describe('show or describe it', () => {
     replies.push(message([{ type: 'text', text: 'I built the page from your design.' }], 'end_turn'));
     const before = got.length;
     const page = await browser.newPage({ viewport: { width: 1280, height: 860 } });
+    await page.addInitScript(() => localStorage.setItem('tykerf.mode', '\"edit\"')); // her conversation is in the Edit mode
     page.setDefaultTimeout(8000);
     await page.goto(url);
     await page.locator('.chooser').waitFor();
@@ -169,6 +171,7 @@ describe('show or describe it', () => {
     const r = await fetch(`${url}_tykerf/site/new`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ name: 'slow', prompt: 'a long page' }) }).then((x) => x.json());
     expect(r.ok).toBe(true);
     const page = await browser.newPage({ viewport: { width: 1280, height: 800 } });
+    await page.addInitScript(() => localStorage.setItem('tykerf.mode', '\"edit\"')); // her conversation is in the Edit mode
     await page.goto(`${url}slow/`);
     // while Kaity works, its progress is a small card in the bottom right corner, over the page
     await page.locator('.jobmodal.running').waitFor();
@@ -195,6 +198,7 @@ describe('show or describe it', () => {
     const post = (path: string, body: unknown) => fetch(`${url}${path}`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) }).then((x) => x.json());
     expect((await post('_tykerf/site/new', { name: 'tour', layout: 'blank' })).ok).toBe(true);
     const page = await browser.newPage({ viewport: { width: 1280, height: 860 } });
+    await page.addInitScript(() => localStorage.setItem('tykerf.mode', '\"edit\"')); // her conversation is in the Edit mode
     page.setDefaultTimeout(8000);
     await page.goto(`${url}tour/`); // the page's editor is open: Kaity runs in it
     // only this run's slow reply: one left by an earlier test would end it at once
@@ -205,6 +209,7 @@ describe('show or describe it', () => {
 
     // the site manager lists it, and marks the page
     const manager = await browser.newPage();
+    await manager.addInitScript(() => localStorage.setItem('tykerf.mode', '\"edit\"')); // her conversation is in the Edit mode
     await manager.goto(`${url}_tykerf/site/`);
     await manager.locator('.now li').waitFor();
     expect(await manager.locator('.now li').textContent()).toBe('tour · nav');
@@ -228,6 +233,7 @@ describe('show or describe it', () => {
   it('starts from a layout when the AI is not ready, and says why', async () => {
     const { url } = await editor({ TYKERF_RUNNER: 'anthropic' }); // no key
     const page = await browser.newPage();
+    await page.addInitScript(() => localStorage.setItem('tykerf.mode', '\"edit\"')); // her conversation is in the Edit mode
     await page.goto(url);
     await page.locator('.chooser').waitFor();
     expect(await page.locator('[data-from="layout"]').getAttribute('aria-pressed')).toBe('true');
@@ -247,6 +253,7 @@ describe("Kaity's steps in the AI tab", () => {
     replies.push(message([{ type: 'text', text: 'built' }], 'end_turn') as any);
     await fetch(`${url}_tykerf/site/new`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ name: 'log', prompt: 'a page' }) });
     const page = await browser.newPage({ viewport: { width: 1280, height: 860 } });
+    await page.addInitScript(() => localStorage.setItem('tykerf.mode', '\"edit\"')); // her conversation is in the Edit mode
     page.setDefaultTimeout(8000);
     await page.goto(`${url}log/`);
     await page.locator('[data-job="editor"]').click();
@@ -285,6 +292,7 @@ describe('the start screen', () => {
   it('opens the page made in its folder from elsewhere (Claude Desktop, the command line)', async () => {
     const { url, site } = await editor({ TYKERF_RUNNER: 'anthropic' });
     const page = await browser.newPage();
+    await page.addInitScript(() => localStorage.setItem('tykerf.mode', '\"edit\"')); // her conversation is in the Edit mode
     page.setDefaultTimeout(8000);
     await page.goto(url);
     await page.locator('.chooser').waitFor();
@@ -296,6 +304,7 @@ describe('the start screen', () => {
   it('offers the pages made in its folder meanwhile', async () => {
     const { url, site } = await editor({ TYKERF_RUNNER: 'anthropic' });
     const page = await browser.newPage();
+    await page.addInitScript(() => localStorage.setItem('tykerf.mode', '\"edit\"')); // her conversation is in the Edit mode
     page.setDefaultTimeout(8000);
     await page.goto(url);
     await page.locator('.chooser').waitFor();
@@ -344,6 +353,7 @@ describe('a page Kaity builds', () => {
     );
     await fetch(`${url}_tykerf/site/new`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ name: 'bakery', prompt: 'a bakery' }) });
     const page = await browser.newPage({ viewport: { width: 1280, height: 800 } });
+    await page.addInitScript(() => localStorage.setItem('tykerf.mode', '\"edit\"')); // her conversation is in the Edit mode
     page.setDefaultTimeout(10_000);
     await page.goto(`${url}bakery/`);
     const focus = () => page.evaluate(() => document.getElementById('tykerf-focus')?.textContent ?? '');
@@ -386,6 +396,7 @@ describe('Kaity for the whole site', () => {
       message([{ type: 'text', text: 'Both navigations now link to every page.' }], 'end_turn') as any,
     );
     const page = await browser.newPage({ viewport: { width: 1280, height: 800 } });
+    await page.addInitScript(() => localStorage.setItem('tykerf.mode', '\"edit\"')); // her conversation is in the Edit mode
     page.setDefaultTimeout(10_000);
     await page.goto(`${url}_tykerf/site/`);
     await page.locator('.kaity-btn').click();
