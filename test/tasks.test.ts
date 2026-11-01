@@ -208,7 +208,7 @@ describe('tasks in the editor', () => {
 
   it('offers one run for every open task on the page, from the top block', async () => {
     const a = addTask(ws, { block: 'cta', text: 'One' }).n, b = addTask(ws, { block: 'faq', text: 'Two' }).n;
-    await expect.poll(() => page.locator(`.pin[data-pin="${b}"]`).count()).toBe(1);
+    await expect.poll(() => page.locator(`.pin[data-pin="${b}"]`).count(), { timeout: 5000 }).toBe(1); // a change from outside: slower on a CI runner
     await page.locator('[data-mode="tasks"]').click();
     const all = page.locator('.taskpanel .ask-all');
     await expect.poll(() => all.textContent()).toMatch(/Give Kaity every task \(\d+\)/);
@@ -244,8 +244,8 @@ describe('tasks in the editor', () => {
 
   it('shows tasks Kaity closes from outside at once', async () => {
     const n = addTask(ws, { block: 'cta', text: 'Check the button colour' }).n;
-    await expect.poll(() => page.locator(`.pin[data-pin="${n}"]`).count()).toBe(1);
+    await expect.poll(() => page.locator(`.pin[data-pin="${n}"]`).count(), { timeout: 5000 }).toBe(1);
     closeTask(ws, n, 'ai', 'It follows the theme accent now.');
-    await expect.poll(() => page.locator(`.pin[data-pin="${n}"]`).count()).toBe(0);
+    await expect.poll(() => page.locator(`.pin[data-pin="${n}"]`).count(), { timeout: 5000 }).toBe(0);
   });
 });

@@ -129,7 +129,7 @@ export function createTykerfServer(start: Workspace | null, opts: TykerfServerOp
   let home = opts.home ? resolve(opts.home) : null;
   const folders = opts.folders && !runScope ? opts.folders : null;
 
-  const server = new McpServer({ name: 'tykerf', version: '0.2.1' }, {
+  const server = new McpServer({ name: 'tykerf', version: '0.3.0' }, {
     instructions:
       'Edit a web page whose layout is a tree of boxes. A "row" places its children side by side (left to right); ' +
       'a "column" stacks them top to bottom; "wheel" is a pinwheel (top,right,bottom,left,center); "periphery" is a page frame ' +

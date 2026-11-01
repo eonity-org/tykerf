@@ -6,7 +6,7 @@
 
 # Changelog
 
-## Unreleased: tasks, the handbook and the site kit
+## 0.3.0 (2026-11-01): tasks, the handbook and the site kit
 
 - **The site kit.** What every page of a site shares besides the theme, in the site's `kit/` folder, from the site manager (below *Styles & scripts*): styles for every page; behaviours, small scripts an element turns on with `data-use`; **shared blocks**, so the navigation and the footer are one thing for the whole site (the kit offers to share the boxes that are already the same on several pages; *Make this page's own copy* when one page should differ; the current page's link is marked); box types for every page; and the site's own tags, in **Size & look**. Kaity changes it when asked for the whole site; exports and Publish include it. New MCP tools: `list_kit`, `get_kit_file`, `set_kit_file`, `share_block`, `link_block`, `unlink_block`.
 
@@ -26,6 +26,9 @@
 - **The *Biased* template: a case study told through its decisions.** A new page layout, `biased`, and a matching theme preset: a title with a highlighter stroke and a strip of facts, the work in a window frame, the story in three parts, decision cards (what was chosen over what, why, and what it cost), before and after, the numbers, a quote in words only, credits, a link to the next case and a call to action. Ink on warm paper, an indigo accent, a lime highlighter and heavy rules, Manrope over Inter. Eight new components come with it (*Case opening*, *Work in a frame*, *Story in three parts*, *Decisions*, *Before and after*, *Pull quote*, *Credits*, *Next case*), and it reuses the library's navigation, numbers, call to action and footer; each works on its own in any box.
 - **Every component is in a layout.** *Company* now opens with *Hero with a switcher* and shows *Steps on a line*; *Portfolio* opens with *Hero, split*. A test keeps every component in some layout (except *Image*, a building block for pages you compose).
 - **Two components.** *Steps on a line*: steps hanging from one line that fills as the section scrolls into view. *Hero with a switcher*: pills switch the headline, text, figures and card for each audience, without a script.
+- **A wider panel, and a kit that fits its card.** The panel opens 820 px wide (it was 720), so the whole header of the Tasks and Edit modes fits: *Compact* and **×** were cut off once the tasks count showed. In the site manager, the site kit's card grows with its rows, so *Box types* and *Tags* no longer fall outside it in a short window.
+- **The editor hears every change on Linux.** Node's recursive file watcher on Linux watches each file, and goes blind to a file the first time it is replaced by a rename, which is how TYKERF writes every file. After that, changes made by another process (Kaity closing a task, Claude changing a page) never reached an open editor. TYKERF now watches each folder instead on Linux; macOS and Windows keep the native watcher. A test replaces one file four times and checks that all four are heard.
+- **Guides for tasks and the kit.** The user guide puts Tasks first, with a section on writing a task, and explains the site kit with a behaviour example and a one-menu-for-every-page walkthrough. New screenshots, and a video of Kaity doing two tasks on a page about London.
 
 ## 0.2.1 (2026-10-23): the plugin from TYKERF's own marketplace
 

@@ -6,8 +6,8 @@
 // The interface is synchronous on purpose: every caller (moves, undo, the MCP server) stays simple.
 // A remote store keeps a local snapshot of the page (pages are small) and syncs it outside these calls.
 
-import { appendFileSync, existsSync, mkdirSync, readFileSync, readdirSync, renameSync, rmSync, statSync, watch, writeFileSync } from 'node:fs';
-import { dirname, join, resolve, sep } from 'node:path';
+import { appendFileSync, existsSync, mkdirSync, readFileSync, readdirSync, renameSync, rmSync, statSync, watch, writeFileSync, type FSWatcher } from 'node:fs';
+import { dirname, join, relative, resolve, sep } from 'node:path';
 
 export interface Store {
   /** Where the files are, for people and child processes: a folder path, or a URL-like name. */
@@ -145,11 +145,58 @@ export class FolderStore implements Store {
     }
   }
   watch(onChange: (path: string) => void) {
+    // Linux: Node's recursive watcher keeps one watcher per file, which goes blind to a file once it is replaced by a
+    // rename, and every write here is one (see TMP). A watcher per folder sees every replacement.
+    if (process.platform === 'linux') return watchFolders(this.root, onChange);
     const w = watch(this.root, { recursive: true }, (_event, file) => {
       if (file && !isTmp(String(file))) onChange(String(file).split(sep).join('/'));
     });
     return () => w.close();
   }
+}
+
+/** Folders nobody needs to hear about: other tools' state, and TYKERF's own lock. */
+const NOT_WATCHED = new Set(['node_modules', '.git', '.trash', LOCK]);
+
+/**
+ * Report the files changed below `root`, with a watcher on each folder (not on each file). A new folder gets its own
+ * watcher, and its files are reported, as Node's recursive watcher does on macOS and Windows.
+ */
+function watchFolders(root: string, onChange: (path: string) => void): () => void {
+  const watchers = new Map<string, FSWatcher>();
+  let closed = false;
+  const rel = (abs: string) => relative(root, abs).split(sep).join('/');
+  const unwatch = (abs: string) => {
+    for (const [d, w] of watchers) if (d === abs || d.startsWith(abs + sep)) { w.close(); watchers.delete(d); }
+  };
+  const add = (dir: string, announce: boolean) => {
+    if (closed || watchers.has(dir)) return;
+    let w: FSWatcher;
+    try {
+      w = watch(dir, (_event, name) => {
+        if (closed || !name) return;
+        const file = String(name);
+        if (isTmp(file)) return;
+        const abs = join(dir, file);
+        let isDir = false;
+        try { isDir = statSync(abs).isDirectory(); } catch { unwatch(abs); } // gone: its watchers go too
+        if (isDir && !NOT_WATCHED.has(file)) add(abs, true);
+        onChange(rel(abs));
+      });
+    } catch {
+      return; // a folder that vanished meanwhile, or no watchers left to give: nothing to hear from it
+    }
+    w.on('error', () => unwatch(dir));
+    watchers.set(dir, w);
+    let entries: import('node:fs').Dirent[] = [];
+    try { entries = readdirSync(dir, { withFileTypes: true }); } catch { /* gone again */ }
+    for (const e of entries) {
+      if (e.isDirectory()) { if (!NOT_WATCHED.has(e.name)) add(join(dir, e.name), announce); }
+      else if (announce && !isTmp(e.name)) onChange(rel(join(dir, e.name)));
+    }
+  };
+  add(root, false);
+  return () => { closed = true; for (const w of watchers.values()) w.close(); watchers.clear(); };
 }
 
 /** A workspace held in memory: for tests, previews and pages that aren't saved anywhere yet. */
