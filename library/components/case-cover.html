@@ -1,0 +1,19 @@
+<style>
+:scope { background: var(--section-bg, transparent); }
+.wrap { max-width: var(--max-width); margin: 0 auto; padding: clamp(24px, 4vw, 56px) var(--gap); }
+figure { margin: 0; }
+/* the work in a plain window frame */
+.frame { border: 1px solid var(--color-border); border-radius: var(--radius); background: var(--color-surface); overflow: hidden; }
+.bar { display: flex; align-items: center; gap: 6px; padding: 10px 14px; border-bottom: 1px solid var(--color-border); }
+.bar i { width: 9px; height: 9px; border-radius: 2px; background: var(--color-border); }
+.bar span { margin-left: 10px; font-size: 12px; color: var(--color-muted); }
+.frame img { display: block; width: 100%; }
+figcaption { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 6px 16px; margin-top: 12px; font-size: 14px; color: var(--color-muted); }
+figcaption a { color: var(--color-accent); font-weight: 600; text-decoration: none; }
+</style>
+<div class="wrap">
+  <figure>
+    <div class="frame"><div class="bar" aria-hidden="true"><i></i><i></i><i></i><span>project-site.com</span></div><img src="assets/mockup-app.svg" alt="Describe the finished work"></div>
+    <figcaption><span>The new home page, as it looks on a laptop.</span><a href="#">See it live ↗</a></figcaption>
+  </figure>
+</div>

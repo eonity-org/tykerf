@@ -1,0 +1,81 @@
+<style>
+:scope { background: var(--section-bg, transparent); }
+/* the form keeps this box's choices to itself (radio buttons group by form), so two of these on a page don't mix */
+.wrap { max-width: var(--max-width); margin: 0 auto; padding: var(--space-section) var(--gap); display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 380px), 1fr)); gap: calc(var(--gap) * 2) calc(var(--gap) * 3); align-items: center; }
+/* "For [audience]": pills to pick who the page speaks to; the headline, text, figures and picture follow */
+.for { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 0 0 22px; padding: 0; border: 0; }
+.for legend { float: left; margin-right: 4px; font-size: 13px; font-weight: 600; letter-spacing: .12em; text-transform: uppercase; color: var(--color-muted); }
+.for label { position: relative; cursor: pointer; }
+.for input { position: absolute; opacity: 0; inset: 0; margin: 0; cursor: pointer; }
+.for span { display: inline-block; padding: 7px 14px; border-radius: 999px; border: 1px solid var(--color-border); font-size: 14px; font-weight: 600; }
+.for input:checked + span { background: var(--color-text); border-color: var(--color-text); color: var(--color-bg); }
+.for input:focus-visible + span { outline: 2px solid var(--color-accent); outline-offset: 2px; }
+h1 { font-size: clamp(40px, 5.2vw, 72px); margin-bottom: 22px; max-width: 16ch; }
+h1 .soft { color: var(--color-muted); }
+.lead { font-size: var(--text-lead); color: var(--color-muted); margin: 0 0 28px; max-width: 32em; }
+.figures { display: flex; flex-wrap: wrap; gap: 12px 32px; margin: 0 0 32px; }
+.figures b { display: block; font: var(--weight-heading) clamp(28px, 3vw, 40px)/1.1 var(--font-heading); letter-spacing: var(--tracking-heading); }
+.figures span { font-size: 14px; color: var(--color-muted); }
+.actions { display: flex; flex-wrap: wrap; gap: 12px; }
+.button { display: inline-flex; padding: 14px 26px; border-radius: var(--radius-button); font-weight: 600; text-decoration: none; }
+.primary { background: var(--color-accent); color: var(--color-on-accent); }
+.secondary { color: var(--color-text); border: 1px solid var(--color-border); }
+.media { position: relative; border-radius: calc(var(--radius) + 8px); background: var(--color-soft); padding: clamp(20px, 3vw, 40px); }
+.media img { display: block; width: 100%; border-radius: var(--radius); }
+.media .card { position: absolute; left: clamp(12px, 4%, 32px); right: clamp(12px, 18%, 120px); bottom: clamp(12px, 6%, 40px); display: grid; gap: 6px; padding: 14px 16px; border-radius: var(--radius); background: var(--color-bg); border: 1px solid var(--color-border); box-shadow: 0 18px 40px -22px color-mix(in srgb, var(--color-text) 45%, transparent); }
+.media .card b { font-size: 15px; }
+.media .card span { font-size: 13px; color: var(--color-muted); }
+.media .card .chip { justify-self: start; padding: 2px 10px; border-radius: 999px; background: var(--color-accent); color: var(--color-on-accent); font-size: 12px; font-weight: 600; }
+/* one case shows at a time: the one whose pill is chosen */
+.case, .card, h1 .v { display: none !important; }
+.wrap:has(.for label:nth-of-type(1) input:checked) :is(.cases, .cards) > :nth-child(1),
+.wrap:has(.for label:nth-of-type(2) input:checked) :is(.cases, .cards) > :nth-child(2),
+.wrap:has(.for label:nth-of-type(3) input:checked) :is(.cases, .cards) > :nth-child(3),
+.wrap:has(.for label:nth-of-type(4) input:checked) :is(.cases, .cards) > :nth-child(4) { display: grid !important; }
+.wrap:has(.for label:nth-of-type(1) input:checked) h1 > .v:nth-child(1),
+.wrap:has(.for label:nth-of-type(2) input:checked) h1 > .v:nth-child(2),
+.wrap:has(.for label:nth-of-type(3) input:checked) h1 > .v:nth-child(3),
+.wrap:has(.for label:nth-of-type(4) input:checked) h1 > .v:nth-child(4) { display: inline !important; }
+@media (prefers-reduced-motion: no-preference) {
+  .case, .card, h1 .v { animation: hero-switch-in .35s cubic-bezier(.16, 1, .3, 1); }
+}
+/* a short slide, no fade: the words stay readable from the first frame */
+@keyframes hero-switch-in { from { translate: 0 10px; } }
+</style>
+<form class="wrap">
+  <div>
+    <fieldset class="for">
+      <legend>For</legend>
+      <label><input type="radio" name="for" checked><span>Small shops</span></label>
+      <label><input type="radio" name="for"><span>Restaurants</span></label>
+      <label><input type="radio" name="for"><span>Studios</span></label>
+    </fieldset>
+    <h1><span class="v">Sell more from one shop <span class="soft">without more work.</span></span><span class="v">Fill every table <span class="soft">on the quiet nights too.</span></span><span class="v">Spend the day on the work <span class="soft">not on the admin.</span></span></h1>
+    <div class="cases">
+      <div class="case">
+        <p class="lead">One or two sentences on what it does for small shops, in their own words.</p>
+        <div class="figures"><div><b>2×</b><span>A result small shops see</span></div><div><b>+30%</b><span>A second result, with its unit</span></div></div>
+      </div>
+      <div class="case">
+        <p class="lead">One or two sentences on what it does for restaurants, in their own words.</p>
+        <div class="figures"><div><b>3×</b><span>A result restaurants see</span></div><div><b>−20%</b><span>A second result, with its unit</span></div></div>
+      </div>
+      <div class="case">
+        <p class="lead">One or two sentences on what it does for studios, in their own words.</p>
+        <div class="figures"><div><b>5 h</b><span>Time studios get back each week</span></div><div><b>+40%</b><span>A second result, with its unit</span></div></div>
+      </div>
+    </div>
+    <div class="actions">
+      <a class="button primary" href="#">Get started</a>
+      <a class="button secondary" href="#">See how it works</a>
+    </div>
+  </div>
+  <div class="media">
+    <img src="assets/mockup-detail.svg" alt="Describe the main image">
+    <div class="cards">
+      <div class="card"><span class="chip">Small shops</span><b>A customer of this kind, by name</b><span>What changed for them, in one line</span></div>
+      <div class="card"><span class="chip">Restaurants</span><b>A customer of this kind, by name</b><span>What changed for them, in one line</span></div>
+      <div class="card"><span class="chip">Studios</span><b>A customer of this kind, by name</b><span>What changed for them, in one line</span></div>
+    </div>
+  </div>
+</form>

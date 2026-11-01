@@ -1,0 +1,17 @@
+<style>
+:scope { background: var(--section-bg, transparent); }
+.wrap { max-width: 920px; margin: 0 auto; padding: calc(var(--space-section) * .7) var(--gap); }
+figure { margin: 0; }
+/* words only: a big opening mark, the quote, and who said it */
+.mark { display: block; font: 700 clamp(64px, 8vw, 104px)/.6 var(--font-heading); color: var(--color-accent); }
+blockquote { margin: 18px 0 24px; font: var(--weight-heading) clamp(24px, 2.8vw, 36px)/1.25 var(--font-heading); letter-spacing: var(--tracking-heading); text-wrap: balance; }
+figcaption { font-size: 15px; color: var(--color-muted); }
+figcaption b { color: var(--color-text); }
+</style>
+<div class="wrap">
+  <figure>
+    <span class="mark" aria-hidden="true">“</span>
+    <blockquote>What the client says changed for them, in their own words and in one or two sentences.</blockquote>
+    <figcaption><b>Their name</b>, role at the company</figcaption>
+  </figure>
+</div>

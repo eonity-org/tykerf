@@ -1,0 +1,16 @@
+<style>
+:scope { background: var(--section-bg, transparent); }
+.wrap { max-width: var(--max-width); margin: 0 auto; padding: calc(var(--space-section) * .6) var(--gap); display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr)); gap: 32px calc(var(--gap) * 2); }
+h2 { font-size: 13px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--color-muted); margin: 0 0 14px; }
+/* who made it, and what with */
+.team { display: grid; gap: 0; margin: 0; }
+.team div { display: flex; justify-content: space-between; gap: 16px; padding: 10px 0; border-bottom: 1px solid var(--color-border); }
+.team dt { color: var(--color-muted); }
+.team dd { margin: 0; font-weight: 600; text-align: right; }
+ul { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 8px; }
+li { padding: 6px 12px; border: 1px solid var(--color-border); border-radius: var(--radius-button); font-size: 14px; font-weight: 600; }
+</style>
+<div class="wrap">
+  <div><h2>Team</h2><dl class="team"><div><dt>Design</dt><dd>Name Surname</dd></div><div><dt>Development</dt><dd>Name Surname</dd></div><div><dt>Content</dt><dd>Name Surname</dd></div></dl></div>
+  <div><h2>Built with</h2><ul><li>A framework</li><li>A content system</li><li>An analytics tool</li><li>Hosting</li><li>Two languages</li></ul></div>
+</div>

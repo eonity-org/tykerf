@@ -1,0 +1,26 @@
+<style>
+:scope { background: var(--section-bg, transparent); }
+.wrap { max-width: var(--max-width); margin: 0 auto; padding: calc(var(--space-section) * .8) var(--gap) calc(var(--space-section) * .5); }
+.eyebrow { display: flex; flex-wrap: wrap; gap: 6px 18px; margin: 0 0 20px; font-size: 14px; font-weight: 600; color: var(--color-muted); }
+.eyebrow b { color: var(--color-accent); }
+h1 { font-size: var(--text-hero); max-width: 15ch; margin: 0 0 24px; }
+/* a highlighter stroke under the words that carry the story */
+mark { color: inherit; background: linear-gradient(transparent 55%, var(--color-highlight) 55% 90%, transparent 90%); padding: 0 .04em; }
+.lead { font-size: var(--text-lead); color: var(--color-muted); max-width: 36em; margin: 0 0 clamp(32px, 5vw, 56px); }
+/* the facts in one strip under a heavy rule */
+dl { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 170px), 1fr)); margin: 0; border-top: 3px solid var(--color-text); }
+dl div { padding: 16px 16px 0 0; }
+dt { font-size: 12px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--color-muted); }
+dd { margin: 6px 0 0; font-weight: 600; }
+</style>
+<div class="wrap">
+  <p class="eyebrow"><b>Case study</b><span>Client name</span><span>2026</span></p>
+  <h1>How one <mark>clear decision</mark> shaped the whole project</h1>
+  <p class="lead">Two sentences on the client, what they needed, and what is different for them now.</p>
+  <dl>
+    <div><dt>Client</dt><dd>Who they are</dd></div>
+    <div><dt>Our part</dt><dd>What we did</dd></div>
+    <div><dt>Time</dt><dd>12 weeks</dd></div>
+    <div><dt>Result</dt><dd>The headline figure</dd></div>
+  </dl>
+</div>

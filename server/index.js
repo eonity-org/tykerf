@@ -3882,49 +3882,49 @@ var require_fast_uri = __commonJS({
       schemelessOptions.skipEscape = true;
       return serialize2(resolved, schemelessOptions);
     }
-    function resolveComponent(base, relative, options, skipNormalization) {
+    function resolveComponent(base, relative2, options, skipNormalization) {
       const target = {};
       if (!skipNormalization) {
         base = parse4(serialize2(base, options), options);
-        relative = parse4(serialize2(relative, options), options);
+        relative2 = parse4(serialize2(relative2, options), options);
       }
       options = options || {};
-      if (!options.tolerant && relative.scheme) {
-        target.scheme = relative.scheme;
-        target.userinfo = relative.userinfo;
-        target.host = relative.host;
-        target.port = relative.port;
-        target.path = removeDotSegments(relative.path || "");
-        target.query = relative.query;
+      if (!options.tolerant && relative2.scheme) {
+        target.scheme = relative2.scheme;
+        target.userinfo = relative2.userinfo;
+        target.host = relative2.host;
+        target.port = relative2.port;
+        target.path = removeDotSegments(relative2.path || "");
+        target.query = relative2.query;
       } else {
-        if (relative.userinfo !== void 0 || relative.host !== void 0 || relative.port !== void 0) {
-          target.userinfo = relative.userinfo;
-          target.host = relative.host;
-          target.port = relative.port;
-          target.path = removeDotSegments(relative.path || "");
-          target.query = relative.query;
+        if (relative2.userinfo !== void 0 || relative2.host !== void 0 || relative2.port !== void 0) {
+          target.userinfo = relative2.userinfo;
+          target.host = relative2.host;
+          target.port = relative2.port;
+          target.path = removeDotSegments(relative2.path || "");
+          target.query = relative2.query;
         } else {
-          if (!relative.path) {
+          if (!relative2.path) {
             target.path = base.path;
-            if (relative.query !== void 0) {
-              target.query = relative.query;
+            if (relative2.query !== void 0) {
+              target.query = relative2.query;
             } else {
               target.query = base.query;
             }
           } else {
-            if (relative.path[0] === "/") {
-              target.path = removeDotSegments(relative.path);
+            if (relative2.path[0] === "/") {
+              target.path = removeDotSegments(relative2.path);
             } else {
               if ((base.userinfo !== void 0 || base.host !== void 0 || base.port !== void 0) && !base.path) {
-                target.path = "/" + relative.path;
+                target.path = "/" + relative2.path;
               } else if (!base.path) {
-                target.path = relative.path;
+                target.path = relative2.path;
               } else {
-                target.path = base.path.slice(0, base.path.lastIndexOf("/") + 1) + relative.path;
+                target.path = base.path.slice(0, base.path.lastIndexOf("/") + 1) + relative2.path;
               }
               target.path = removeDotSegments(target.path);
             }
-            target.query = relative.query;
+            target.query = relative2.query;
           }
           target.userinfo = base.userinfo;
           target.host = base.host;
@@ -3932,7 +3932,7 @@ var require_fast_uri = __commonJS({
         }
         target.scheme = base.scheme;
       }
-      target.fragment = relative.fragment;
+      target.fragment = relative2.fragment;
       return target;
     }
     function equal(uriA, uriB, options) {
@@ -28999,6 +28999,10 @@ function num(s, what) {
   if (!Number.isFinite(v)) throw new NotationError(`bad number "${s}" in ${what}`);
   return v;
 }
+function blockName(s, tok) {
+  if (!/^[a-z0-9][a-z0-9-]{0,40}$/.test(s)) throw new NotationError(`bad shared block name "${s}" in "${tok}"`);
+  return s;
+}
 function typeName(s, tok) {
   if (!/^[a-z][a-z0-9-]*$/.test(s)) throw new NotationError(`bad type "${s}" in "${tok}" (lowercase letters, digits, -)`);
   return s;
@@ -29034,6 +29038,7 @@ function parseLeaf(tok) {
       else if (a.startsWith("maxw=")) leaf.maxW = num(a.slice(5), tok);
       else if (a.startsWith("minh=")) leaf.minH = num(a.slice(5), tok);
       else if (a.startsWith("type=")) leaf.boxType = typeName(a.slice(5), tok);
+      else if (a.startsWith("use=")) leaf.use = blockName(a.slice(4), tok);
       else throw new NotationError(`unknown leaf attribute "${a}" in "${tok}"`);
     }
   }
@@ -29125,6 +29130,7 @@ function serialize(n, opts = {}) {
       if (n2.maxW !== void 0) attrs2.push(`maxw=${fmt(n2.maxW)}`);
       if (n2.minH !== void 0) attrs2.push(`minh=${fmt(n2.minH)}`);
       if (n2.boxType) attrs2.push(`type=${n2.boxType}`);
+      if (n2.use) attrs2.push(`use=${n2.use}`);
       return out.push(attrs2.length ? `${n2.id}[${attrs2.join(" ")}]` : n2.id);
     }
     n2.children.forEach(rec);
@@ -29187,7 +29193,8 @@ function outline(layout) {
         n.minW !== void 0 && `minw=${n.minW}`,
         n.maxW !== void 0 && `maxw=${n.maxW}`,
         n.minH !== void 0 && `minh=${n.minH}`,
-        n.boxType && `type=${n.boxType}`
+        n.boxType && `type=${n.boxType}`,
+        n.use && `use=${n.use} (shared block)`
       ].filter(Boolean);
       lines.push(`${prefix}${[n.id, "leaf", ...bits, where].join(" ")}`);
     } else {
@@ -29498,6 +29505,11 @@ function applyLeafAttrs(leaf, a) {
   else if (a.minH !== void 0) leaf.minH = checkMinH(a.minH);
   if (a.boxType === null) delete leaf.boxType;
   else if (a.boxType !== void 0) leaf.boxType = a.boxType;
+  if (a.use === null) delete leaf.use;
+  else if (a.use !== void 0) {
+    if (!/^[a-z0-9][a-z0-9-]{0,40}$/.test(a.use)) throw new MoveError(`bad shared block name "${a.use}"`);
+    leaf.use = a.use;
+  }
 }
 function setLeaf(layout, leafId, attrs) {
   return mutate(layout, (l) => applyLeafAttrs(mustLeaf(l, leafId), attrs));
@@ -29580,7 +29592,7 @@ function normalizeLayout(layout) {
 
 // src/store.ts
 import { appendFileSync, existsSync, mkdirSync, readFileSync, readdirSync, renameSync, rmSync, statSync, watch, writeFileSync } from "node:fs";
-import { dirname, join, resolve, sep } from "node:path";
+import { dirname, join, relative, resolve, sep } from "node:path";
 function checkPath(path) {
   const parts = path.split("/");
   if (!path || path.startsWith("/") || path.includes("\\") || parts.some((p) => !p || p === "." || p === "..")) {
@@ -29683,12 +29695,65 @@ var FolderStore = class {
     }
   }
   watch(onChange) {
+    if (process.platform === "linux") return watchFolders(this.root, onChange);
     const w = watch(this.root, { recursive: true }, (_event, file2) => {
       if (file2 && !isTmp(String(file2))) onChange(String(file2).split(sep).join("/"));
     });
     return () => w.close();
   }
 };
+var NOT_WATCHED = /* @__PURE__ */ new Set(["node_modules", ".git", ".trash", LOCK]);
+function watchFolders(root, onChange) {
+  const watchers = /* @__PURE__ */ new Map();
+  let closed = false;
+  const rel = (abs) => relative(root, abs).split(sep).join("/");
+  const unwatch = (abs) => {
+    for (const [d, w] of watchers) if (d === abs || d.startsWith(abs + sep)) {
+      w.close();
+      watchers.delete(d);
+    }
+  };
+  const add = (dir, announce) => {
+    if (closed || watchers.has(dir)) return;
+    let w;
+    try {
+      w = watch(dir, (_event, name) => {
+        if (closed || !name) return;
+        const file2 = String(name);
+        if (isTmp(file2)) return;
+        const abs = join(dir, file2);
+        let isDir = false;
+        try {
+          isDir = statSync(abs).isDirectory();
+        } catch {
+          unwatch(abs);
+        }
+        if (isDir && !NOT_WATCHED.has(file2)) add(abs, true);
+        onChange(rel(abs));
+      });
+    } catch {
+      return;
+    }
+    w.on("error", () => unwatch(dir));
+    watchers.set(dir, w);
+    let entries2 = [];
+    try {
+      entries2 = readdirSync(dir, { withFileTypes: true });
+    } catch {
+    }
+    for (const e of entries2) {
+      if (e.isDirectory()) {
+        if (!NOT_WATCHED.has(e.name)) add(join(dir, e.name), announce);
+      } else if (announce && !isTmp(e.name)) onChange(rel(join(dir, e.name)));
+    }
+  };
+  add(root, false);
+  return () => {
+    closed = true;
+    for (const w of watchers.values()) w.close();
+    watchers.clear();
+  };
+}
 var MemoryStore = class {
   constructor(location = "memory:", files = {}) {
     this.location = location;
@@ -29817,10 +29882,10 @@ function themeFonts(head) {
   return Object.keys(FONTS).filter((f) => named.has(f.toLowerCase()));
 }
 function withFonts(ws, head, base = "assets/") {
-  const store = "store" in ws ? ws.store : ws;
+  const store2 = "store" in ws ? ws.store : ws;
   const families = themeFonts(head);
   for (const f of families) for (const { file: file2 } of FONTS[f]) {
-    if (!store.exists(`assets/${file2}`)) store.write(`assets/${file2}`, new Uint8Array(readFileSync2(join2(DIR, "fonts", file2))));
+    if (!store2.exists(`assets/${file2}`)) store2.write(`assets/${file2}`, new Uint8Array(readFileSync2(join2(DIR, "fonts", file2))));
   }
   const block = families.length ? `<style data-tykerf-fonts>
 ${families.flatMap((f) => FONTS[f].map(({ file: file2, style }) => `@font-face { font-family: "${f}"; src: url("${base}${file2}") format("woff2"); font-weight: 100 900; font-style: ${style}; font-display: swap; }`)).join("\n")}
@@ -29868,13 +29933,13 @@ function useComponent(ws, id2, name, author = "user") {
 var DEFAULT_THEME = "studio";
 var EMPTY_LAYOUT = "empty";
 var EMPTY = { layout: "header[role=header] main[role=main] H@page", boxes: { header: "", main: "" } };
-function createPage(ws, name = "blank", themeName = "clean", opts = {}) {
+function createPage(ws, name = "blank", themeName2 = "clean", opts = {}) {
   const t = name === EMPTY_LAYOUT ? EMPTY : pageLayouts().find((p) => p.name === name);
   if (!t) throw new Error(`unknown layout "${name}" (known: ${pageLayouts().map((p) => p.name).join(", ")})`);
-  const values = preset(themeName).values;
+  const values = preset(themeName2).values;
   const boxes = Object.fromEntries(Object.entries(t.boxes).map(([box, c]) => [box, c ? componentCode(c) : ""]));
   ws.create(t.layout + "\n", boxes);
-  if (opts.ownTheme !== false) ws.store.write("head.html", withFonts(ws, withPresetName(withThemeValues(theme(), values).head, themeName === BASE_THEME ? null : themeName)));
+  if (opts.ownTheme !== false) ws.store.write("head.html", withFonts(ws, withPresetName(withThemeValues(theme(), values).head, themeName2 === BASE_THEME ? null : themeName2)));
   for (const code of Object.values(boxes)) copyAssets(ws, code);
 }
 var THEME_BLOCK = /(<style[^>]*\bdata-tykerf-theme\b[^>]*>)([\s\S]*?)(<\/style>)/;
@@ -29950,16 +30015,19 @@ import { join as join3 } from "node:path";
 
 // src/types.ts
 var KEYS = /* @__PURE__ */ new Set(["label", "within", "notWithin", "children", "max", "content", "template"]);
-function loadTypes(store) {
+function loadTypes(store2, dir = "types") {
   const reg = {};
-  for (const f of store.list("types")) {
+  for (const f of store2.list(dir)) {
     if (!f.endsWith(".json")) continue;
-    const name = f.slice(0, -5);
-    const def = JSON.parse(store.read(`types/${f}`) ?? "{}");
-    for (const k of Object.keys(def)) if (!KEYS.has(k)) throw new Error(`types/${f}: unknown key "${k}" (allowed: ${[...KEYS].join(", ")})`);
-    reg[name] = def;
+    reg[f.slice(0, -5)] = parseType(store2.read(`${dir}/${f}`) ?? "{}", `${dir}/${f}`);
   }
   return reg;
+}
+function parseType(json3, where) {
+  const def = JSON.parse(json3);
+  if (!def || typeof def !== "object" || Array.isArray(def)) throw new Error(`${where}: a box type is a JSON object`);
+  for (const k of Object.keys(def)) if (!KEYS.has(k)) throw new Error(`${where}: unknown key "${k}" (allowed: ${[...KEYS].join(", ")})`);
+  return def;
 }
 var typeOf = (n) => n.type === "empty" ? void 0 : n.boxType;
 function typeErrors(layout, reg) {
@@ -30028,6 +30096,108 @@ function hasTypes(l) {
     if (n.type !== "empty" && n.boxType) any2 = true;
   });
   return any2;
+}
+
+// src/kit.ts
+var KIT_KINDS = ["styles", "scripts", "blocks", "types", "tags"];
+var KIT_NAME = /^[a-z0-9][a-z0-9-]{0,40}$/;
+var EXT = { styles: ".css", scripts: ".js", blocks: ".html", types: ".json", tags: ".json" };
+var MAX = 4e5;
+var HISTORY = ".tykerf/kit.jsonl";
+var LIBRARY_TAGS = /* @__PURE__ */ new Set(["tone-alt", "tone-soft", "tone-dark", "dense", "reverse", "priority"]);
+var store = (dir) => new FolderStore(dir);
+function kitPath(kind, name) {
+  if (kind === "tags") return "kit/tags.json";
+  if (!KIT_KINDS.includes(kind)) throw new Error(`unknown kind of kit file "${kind}" (${KIT_KINDS.join(", ")})`);
+  if (!KIT_NAME.test(name)) throw new Error(`"${name}" can't be a kit file name: lowercase letters, digits and -, up to 41`);
+  return `kit/${kind}/${name}${EXT[kind]}`;
+}
+function kitList(dir) {
+  const s = store(dir);
+  const names = (kind) => s.list(`kit/${kind}`).filter((f) => f.endsWith(EXT[kind])).map((f) => f.slice(0, -EXT[kind].length)).filter((n) => KIT_NAME.test(n)).sort();
+  return { styles: names("styles"), scripts: names("scripts"), blocks: names("blocks"), types: names("types"), tags: s.exists("kit/tags.json") };
+}
+function kitRead(dir, kind, name = "tags") {
+  return store(dir).read(kitPath(kind, name));
+}
+function kitError(kind, name, text2) {
+  if (text2.length > MAX) return `a kit file is at most ${MAX / 1e3} KB`;
+  if (kind === "styles") {
+    if (/@import/i.test(text2)) return `${name}.css: no @import (put the other file in the kit too)`;
+    if (/<\/style/i.test(text2)) return `${name}.css: no </style> in CSS`;
+    for (const m of text2.matchAll(/url\(\s*["']?([^"')]+)/gi)) if (/^([a-z]+:|\/\/)/i.test(m[1].trim()) && !/^data:/i.test(m[1].trim())) return `${name}.css: url(${m[1].trim()}) loads from another server; put the file in the site's assets/ and write url(/assets/<file>)`;
+  }
+  if (kind === "types") {
+    try {
+      parseType(text2, `kit/types/${name}.json`);
+    } catch (e) {
+      return e.message;
+    }
+  }
+  if (kind === "tags") {
+    let tags;
+    try {
+      tags = JSON.parse(text2);
+    } catch {
+      return "kit/tags.json is not JSON";
+    }
+    if (!tags || typeof tags !== "object" || Array.isArray(tags)) return 'kit/tags.json is an object: { "<tag>": { "label": "\u2026", "description": "\u2026" } }';
+    for (const [t, v] of Object.entries(tags)) {
+      if (!/^[a-z][a-z0-9-]{0,30}$/.test(t)) return `"${t}" can't be a tag: lowercase letters, digits and -, starting with a letter`;
+      if (LIBRARY_TAGS.has(t)) return `"${t}" is one of TYKERF's own tags; choose another name`;
+      if (!v || typeof v !== "object" || typeof v.label !== "string") return `the tag "${t}" needs a label`;
+    }
+  }
+  return null;
+}
+function kitWrite(dir, kind, name, text2, label, author = "user") {
+  const path = kitPath(kind, name);
+  if (text2 !== null) {
+    const err = kitError(kind, name, text2);
+    if (err) throw new Error(err);
+  }
+  const s = store(dir);
+  s.lock(() => {
+    const prev = s.read(path);
+    if (prev === text2) return;
+    s.append(HISTORY, JSON.stringify({ path, prev, label: label ?? `${text2 === null ? "remove" : prev === null ? "add" : "edit"} kit/${path.slice(4)}`, author, at: (/* @__PURE__ */ new Date()).toISOString() }) + "\n");
+    if (text2 === null) s.remove(path);
+    else s.write(path, text2);
+  });
+}
+function kitTags(dir) {
+  const raw = kitRead(dir, "tags");
+  if (!raw || kitError("tags", "tags", raw)) return {};
+  return JSON.parse(raw);
+}
+function kitTypes(dir) {
+  const out = {};
+  for (const name of kitList(dir).types) {
+    const raw = kitRead(dir, "types", name) ?? "";
+    if (!kitError("types", name, raw)) out[name] = JSON.parse(raw);
+  }
+  return out;
+}
+function kitStyles(dir) {
+  const files = kitList(dir).styles;
+  if (!files.length) return "";
+  const css = files.map((n) => `/* kit/styles/${n}.css */
+${(kitRead(dir, "styles", n) ?? "").replace(/<\/style/gi, "")}`).join("\n");
+  return `<style data-tykerf-kit>
+${css}
+</style>
+`;
+}
+function kitLoaderTag(dir) {
+  return kitList(dir).scripts.length ? '<script type="module" src="/kit/loader.js"></script>\n' : "";
+}
+function kitBlock(dir, name) {
+  return KIT_NAME.test(name) ? kitRead(dir, "blocks", name) : null;
+}
+function markCurrentPage(code, page) {
+  if (!page) return code;
+  const here = new RegExp(`(<a\\b(?![^>]*\\baria-current=)[^>]*\\bhref\\s*=\\s*["']/${page}/?(?:index\\.html)?["'])`, "gi");
+  return code.replace(here, '$1 aria-current="page"');
 }
 
 // src/shape.ts
@@ -30391,7 +30561,7 @@ ${html}` : html;
 var SLICE = "layout.slice";
 var CONTENTS = "contents.json";
 var BOXES = "boxes";
-var HISTORY = ".history.jsonl";
+var HISTORY2 = ".history.jsonl";
 var REDO = ".redo.jsonl";
 var ARCHIVE = ".history-archive.jsonl";
 var HISTORY_STEPS = 200;
@@ -30415,6 +30585,16 @@ var Workspace = class {
     if (!this.site) return "";
     return this.head().includes(NO_SITE_HEAD) ? "" : this.site.head();
   }
+  /** The site kit's part of this page's head ('' outside a site, or when the page keeps its own look). */
+  kitHead() {
+    if (!this.site?.kit) return "";
+    return this.head().includes(NO_SITE_HEAD) ? "" : this.site.kit();
+  }
+  /** The shared block a box shows instead of its own code (its use=), when the site has it. */
+  sharedBlock(id2, l = this.load()) {
+    const n = find(l.root, id2)?.node;
+    return n?.type === "leaf" && n.use ? n.use : null;
+  }
   /** The folder, for workspaces on disk (tools that need real files: the CLI, child processes). */
   get dir() {
     if (this.store instanceof FolderStore) return this.store.root;
@@ -30433,7 +30613,7 @@ var Workspace = class {
     return this.abs(BOXES);
   }
   get historyPath() {
-    return this.abs(HISTORY);
+    return this.abs(HISTORY2);
   }
   get htmlPath() {
     return this.abs(OUT);
@@ -30475,7 +30655,7 @@ var Workspace = class {
   }
   /** Record a new change. A new change makes the undone steps unreachable, so redo starts over. */
   log(entry) {
-    this.store.append(HISTORY, JSON.stringify(entry) + "\n");
+    this.store.append(HISTORY2, JSON.stringify(entry) + "\n");
     this.store.remove(REDO);
     if (!this.grouping) this.trimHistory();
   }
@@ -30497,10 +30677,10 @@ var Workspace = class {
       return JSON.stringify({ label, author, at, kind }) + "\n";
     });
     this.store.append(ARCHIVE, old.join(""));
-    this.store.write(HISTORY, lines.slice(start).map((l) => l + "\n").join(""));
+    this.store.write(HISTORY2, lines.slice(start).map((l) => l + "\n").join(""));
   }
   types() {
-    return loadTypes(this.store);
+    return { ...this.site?.types?.() ?? {}, ...loadTypes(this.store) };
   }
   /** Throw if `next` introduces box-type violations that `prev` did not have. */
   checkTypes(prev, next) {
@@ -30549,7 +30729,7 @@ var Workspace = class {
     });
   }
   lines() {
-    return (this.store.read(HISTORY) ?? "").split("\n").filter(Boolean);
+    return (this.store.read(HISTORY2) ?? "").split("\n").filter(Boolean);
   }
   entries() {
     return this.lines().map((l) => JSON.parse(l));
@@ -30635,7 +30815,7 @@ var Workspace = class {
     if (!last) throw new Error("nothing to undo");
     const e = JSON.parse(last);
     if (e.kind === "group") {
-      this.store.write(HISTORY, lines.map((l) => l + "\n").join(""));
+      this.store.write(HISTORY2, lines.map((l) => l + "\n").join(""));
       for (let i = 0; i < e.count; i++) this.undoStep();
       this.pushRedo({ group: e });
       return e.label;
@@ -30651,7 +30831,7 @@ var Workspace = class {
       this.store.write(SLICE, e.slice);
       if (e.kind === "rename") this.moveBox(e.to, e.from);
     }
-    this.store.write(HISTORY, lines.map((l) => l + "\n").join(""));
+    this.store.write(HISTORY2, lines.map((l) => l + "\n").join(""));
     return e.label;
   }
   redoLines() {
@@ -30672,7 +30852,7 @@ var Workspace = class {
     const r = JSON.parse(last);
     if ("group" in r) {
       for (let i = 0; i < r.group.count; i++) this.redoStep();
-      this.store.append(HISTORY, JSON.stringify(r.group) + "\n");
+      this.store.append(HISTORY2, JSON.stringify(r.group) + "\n");
       return r.group.label;
     }
     const e = r.entry;
@@ -30682,7 +30862,7 @@ var Workspace = class {
       this.store.write(SLICE, r.slice);
       if (e.kind === "rename") this.moveBox(e.from, e.to);
     }
-    this.store.append(HISTORY, JSON.stringify(e) + "\n");
+    this.store.append(HISTORY2, JSON.stringify(e) + "\n");
     return e.label;
   }
   /** What redo would do, without doing it: the layout it would restore and/or the box it would change. */
@@ -30714,10 +30894,26 @@ var Workspace = class {
       const css = this.store.read(`${BOXES}/${id2}.css`);
       c[id2] = css !== null ? joinStyle(html, css) : html;
     }
+    if (this.site?.block) walk(this.load().root, (n) => {
+      if (n.type === "leaf" && n.use) {
+        const b = this.site.block(n.use);
+        if (b !== null) c[n.id] = b;
+      }
+    });
     return c;
   }
   /** The code of one box (reads only its own files). */
   content(id2) {
+    if (!BOX_ID.test(id2)) return null;
+    const use = this.site?.block ? this.sharedBlock(id2) : null;
+    if (use) {
+      const b = this.site.block(use);
+      if (b !== null) return b;
+    }
+    return this.ownContent(id2);
+  }
+  /** A box's own code, even while it shows a shared block. */
+  ownContent(id2) {
     if (!BOX_ID.test(id2)) return null;
     const html = this.store.read(`${BOXES}/${id2}.html`);
     if (html !== null) {
@@ -30804,7 +31000,14 @@ var Workspace = class {
       const errs = def ? contentErrors(html, t, def) : [];
       if (errs.length) throw new Error(`refused by box type: ${errs.join("; ")}`);
     }
-    const prev = this.content(id2);
+    const use = node2?.type === "leaf" ? node2.use : void 0;
+    if (use && html !== null && this.site?.setBlock && this.site.block?.(use) != null) {
+      if (this.site.block(use) === html) return;
+      this.checkGuards({ kind: "content", id: id2, layout });
+      this.site.setBlock(use, html, author);
+      return;
+    }
+    const prev = this.ownContent(id2);
     if (prev === html) return;
     this.checkGuards({ kind: "content", id: id2, layout });
     this.log({ kind: "content", label: `set_content ${id2}${html === null ? " (removed)" : ` (${html.length} chars)`}`, author, at: (/* @__PURE__ */ new Date()).toISOString(), id: id2, prev });
@@ -30836,7 +31039,12 @@ var Workspace = class {
   }
   /** The full page: layout + box code + the site's shared head + head.html. Every renderer (CLI, editor, MCP) goes through this. */
   page(opts = {}) {
-    return toHTML(this.load(), this.contents(), { ...opts, head: (this.site?.icon?.() ?? "") + this.siteHead() + this.head() + (opts.head ?? "") });
+    const l = this.load();
+    const c = this.contents();
+    if (this.site?.page) walk(l.root, (n) => {
+      if (n.type === "leaf" && n.use && c[n.id] !== void 0) c[n.id] = markCurrentPage(c[n.id], this.site.page);
+    });
+    return toHTML(l, c, { ...opts, head: (this.site?.icon?.() ?? "") + this.siteHead() + this.kitHead() + this.head() + (opts.head ?? "") });
   }
   /** Write the rendered page to out/index.html; returns where it went (a file path for folders). */
   render(title) {
@@ -30847,8 +31055,9 @@ var Workspace = class {
 };
 
 // src/site.ts
+var HOME_PAGE = "home";
 var PAGE_NAME = /^[a-z0-9][a-z0-9-]{0,62}$/;
-var RESERVED = /* @__PURE__ */ new Set(["_tykerf", "assets", "out", "pages", "sitemap.xml"]);
+var RESERVED = /* @__PURE__ */ new Set(["_tykerf", "assets", "out", "pages", "sitemap.xml", "kit"]);
 var isPage = (dir) => existsSync3(join4(dir, "layout.slice"));
 var entries = (dir) => existsSync3(dir) ? readdirSync2(dir) : [];
 function isSite(dir) {
@@ -30876,14 +31085,23 @@ function pageNameError(dir, name) {
   if (existsSync3(join4(dir, name))) return `there is already a "${name}" in the site`;
   return null;
 }
-function newSitePage(dir, name, layout = "blank", themeName = DEFAULT_THEME) {
+function newSitePage(dir, name, layout = "blank", themeName2 = DEFAULT_THEME) {
   const err = pageNameError(dir, name);
   if (err) throw new Error(err);
-  const fresh = !sitePages(dir).length && !existsSync3(join4(dir, SITE_HEAD));
+  const first = !sitePages(dir).length;
+  const fresh = first && !existsSync3(join4(dir, SITE_HEAD));
   const ws = pageWorkspace(dir, name);
   const shared = hasTheme(siteHead(dir)) || fresh;
-  createPage(ws, layout, themeName, { ownTheme: !shared });
-  if (fresh) startSiteTheme(dir, themeName);
+  createPage(ws, layout, themeName2, { ownTheme: !shared });
+  if (fresh) startSiteTheme(dir, themeName2);
+  if (first && !readSite(dir).home) setHome(dir, name);
+  const blocks = new Set(kitList(dir).blocks);
+  const start = ws.load();
+  let l = start;
+  walk(start.root, (n) => {
+    if (n.type === "leaf" && blocks.has(n.id)) l = setLeaf(l, n.id, { use: n.id });
+  });
+  if (l !== start) ws.store.write("layout.slice", serializeSlice(l));
   return ws;
 }
 var SITE_FILE = "site.json";
@@ -30905,6 +31123,17 @@ function readSite(dir) {
   const titles = Object.fromEntries(Object.entries(raw.titles ?? {}).filter(([p, t]) => pages.has(p) && typeof t === "string" && t.trim()));
   const publish = raw.publish && !publishSettingsError(raw.publish) ? raw.publish : void 0;
   return { version: 1, ...raw.home && pages.has(raw.home) ? { home: raw.home } : {}, titles, ...publish ? { publish } : {} };
+}
+function writeSite(dir, s) {
+  new FolderStore(dir).write(SITE_FILE, `${JSON.stringify(s, null, 2)}
+`);
+}
+function setHome(dir, page) {
+  if (page !== null && !sitePages(dir).includes(page)) throw new Error(`there is no page "${page}" in the site`);
+  const s = readSite(dir);
+  if (page === null) delete s.home;
+  else s.home = page;
+  writeSite(dir, s);
 }
 var TYKERF_REPO = "https://github.com/eonity-org/tykerf";
 var CREDIT = `<footer class="tykerf-credit" style="display:flex;justify-content:center;padding:14px 16px;background:var(--color-bg,transparent);font:12px/1.4 var(--font-body,system-ui,sans-serif)"><a href="${TYKERF_REPO}" rel="noopener" style="display:inline-flex;align-items:center;gap:6px;color:var(--color-muted,#666);text-decoration:none"><svg viewBox="0 0 64 64" width="14" height="14" aria-hidden="true" fill="#0A5475"><rect width="64" height="20" rx="6"/><rect y="27" width="28.5" height="37" rx="6"/><rect fill="#EA9A27" x="35.5" y="27" width="28.5" height="12" rx="3"/><rect x="35.5" y="45" width="11.25" height="19" rx="3"/><rect x="52.75" y="45" width="11.25" height="19" rx="3"/></svg><span>Made with TYKERF</span></a></footer>`;
@@ -30946,28 +31175,43 @@ var siteStore = (dir) => new FolderStore(dir);
 function siteHead(dir) {
   return siteStore(dir).read(SITE_HEAD) ?? "";
 }
-var siteLink = (dir) => ({ head: () => siteHead(dir), pages: () => sitePages(dir).length, pageNames: () => sitePages(dir), files: () => existsSync3(join4(dir, "assets")) ? readdirSync2(join4(dir, "assets")) : [], asset: (f) => siteStore(dir).readBytes(`assets/${f}`), icon: () => iconLink(dir), setHead: (html, label) => setSiteHead(dir, html, label) });
-var pageWorkspace = (dir, name) => new Workspace(join4(dir, name), { site: siteLink(dir) });
+var siteLink = (dir, page) => ({
+  head: () => siteHead(dir),
+  pages: () => sitePages(dir).length,
+  pageNames: () => sitePages(dir),
+  files: () => existsSync3(join4(dir, "assets")) ? readdirSync2(join4(dir, "assets")) : [],
+  asset: (f) => siteStore(dir).readBytes(`assets/${f}`),
+  icon: () => iconLink(dir),
+  setHead: (html, label) => setSiteHead(dir, html, label),
+  // the site kit (src/kit.ts): styles and behaviours for every page, shared blocks, box types
+  dir,
+  page,
+  kit: () => kitStyles(dir) + kitLoaderTag(dir),
+  block: (name) => kitBlock(dir, name),
+  setBlock: (name, code, author) => kitWrite(dir, "blocks", name, code, `edit the shared block ${name}`, author),
+  types: () => kitTypes(dir)
+});
+var pageWorkspace = (dir, name) => new Workspace(join4(dir, name), { site: siteLink(dir, name) });
 function siteOf(pageDir) {
   const parent = dirname3(pageDir);
   try {
-    return sitePages(parent).includes(basename(pageDir)) && isSite(parent) ? siteLink(parent) : null;
+    return sitePages(parent).includes(basename(pageDir)) && isSite(parent) ? siteLink(parent, basename(pageDir)) : null;
   } catch {
     return null;
   }
 }
 function setSiteHead(dir, html, label = "edit the site theme") {
-  const store = siteStore(dir);
-  store.lock(() => {
-    const prev = store.read(SITE_HEAD);
-    const next = withFonts(store, html, "/assets/");
+  const store2 = siteStore(dir);
+  store2.lock(() => {
+    const prev = store2.read(SITE_HEAD);
+    const next = withFonts(store2, html, "/assets/");
     if (prev === next) return;
-    store.append(SITE_HISTORY, JSON.stringify({ label, at: (/* @__PURE__ */ new Date()).toISOString(), prev }) + "\n");
-    store.write(SITE_HEAD, next);
+    store2.append(SITE_HISTORY, JSON.stringify({ label, at: (/* @__PURE__ */ new Date()).toISOString(), prev }) + "\n");
+    store2.write(SITE_HEAD, next);
   });
 }
-function startSiteTheme(dir, themeName) {
-  const p = themes().find((t) => t.name === themeName) ?? themes()[0];
+function startSiteTheme(dir, themeName2) {
+  const p = themes().find((t) => t.name === themeName2) ?? themes()[0];
   setSiteHead(dir, withPresetName(withThemeValues(theme(), p.values).head, p.name), `site theme ${p.name}`);
 }
 function usePage(ws, dir, from, opts = {}) {
@@ -30990,9 +31234,137 @@ function usePage(ws, dir, from, opts = {}) {
     for (const f of src.assets()) if (used.includes(`assets/${f}`) && !ws.store.exists(`assets/${f}`)) ws.store.write(`assets/${f}`, src.store.readBytes(`assets/${f}`));
   });
 }
+var HREF = /(\bhref\s*=\s*)(["'])(.*?)\2/gi;
 function linkedPage(href) {
   const m = /^\/([a-z0-9][a-z0-9-]*)(?=$|[/#?])/.exec(href.trim());
   return m ? m[1] : null;
+}
+function rewriteHrefs(html, fn) {
+  return html.replace(HREF, (all, pre, q, href) => {
+    const next = fn(href);
+    return next === href ? all : `${pre}${q}${next}${q}`;
+  });
+}
+function rewriteLinks(dir, from, to) {
+  let n = 0;
+  const swap2 = (href) => {
+    if (linkedPage(href) !== from) return href;
+    n++;
+    return `/${to}${href.trim().slice(from.length + 1)}`;
+  };
+  for (const page of sitePages(dir)) {
+    const ws = new Workspace(join4(dir, page));
+    ws.transaction(() => ws.group(`links follow page ${from} \u2192 ${to}`, "user", () => {
+      for (const id2 of ws.boxIds()) {
+        const html = ws.content(id2);
+        if (html === null) continue;
+        const next2 = rewriteHrefs(html, swap2);
+        if (next2 !== html) ws.setContent(id2, next2, "user");
+      }
+      const head = ws.head();
+      const next = rewriteHrefs(head, swap2);
+      if (next !== head) ws.setHead(next, "user", `links follow page ${from} \u2192 ${to}`);
+    }));
+  }
+  return n;
+}
+function pageLinks(dir) {
+  const pages = sitePages(dir);
+  const out = [];
+  const scan = (page, box, html) => {
+    for (const m of html.matchAll(HREF)) {
+      const to = linkedPage(m[3]);
+      if (to && !RESERVED.has(to)) out.push({ page, box, href: m[3], to, broken: !pages.includes(to) });
+    }
+  };
+  for (const page of pages) {
+    const ws = new Workspace(join4(dir, page));
+    for (const id2 of ws.boxIds()) scan(page, id2, ws.content(id2) ?? "");
+    scan(page, null, ws.head());
+  }
+  return out;
+}
+var MOVES = ".tykerf/moves.jsonl";
+function logMove(dir, from, to) {
+  new FolderStore(dir).append(MOVES, `${JSON.stringify({ from, to, at: (/* @__PURE__ */ new Date()).toISOString() })}
+`);
+}
+function renamePage(dir, from, to) {
+  if (!sitePages(dir).includes(from)) throw new Error(`there is no page "${from}" in the site`);
+  if (from === to) return { links: 0 };
+  const err = pageNameError(dir, to);
+  if (err) throw new Error(err);
+  const s = readSite(dir);
+  renameSync2(join4(dir, from), join4(dir, to));
+  if (s.home === from || from in s.titles) {
+    if (s.home === from) s.home = to;
+    if (from in s.titles) s.titles[to] = s.titles[from], delete s.titles[from];
+    writeSite(dir, s);
+  }
+  logMove(dir, from, to);
+  return { links: rewriteLinks(dir, from, to) };
+}
+function removePage(dir, name) {
+  if (!sitePages(dir).includes(name)) throw new Error(`there is no page "${name}" in the site`);
+  const s = readSite(dir);
+  if (s.home === name || name in s.titles) {
+    if (s.home === name) delete s.home;
+    delete s.titles[name];
+    writeSite(dir, s);
+  }
+  const trash = join4(".trash", `${name}-${(/* @__PURE__ */ new Date()).toISOString().replace(/[:.]/g, "-")}`);
+  mkdirSync2(join4(dir, ".trash"), { recursive: true });
+  renameSync2(join4(dir, name), join4(dir, trash));
+  logMove(dir, name, null);
+  return { trash, broken: pageLinks(dir).filter((l) => l.to === name).length };
+}
+function blockUsers(dir, name) {
+  const out = {};
+  for (const p of sitePages(dir)) {
+    const boxes = [];
+    try {
+      walk(pageWorkspace(dir, p).load().root, (n) => {
+        if (n.type === "leaf" && n.use === name) boxes.push(n.id);
+      });
+    } catch {
+    }
+    if (boxes.length) out[p] = boxes;
+  }
+  return out;
+}
+function freeBlockName(dir, wish) {
+  const taken = new Set(kitList(dir).blocks);
+  const base = wish.toLowerCase().replace(/[^a-z0-9-]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 36) || "block";
+  for (let i = 1; ; i++) {
+    const name = i === 1 ? base : `${base}-${i}`;
+    if (!taken.has(name)) return name;
+  }
+}
+function shareBlock(dir, ws, box, wish = box, author = "user") {
+  const l = ws.load();
+  const n = find(l.root, box)?.node;
+  if (n?.type !== "leaf") throw new Error(`"${box}" is not a box`);
+  if (n.use) throw new Error(`"${box}" already shows the shared block "${n.use}"`);
+  const name = freeBlockName(dir, wish);
+  kitWrite(dir, "blocks", name, ws.content(box) ?? "", `share ${box} as the shared block ${name}`, author);
+  ws.save(setLeaf(l, box, { use: name }), `share ${box} with every page as ${name}`, author);
+  return name;
+}
+function linkBlock(dir, ws, box, name, author = "user") {
+  if (kitBlock(dir, name) === null) throw new Error(`the site has no shared block "${name}"`);
+  const l = ws.load();
+  if (find(l.root, box)?.node.type !== "leaf") throw new Error(`"${box}" is not a box`);
+  ws.save(setLeaf(l, box, { use: name }), `use the shared block ${name} in ${box}`, author);
+}
+function unlinkBlock(ws, box, author = "user") {
+  const l = ws.load();
+  const n = find(l.root, box)?.node;
+  if (n?.type !== "leaf" || !n.use) throw new Error(`"${box}" doesn't show a shared block`);
+  const code = ws.content(box);
+  ws.group(`make ${box} this page's own copy of ${n.use}`, author, () => {
+    ws.save(setLeaf(ws.load(), box, { use: null }), `unlink ${box} from ${n.use}`, author);
+    if (code !== null) ws.setContent(box, code, author);
+  });
 }
 
 // src/mcp/tools.ts
@@ -36548,9 +36920,9 @@ var Protocol = class {
       });
       this.setRequestHandler(ListTasksRequestSchema, async (request, extra) => {
         try {
-          const { tasks, nextCursor } = await this._taskStore.listTasks(request.params?.cursor, extra.sessionId);
+          const { tasks: tasks2, nextCursor } = await this._taskStore.listTasks(request.params?.cursor, extra.sessionId);
           return {
-            tasks,
+            tasks: tasks2,
             nextCursor,
             _meta: {}
           };
@@ -36697,13 +37069,13 @@ var Protocol = class {
     const capturedTransport = this._transport;
     const relatedTaskId = request.params?._meta?.[RELATED_TASK_META_KEY]?.taskId;
     const sessionId = capturedTransport?.sessionId;
-    const store = this._taskStore;
+    const store2 = this._taskStore;
     let relatedTaskFound = true;
     let relatedTaskLookup;
-    if (relatedTaskId && store && this._taskMessageQueue && sessionId !== void 0) {
+    if (relatedTaskId && store2 && this._taskMessageQueue && sessionId !== void 0) {
       relatedTaskFound = false;
       relatedTaskLookup = (async () => {
-        if (!await store.getTask(relatedTaskId, sessionId)) {
+        if (!await store2.getTask(relatedTaskId, sessionId)) {
           throw new McpError(ErrorCode.InvalidParams, `Task not found: ${relatedTaskId}`);
         }
         relatedTaskFound = true;
@@ -39128,6 +39500,7 @@ function say(l) {
   if (l.kind === "text") return `${l.box}: placeholder text "${l.detail}"`;
   if (l.kind === "picture") return `${l.box}: a placeholder picture (${l.detail})`;
   if (l.kind === "missing") return `${l.box}: ${l.detail} is not one of the page's files, so it shows broken`;
+  if (l.kind === "block") return `${l.box}: it shows the shared block "${l.detail}", which the site's kit doesn't have (kit/blocks/${l.detail}.html), so it shows its own code`;
   const [href, ...words] = l.detail.split(" ");
   const label = words.join(" ") || href;
   if (l.why === "nowhere") return `${l.box}: the link "${label}" goes nowhere`;
@@ -39223,7 +39596,10 @@ function leftovers(ws, opts = {}) {
   const known = placeholderText();
   const out = [];
   const add = (l) => out.some((o) => leftoverKey(o) === leftoverKey(l)) || out.push(l);
+  const layout = ws.load();
   for (const box of boxes) {
+    const use = ws.sharedBlock(box, layout);
+    if (use && ws.site?.block && ws.site.block(use) === null) add({ box, kind: "block", detail: use });
     const html = ws.content(box) ?? "";
     for (const s of texts(html)) if (known.has(s)) add({ box, kind: "text", detail: s });
     for (const [img] of html.matchAll(/<img\b[^>]*>/gi)) {
@@ -39236,12 +39612,57 @@ function leftovers(ws, opts = {}) {
       if (href === void 0) continue;
       const words = texts(inner).join(" ").slice(0, 60);
       const page = linkedPage(href);
-      const why = href === "" || href === "#" ? "nowhere" : href.startsWith("#") && !ids2.has(decode3(href.slice(1))) ? "section" : page && pages && !pages.includes(page) && !["_tykerf", "assets", "out"].includes(page) ? "page" : null;
+      const why = href === "" || href === "#" ? "nowhere" : href.startsWith("#") && !ids2.has(decode3(href.slice(1))) ? "section" : page && pages && !pages.includes(page) && !["_tykerf", "assets", "out", "kit"].includes(page) ? "page" : null;
       const target = why === "section" && ids2.has(`sw-${decode3(href.slice(1))}`) ? `#sw-${decode3(href.slice(1))}` : void 0;
       if (why) add({ box, kind: "link", detail: `${href || "#"} ${words}`.trim(), why, ...target ? { target } : {} });
     }
   }
   return out;
+}
+
+// src/tasks.ts
+var FILE = ".tykerf/tasks.json";
+var MAX_TEXT = 4e3;
+function load(ws) {
+  try {
+    const f = JSON.parse(ws.store.read(FILE) ?? "");
+    if (Array.isArray(f?.tasks)) return { next: Number(f.next) || 1, tasks: f.tasks };
+  } catch {
+  }
+  return { next: 1, tasks: [] };
+}
+var save = (ws, f) => ws.store.write(FILE, JSON.stringify(f, null, 1));
+function tasks(ws, { open: open2, within } = {}) {
+  const layout = ws.load();
+  return load(ws).tasks.map((x) => {
+    const block = ws.followRenames(x.block, x.since);
+    return find(layout.root, block) ? { ...x, block } : { ...x, block, gone: true };
+  }).filter((x) => (!open2 || !x.done) && (!within || !x.gone && inScope(layout, within, x.block)));
+}
+function update(ws, n, fn, within) {
+  return ws.transaction(() => {
+    const f = load(ws);
+    const x = f.tasks.find((y) => y.n === n);
+    if (!x) throw new Error(`no task ${n}`);
+    const now = tasks(ws).find((y) => y.n === n);
+    if (within && (now.gone || !inScope(ws.load(), within, now.block))) throw new Error(`task ${n} is on "${now.block}", outside the scope "${within}"`);
+    if (!now.gone && now.block !== x.block) Object.assign(x, { block: now.block, since: (/* @__PURE__ */ new Date()).toISOString() });
+    fn(x, f);
+    save(ws, f);
+    return { ...x, ...now.gone ? { gone: true } : {} };
+  });
+}
+function closeTask(ws, n, by = "user", reply, within) {
+  const r = reply?.trim().slice(0, MAX_TEXT);
+  return update(ws, n, (x) => {
+    x.done = { by, at: (/* @__PURE__ */ new Date()).toISOString(), ...r ? { reply: r } : {} };
+  }, within);
+}
+function sayTask(x) {
+  const where = `${x.block}${x.label ? ` \u203A ${x.label}` : ""}${x.path?.length ? ` (element ${x.path.join(".")})` : ""}`;
+  const seen = x.width ? `, seen ${x.width} px wide` : "";
+  const end = x.done ? ` [done${x.done.reply ? `: ${x.done.reply}` : ""}]` : "";
+  return `#${x.n} on ${where}${seen}${x.gone ? " (that block is gone)" : ""}: ${x.text}${end}`;
 }
 
 // src/mcp/tools.ts
@@ -39265,13 +39686,17 @@ function changes(prev, next) {
   for (const k of a.keys()) if (!b.has(k)) out.push(`- ${k} removed`);
   return out.length ? out.join("\n") : "(no change)";
 }
+function themeName(name) {
+  const bare = name.trim().replace(/^(['"`])(.*)\1$/, "$2").trim().replace(/^var\(\s*(.*?)\s*\)$/, "$1").replace(/_/g, "-");
+  return bare.startsWith("--") ? bare : `--${bare}`;
+}
 function guard(fn) {
   return async (a) => {
     try {
       return text(await fn(a));
     } catch (e) {
       const m = e.message;
-      if (m.startsWith("no layout.slice")) return text(`error: no page is open. In an empty folder, use_layout starts one (list_layouts shows the layouts, list_themes the themes; "blank" is the simplest). In a site, list_pages shows its pages, open_page opens one and new_page makes one.`, true);
+      if (m.startsWith("no layout.slice")) return text(`error: no page is open. In a site, open_page opens one of its pages (list_pages lists them) and new_page makes one. In an empty folder, use_layout starts a site with its home page (list_layouts shows the layouts, list_themes the themes; "blank" is the simplest).`, true);
       return text(`error: ${m}
 (layout unchanged; call get_layout to see it)`, true);
     }
@@ -39309,8 +39734,8 @@ function createTykerfServer(start, opts = {}) {
   let folderOpen = start !== null;
   let home = opts.home ? resolve3(opts.home) : null;
   const folders = opts.folders && !runScope ? opts.folders : null;
-  const server = new McpServer({ name: "tykerf", version: "0.2.1" }, {
-    instructions: `Edit a web page whose layout is a tree of boxes. A "row" places its children side by side (left to right); a "column" stacks them top to bottom; "wheel" is a pinwheel (top,right,bottom,left,center); "periphery" is a page frame (north,west,center,east,south; "_" = empty slot). Any box can have maxw (max width in px, centered) and minh (min height in px: taller than its content, never shorter). The tree is the base layout for every width; use add_rule for narrow screens (e.g. below=600: flip a row into a column, stack a periphery, change ratios, hide a box) instead of changing the base layout. If a request cannot be expressed with these tools, say so instead of experimenting on the page. When the user names a block, call focus on it first; edits outside a scope are refused. Boxes and containers may have a type (get_types): moves and code that break their placement or content rules are refused. Call get_layout first. Refer to nodes by name ("faq"), path ("page/row2/faq", "row2/2") or position ("#4.2"); use resolve to check a reference. Every edit is validated; replies list only the nodes that changed. Leaf content is HTML set with set_content; for a change to part of a box (a value, a sentence, one rule) use edit_content, which replaces only that text and is much quicker on long code. Call evaluate to check the result at 375/768/1440 px, and screenshot to look at it (colours, spacing, alignment, text that spills out): after changing how something looks, look at it at 1440 and 375 px and fix what is wrong. The page theme (colours, fonts, radius, spacing, content width) is a set of CSS variables that every box uses: read it with get_theme and change it with set_theme, which restyles the whole page. Only allowed when the scope is the whole page (or there is no scope); inside a smaller block, change that block's own code instead, or ask the user to select the page block. To link to a block on the page, use its element's id: #sw-<name> (the block "faq" is #sw-faq). Pictures are files in the page's assets/, written assets/<file> (no leading slash). You can't download pictures: draw one as SVG, or place one the user attached, with add_picture; when neither fits, say what picture is needed. Never make up a file name. For a new section (hero, features, FAQ, pricing, footer...), start from a ready-made component (list_components, use_component) and adapt its text and images, instead of writing the code from scratch. To make a page like another page of its site, use_page copies that page's blocks. ` + (folders ? `No folder is open at first: open_folder opens one (a page, a site of pages, or an empty or new folder to start in). Without a path it opens the default folder, ${folders.defaultDir}; tell the person which folder you open, so they can name another first. ` : "") + ((opts.home || folders) && !opts.scope ? "A site is a folder of pages: list_pages shows them and which one is open, open_page switches the page every other tool works on, and new_page makes one. When there are several, say which page you are working on." : "")
+  const server = new McpServer({ name: "tykerf", version: "0.3.0" }, {
+    instructions: `Edit a web page whose layout is a tree of boxes. A "row" places its children side by side (left to right); a "column" stacks them top to bottom; "wheel" is a pinwheel (top,right,bottom,left,center); "periphery" is a page frame (north,west,center,east,south; "_" = empty slot). Any box can have maxw (max width in px, centered) and minh (min height in px: taller than its content, never shorter). The tree is the base layout for every width; use add_rule for narrow screens (e.g. below=600: flip a row into a column, stack a periphery, change ratios, hide a box) instead of changing the base layout. If a request cannot be expressed with these tools, say so instead of experimenting on the page. When the user names a block, call focus on it first; edits outside a scope are refused. Boxes and containers may have a type (get_types): moves and code that break their placement or content rules are refused. Call get_layout first. Refer to nodes by name ("faq"), path ("page/row2/faq", "row2/2") or position ("#4.2"); use resolve to check a reference. Every edit is validated; replies list only the nodes that changed. Leaf content is HTML set with set_content; for a change to part of a box (a value, a sentence, one rule) use edit_content, which replaces only that text and is much quicker on long code. Call evaluate to check the result at 375/768/1440 px, and screenshot to look at it (colours, spacing, alignment, text that spills out): after changing how something looks, look at it at 1440 and 375 px and fix what is wrong. The page theme (colours, fonts, radius, spacing, content width) is a set of CSS variables that every box uses: read it with get_theme and change it with set_theme, which restyles the whole page. Only allowed when the scope is the whole page (or there is no scope); inside a smaller block, change that block's own code instead, or ask the user to select the page block. To link to a block on the page, use its element's id: #sw-<name> (the block "faq" is #sw-faq). Pictures are files in the page's assets/, written assets/<file> (no leading slash). You can't download pictures: draw one as SVG, or place one the user attached, with add_picture; when neither fits, say what picture is needed. Never make up a file name. For a new section (hero, features, FAQ, pricing, footer...), start from a ready-made component (list_components, use_component) and adapt its text and images, instead of writing the code from scratch. To make a page like another page of its site, use_page copies that page's blocks. ` + (folders ? `No folder is open at first: open_folder opens one (a site of pages, one of its pages, or an empty or new folder, which becomes a site). Without a path it opens the default folder, ${folders.defaultDir}; tell the person which folder you open, so they can name another first. ` : "") + ((opts.home || folders) && !opts.scope ? "A site is a folder of pages: list_pages shows them and which one is open, open_page switches the page every other tool works on, and new_page makes one. When there are several, say which page you are working on." : "")
   });
   const registerTool = server.registerTool.bind(server);
   server.registerTool = ((name, config2, cb) => registerTool(name, config2, ((...a) => folderOpen || FOLDERLESS.has(name) ? cb(...a) : text(`error: no folder is open. open_folder opens one${folders ? ` (without a path: the default folder, ${folders.defaultDir})` : ""}; say which folder you open, so the person can name another first.`, true))));
@@ -39333,6 +39758,10 @@ function createTykerfServer(start, opts = {}) {
   function assertInScope(l, target) {
     const sc = scope(l);
     if (sc && !inScope(l, sc, target)) throw new Error(`refused: "${target}" is outside the scope "${pathOf(l, sc)}"; ask the user to widen the scope.`);
+  }
+  function assertMayChangeShared(l, target) {
+    const use = ws.sharedBlock(target, l);
+    if (use && (scope(l) || !(home || folders))) throw new Error(`refused: "${target}" shows the shared block "${use}", which other pages of the site show too. Changing it is for a request about the whole site (Kaity in the site manager); if only this page should change, ask the user to make it this page's own copy first (right-click \u2192 Make this page's own copy)`);
   }
   const boxRef = (l, ref) => l.overlays.some((o) => o.id === ref) ? ref : resolveRef2(l, ref);
   function resolveArgs(l, shape, a) {
@@ -39421,12 +39850,19 @@ ${codes.join("\n")}`;
   server.registerTool("set_theme", {
     title: "Change theme values",
     annotations: CHANGE,
-    description: 'Change theme variables of the whole page, e.g. {"--color-accent": "#c2185b", "--font-heading": "Georgia, serif"}. Only existing variables; colours must be colours, lengths lengths, fonts a list of installed font names (no url(), no web fonts). Refused unless the scope is the whole page. One undo step.',
-    inputSchema: { values: external_exports.record(external_exports.string(), external_exports.string()).describe("variable name -> new value") }
-  }, guard(({ values }) => ws.transaction(() => {
+    description: 'Change theme variables of the whole page, e.g. [{"name": "--color-accent", "value": "#c2185b"}, {"name": "--font-heading", "value": "Georgia, serif"}]. Only existing variables (get_theme lists them); colours must be colours, lengths lengths, fonts a list of installed font names (no url(), no web fonts). Refused unless the scope is the whole page. One undo step.',
+    // a list of names and values, not an object keyed by name: models fill named fields reliably, while an open
+    // object made Gemini invent keys (varname_53…) and quote them ("\"--color-highlight\"")
+    inputSchema: {
+      changes: external_exports.array(external_exports.object({
+        name: external_exports.string().describe("a theme variable from get_theme, such as --color-accent"),
+        value: external_exports.string().describe("its new value, such as #c2185b")
+      })).min(1).describe("the variables to change, one entry each")
+    }
+  }, guard(({ changes: changes2 }) => ws.transaction(() => {
     assertThemeScope();
     const where = themeTarget(ws);
-    const changed = setTheme(ws, values, "ai");
+    const changed = setTheme(ws, Object.fromEntries(changes2.map((c) => [themeName(c.name), c.value])), "ai");
     const lines = Object.entries(changed).map(([n, c]) => `${n}: ${c.from} -> ${c.to}`);
     const what = where === "site" ? "site theme changed (this is the site's only page)" : where === "override" ? "this page's own theme values changed (the other pages of the site keep the shared theme)" : "theme changed";
     return lines.length ? `${what}:
@@ -39459,17 +39895,25 @@ ${lines.join("\n")}` : "theme unchanged (the values were already set)";
   server.registerTool("use_layout", {
     title: "Replace the page with a layout",
     annotations: REPLACE,
-    description: "Replace the WHOLE page with a page layout (see list_layouts): its blocks, each with a component and placeholder text to rewrite. Everything the page held is replaced (the theme stays); undo brings it back. Only when the scope is the whole page. One undo step. In a folder with no page yet, it starts the page there, with the theme given (see list_themes).",
+    description: `Replace the WHOLE page with a page layout (see list_layouts): its blocks, each with a component and placeholder text to rewrite. Everything the page held is replaced (the theme stays); undo brings it back. Only when the scope is the whole page. One undo step. In an empty or new folder, it starts a site there with this page as its home page ("${HOME_PAGE}"), with the theme given (see list_themes).`,
     inputSchema: { name: external_exports.string().describe("layout name from list_layouts"), theme: external_exports.string().optional().describe(`theme preset from list_themes, for a new page only (default ${DEFAULT_THEME})`) }
-  }, guard(({ name, theme: themeName }) => {
+  }, guard(({ name, theme: themeName2 }) => {
     if (!ws.store.exists("layout.slice")) {
       if (runScope) throw new Error("refused: there is no page here yet, and this run may only change one block of one");
       const pages = ws.store instanceof FolderStore ? sitePages(ws.dir) : [];
       if (pages.length) throw new Error(`refused: this folder is a site of pages (${pages.join(", ")}); open one with open_page, or make another with new_page`);
-      if (ws.store instanceof FolderStore) mkdirSync3(ws.dir, { recursive: true });
+      if (ws.store instanceof FolderStore) {
+        const site = ws.dir;
+        mkdirSync3(site, { recursive: true });
+        ws = newSitePage(site, HOME_PAGE, name, themeName2 ?? DEFAULT_THEME);
+        if (!runScope) home = site;
+        return `ok: a new site in ${site}, with its home page "${HOME_PAGE}" from the ${name} layout with the ${themeName2 ?? DEFAULT_THEME} theme; the page is open. Rewrite every box's placeholder text for this page
+
+${outline(ws.load())}`;
+      }
       return ws.transaction(() => {
-        createPage(ws, name, themeName ?? DEFAULT_THEME);
-        return `ok: a new page from the ${name} layout with the ${themeName ?? DEFAULT_THEME} theme; rewrite every box's placeholder text for this page
+        createPage(ws, name, themeName2 ?? DEFAULT_THEME);
+        return `ok: a new page from the ${name} layout with the ${themeName2 ?? DEFAULT_THEME} theme; rewrite every box's placeholder text for this page
 
 ${outline(ws.load())}`;
       });
@@ -39730,6 +40174,7 @@ warning: ${miss.join(", ")} ${miss.length === 1 ? "is" : "are"} not among the pa
     const ov = l.overlays.find((o) => o.id === target);
     if (!ov && find(l.root, target)?.node.type !== "leaf") throw new Error(`"${ref}" is not a box (leaf) or overlay`);
     assertInScope(l, ov ? ov.target : target);
+    if (html !== null) assertMayChangeShared(l, target);
     ws.setContent(target, html);
     return `ok: content of "${target}" ${html === null ? "removed" : "set"}${noFiles(html ?? "")}`;
   })));
@@ -39744,6 +40189,7 @@ warning: ${miss.join(", ")} ${miss.length === 1 ? "is" : "are"} not among the pa
     const ov = l.overlays.find((o) => o.id === target);
     if (!ov && find(l.root, target)?.node.type !== "leaf") throw new Error(`"${ref}" is not a box (leaf) or overlay`);
     assertInScope(l, ov ? ov.target : target);
+    assertMayChangeShared(l, target);
     const code = ws.content(target);
     if (code === null) throw new Error(`"${target}" has no code yet; use set_content`);
     const n = code.split(old).length - 1;
@@ -39816,6 +40262,73 @@ warning: ${miss.join(", ")} ${miss.length === 1 ? "is" : "are"} not among the pa
     return site;
   };
   if ((home || folders) && !runScope) {
+    const kindArg = external_exports.enum(["styles", "scripts", "blocks", "types", "tags"]);
+    const reach = (site, kind, name) => {
+      if (kind !== "blocks") return `every page of the site (${sitePages(site).length})`;
+      const users = Object.keys(blockUsers(site, name));
+      return users.length ? `the pages that show it: ${users.join(", ")}` : "no page yet (link_block shows it in a box)";
+    };
+    server.registerTool("list_kit", {
+      title: "Read the site kit",
+      annotations: READ,
+      description: `The site kit: what every page of the site shares besides the theme. styles: CSS in every page, after the theme and before the page's own. scripts: behaviours, an ES module whose default export gets each element marked data-use="<name>". blocks: shared blocks; a box with use=<name> (see get_layout) shows kit/blocks/<name>.html on every page that links it. types: box types for every page. tags: the site's own tags (#name on a block, styled as .t-<name> in kit styles).`
+    }, guard(() => {
+      const site = siteOnly();
+      const f = kitList(site);
+      const tags = Object.entries(kitTags(site)).map(([t, v]) => `#${t}: ${v.label}${v.description ? ` (${v.description})` : ""}`);
+      const blocks = f.blocks.map((b) => {
+        const u = Object.keys(blockUsers(site, b));
+        return `${b} (on ${u.length ? u.join(", ") : "no page"})`;
+      });
+      return [`styles: ${f.styles.join(", ") || "none"}`, `scripts: ${f.scripts.join(", ") || "none"}`, `blocks: ${blocks.join(", ") || "none"}`, `types: ${f.types.join(", ") || "none"}`, `tags: ${tags.join("; ") || "none"}`].join("\n");
+    }));
+    server.registerTool("get_kit_file", {
+      title: "Read a site kit file",
+      annotations: READ,
+      description: "One file of the site kit (see list_kit). For tags, the name is ignored: it is kit/tags.json.",
+      inputSchema: { kind: kindArg, name: external_exports.string().optional() }
+    }, guard(({ kind, name }) => kitRead(siteOnly(), kind, name ?? "tags") ?? `the kit has no ${kind} file "${name ?? "tags"}"`));
+    server.registerTool("set_kit_file", {
+      title: "Change a site kit file",
+      annotations: REPLACE,
+      description: `Create, replace or remove (text null) one file of the site kit. It changes every page that uses it, so only do it when the request is about what pages share; say in your answer which pages it reaches. CSS: no @import and nothing loaded from other servers (put files in the site's assets/, written url(/assets/<file>)). A behaviour: export default function (el) { \u2026; return () => { /* undo */ } }. tags: { "<tag>": { "label": "\u2026", "description": "\u2026" } }.`,
+      inputSchema: { kind: kindArg, name: external_exports.string().optional().describe("file name without extension: lowercase letters, digits and -"), text: external_exports.string().nullable() }
+    }, guard(({ kind, name, text: text2 }) => {
+      const site = siteOnly();
+      kitWrite(site, kind, name ?? "tags", text2, void 0, "ai");
+      return `ok: kit/${kind === "tags" ? "tags.json" : `${kind}/${name}`} ${text2 === null ? "removed" : "saved"}; it reaches ${reach(site, kind, name ?? "tags")}`;
+    }));
+    server.registerTool("share_block", {
+      title: "Share a box with every page",
+      annotations: CHANGE,
+      description: "Make a box of the open page a shared block of the site: its code becomes kit/blocks/<name>.html and the box shows it. Other pages show it with link_block.",
+      inputSchema: { id: id.describe("box (leaf) reference"), name: external_exports.string().optional().describe("the shared block's name (default: the box's)") }
+    }, guard(({ id: ref, name }) => {
+      const site = siteOnly();
+      const box = resolveRef2(ws.load(), ref);
+      return `ok: "${box}" is now the shared block "${shareBlock(site, ws, box, name ?? box, "ai")}"`;
+    }));
+    server.registerTool("link_block", {
+      title: "Show a shared block in a box",
+      annotations: CHANGE,
+      description: "Make a box of the open page show one of the site's shared blocks (see list_kit) instead of its own code, which waits until unlink_block.",
+      inputSchema: { id: id.describe("box (leaf) reference"), name: external_exports.string() }
+    }, guard(({ id: ref, name }) => {
+      const box = resolveRef2(ws.load(), ref);
+      linkBlock(siteOnly(), ws, box, name, "ai");
+      return `ok: "${box}" shows the shared block "${name}"`;
+    }));
+    server.registerTool("unlink_block", {
+      title: "Make a shared box this page's own",
+      annotations: CHANGE,
+      description: "Make a box that shows a shared block this page's own copy: it gets the block's code as it is now and stops following it. Other pages keep the shared block.",
+      inputSchema: { id: id.describe("box (leaf) reference") }
+    }, guard(({ id: ref }) => {
+      siteOnly();
+      const box = resolveRef2(ws.load(), ref);
+      unlinkBlock(ws, box, "ai");
+      return `ok: "${box}" is this page's own copy now`;
+    }));
     server.registerTool(
       "list_pages",
       { title: "List the site's pages", annotations: READ, description: "The pages of the site (a folder of page folders), and which one is open: the one every other tool works on." },
@@ -39851,29 +40364,53 @@ ${outline(ws.load())}`;
         theme: external_exports.string().optional().describe(`theme preset from list_themes (default ${DEFAULT_THEME})`),
         copy: external_exports.string().optional().describe("another page to copy instead of a layout: its blocks, code, images and (unless the pages share one) its theme")
       }
-    }, guard(({ name, layout, theme: themeName, copy }) => {
+    }, guard(({ name, layout, theme: themeName2, copy }) => {
       const site = siteOnly();
       if (copy && !sitePages(site).includes(copy)) throw new Error(`there is no page "${copy}" to copy (pages: ${sitePages(site).join(", ") || "none yet"})`);
       mkdirSync3(site, { recursive: true });
       const shared = hasTheme(siteHead(site));
-      ws = newSitePage(site, name, layout ?? "blank", themeName ?? DEFAULT_THEME);
+      ws = newSitePage(site, name, layout ?? "blank", themeName2 ?? DEFAULT_THEME);
       if (copy) {
         usePage(ws, site, copy, { theme: !shared, author: "ai" });
         return `ok: new page "${name}", a copy of "${copy}"; it is open now. Rewrite its text for this page.
 
 ${outline(ws.load())}`;
       }
-      const look = shared ? "it uses the theme the site's pages share" : `with the ${themeName ?? DEFAULT_THEME} theme`;
+      const look = shared ? "it uses the theme the site's pages share" : `with the ${themeName2 ?? DEFAULT_THEME} theme`;
       return `ok: new page "${name}" from the ${layout ?? "blank"} layout, ${look}; it is open now. Rewrite every box's placeholder text for this page.
 
 ${outline(ws.load())}`;
+    }));
+    server.registerTool("rename_page", {
+      title: "Rename a page",
+      annotations: CHANGE,
+      description: "Rename a page of the site (see list_pages): its folder and its address change to /<to>/, and links to it in every page follow. Before you name a page after what it holds, open it and read it (open_page, get_content). Name: lowercase letters, digits and -.",
+      inputSchema: { name: external_exports.string().describe("the page's name now, from list_pages"), to: external_exports.string().describe("its new name") }
+    }, guard(({ name, to }) => {
+      const site = siteOnly();
+      const open2 = openPage2(site);
+      const { links } = renamePage(site, name, to.trim());
+      if (open2 === name) ws = pageWorkspace(site, to.trim());
+      return `ok: "${name}" is "${to.trim()}" now, at /${to.trim()}/; ${links ? `links to it on ${links} page${links === 1 ? "" : "s"} follow` : "no page linked to it"}${open2 === name ? "; it is still the open page" : ""}`;
+    }));
+    server.registerTool("remove_page", {
+      title: "Remove a page",
+      annotations: REPLACE,
+      description: "Remove a page of the site: it goes to the site's .trash folder, where the person can find it until they empty the trash. Only when the person asks for it. Replies with how many links on other pages now lead nowhere: change them.",
+      inputSchema: { name: external_exports.string().describe("page name from list_pages") }
+    }, guard(({ name }) => {
+      const site = siteOnly();
+      const open2 = openPage2(site);
+      const { broken } = removePage(site, name);
+      if (open2 === name) ws = new Workspace(site, { site: siteOf(site) });
+      return `ok: "${name}" is in the site's trash${broken ? `; ${broken} link${broken === 1 ? "" : "s"} on other pages still ${broken === 1 ? "leads" : "lead"} to /${name}/: change or remove them` : ""}${open2 === name ? ". No page is open now: open_page opens one" : ""}`;
     }));
   }
   if (folders) {
     server.registerTool("open_folder", {
       title: "Open a folder",
       annotations: READ,
-      description: `Open the folder every other tool works on: a page (a folder with a layout.slice), a site (a folder of pages), or an empty or new folder, where use_layout starts a page and new_page starts a site. Without a path, the default folder (${folders.defaultDir}). A path may start with ~ (the home folder). Nothing is written until you change something; a folder that holds other files is refused.`,
+      description: `Open the folder every other tool works on: a site (a folder of pages), one of its pages (a folder with a layout.slice), or an empty or new folder, which becomes a site: use_layout starts it with its home page, new_page with a page of the name given. Without a path, the default folder (${folders.defaultDir}). A path may start with ~ (the home folder). Nothing is written until you change something; a folder that holds other files is refused.`,
       inputSchema: { path: external_exports.string().optional().describe("the folder, e.g. ~/Sites/my-site; leave it out for the default folder") }
     }, guard(({ path }) => {
       const dir = path?.trim() ? folderPath(path) : folders.defaultDir;
@@ -39886,7 +40423,7 @@ ${outline(ws.load())}`;
 ${outline(ws.load())}`;
       const pages = sitePages(dir);
       if (pages.length) return `ok: ${dir} is open, a site of ${pages.length} page${pages.length === 1 ? "" : "s"}: ${pages.join(", ")}. open_page opens one, new_page makes another.`;
-      return `ok: ${dir} is open, ${existsSync4(dir) ? "an empty folder" : "a new folder (made when something is written)"}: use_layout starts a page here (see list_layouts, list_themes), or new_page starts a site of pages.`;
+      return `ok: ${dir} is open, ${existsSync4(dir) ? "an empty folder" : "a new folder (made when something is written)"}, which becomes a site: use_layout starts it with its home page (see list_layouts, list_themes), or new_page with a page of the name you give.`;
     }));
   }
   server.registerTool("check_page", {
@@ -39898,6 +40435,21 @@ ${outline(ws.load())}`;
     return left.length ? `${left.length} left unfinished:
 ${left.map(say).join("\n")}` : "nothing left: no placeholder text or pictures, and every link has a target";
   }));
+  server.registerTool("list_tasks", {
+    title: "Read the tasks people left",
+    annotations: READ,
+    description: "Tasks people added to the page in the TYKERF editor: changes to make, questions, things to check. Each says its number, the block, the element inside it (as the person saw it, and its element path: child indexes from the block down), and the window width it was written at; look at the page at that width. Only the open tasks inside the scope (the whole page without one); done ones too with all.",
+    inputSchema: { all: external_exports.boolean().optional().describe("also the tasks that are done, with how they ended") }
+  }, guard(({ all }) => {
+    const list = tasks(ws, { open: !all, within: scope() });
+    return list.length ? list.map(sayTask).join("\n") : all ? "no tasks on this part of the page" : "no open tasks on this part of the page";
+  }));
+  server.registerTool("close_task", {
+    title: "Close a task",
+    annotations: CHANGE,
+    description: "Mark a task done once what it asks for is done (or answered), with a short reply the person will read next to it: what you changed, or why nothing changed. Only tasks inside the scope.",
+    inputSchema: { n: external_exports.number().int().min(1).describe("the task's number, as list_tasks gives it"), reply: external_exports.string().max(2e3).optional().describe("one or two sentences for the person") }
+  }, guard(({ n, reply }) => `closed ${sayTask(closeTask(ws, n, "ai", reply, scope()))}`));
   server.registerTool("evaluate", {
     title: "Score the page in a browser",
     annotations: LOOK,
@@ -39953,7 +40505,7 @@ if (process.argv.includes("--lazy")) {
   await createTykerfServer(null, { scope: flag("--scope") ?? null, folders: { defaultDir } }).connect(new StdioServerTransport());
 } else {
   const dir = resolve4((flag("--dir") ?? process.env.TYKERF_DIR ?? ".").trim());
-  if (!existsSync5(join7(dir, "layout.slice"))) console.error(`TYKERF: no page in ${dir} itself: in a site, open_page and new_page work on its pages; in an empty folder, use_layout starts one`);
+  if (!existsSync5(join7(dir, "layout.slice"))) console.error(`TYKERF: no page in ${dir} itself: in a site, open_page and new_page work on its pages; in an empty folder, use_layout starts a site with its home page`);
   const ws = new Workspace(dir, { site: siteOf(dir) });
   await createTykerfServer(ws, { scope: flag("--scope") ?? null, home: dir }).connect(new StdioServerTransport());
 }

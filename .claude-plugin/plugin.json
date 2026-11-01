@@ -1,7 +1,7 @@
 {
   "name": "tykerf",
   "displayName": "TYKERF",
-  "version": "0.2.1",
+  "version": "0.3.0",
   "description": "Build and edit real web pages block by block: Claude changes one named block at a time through validated moves, looks at the result, and every change can be undone. Plain HTML files in a folder, no platform.",
   "author": {
     "name": "eonity.org",

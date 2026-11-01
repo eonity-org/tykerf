@@ -1,0 +1,52 @@
+<style>
+:scope { background: var(--section-bg, transparent); }
+.wrap { max-width: var(--max-width); margin: 0 auto; padding: calc(var(--space-section) * .7) var(--gap); }
+.eyebrow { margin: 0 0 12px; font-size: 13px; font-weight: 600; letter-spacing: .12em; text-transform: uppercase; color: var(--color-accent); }
+h2 { font-size: var(--text-title); max-width: 18ch; margin-bottom: clamp(32px, 5vw, 56px); }
+/* the steps hang from one line (the list's ::before); its fill (::after) grows as the section comes into view and lights each step it reaches */
+ol { list-style: none; margin: 0; padding: 36px 0 0; position: relative; display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: var(--gap); }
+ol::before, ol::after { content: ""; position: absolute; left: 6px; right: 6px; top: 6px; height: 2px; background: var(--color-border); }
+ol::after { background: var(--color-accent); transform-origin: left; }
+li { position: relative; display: grid; gap: 10px; align-content: start; }
+li::before { content: ""; position: absolute; left: 0; top: -36px; width: 14px; height: 14px; border-radius: 3px; background: var(--color-accent); }
+.n { font-size: 13px; font-weight: 600; letter-spacing: .08em; color: var(--color-muted); }
+h3 { font-size: clamp(20px, 1.9vw, 26px); line-height: 1.2; margin: 0; }
+li p { margin: 0; color: var(--color-muted); max-width: 30em; }
+.card { margin-top: 8px; padding: 16px 18px; border-radius: var(--radius); background: var(--color-surface); border: 1px solid var(--color-accent); }
+.card b { display: block; font: var(--weight-heading) clamp(28px, 3vw, 40px)/1.1 var(--font-heading); letter-spacing: var(--tracking-heading); }
+.card span { font-size: 14px; color: var(--color-muted); }
+/* narrow: the steps stack and the line runs down their left side */
+@media (max-width: 720px) {
+  ol { grid-auto-flow: row; grid-auto-columns: auto; padding: 0 0 0 32px; gap: 36px; }
+  ol::before, ol::after { right: auto; top: 6px; bottom: 6px; width: 2px; height: auto; }
+  ol::after { transform-origin: top; }
+  li::before { left: -32px; top: 4px; }
+}
+/* where the browser ties animations to scrolling, and motion is welcome: the line fills, the steps light up in turn
+   (elsewhere every step shows as reached) */
+@supports (animation-timeline: view()) {
+  @media (prefers-reduced-motion: no-preference) {
+    ol { view-timeline: --steps-rail block; }
+    ol::after { animation: steps-rail-fill linear both; animation-timeline: --steps-rail; animation-range: entry 70% cover 55%; }
+    li::before { animation: steps-rail-node linear both; }
+    li .card { animation: steps-rail-card linear both; }
+    li::before, li .card { animation-timeline: --steps-rail; animation-range: entry 70% entry 100%; }
+    li:nth-child(2)::before, li:nth-child(2) .card { animation-range: cover 38% cover 44%; }
+    li:nth-child(3)::before, li:nth-child(3) .card { animation-range: cover 46% cover 52%; }
+    li:nth-child(4)::before, li:nth-child(4) .card { animation-range: cover 52% cover 56%; }
+  }
+}
+@keyframes steps-rail-fill { from { scale: 0 1; } }
+@keyframes steps-rail-node { from { background-color: var(--color-border); } }
+@keyframes steps-rail-card { from { border-color: var(--color-border); translate: 0 10px; } }
+@media (max-width: 720px) { @keyframes steps-rail-fill { from { scale: 1 0; } } }
+</style>
+<div class="wrap">
+  <p class="eyebrow">The way it works</p>
+  <h2>Three steps from first look to done</h2>
+  <ol>
+    <li><span class="n">01</span><h3>The first step</h3><p>What the person does first, and what they get from it.</p><div class="card"><b>2 min</b><span>A figure or a detail that makes the step concrete</span></div></li>
+    <li><span class="n">02</span><h3>The second step</h3><p>What happens next, in one or two sentences.</p><div class="card"><b>94%</b><span>One more figure or detail for this step</span></div></li>
+    <li><span class="n">03</span><h3>The last step</h3><p>Where it ends, and what the person has now.</p><div class="card"><b>1 click</b><span>What finishing the last step takes</span></div></li>
+  </ol>
+</div>
