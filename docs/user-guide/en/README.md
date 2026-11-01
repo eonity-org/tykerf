@@ -8,20 +8,24 @@
 
 TYKERF lets people and its assistant, Kaity, build and change a web page together, one block at a time. A page is a tree of blocks: rows and columns, down to boxes that hold ordinary HTML. Every block has a name, every change is a validated move, and every change can be undone.
 
-**New here?** Read [Why TYKERF](why-tykerf.md), then [Getting started](getting-started.md). Or watch Kaity build a page from one sentence first:
+The quickest way to change a page is to **point at it**: click anything, write what should change, and give your tasks to Kaity (see [Tasks](editor.md#tasks)).
+
+**New here?** Read [Why TYKERF](why-tykerf.md), then [Getting started](getting-started.md). Or watch Kaity build a page from one sentence first, and then do two tasks you leave on it:
 
 [![Watch Kaity build a page about Lisbon from one sentence (2:48)](../../media/tykerf-builds-lisbon.jpg)](https://eonity.org/tykerf-guides/videos/tykerf-builds-lisbon.mp4)
+
+[![Watch two tasks given to Kaity on a page about London (1:40)](../../media/tykerf-tasks.jpg)](https://eonity.org/tykerf-guides/videos/tykerf-tasks.mp4)
 
 | Guide | For |
 |---|---|
 | [Why TYKERF](why-tykerf.md) | What TYKERF does differently, and when it is (and isn't) the right tool |
 | [Getting started](getting-started.md) | Install, start a site, and the ways to start a page: with Kaity, from a website, from a layout |
-| [Editing a page](editor.md) | The panel, selecting blocks, editing text and images in place, code, sizes, deleting and pasting |
-| [Working with Kaity](ai.md) | Starting a page with Kaity, asking about one block, images, which AI answers, using TYKERF from other AI clients |
-| [Getting good results from Kaity](asking-kaity.md) | How to write a request, going block by block, checking her work, and recipes: a page from one sentence, from a picture, a consistent site |
+| [Editing a page](editor.md) | **Tasks** (point at anything and give it to Kaity), then the **Edit** mode: the panel, selecting blocks, editing text and images in place, code, sizes, deleting and pasting |
+| [Working with Kaity](ai.md) | Starting a page with Kaity, giving her tasks, asking about one block, images, which AI answers, using TYKERF from other AI clients |
+| [Getting good results from Kaity](asking-kaity.md) | How to write a request or a task, leaving tasks block by block, checking her work, and recipes: a page from one sentence, from a picture, a consistent site |
 | [Layouts, components and the theme](layouts.md) | Layouts, ready-made sections, the site's colours and fonts, band tones, images |
 | [Copying a website](importing.md) | A page from an existing site, or one of its sections in a box, and what you may do with the copy |
-| [Your site](sites.md) | The site manager: pages, the home page, titles, the site's icon, styles and scripts for every page, links between pages, where Kaity is working, the trash |
+| [Your site](sites.md) | The site manager: pages, the home page, titles, the site's icon, styles and scripts for every page, the site kit (one navigation and footer shared by every page, small behaviours), links between pages, where Kaity is working, the trash |
 | [Publishing and serving](publishing.md) | Publish to GitHub Pages, Cloudflare Pages or Netlify; serve the site with TYKERF and sign in to edit it |
 | [Exporting](exporting.md) | A page or a whole site as plain files for any web host |
 | [Pages and the notation](workspaces.md) | What is in a page folder, the slicing notation, box types |

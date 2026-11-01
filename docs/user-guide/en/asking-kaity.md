@@ -6,9 +6,11 @@
 
 # Getting good results from Kaity
 
-[Working with Kaity](ai.md) explains what Kaity can do and how to set her up. This page is about *how to ask*: what to write, in what order, and how to check her work. It ends with recipes for the jobs people ask for most.
+[Working with Kaity](ai.md) explains what Kaity can do and how to set her up. This page is about *how to ask*, in a task or in a request: what to write, in what order, and how to check her work. It ends with recipes for the jobs people ask for most.
 
 [![Watch Kaity build a page about Lisbon from one sentence (2:48)](../../media/tykerf-builds-lisbon.jpg)](https://eonity.org/tykerf-guides/videos/tykerf-builds-lisbon.mp4)
+
+[![Watch two tasks given to Kaity on a page about London (1:40)](../../media/tykerf-tasks.jpg)](https://eonity.org/tykerf-guides/videos/tykerf-tasks.mp4)
 
 *The video above was made with one request on the start screen. Everything in it, the illustrations, the games and the animations, is Kaity's first build, unedited.*
 
@@ -40,6 +42,17 @@ Some habits that pay off:
 - **Attach a picture** instead of describing a look. A screenshot of a page you like, a sketch on paper or a design export says more than a paragraph. Say what to take from it: "the layout of the first picture, the colours of the second".
 - **One topic per request** after the first build. "Make the hero shorter" and then "turn the features into a pricing table" work better than both in one message, and each is one step to undo.
 
+## Writing a task
+
+After the first build, most of your requests will be **tasks**: you point at an element in the **Tasks** mode and write a line. The task carries the block, the element and the window width with it, so say *what*, not *where*.
+
+- **Loose is fine for looks.** "Make the illustration more colorful." "Make the background of this section pale yellow." "Add something about The Shard." Kaity looks at the page and chooses; if you don't like it, undo and say more.
+- **Be exact for words, numbers and facts.** "The title: six words at most." "Opening hours: Tuesday to Sunday, 9 to 14." She writes plausible text when she has none to go on.
+- **One thing per task.** Three small tasks work better than one with three parts, and each reply tells you what happened to each.
+- **Point at the thing itself.** A task on a small label makes Kaity think you mean the label. If what you asked doesn't fit there, she says so and does it where it fits, and her reply tells you where.
+- **Write it at the width where you see the problem.** The task remembers it ("too big on a phone").
+- **Read her reply.** She closes each task with a short answer, and says what she didn't check (usually the phone width). Her replies also stay in the [handbook](editor.md#the-handbook).
+
 ## Start broad, then leave tasks
 
 The fastest way to a good page is two passes:
@@ -54,6 +67,7 @@ Undo is your friend: every step Kaity takes is a separate undo step, so if one c
 Kaity checks her own work, but you are the one who knows what the page is for:
 
 - **Read the text.** Facts, names, numbers and quotes may be wrong. This matters most for anything a visitor will rely on: prices, dates, addresses.
+- **Read her answer to each task.** It says what she did and what she skipped, and sometimes why she chose differently from what you wrote.
 - **Look at a phone width.** Kaity checks 375 px, but drag the browser narrow anyway, or open the page on your phone.
 - **Try what moves.** Games, quizzes, flip cards, menus: click them. Kaity tests the layout, not every interaction; her summary usually says what she didn't try.
 - **Look at the list of what she left unfinished.** Sample text, placeholder pictures and links without a target are listed after every request. *Fix them* asks her to finish; *Leave them as they are* is fine for things you'll do yourself.

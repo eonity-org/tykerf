@@ -54,7 +54,7 @@ More layouts and themes, including layouts that show TYKERF's roots in chip floo
 
 Themes use fonts bundled with TYKERF (Inter, Manrope, DM Sans, Newsreader, Playfair Display and Plus Jakarta Sans, all under the SIL Open Font License) or installed on the visitor's device. A page gets a copy of the bundled fonts its theme uses in its `assets/` folder, so it never calls a font server. `npm run cli -- layouts` lists layouts and themes, and `npm run cli -- new <folder> <layout> --theme <theme>` creates a page without opening the editor. In a new or empty folder it makes a site, with the page as its home page (`home`, or `--name <page>`). Given a site (a folder of pages), it adds the page to it, named after the layout or `--name <page>`, and says so; in a site that shares one theme, the theme you name becomes that page's own values, so the other pages keep their look. A folder that is already a page, or holds other things, is refused.
 
-All the text and images are **placeholders**: replace them in the **Text** tab, or ask Kaity ("fill this page for a bakery in Murcia").
+All the text and images are **placeholders**: replace them in the **Text** tab, leave Kaity a task on them, or ask her ("fill this page for a bakery in Murcia").
 
 Kaity can use components too: ask for "a FAQ here" or "make this box a pricing table", and it starts from the matching component and adapts it. On a page without a theme, Kaity can add the theme only when the top block, `page`, is selected; from a smaller block, use the component from the panel.
 

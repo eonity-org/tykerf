@@ -16,7 +16,7 @@ A TYKERF page is a folder, called a workspace:
 |---|---|
 | `layout.slice` | The tree, in slicing notation |
 | `boxes/<id>.html` | Each box's code: any HTML, with its own `<style>` (applies only to that box) and `<script>` |
-| `types/<type>.json` | Optional box types: what may go where, which tags and scripts a box may use |
+| `types/<type>.json` | Optional box types: what may go where, which tags and scripts a box may use. In a site, the [site kit](sites.md#the-site-kit) can hold types for every page (`kit/types/`); a page's own type of the same name wins |
 | `head.html` | The page `<head>` additions: the theme, fonts, page-wide styles and scripts (the Page tab) |
 | `assets/` | Images and files the boxes use, as `assets/<file>`; copied to `out/assets/` when rendering. Files nothing uses go to `.trash/` from the Page tab (*Unused files*) |
 | `.history.jsonl` | Every change, with who made it (`user` or `ai`), for undo and audit |

@@ -22,6 +22,8 @@ Website builders give you a friendlier editor, with AI added on top. But that AI
 
 **Kaity works inside one block.** Select a block and ask. Kaity can change that block and what is inside it. TYKERF checks every change she tries, and refuses anything outside the block; it doesn't just ask the model nicely. Kaity has no file or shell access: she can only use TYKERF's moves.
 
+**You point, she does it.** Click anything on the page, write what should change ("make this shorter", "make the illustration more colorful"), and give your tasks to Kaity. Each task keeps its place on the page, so she knows which element you meant, and she answers every one when she is done. See [Tasks](editor.md#tasks).
+
 **Everything can be undone.** Every change, yours or Kaity's, is a step in one history, with who made it and when. Undo goes back step by step, even in the middle of a long AI session.
 
 **Kaity looks at her work.** She takes screenshots of the block at desktop and phone widths and checks the layout, then fixes what looks wrong before telling you she's done.
@@ -31,6 +33,10 @@ Website builders give you a friendlier editor, with AI added on top. But that AI
 [![Watch Kaity build a page about Lisbon from one sentence (2:48)](../../media/tykerf-builds-lisbon.jpg)](https://eonity.org/tykerf-guides/videos/tykerf-builds-lisbon.mp4)
 
 One sentence on the start screen, a two-minute build, then a page whose every part is a named block you can select, change and undo.
+
+[![Watch two tasks given to Kaity on a page about London (1:40)](../../media/tykerf-tasks.jpg)](https://eonity.org/tykerf-guides/videos/tykerf-tasks.mp4)
+
+Then two tasks left on a finished page: Kaity makes the illustration more colorful and adds something about The Shard.
 
 ## What that gives you
 
@@ -45,7 +51,7 @@ One sentence on the start screen, a two-minute build, then a page whose every pa
 - **A modern look by default:**
   - light, modern layouts and themes;
   - every layout is checked for readable contrast and for working on phones.
-- **One theme for the whole site.** Change colours or fonts once and every page follows.
+- **One theme and one kit for the whole site.** Change colours or fonts once and every page follows. The site kit does the same for what pages share besides the theme: one navigation and footer, styles and small behaviours for every page.
 - **Your AI, your choice:**
   - in the editor, Kaity runs on your own Claude Code, the Anthropic API or a compatible service, or Gemini;
   - Claude Code and Cowork through the TYKERF plugin, and Claude Desktop through a one-click extension;

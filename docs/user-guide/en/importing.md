@@ -38,7 +38,7 @@ The copy is kept until you copy another page, so you can import several sections
 - Fonts and section styles the page needs go into `head.html`. The fonts' files and the images come into the page's `assets/` folder (fonts named after their family, such as `font-manrope-….woff2`).
 - Blocks the site centres stay centred at every width, and CSS animations keep playing.
 
-The copy is a starting point, not a pixel-perfect clone: check it at desktop and phone widths, and expect to tidy some boxes with the editor or Kaity. Scripts that depend on the original site (logins, carts, analytics, menus that open) won't work in the copy.
+The copy is a starting point, not a pixel-perfect clone: check it at desktop and phone widths, and expect to tidy some boxes with the editor, or by leaving tasks for Kaity. Scripts that depend on the original site (logins, carts, analytics, menus that open) won't work in the copy.
 
 ## What you may do with the copy
 

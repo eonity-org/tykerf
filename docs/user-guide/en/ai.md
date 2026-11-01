@@ -10,7 +10,7 @@
 
 Kaity changes your page the same way you do: through named, validated moves on the tree, plus the code of each box. She never rewrites the whole page, she can't touch files or run commands, and every change she makes shows up in the history and can be undone.
 
-This page explains what Kaity does and how to set her up. For how to write requests that get good results, and recipes for common jobs, read [Getting good results from Kaity](asking-kaity.md).
+There are two ways to ask her. **Tasks** come first, because they are the quickest: point at anything on the page, say what should change, and hand your tasks over ([below](#tasks-point-say-hand-over)). For a longer conversation about one block there is its **Kaity tab**. This page explains what Kaity does and how to set her up. For how to write requests that get good results, and recipes for common jobs, read [Getting good results from Kaity](asking-kaity.md).
 
 ## Start a page with Kaity
 
@@ -32,6 +32,12 @@ On the start screen of a new site, or with **New page…**, choose **Show or des
 ## Tasks: point, say, hand over
 
 The editor starts in the **Tasks** mode. Click anything on the page, write what should change, and when you have them all press **Give Kaity every task**: she works through them, with each task's block, element and window width, and answers each one. The page follows her while she works. **Edit** is the whole editor, with the Kaity tab below for talking to her block by block. See [Tasks](editor.md#tasks).
+
+- **Loose or exact.** A task can be as loose as "make the illustration more colorful" or as exact as "make the title six words at most". She looks at the page, decides, and tells you what she did. See [Writing a task](asking-kaity.md#writing-a-task).
+- **Every task, or one block's.** **Give Kaity every task** is one run over the whole page. *Give only these to Kaity* is a run for one block's tasks, where she can only change that block.
+- **She answers each task** and closes it, and says what she checked and what she didn't. The answers stay in the page's [handbook](editor.md#the-handbook).
+- **Every run is a normal request.** It is in the page's conversation word for word, in [Kaity's work](sites.md#kaitys-work), and every step she takes is one undo step.
+- **Not only for Kaity.** **Copy all** gives the open tasks as text for any AI agent, and MCP clients read and close them too (`list_tasks`, `close_task`).
 
 ## The Kaity tab
 

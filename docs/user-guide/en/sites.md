@@ -126,6 +126,17 @@ The site kit holds what every page shares besides the theme, one small named fil
 | **Box types** (`kit/types/<name>.json`) | Rules for boxes of a type (see box types) | On every page; a page's own type of the same name wins |
 | **Tags** (`kit/tags.json`) | The site's own tags, with a label and a description | In the editor's **Size & look** tab, under *Site tags*; style each as `.t-<tag>` in a styles file |
 
+**A behaviour, step by step.** A behaviour is a small script an element asks for by name. To put the current year in every footer:
+
+1. In the kit, next to **Behaviours**, press **+ New**, name it `year` and write:
+   ```js
+   export default function (el) {
+     el.textContent = new Date().getFullYear();
+   }
+   ```
+2. Put the name on an element, in the box's *Code* tab (or ask Kaity): `© <span data-use="year"></span> Seville city guide`.
+3. Every page that has such an element runs it; pages that don't never load it. Several behaviours go in one attribute, separated by spaces (`data-use="year reveal"`). If the function returns a function, TYKERF calls it when the element goes away.
+
 **Shared blocks.** A navigation or a footer is the same on every page, so it should be one thing:
 - The kit lists the boxes that are already the same on several pages (*These boxes are the same on several pages…*). **Share nav** makes one shared block from it and shows it on all of those pages.
 - In the editor, **Share…** on a box does the same from one page; the dialog also offers the site's other shared blocks to show instead.
@@ -133,6 +144,13 @@ The site kit holds what every page shares besides the theme, one small named fil
 - **Make this page's own copy** gives this page the block's code as it is now, to change on its own; the other pages keep the shared block. It's one undo step on the page.
 - A link to the page you're on, inside a shared block, is marked as the current page (`aria-current`), so a menu can show where you are.
 - A new page whose layout has a box with the same name as a shared block (`nav`, `footer`) shows the shared block from the start.
+
+**One menu for every page, from start to finish**
+1. Make the navigation on one page (by hand, or ask Kaity), and give its box a name such as `nav`.
+2. Select the box and press **Share…**, or open the kit and press **Share nav** if the pages already have the same box. The box now shows a shared block, with a **shared** chip.
+3. On each other page, select its navigation box, press **Share…** and choose the site's `nav` to show instead of its own code. A page made later from a layout with a `nav` box shows it from the start.
+4. Change the menu on any page, in its text or code: every page shows the change. The site manager's **Undo** takes it back.
+5. A page that should differ takes **Make this page's own copy**. To show where you are, style `a[aria-current]` in a kit style: the current page's link in a shared block is marked for you.
 
 Kaity changes the kit only when you ask her for the whole site in the site manager, and she says which pages a change reaches. Asked about one block, she can't change a shared block; she'll suggest making the page's own copy. Exports and Publish include the kit: its styles in each page, its behaviours as files.
 

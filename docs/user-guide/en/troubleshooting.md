@@ -44,10 +44,19 @@ Use **Site → Kaity status… → Test**. It sends one short request and shows 
 The API runners stop a request after 40 steps, and a single model turn after 180 seconds (`TYKERF_TURN_TIMEOUT` changes that). What she did so far stays. Ask her to go on in the same conversation.
 
 **Kaity refuses to change something.**
-She can only change the selected block. Select the block you mean (or `page`) and ask there. The theme can be changed only with `page` selected, and the site's shared head (Styles & scripts) is never hers to change.
+In the Kaity tab and in *Give only these to Kaity*, she can only change the selected block. Select the block you mean (or `page`) and ask there, or use **Give Kaity every task**, which works on the whole page. The theme can be changed only with `page` selected, and the site's shared head (Styles & scripts) is never hers to change.
 
 **Undo and redo say *Kaity is working on …*.**
 While Kaity works, undo and redo wait, so they can't undo half of her change. Wait until she is done, or stop her (*Stop* in the Kaity tab, or the **×** of the build window).
+
+**Give Kaity every task is greyed out, or a task I just added didn't run.**
+Kaity does one run at a time on a page. Tasks you add while she works wait for the next request: when she is done, press **Give Kaity every task** again for the rest. See [Tasks](editor.md#tasks).
+
+**I can't see the numbered tabs on the page.**
+**Tabs** in the header of the Tasks mode shows or hides them. They show in the Edit mode too.
+
+**A task says its block is gone.**
+The block it was left on has been deleted. **Remove** the task and leave a new one where the element is now.
 
 **Kaity can't take screenshots: *screenshots and checks need Chromium*.**
 Run `npx playwright install chromium` once. Without it Kaity still edits, but can't look at her work.
@@ -78,12 +87,12 @@ While the editor is open the page is for pointing at blocks. Press **Back to the
 TYKERF edits in place only when it can find that exact text in the box's code. Text next to an icon, or text a script writes, is changed in the Text tab instead.
 
 **An image is the wrong size on the page.**
-An image's size comes from its box or from the section's layout, not from the image file. Drag the box's handles, or ask Kaity about the section. See [Editing in place](editor.md#editing-in-place).
+An image's size comes from its box or from the section's layout, not from the image file. Drag the box's handles, or leave Kaity a task on the section. See [Editing in place](editor.md#editing-in-place).
 
 ## Copying, exporting and publishing
 
 **The copy of a website looks different from the original.**
-A copy is a starting point, not a clone: scripts that depend on the original site don't run, and some styles come out simpler. Fix boxes one by one, by hand or with Kaity. See [Copying a website](importing.md).
+A copy is a starting point, not a clone: scripts that depend on the original site don't run, and some styles come out simpler. Fix boxes one by one, by hand or with tasks for Kaity. See [Copying a website](importing.md).
 
 **The export lists files that still load from other servers.**
 They are images or fonts a copy couldn't download, or addresses typed by hand. Copy the ones you may use into the page (the image tool's *Copy into the page*) and replace the rest. See [Exporting](exporting.md#what-to-check-before-publishing).

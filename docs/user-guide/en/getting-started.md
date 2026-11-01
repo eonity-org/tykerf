@@ -112,7 +112,7 @@ None of these locks you in. Every page, however it started, is the same kind of 
 
 Click the page name next to the TYKERF logo and choose **New page…**. You get the same three ways, plus one more:
 
-- **Like this page:** the current page's navigation, footer and theme, with one empty section in between. This is the fastest way to grow a site that looks consistent.
+- **Like this page:** the current page's navigation, footer and theme, with one empty section in between. This is the fastest way to grow a site that looks consistent. To make the navigation and the footer *the same thing* on every page (change it once and every page follows), share them in the [site kit](sites.md#the-site-kit).
 
 **One theme for the whole site.** All the pages of a site share the theme the first page set: its colours, fonts and spacing. Change it in the **Page** tab of any page and every page follows. A page can still set its own colours or fonts with *This page only*, and the Page tab always says whether a page's look is inherited from the site (see [the theme](layouts.md#the-theme)).
 
@@ -134,7 +134,7 @@ Every change she makes is a step you can undo. See [Tasks](editor.md#tasks).
 
 - **[Tasks and the editor](editor.md):** tasks first; then the **Edit** mode, for exact changes by hand (select blocks, edit text and images where they are, resize, move, undo anything).
 - **[Getting good results from Kaity](asking-kaity.md):** how to write a task or a request, and recipes. For one block's own conversation, see [the Kaity tab](ai.md#the-kaity-tab).
-- **[Manage the site](sites.md):** the **Manage the site** button next to *Edit with TYKERF* opens the site manager: the home page, titles, the site's icon, links between pages, and pages to rename, duplicate or remove. The link box (⌘K) lists the site's pages, and renaming a page updates every link to it.
+- **[Manage the site](sites.md):** the **Manage the site** button next to *Edit with TYKERF* opens the site manager: the home page, titles, the site's icon, the site kit (a navigation and a footer shared by every page), links between pages, and pages to rename, duplicate or remove. The link box (⌘K) lists the site's pages, and renaming a page updates every link to it.
 - **[Put it online](publishing.md):** **Publish** in the site manager sends the site to GitHub Pages, Cloudflare Pages or Netlify; *Site → Export the site…* gives a .zip of plain files for any web host.
 
 <!-- tykerf:footer -->
