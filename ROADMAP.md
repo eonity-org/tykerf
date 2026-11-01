@@ -27,7 +27,7 @@ Implemented (0.1): slicing notation v0.2 with validated moves, references, box t
 
 The last part of 0.2 followed [docs/plans/0.2-finish.md](docs/plans/0.2-finish.md): page names and links, the exporter, the API runners (Anthropic-compatible and Gemini) and the Claude Desktop extension. Released as 0.2.0 and 0.2.1 (2026-10-23), and as 0.3.0 (2026-11-01), which adds tasks, the handbook and the site kit.
 
-- **Storage interface (done).** `Workspace`, box types, the editor (buffer, new pages), the AI runner (chats, images) and the importer read and write through a synchronous `Store` (`src/store.ts`): `FolderStore` and `MemoryStore` today. The Tydal store (0.3) keeps a local snapshot of each page and syncs it with Tydal outside those calls; the AI's MCP child process still needs a folder until MCP over HTTP lands.
+- **Storage interface (done).** `Workspace`, box types, the editor (buffer, new pages), the AI runner (chats, images) and the importer read and write through a synchronous `Store` (`src/store.ts`): `FolderStore` and `MemoryStore` today. The Tydal store (postponed, no date) keeps a local snapshot of each page and syncs it with Tydal outside those calls; the AI's MCP child process still needs a folder until MCP over HTTP lands.
 - **AI runner interface (done).** One interface for the editor's AI tab, chosen with `TYKERF_RUNNER`: Claude Code (default), the Anthropic API or any Anthropic-compatible endpoint, and Gemini. The API runners run TYKERF's MCP tools in-process: same tools, same scope, same history. Checked against the real Gemini API (`gemini-pro-latest`) and an Anthropic-compatible endpoint (Z.ai, `glm-5.1`): edits, screenshots, scope, memory, undo and stop. Still to do: the Anthropic API itself, with a real key.
 - **MCP over HTTP.** Streamable HTTP transport next to stdio, behind a bearer key, so the MCP server can run as a service.
 - **Claude Desktop extension (done).** `npm run build:mcpb` bundles the MCP server into `dist/tykerf.mcpb`, which asks for the page folder on install; `screenshot` and `evaluate` work where Chromium is installed. Each published GitHub release gets `tykerf.mcpb` attached (`.github/workflows/release.yml`).
@@ -39,7 +39,9 @@ The last part of 0.2 followed [docs/plans/0.2-finish.md](docs/plans/0.2-finish.m
 - **The site kit (done).** What every page of a site shares besides the theme, in its `kit/` folder: styles, behaviours (`data-use`), shared blocks (one navigation and footer for every page, with *Make this page's own copy*), box types and the site's own tags; in the site manager, the editor, exports and Kaity's site run. Plan: [docs/plans/site-sharing.md](docs/plans/site-sharing.md).
 - **Unused files (done).** The Page tab offers to move files no box, head or undo step uses to `.trash/`, and exports leave them out.
 
-## 0.3: TYKERF on Tydal
+## TYKERF on Tydal (postponed, no date)
+
+Postponed with no date. The sections after this one build on it and are not scheduled either.
 
 Needs from the Tydal team: a `tykerf-page` schema (a resource bundling `layout.slice`, `boxes/`, `types/`, `head.html` and the history) and setup commands like FullFrame's (`tykerf:setup` per organization, `tykerf:create` per site).
 
@@ -49,14 +51,14 @@ Needs from the Tydal team: a `tykerf-page` schema (a resource bundling `layout.s
 - **TYKERF serves the published pages** (`/{organization}/{site}/{page}`). Images come from Tydal renditions through TYKERF's proxy, so pages make no third-party requests.
 - **Deployment like FullFrame:** Docker and `docker-compose.yml`, `.env.example` (`TYDAL_URL`, `TYKERF_ENCRYPTION_KEY`, admin password), and the matching sections in `DEPLOY.md`.
 
-## 0.4: hosted MCP and cloud AI
+## Hosted MCP and cloud AI (not scheduled)
 
 - **The MCP server as a service** on the Tydal-attached TYKERF, scoped by Vault keys, in line with Tydal's Vault MCP.
 - **Sign-in for MCP clients (OAuth),** so TYKERF can be added as a remote connector in claude.ai.
 - **The AI tab on the server** uses the API runner with TYKERF's key from the environment, with usage limits per organization and per page.
 - **Screenshots on the server,** with Chromium installed once in the image.
 
-## 0.5: Chrome extension
+## Chrome extension (not scheduled)
 
 - **A thin client (Manifest V3)** that injects the TYKERF panel into the current tab; the AI and the keys stay on the TYKERF server.
 - **On TYKERF or Tydal pages:** edit them in place.
@@ -66,7 +68,7 @@ Needs from the Tydal team: a `tykerf-page` schema (a resource bundling `layout.s
 ## Later
 
 - Spanish: `src/editor/public/i18n/es.json`, the user guide in `docs/user-guide/es/`, and server messages.
-- Sites (done locally: a folder of pages, the start screen, New page…). Page renames with links that follow, a link picker and exporting a page or a site as plain files are done ([plan](docs/plans/0.2-finish.md)). Next: the site as a Tydal Vault (0.3). A shared site theme and *New page like this one* are done; the rest of the site manager (sections, shared media, a navigation menu) is [not scheduled yet](docs/plans/site-manager.md); when it comes, it opens from the editor's Site menu.
+- Sites (done locally: a folder of pages, the start screen, New page…). Page renames with links that follow, a link picker and exporting a page or a site as plain files are done ([plan](docs/plans/0.2-finish.md)). The site as a Tydal Vault is postponed, with no date. A shared site theme and *New page like this one* are done; the rest of the site manager (sections, shared media, a navigation menu) is [not scheduled yet](docs/plans/site-manager.md); when it comes, it opens from the editor's Site menu.
 - Drag blocks to rearrange them; wheel layouts in the editor.
 - The AI places a picture attached in the AI tab into a box (saved to `assets/`).
 - Listing in the MCP Registry once the Desktop extension or an npm package exists.

@@ -11,7 +11,7 @@ Status: **planned, not started** (October 2026). The decisions are made (below);
 ## Context
 TYKERF 0.1.0 ships the Claude Desktop extension (`tykerf.mcpb`, attached to each GitHub release). People can install it by hand, but Anthropic's directory no longer lists desktop extensions: it accepts a local MCP server only inside a **plugin**, submitted from a GitHub repository through the developer portal (claude.ai/directory/manage, *Submit new* → *Plugin bundle*).
 
-A plugin's local MCP server runs in **Claude Code** and in **Cowork sessions on the person's computer**. Chat on claude.ai ignores it. A hosted TYKERF that chat can use is the remote connector of 0.4, a separate submission.
+A plugin's local MCP server runs in **Claude Code** and in **Cowork sessions on the person's computer**. Chat on claude.ai ignores it. A hosted TYKERF that chat can use is the remote connector of the hosted MCP (not scheduled), a separate submission.
 
 Anthropic's pages this plan follows:
 - [Submit your plugin](https://claude.com/docs/plugins/submit)
