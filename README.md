@@ -12,9 +12,10 @@ TYKERF gives people and AI a shared language for building and changing web pages
   - pick a modern layout.
 
   All the pages of a site share one theme.
-- **An editor that lives on the real page.** Open the page, press *Edit with TYKERF*, and a floating panel shows the tree. Select a block on the page or in the tree, then edit its text, its code, its size, or ask the AI to change it.
+- **An editor that lives on the real page.** Open the page, press *Edit with TYKERF*, and point at anything to leave a task for Kaity (the **Tasks** mode). For exact control, the **Edit** mode shows the page's tree: select a block, then edit its text, its code, its size, or ask the AI to change it.
 - **Kaity, an AI that works on one block.** Each block keeps its own conversation. Kaity only gets TYKERF's moves (no file or shell access), can only change the selected block, and looks at screenshots of her work at desktop and phone widths.
-- **A whole site, managed in one place.** The site manager lists the pages (home page, titles, rename, duplicate, remove), the links between them with broken ones first, the code every page shares, the site's icon, and where Kaity is working. Kaity can also work across every page at once.
+- **Tasks: point, say, hand over.** Click anything on the page, say what should change, then give your tasks to Kaity, who works through them and answers each one. Tasks can also be copied as text for any AI agent, or read and closed by MCP clients.
+- **A whole site, managed in one place.** The site manager lists the pages (home page, titles, rename, duplicate, remove), the links between them with broken ones first, the code every page shares, the site's icon, and where Kaity is working. Kaity can also work across every page at once. The **site kit** holds what every page shares besides the theme: styles, small behaviours, and shared blocks, so the navigation and the footer are one thing for the whole site.
 - **Publish in one click.** The site goes to a GitHub repository that GitHub Pages, Cloudflare Pages or Netlify serve, one commit per publish, only what changed. Or export a `.zip`, or let TYKERF serve the site itself while you sign in to edit it.
 - **An MCP server** with the same moves, so any MCP client can edit a TYKERF page.
 
@@ -65,7 +66,7 @@ The same moves, for any MCP client. For Claude Code and Cowork there is a plugin
 claude mcp add tykerf -- /path/to/tykerf/node_modules/.bin/tsx /path/to/tykerf/src/mcp/server.ts --dir /path/to/page
 ```
 
-Tools include `get_layout`, `split`, `wrap`, `flip`, `swap`, `move`, `set_ratios`, `set_content`, `edit_content`, `add_picture`, `rename`, `undo`, `redo`, `get_theme`, `set_theme`, `evaluate` (layout metrics at several widths) and `screenshot`. Each call validates the tree and replies with only the lines that changed.
+Tools include `get_layout`, `split`, `wrap`, `flip`, `swap`, `move`, `set_ratios`, `set_content`, `edit_content`, `add_picture`, `rename`, `undo`, `redo`, `get_theme`, `set_theme`, `evaluate` (layout metrics at several widths), `screenshot`, `list_tasks` and `close_task` (the tasks left on the page), and, on a site, the kit's `list_kit`, `share_block` and `link_block`. Each call validates the tree and replies with only the lines that changed.
 
 ## Command line
 

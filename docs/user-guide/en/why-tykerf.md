@@ -41,7 +41,7 @@ One sentence on the start screen, a two-minute build, then a page whose every pa
 
   See [Getting started](getting-started.md).
 - **Edit the real page.** TYKERF draws its panel over the page as it really renders. Double-click text to change it where it is, crop an image in place, drag a block narrower.
-- **Ask about one part at a time:** "make the hero shorter", "turn these three cards into a pricing table", "this section should look like the attached screenshot". Each block keeps its own conversation.
+- **Point, say, hand over:** click anything on the page, write what should change ("make this shorter", "turn these three cards into a pricing table"), and give your tasks to Kaity. She works through them and answers each one. For exact control, the Edit mode gives you the whole editor, and each block keeps its own conversation with Kaity.
 - **A modern look by default:**
   - light, modern layouts and themes;
   - every layout is checked for readable contrast and for working on phones.

@@ -53,6 +53,7 @@ Click **Publish**. TYKERF says how many files are new, changed and removed, with
 | `<page>/index.html` | Each page, with its images in `<page>/assets/` |
 | `pages/index.html` | The list of pages |
 | `404.html` | What the host shows for an address that isn't there: *This page isn't here*, and the list of pages |
+| `kit/…` | The [site kit](sites.md#the-site-kit)'s behaviours and their loader, when it has any (its styles and shared blocks are already inside each page) |
 | `favicon.svg` | The site's icon ([Styles & scripts](sites.md#styles--scripts)) |
 | `sitemap.xml` | For search engines, when the site's address is set |
 | `.nojekyll` | Tells GitHub Pages to serve every file as it is |

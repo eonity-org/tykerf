@@ -40,7 +40,7 @@ mkdir my-site && mv my-page my-site/home
 npm start -- my-site
 ```
 
-![The site manager: its actions, the pages with their icons, and Styles & scripts open with the site's icon](../images/site-manager.png)
+![The site manager: its actions on the left, above the pages of a site with their titles and icons](../images/site-manager.png)
 
 ## The first page
 
@@ -113,6 +113,8 @@ The code every page gets in its head, before the page's own: a stylesheet, a `<s
 Above the code is **the site's icon**, the one browser tabs and bookmarks show. TYKERF makes one from the home page's first letter on the theme's accent colour. **Upload an icon…** uses yours instead (SVG, PNG or ICO, up to 512 KB), and **Use the made one** goes back. While you edit, the editor's tabs show TYKERF's mark instead, so they're easy to find; visitors see the site's icon.
 
 ## The site kit
+
+![The site kit in the site manager, below Styles & scripts: the kit's styles and behaviours, a footer shared by all seven pages, box types and tags](../images/site-kit.png)
 
 The site kit holds what every page shares besides the theme, one small named file each, in the site's `kit/` folder. It opens below **Styles & scripts** in the site manager: each kind lists its files (click one to edit it, **+ New** to add one), and **Undo** takes back the last change.
 

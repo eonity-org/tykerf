@@ -36,18 +36,21 @@ Ask in plain words, naming the blocks you mean:
 - "Focus on the hero and make the title shorter, with a button under it."
 - "Put the features in two columns, and stack them on phones."
 - "Make the accent colour a deep green."
+- "Make the navigation and the footer the same on every page."
+- "Go through the tasks I left on the page and do them."
 
 What to expect:
 
 - **Claude looks at its work.** It takes screenshots at desktop and phone widths and fixes what looks wrong.
 - **Bigger changes may need your OK.** Every tool tells Claude Desktop whether it only reads the page, changes it, or replaces something whole (a block, a box's code, the whole page), so Claude Desktop, like other clients, may ask you before the bigger changes.
 - **Keep the rest of the page safe.** Ask Claude to *focus* on a block: after that, changes outside it are refused. A scope you set yourself (a `.scope` file with `<block> user`, which the editor also uses) can't be lifted by Claude.
+- **Tasks you left in the editor.** In the editor's **Tasks** mode you leave tasks on the page's elements ([Tasks](editor.md#tasks)); ask Claude to work through them and it reads each at the width it was written at, does it and closes it with a short reply.
 - **Everything can be undone.** Ask Claude to undo, or use *Undo* in the editor. The history records each change as made by an AI (`ai`).
 - **Use it with the editor.** Keep `npm start -- my-page` open in the browser: Claude's changes appear there as they happen, and you can keep editing. Started on an empty folder, the editor shows its start screen until Claude makes the page, then opens it by itself; pages Claude makes in subfolders are offered on the start screen.
 
 ## What it can't do
 
-- It works on one page at a time: the open one. In a site it can list the pages, open another and make new ones, but not rename or remove pages, change the site's shared theme or export. Use the editor for those.
+- It works on one page at a time: the open one. In a site it can list the pages, open another, make new ones, rename them (links follow) and remove them (to the site's trash), and work with the [site kit](sites.md#the-site-kit): a shared navigation and footer, and the styles and behaviours every page uses. It can't change the site's shared theme or export; use the editor for those.
 - It can't run commands or touch files outside the page folder. It reads and writes the page only through TYKERF's tools.
 - Box scripts are code like any other. Check what Claude writes in a `<script>` before you publish the page (see [SECURITY.md](../../../SECURITY.md)).
 

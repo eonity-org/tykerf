@@ -10,6 +10,10 @@ Open the page in the browser (by default http://localhost:4400) and press **Edit
 
 ![A page in the editor: the panel with the page's tree, a box selected and its Text tab](../images/editor.png)
 
+## Start with tasks
+
+Most changes need only the **Tasks** mode, where the editor starts: point at anything on the page, write what should change, and give your tasks to Kaity (see [Tasks](#tasks), below). Use the **Edit** mode when you want exact control by hand: a word, a size, the order of sections, a block's code. The rest of this page describes Edit; the Tasks, handbook and mode sections apply to both.
+
 ## Two modes: Tasks and Edit
 
 The switch at the top left of the panel picks how you work. TYKERF remembers your choice.
@@ -20,6 +24,8 @@ The switch at the top left of the panel picks how you work. TYKERF remembers you
 A link that opens a particular block (from the site manager, say) opens the Edit mode. After Kaity builds a new page, the Tasks mode shows her answer, ready for your first tasks.
 
 ## Selecting
+
+*From here to **Tasks**, this page describes the Edit mode.*
 
 - **Click** a box on the page, or a line in the tree, to select it.
 - **Esc** selects the container one level up. The path at the top of the panel (`page / intro / header / title`) is clickable too.
@@ -95,6 +101,8 @@ An empty box's Text tab offers **Use a component** (ready-made sections with pla
 ## Tasks
 
 A task is something to be done, left on the exact place on the page it is about: a change to make, a question, something to check. It is for you, a colleague or Kaity.
+
+![The Tasks mode: three tasks on the page, each a numbered tab on its element, and the panel listing them by block with the button that gives them all to Kaity](../images/tasks.png)
 
 - In the **Tasks** mode, the element under the pointer is outlined, with its place in words (`hero › h1 "The short promise…"`). Click it, write the task and press **Enter** (or **Add task**). Nothing else happens on the page in this mode; **Edit** goes back to the whole editor.
 - In the **Edit** mode: right-click anything and choose *Add a task for Kaity here…*. The same form opens on the element you clicked, with **Add task** (for later) and **Add and give it to Kaity** (Kaity works on the block's open tasks at once; **Enter** does this).

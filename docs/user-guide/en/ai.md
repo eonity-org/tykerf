@@ -24,14 +24,18 @@ On the start screen of a new site, or with **New page…**, choose **Show or des
   - checks the result at desktop and phone widths and fixes what looks wrong;
   - goes once more over what she left unfinished (sample text, placeholder pictures, links without a target).
 
-  Meanwhile the page comes into focus: sections Kaity hasn't reached are blurred, the one she's working on softly, and each section turns sharp once it's done. **See the page clearly** in the window turns the blur off. At the end, the window shows her summary, a short guide, and the choice between **Open the editor** (on the page's Kaity tab) and **See the page**.
+  Meanwhile the page comes into focus: sections Kaity hasn't reached are blurred, the one she's working on softly, and each section turns sharp once it's done. **See the page clearly** in the window turns the blur off. At the end, the window shows her summary, a short guide, and the choice between **Open the editor** (in the Tasks mode, ready for your first tasks) and **See the page**.
 - **A design ZIP** (up to 8 MB, one per page; Google Stitch exports one): TYKERF opens it without running anything in it. Its pictures go to Kaity like the ones you drop (five in all), and its text files (`.md`, `.txt`, `.html`, `.css`, `.json`) go with your request as the reference; anything else is left out. The conversation shows only the file names. Kaity rebuilds the design with TYKERF's components and the theme; she doesn't copy code that loads things from other servers (Tailwind, Google Fonts, icon fonts).
 - It uses your AI (see [Which AI answers](#which-ai-answers)) and takes a few minutes. Every step is a normal change: stop her, undo a step, or ask for more in the same conversation.
 - When Kaity is not ready (Claude Code not installed, no key), the option says why and the other ways to start remain.
 
+## Tasks: point, say, hand over
+
+The editor starts in the **Tasks** mode. Click anything on the page, write what should change, and when you have them all press **Give Kaity every task**: she works through them, with each task's block, element and window width, and answers each one. The page follows her while she works. **Edit** is the whole editor, with the Kaity tab below for talking to her block by block. See [Tasks](editor.md#tasks).
+
 ## The Kaity tab
 
-Select a block and open the **Kaity** tab. A line above the text box says which block Kaity works on and which model answers; **Ask Kaity** sends it.
+For a longer talk about one block, switch to the **Edit** mode, select the block and open its **Kaity** tab. (For quick changes, tasks are simpler.) A line above the text box says which block Kaity works on and which model answers; **Ask Kaity** sends it.
 
 - **One conversation per block.** Kaity remembers what was said about this block; *New conversation* starts over.
 - **She only changes the selected block** and what is inside it. Changes elsewhere are refused.
@@ -55,6 +59,7 @@ In the site manager, **Ask Kaity about the whole site** opens a conversation abo
 - While she works on the site, renaming or removing pages and asking Kaity about one page wait; you can keep editing pages yourself. She waits for a run on one page too.
 - She can make, rename and remove pages: a rename changes the page's address, and links to it on every page follow; a removed page goes to the site's trash. Open tabs of a page she renames or removes follow it.
 - She doesn't change the site's shared head (its theme, and Styles & scripts): those stay yours, in the site manager and the Page tab.
+- She does change the [site kit](sites.md#the-site-kit) (shared blocks such as the navigation and the footer, styles and behaviours for every page) when you ask for it here, and tells you which pages a change reaches. Asked about one block, she can't change a shared block.
 - Every request to her, about the site or about one block of any page, is listed in [Kaity's work](sites.md#kaitys-work).
 
 ## Which AI answers
@@ -111,6 +116,8 @@ Restart the client after editing the config. The tools, by what they do:
 | Change a box | `set_content`, `edit_content` (one exact piece of the code), `add_picture` (an SVG it draws, or an attached picture) |
 | Library and theme | `list_layouts`, `use_layout`, `list_components`, `use_component`, `use_page`, `list_themes`, `use_theme`, `get_theme`, `set_theme` |
 | Pages of a site | `list_pages`, `open_page`, `new_page`, `rename_page`, `remove_page` |
+| The site kit | `list_kit`, `get_kit_file`, `set_kit_file` (styles, behaviours, tags), `share_block`, `link_block`, `unlink_block` (shared blocks such as the navigation and the footer) |
+| Tasks left on the page | `list_tasks`, `close_task` (with a reply for the person) |
 | Open a folder (the plugin only) | `open_folder` (a page, a site or an empty folder; without a path, the default folder). Only the plugin starts with no folder open and offers it |
 | Stay inside one block | `focus`, `unfocus` |
 | Check the result | `screenshot`, `evaluate` (layout checks at several widths), `check_page` (what is left unfinished), `estimate`, `optimize` |
