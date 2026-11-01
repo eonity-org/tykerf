@@ -12,9 +12,10 @@ TYKERF gives people and AI a shared language for building and changing web pages
   - pick a modern layout.
 
   All the pages of a site share one theme.
-- **An editor that lives on the real page.** Open the page, press *Edit with TYKERF*, and a floating panel shows the tree. Select a block on the page or in the tree, then edit its text, its code, its size, or ask the AI to change it.
+- **An editor that lives on the real page.** Open the page, press *Edit with TYKERF*, and point at anything to leave a task for Kaity (the **Tasks** mode). For exact control, the **Edit** mode shows the page's tree: select a block, then edit its text, its code, its size, or ask the AI to change it.
 - **Kaity, an AI that works on one block.** Each block keeps its own conversation. Kaity only gets TYKERF's moves (no file or shell access), can only change the selected block, and looks at screenshots of her work at desktop and phone widths.
-- **A whole site, managed in one place.** The site manager lists the pages (home page, titles, rename, duplicate, remove), the links between them with broken ones first, the code every page shares, the site's icon, and where Kaity is working. Kaity can also work across every page at once.
+- **Tasks: point, say, hand over.** Click anything on the page, say what should change, then give your tasks to Kaity, who works through them and answers each one. Tasks can also be copied as text for any AI agent, or read and closed by MCP clients.
+- **A whole site, managed in one place.** The site manager lists the pages (home page, titles, rename, duplicate, remove), the links between them with broken ones first, the code every page shares, the site's icon, and where Kaity is working. Kaity can also work across every page at once. The **site kit** holds what every page shares besides the theme: styles, small behaviours, and shared blocks, so the navigation and the footer are one thing for the whole site.
 - **Publish in one click.** The site goes to a GitHub repository that GitHub Pages, Cloudflare Pages or Netlify serve, one commit per publish, only what changed. Or export a `.zip`, or let TYKERF serve the site itself while you sign in to edit it.
 - **An MCP server** with the same moves, so any MCP client can edit a TYKERF page.
 
@@ -23,6 +24,10 @@ TYKERF gives people and AI a shared language for building and changing web pages
 **See it in 3 minutes:** one sentence on the start screen, and Kaity builds a page about Lisbon with facts, trivia, games and illustrations.
 
 [![Watch Kaity build a page about Lisbon from one sentence (2:48)](docs/media/tykerf-builds-lisbon.jpg)](https://eonity.org/tykerf-guides/videos/tykerf-builds-lisbon.mp4)
+
+**Then change it by pointing:** leave two loose tasks on a page ("make the illustration more colorful", "add something about The Shard") and hand them to Kaity (1:40).
+
+[![Watch two tasks given to Kaity on a page about London (1:40)](docs/media/tykerf-tasks.jpg)](https://eonity.org/tykerf-guides/videos/tykerf-tasks.mp4)
 
 TYKERF is an [eonity](https://eonity.org) project.
 
@@ -37,8 +42,9 @@ npm install
 npx playwright install chromium     # used for screenshots, page checks and copying websites
 
 npm start -- my-site                # a new or empty folder is a new site: open http://localhost:4400
-npm start -- examples/widgets       # a sample page
-npm start -- my-page --layout launch --theme studio   # one page directly (list: npm run cli -- layouts)
+npm start -- examples              # a sample site of one page, at /widgets/
+npm start -- my-site --layout launch --theme studio   # a new site, its home page from a layout (list: npm run cli -- layouts)
+npm start -- my-site --layout launch --name portfolio # the same, its one page named portfolio instead of home (on a site: one more page)
 ```
 
 New to TYKERF? Read [Why TYKERF](docs/user-guide/en/why-tykerf.md) and [Getting started](docs/user-guide/en/getting-started.md). To choose which AI answers, see [Working with Kaity](docs/user-guide/en/ai.md#which-ai-answers).
@@ -64,7 +70,7 @@ The same moves, for any MCP client. For Claude Code and Cowork there is a plugin
 claude mcp add tykerf -- /path/to/tykerf/node_modules/.bin/tsx /path/to/tykerf/src/mcp/server.ts --dir /path/to/page
 ```
 
-Tools include `get_layout`, `split`, `wrap`, `flip`, `swap`, `move`, `set_ratios`, `set_content`, `edit_content`, `add_picture`, `rename`, `undo`, `redo`, `get_theme`, `set_theme`, `evaluate` (layout metrics at several widths) and `screenshot`. Each call validates the tree and replies with only the lines that changed.
+Tools include `get_layout`, `split`, `wrap`, `flip`, `swap`, `move`, `set_ratios`, `set_content`, `edit_content`, `add_picture`, `rename`, `undo`, `redo`, `get_theme`, `set_theme`, `evaluate` (layout metrics at several widths), `screenshot`, `list_tasks` and `close_task` (the tasks left on the page), and, on a site, the kit's `list_kit`, `share_block` and `link_block`. Each call validates the tree and replies with only the lines that changed.
 
 ## Command line
 
@@ -73,7 +79,7 @@ npm run cli -- outline "header main V footer H"     # parse and print the tree
 npm run cli -- render examples/widgets             # write examples/widgets/out/index.html
 npm run cli -- optimize examples/widgets 1440      # tune the ratios for a width (--write to save)
 npm run cli -- import https://example.com my-page  # start a page from an existing site (see the guide)
-npm run cli -- new my-page launch --theme studio   # start a page from a layout
+npm run cli -- new my-site launch --theme studio   # a new site with its home page from a layout (on a site: one more page)
 npm run cli -- layouts                           # list page layouts and components
 npm run metrics -- examples/widgets/out/index.html # overflow, line length, tap targets… at 375/768/1440
 ```

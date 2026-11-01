@@ -13,15 +13,34 @@ my-site/
   home/          a page (layout.slice, boxes/, head.html, assets/ …)
   about/         another page
   head.html      the site's theme and the code every page gets (Styles & scripts)
+  kit/           what every page shares besides the theme (see The site kit)
   assets/        the theme's fonts
   site.json      the home page, titles set by hand, where Publish sends the site
   favicon.svg    the site's icon, when you upload one (.svg, .png or .ico)
   .trash/        removed pages, until you empty the trash
 ```
 
-`npm start -- my-site` opens it at `http://localhost:4400`. A folder that is **one page** (it has a `layout.slice`, like `examples/widgets`) is edited on its own at `http://localhost:4400/`.
+`npm start -- my-site` opens it at `http://localhost:4400`. Every page is in a site: the first page you make in a new or empty folder (from the start screen, `--layout`, `npm run cli -- new` or Claude) is the site's **home page**, named `home` unless you name it, and the site's address opens it. To name it, change **Page name** on the start screen, or give `--name`:
 
-![The site manager: its actions, the pages with their icons, and Styles & scripts open with the site's icon](../images/site-manager.png)
+```bash
+npm start -- my-site --layout biased --name portfolio      # a site whose one page is /portfolio/
+npm run cli -- new my-site biased --name portfolio         # the same, without opening the editor
+```
+
+The site manager's name field renames it later; it stays the home page.
+
+On a site that has pages already, `--layout` with `--name` adds that page, once (it says so, with the page's address); the same command run again just starts the editor. In a site that shares one theme, the theme you name becomes that page's own values, so the other pages keep their look. Without `--name`, it asks for one:
+
+```bash
+npm start -- my-site --layout biased --theme biased --name case-two   # one more page, /case-two/
+``` Starting TYKERF on one page of a site (`npm start -- my-site/home`) opens its site. A page folder that isn't in a site is refused, with the two commands that put it in one:
+
+```bash
+mkdir my-site && mv my-page my-site/home
+npm start -- my-site
+```
+
+![The site manager: its actions on the left, above the pages of a site with their titles and icons](../images/site-manager.png)
 
 ## The first page
 
@@ -44,14 +63,16 @@ It starts with what acts on the whole site:
 | **Ask Kaity about the whole site** | Kaity works across pages: she opens each, changes it and checks it ([Kaity for the whole site](ai.md#kaity-for-the-whole-site)) |
 | **Styles & scripts** | The site's icon, and the code every page gets in its head (see below) |
 | **Links between pages** | Broken links first, then the pages nothing links to (see below) |
+| **Kaity's work** | Everything Kaity did and is doing in the site, on any page or the whole site (see below) |
 | **Publish** | The site, live on GitHub Pages, Cloudflare Pages or Netlify ([publishing](publishing.md)) |
 
 ### The pages
 
-Each page shows its name, its address and its title, and four icons; their names show when you point at them:
+Each page shows its name, its address and its title, and five icons; their names show when you point at them. The **name** opens the page as visitors see it (*Edit with TYKERF* is there when you want it).
 
 - **Make home** (the star): visitors get this page at the site's address (`/`). The home page's star is filled.
-- **Rename** (the pencil): the page's name (its folder and address) and its **title**. Without a title of its own, a page is titled by its first heading. Titles name the pages in the browser tab, in the list of pages and in an export.
+- **Edit** (the pencil): opens the page with the editor open, as the pencil means everywhere in TYKERF.
+- **Name and title** (a name field): the page's name (its folder and address) and its **title**. Without a title of its own, a page is titled by its first heading. Titles name the pages in the browser tab, in the list of pages and in an export.
 - **Duplicate**: a copy of the page next to it, named `<name>-copy`, ready to rename. The copy doesn't bring the page's history or its conversations with Kaity.
 - **Remove** (the bin): after asking, the page goes to the site's trash (its `.trash` folder). **Removed pages** lists them with when they were removed, and **Empty the trash** deletes them for good, after asking again. Until then, move a page's folder from `.trash` back into the site folder to bring it back.
 
@@ -62,6 +83,17 @@ Pages made meanwhile by Kaity, Claude Desktop or the command line appear in the 
 While Kaity works, **Kaity is working** appears above the list: the whole site, or each page with the block she's on. Her three balls pulse next to those pages, and each one opens the page on her block's Kaity tab. In the page itself, the block she works on carries her balls in the tree, and any other block's Kaity tab says where she is, with **Go there**.
 
 A page Kaity is working on waits: it can't be renamed, removed or duplicated until she finishes. Nor can a page it links to be renamed, so those links can follow the new name. Every other page can.
+
+### Kaity's work
+
+Kaity can work on several pages at once, a block on each, so on a site of many pages you need one place to see it all. **Kaity's work** (also *All of Kaity's work* under **Kaity is working**, and *Kaity's work across the site…* in the editor's Site menu) lists every request she had, newest first, with the ones going on now at the top:
+
+- where: the page and its block, or **The whole site**; each opens the page on that block's Kaity tab, with the whole conversation;
+- what you asked, word for word (tasks included), when, and how long it took;
+- how it ended: **Done**, **Didn't finish** (with what went wrong), **Stopped**, or **Cut short** when TYKERF stopped while she worked; while she works, what she is doing right now;
+- **Her answer**, and how many steps she took.
+
+**Show** keeps to one page, or to the whole site. The list is kept in the site's `.tykerf/kaity.jsonl`, the last thousand requests or so.
 
 ### Links between pages
 
@@ -80,6 +112,48 @@ The code every page gets in its head, before the page's own: a stylesheet, a `<s
 
 Above the code is **the site's icon**, the one browser tabs and bookmarks show. TYKERF makes one from the home page's first letter on the theme's accent colour. **Upload an icon…** uses yours instead (SVG, PNG or ICO, up to 512 KB), and **Use the made one** goes back. While you edit, the editor's tabs show TYKERF's mark instead, so they're easy to find; visitors see the site's icon.
 
+## The site kit
+
+![The site kit in the site manager, below Styles & scripts: the kit's styles and behaviours, a footer shared by all seven pages, box types and tags](../images/site-kit.png)
+
+The site kit holds what every page shares besides the theme, one small named file each, in the site's `kit/` folder. It opens below **Styles & scripts** in the site manager: each kind lists its files (click one to edit it, **+ New** to add one), and **Undo** takes back the last change.
+
+| Kind | What it is | Where it shows |
+|---|---|---|
+| **Styles** (`kit/styles/<name>.css`) | CSS for every page: a button style, a card | In every page, after the theme and before the page's own styles, in file-name order |
+| **Behaviours** (`kit/scripts/<name>.js`) | A small script an element turns on with `data-use="<name>"`: `export default function (el) { … }` | On the elements that ask for it, on any page; only the behaviours a page uses load |
+| **Shared blocks** (`kit/blocks/<name>.html`) | One box's code that several pages show: the navigation, the footer | In every box that shows it (see below) |
+| **Box types** (`kit/types/<name>.json`) | Rules for boxes of a type (see box types) | On every page; a page's own type of the same name wins |
+| **Tags** (`kit/tags.json`) | The site's own tags, with a label and a description | In the editor's **Size & look** tab, under *Site tags*; style each as `.t-<tag>` in a styles file |
+
+**A behaviour, step by step.** A behaviour is a small script an element asks for by name. To put the current year in every footer:
+
+1. In the kit, next to **Behaviours**, press **+ New**, name it `year` and write:
+   ```js
+   export default function (el) {
+     el.textContent = new Date().getFullYear();
+   }
+   ```
+2. Put the name on an element, in the box's *Code* tab (or ask Kaity): `© <span data-use="year"></span> Seville city guide`.
+3. Every page that has such an element runs it; pages that don't never load it. Several behaviours go in one attribute, separated by spaces (`data-use="year reveal"`). If the function returns a function, TYKERF calls it when the element goes away.
+
+**Shared blocks.** A navigation or a footer is the same on every page, so it should be one thing:
+- The kit lists the boxes that are already the same on several pages (*These boxes are the same on several pages…*). **Share nav** makes one shared block from it and shows it on all of those pages.
+- In the editor, **Share…** on a box does the same from one page; the dialog also offers the site's other shared blocks to show instead.
+- A box that shows a shared block has a **shared** chip in the tree and a notice above its tabs. A change to it (its text, its code, Kaity's) changes every page that shows it; the site manager's **Undo** takes that back, not the page's.
+- **Make this page's own copy** gives this page the block's code as it is now, to change on its own; the other pages keep the shared block. It's one undo step on the page.
+- A link to the page you're on, inside a shared block, is marked as the current page (`aria-current`), so a menu can show where you are.
+- A new page whose layout has a box with the same name as a shared block (`nav`, `footer`) shows the shared block from the start.
+
+**One menu for every page, from start to finish**
+1. Make the navigation on one page (by hand, or ask Kaity), and give its box a name such as `nav`.
+2. Select the box and press **Share…**, or open the kit and press **Share nav** if the pages already have the same box. The box now shows a shared block, with a **shared** chip.
+3. On each other page, select its navigation box, press **Share…** and choose the site's `nav` to show instead of its own code. A page made later from a layout with a `nav` box shows it from the start.
+4. Change the menu on any page, in its text or code: every page shows the change. The site manager's **Undo** takes it back.
+5. A page that should differ takes **Make this page's own copy**. To show where you are, style `a[aria-current]` in a kit style: the current page's link in a shared block is marked for you.
+
+Kaity changes the kit only when you ask her for the whole site in the site manager, and she says which pages a change reaches. Asked about one block, she can't change a shared block; she'll suggest making the page's own copy. Exports and Publish include the kit: its styles in each page, its behaviours as files.
+
 ## One theme for every page
 
 The first page's theme becomes the site's: it lives in the site's own `head.html` (with its fonts in the site's `assets/`), and every page uses it before its own `head.html`. Change it in the **Page** tab of any page (*Every page*); *Undo the last site theme change* sits next to it. A page can set some values for itself with *This page only*, and the Page tab always says where a page's look comes from (see [the theme](layouts.md#the-theme)). Copies of websites keep their own look.
@@ -90,7 +164,7 @@ Sites made before TYKERF shared themes keep a theme per page. The Page tab of on
 
 In the editor each page has its own address (`http://localhost:4400/home/`). The **page name** next to the TYKERF logo lists the site's pages to switch to; **All pages** opens the site manager, and **New page…** adds one, with the same choices as the start screen plus **Like this page**: the current page's navigation, footer and theme, with one empty section in between.
 
-Next to the current page in that list, **Rename this page…** (the pencil) and **Remove this page…** (the bin) do what the manager's icons do; removing first says how many links to it will point nowhere. Open tabs of a renamed page follow it to its new address.
+Next to the current page in that list, **Rename this page…** (the name field) and **Remove this page…** (the bin) do what the manager's icons do; removing first says how many links to it will point nowhere. Open tabs of a renamed page follow it to its new address.
 
 ## The site's addresses
 

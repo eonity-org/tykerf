@@ -1,0 +1,26 @@
+<style>
+:scope { background: var(--section-bg, transparent); }
+.wrap { max-width: var(--max-width); margin: 0 auto; padding: calc(var(--space-section) * .7) var(--gap); }
+h2 { font-size: var(--text-title); max-width: 18ch; margin: 0 0 12px; }
+.intro { font-size: var(--text-lead); color: var(--color-muted); max-width: 34em; margin: 0 0 clamp(28px, 4vw, 48px); }
+/* every project is a set of biases: each card says what was chosen over what, why, and what it cost */
+ol { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--gap); counter-reset: decision; }
+li { counter-increment: decision; display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr)); gap: 16px calc(var(--gap) * 2); padding: clamp(20px, 3vw, 36px); border: 1px solid var(--color-border); border-radius: var(--radius); background: var(--color-surface); }
+.label { margin: 0 0 10px; font-size: 12px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--color-accent); }
+.label::after { content: " " counter(decision, decimal-leading-zero); }
+h3 { font-size: clamp(21px, 2vw, 28px); line-height: 1.2; margin: 0; }
+h3 s { color: var(--color-muted); text-decoration-thickness: 2px; }
+mark { color: inherit; background: linear-gradient(transparent 55%, var(--color-highlight) 55% 90%, transparent 90%); }
+dl { display: grid; gap: 14px; margin: 0; align-content: start; }
+dt { font-size: 13px; font-weight: 700; }
+dd { margin: 2px 0 0; color: var(--color-muted); }
+</style>
+<div class="wrap">
+  <h2>The decisions behind it</h2>
+  <p class="intro">Every project leans one way. These are the choices that gave this one its shape.</p>
+  <ol>
+    <li><div><p class="label">Decision</p><h3>Chose <mark>one long page</mark> over <s>five short ones</s></h3></div><dl><div><dt>Why</dt><dd>The reason, in the client's terms: what it does for the people who use it.</dd></div><div><dt>What it cost</dt><dd>What was given up, and how the team made up for it.</dd></div></dl></li>
+    <li><div><p class="label">Decision</p><h3>Chose <mark>real numbers</mark> over <s>bold promises</s></h3></div><dl><div><dt>Why</dt><dd>The reason, in the client's terms: what it does for the people who use it.</dd></div><div><dt>What it cost</dt><dd>What was given up, and how the team made up for it.</dd></div></dl></li>
+    <li><div><p class="label">Decision</p><h3>Chose <mark>fewer features</mark> over <s>a longer menu</s></h3></div><dl><div><dt>Why</dt><dd>The reason, in the client's terms: what it does for the people who use it.</dd></div><div><dt>What it cost</dt><dd>What was given up, and how the team made up for it.</dd></div></dl></li>
+  </ol>
+</div>

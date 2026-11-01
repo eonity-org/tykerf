@@ -74,7 +74,7 @@ describe('export', () => {
     expect(home).toContain('href="../about/#team"');
     expect(home).not.toContain('_tykerf');
     expect(readFileSync(join(out, 'about/index.html'), 'utf8')).toContain("url('../home/assets/dot.png')");
-    expect(readFileSync(join(out, 'index.html'), 'utf8')).toContain('url=./about/');
+    expect(readFileSync(join(out, 'index.html'), 'utf8')).toContain('url=./home/'); // the site's first page is its home
     expect(report.broken).toEqual([{ page: 'home', href: '/gone/' }]);
     expect(report.remote.map((r) => r.url)).toEqual(['https://cdn.example.com/x.jpg']);
     expect(existsSync(join(out, 'home/.history.jsonl'))).toBe(false);
@@ -164,12 +164,12 @@ describe('export', () => {
     try {
       const page = await browser.newPage();
       await page.goto(pathToFileURL(join(out, 'index.html')).href);
-      await page.waitForURL(/about\/index\.html$/);
-      await page.click('#to-home');
       await page.waitForURL(/home\/index\.html$/);
       expect(await page.locator('img[src="assets/dot.png"]').evaluate((i: HTMLImageElement) => i.naturalWidth)).toBe(1);
       await page.click('#to-about');
       await page.waitForURL(/about\/index\.html#team$/);
+      await page.click('#to-home');
+      await page.waitForURL(/home\/index\.html$/);
     } finally {
       await browser.close();
     }

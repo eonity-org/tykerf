@@ -29,13 +29,14 @@
   },
   "company": {
     "label": "Company",
-    "description": "A statement, the latest news, what you do, numbers and a call to action",
-    "layout": "nav[role=header] intro[role=section] news[role=section] feature[role=section #tone-alt] stats[role=section] cta[role=section] footer[role=footer #tone-dark] H7@page",
+    "description": "A headline that switches for each audience, the latest news, what you do, how it works in steps, numbers and a call to action",
+    "layout": "nav[role=header] intro[role=section] news[role=section] feature[role=section #tone-alt] how[role=section] stats[role=section] cta[role=section] footer[role=footer #tone-dark] H8@page",
     "boxes": {
       "nav": "nav",
-      "intro": "statement",
+      "intro": "hero-switch",
       "news": "updates",
       "feature": "feature",
+      "how": "steps-rail",
       "stats": "stats",
       "cta": "cta",
       "footer": "footer"
@@ -67,11 +68,11 @@
   },
   "portfolio": {
     "label": "Portfolio",
-    "description": "A statement, a gallery of work, who is behind it, quotes and a contact form",
+    "description": "A headline beside a picture, a gallery of work, who is behind it, quotes and a contact form",
     "layout": "nav[role=header] hero[role=section] gallery[role=section] about[role=section #tone-alt #reverse] testimonials[role=section] contact[role=section #tone-alt] footer[role=footer #tone-dark] H7@page",
     "boxes": {
       "nav": "nav",
-      "hero": "statement",
+      "hero": "hero-split",
       "gallery": "gallery",
       "about": "feature",
       "testimonials": "testimonials",
@@ -113,6 +114,25 @@
       "highlight": "highlight",
       "timeline": "timeline",
       "banner": "image-banner",
+      "footer": "footer"
+    }
+  },
+  "biased": {
+    "label": "Biased",
+    "description": "A case study told through its decisions: a title with a fact strip, the work in a frame, the story in three parts, decision cards (what was chosen over what, why, what it cost), before and after, the numbers, a quote, credits, the next case and a call to action",
+    "layout": "nav[role=header] intro[role=section] cover[role=section #tone-alt] story[role=section] decisions[role=section] compare[role=section #tone-alt] results[role=section] quote[role=section #tone-soft] credits[role=section] next[role=section] cta[role=section #tone-alt] footer[role=footer #tone-dark] H12@page",
+    "boxes": {
+      "nav": "nav",
+      "intro": "case-intro",
+      "cover": "case-cover",
+      "story": "case-brief",
+      "decisions": "case-decisions",
+      "compare": "case-compare",
+      "results": "stats",
+      "quote": "case-quote",
+      "credits": "case-credits",
+      "next": "case-next",
+      "cta": "cta",
       "footer": "footer"
     }
   }

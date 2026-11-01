@@ -66,18 +66,21 @@ Ask in plain words, naming the blocks you mean:
 - "Focus on the hero and make the title shorter, with a button under it."
 - "Put the features in two columns, and stack them on phones."
 - "Make the accent colour a deep green."
+- "Make the navigation and the footer the same on every page."
+- "Go through the tasks I left on the page and do them."
 
 What to expect:
 
 - **Claude looks at its work.** It takes screenshots at desktop and phone widths and fixes what looks wrong.
 - **Keep the rest of the page safe.** Ask Claude to *focus* on a block: after that, changes outside it are refused.
 - **Bigger changes come with a question.** Before replacing a whole page with a layout or another page, Claude asks. Every tool also tells Claude Code whether it only reads the page, changes it, or replaces something whole, so Claude Code may ask you to allow a change.
+- **Tasks you left in the editor.** In the editor's **Tasks** mode you leave tasks on the page's elements ([Tasks](editor.md#tasks)); ask Claude to work through them and it reads each at the width it was written at, does it and closes it with a short reply.
 - **Everything can be undone.** Ask Claude to undo, or use *Undo* in the editor. The history records each change as made by an AI (`ai`).
 - **See it in the browser.** Ask Claude to render the page: it writes `out/index.html` and tells you where. Or keep the editor open on the same folder (`npm start -- ~/TYKERF` from the repository): Claude's changes appear there as they happen.
 
 ## What it can't do
 
-- It works on one page at a time: the open one. In a site it can list the pages, open another and make new ones, but not rename or remove pages, change the site's shared theme or export. Use the editor for those.
+- It works on one page at a time: the open one. In a site it can list the pages, open another, make new ones, rename them (links follow) and remove them (to the site's trash), and work with the [site kit](sites.md#the-site-kit): a shared navigation and footer, and the styles and behaviours every page uses. It can't change the site's shared theme or export; use the editor for those.
 - It changes pages only through TYKERF's tools. The plugin tells Claude never to edit a page's files directly, which would skip the checks and the history.
 - Box scripts are code like any other. Check what Claude writes in a `<script>` before you publish the page (see [SECURITY.md](../../../SECURITY.md)).
 

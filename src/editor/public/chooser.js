@@ -54,7 +54,7 @@ export async function renderChooser(root, { t, name = 'home', taken = [], like =
   const step = (n, text) => `<span class="ch-step" aria-hidden="true">${n}</span>${text}`;
   const way = (from, title, text, badge = '') => `<button type="button" data-from="${from}" aria-pressed="${st.from === from}"><b>${title}${badge ? ` <em>${KAITY_MARK}${badge}</em>` : ''}</b><span>${text}</span></button>`;
   const themeChoice = sharedTheme
-    ? `<p class="ch-note">${t('The pages of this site share one theme; this page will use it too. Change it in the Page tab of any page.')}</p>`
+    ? `<p class="ch-explanation">${t('The pages of this site share one theme; this page will use it too. Change it in the Page tab of any page.')}</p>`
     : `<div class="ch-themes"><button type="button" class="ch-auto" data-for="idea" data-theme="auto" aria-pressed="true" title="${t('Kaity picks the theme that fits your words, pictures or design.')}">${KAITY_MARK}${t('Kaity chooses')}</button>${themes.map((th) => `
           <button type="button" data-theme="${esc(th.name)}" aria-pressed="${th.name === st.theme}" title="${esc(t(th.description))}"><span class="sw">${swatch(th.values)}</span>${esc(t(th.label))}</button>`).join('')}</div>
           <p class="ch-hint">${t('You can change the colours, fonts and spacing later in the Page tab.')}</p>`;
@@ -91,7 +91,7 @@ export async function renderChooser(root, { t, name = 'home', taken = [], like =
             <p>${t('TYKERF opens the site in a browser and cuts the page into rows, columns and boxes. The copy is a starting point, not a perfect clone: check it at desktop and phone widths.')}</p>
             <p>${t('A copy includes the site\'s text, images and design, which usually belong to someone else. Copy your own site to rebuild it; copy someone else\'s only to study or prototype, and publish it only with the owner\'s permission.')}</p></div>
         </div>
-        <fieldset data-for="layout"><legend>${step(3, t('Pick a layout'))} <span class="ch-legend-note">${t('ready-made pages to start from (templates)')}</span></legend><div class="ch-cards">${layouts.map((p) => `
+        <fieldset data-for="layout"><legend>${step(3, t('Pick a layout'))} <span class="ch-legend-explanation">${t('ready-made pages to start from (templates)')}</span></legend><div class="ch-cards">${layouts.map((p) => `
           <button type="button" data-layout="${esc(p.name)}" aria-pressed="${p.name === st.layout}"><b>${esc(t(p.label))}</b><span>${esc(t(p.description))}</span></button>`).join('')}</div></fieldset>
         <fieldset data-for="layout idea"><legend>${step(4, t('Choose a theme'))}</legend>${themeChoice}</fieldset>
         <p class="ch-error" role="alert" hidden></p>

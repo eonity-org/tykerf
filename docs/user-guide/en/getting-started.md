@@ -54,8 +54,8 @@ TYKERF makes the page at once and opens it, with a small card in the corner that
 It takes a few minutes and uses your AI account. The **×** stops her; what she built so far stays.
 
 When it is done, the window shows Kaity's summary and a short guide to go on. Then choose:
-- **Open the editor:** you land on the page's **Kaity** tab, where you can keep talking ("make the hero shorter", "add a pricing section");
-- **See the page:** you see it as visitors will. **Edit with TYKERF**, at the bottom right, opens the editor any time.
+- **Open the editor:** you land in the **Tasks** mode with Kaity's answer on top, ready for your first tasks ("make the hero shorter", "add a pricing section");
+- **See the page:** you see it as visitors will. **Edit with TYKERF**, at the bottom right, opens the editor any time. It starts in the **Tasks** mode: point at anything and say what should change, then give your tasks to Kaity. **Edit**, next to it, is the whole editor (see [two modes](editor.md#two-modes-tasks-and-edit)).
 
 Every step is an ordinary change, so you can undo any of them.
 
@@ -82,13 +82,14 @@ Pick a page layout and a theme while the preview shows them at desktop or phone 
 | Layout | For |
 |---|---|
 | Product launch | A big headline over the product, features, numbers, quotes, pricing, FAQ (airy) |
-| Company | A statement, the latest news, what you do, numbers |
+| Company | A headline for each audience, the latest news, what you do, steps, numbers |
 | Magazine | A front page of stories with a most-read list (packed) |
 | Catalogue | Products or services in a grid of cards, with filters (packed) |
-| Portfolio | A statement, a gallery of work, quotes, contact |
+| Portfolio | A headline beside a picture, a gallery of work, quotes, contact |
+| Biased | A case study told through its decisions: what was chosen over what, why, and the results |
 | Article, Documentation, Blank | Reading pages, and an almost empty start |
 
-The six themes cover different styles: *Studio* (airy), *Product* (packed), *Ivory* (editorial), *Gallery* (soft), *Dark* (for developers) and *Warm* (warm editorial, a serif over a sans, gilt details). Any layout works with any theme, so the pair sets the page's colour, type and density.
+The seven themes cover different styles: *Studio* (airy), *Product* (packed), *Ivory* (editorial), *Gallery* (soft), *Dark* (for developers), *Warm* (warm editorial, a serif over a sans, gilt details) and *Biased* (ink on warm paper, an indigo accent, a lime highlighter). Any layout works with any theme, so the pair sets the page's colour, type and density.
 
 A layout is a whole page made of **components**, ready-made sections such as a hero, features or pricing. Later you can drop any component into any box on its own (*Use a component*), and the **theme** styles them all; see [how they differ](layouts.md).
 
@@ -111,19 +112,29 @@ None of these locks you in. Every page, however it started, is the same kind of 
 
 Click the page name next to the TYKERF logo and choose **New page…**. You get the same three ways, plus one more:
 
-- **Like this page:** the current page's navigation, footer and theme, with one empty section in between. This is the fastest way to grow a site that looks consistent.
+- **Like this page:** the current page's navigation, footer and theme, with one empty section in between. This is the fastest way to grow a site that looks consistent. To make the navigation and the footer *the same thing* on every page (change it once and every page follows), share them in the [site kit](sites.md#the-site-kit).
 
 **One theme for the whole site.** All the pages of a site share the theme the first page set: its colours, fonts and spacing. Change it in the **Page** tab of any page and every page follows. A page can still set its own colours or fonts with *This page only*, and the Page tab always says whether a page's look is inherited from the site (see [the theme](layouts.md#the-theme)).
 
+## Your first changes: tasks
+
+Open the page and press **Edit with TYKERF**. The editor starts in the **Tasks** mode, which is all you need at first:
+
+1. **Point** at anything on the page (a title, a button, a section) and write what should change: "make this shorter", "add a Pricing link here". Press **Enter**. The task stays on its spot as a numbered tab.
+2. Leave as many as you like, at the window width where you see each problem.
+3. Press **Give Kaity every task**. She works through them, you watch her at work on the page, and she answers each one.
+
+Every change she makes is a step you can undo. See [Tasks](editor.md#tasks).
+
+[![Watch two tasks given to Kaity on a page about London (1:40)](../../media/tykerf-tasks.jpg)](https://eonity.org/tykerf-guides/videos/tykerf-tasks.mp4)
+
+*Two loose tasks, "make the illustration more colorful" and "add something about The Shard", written on the page and given to Kaity. She changes the skyline's colours and adds a caption about The Shard.*
+
 ## What next
 
-- **[Edit the page](editor.md):**
-  - select blocks;
-  - change text and images where they are, by double-clicking;
-  - add, move and resize blocks;
-  - undo anything.
-- **[Ask Kaity about one block](ai.md):** select a block, open the **Kaity** tab and say what you want. Kaity can only change that block. [Getting good results from Kaity](asking-kaity.md) has tips and recipes.
-- **[Manage the site](sites.md):** the **Manage the site** button next to *Edit with TYKERF* opens the site manager: the home page, titles, the site's icon, links between pages, and pages to rename, duplicate or remove. The link box (⌘K) lists the site's pages, and renaming a page updates every link to it.
+- **[Tasks and the editor](editor.md):** tasks first; then the **Edit** mode, for exact changes by hand (select blocks, edit text and images where they are, resize, move, undo anything).
+- **[Getting good results from Kaity](asking-kaity.md):** how to write a task or a request, and recipes. For one block's own conversation, see [the Kaity tab](ai.md#the-kaity-tab).
+- **[Manage the site](sites.md):** the **Manage the site** button next to *Edit with TYKERF* opens the site manager: the home page, titles, the site's icon, the site kit (a navigation and a footer shared by every page), links between pages, and pages to rename, duplicate or remove. The link box (⌘K) lists the site's pages, and renaming a page updates every link to it.
 - **[Put it online](publishing.md):** **Publish** in the site manager sends the site to GitHub Pages, Cloudflare Pages or Netlify; *Site → Export the site…* gives a .zip of plain files for any web host.
 
 <!-- tykerf:footer -->

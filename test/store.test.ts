@@ -91,6 +91,54 @@ describe('folder store writes', () => {
   });
 });
 
+describe('watching a folder', () => {
+  const until = async (ok: () => boolean, ms = 3000) => {
+    for (const t0 = Date.now(); !ok() && Date.now() - t0 < ms; ) await new Promise((r) => setTimeout(r, 25));
+    expect(ok()).toBe(true);
+  };
+
+  it('hears every change to a file that is replaced again and again, as the files of a page are', async () => {
+    // Node's recursive watcher on Linux goes blind to a file after the first time it is replaced by a rename
+    const dir = mkdtempSync(join(tmpdir(), 'tykerf-watch-'));
+    const mine = new FolderStore(dir), other = new FolderStore(dir); // the editor, and another process
+    other.write('.tykerf/tasks.json', '0');
+    let heard = 0;
+    const stop = mine.watch((p) => { if (p === '.tykerf/tasks.json') heard++; });
+    // wait until no event has come for a moment, so that a late event of one write is never taken for the next one's
+    const quiet = async () => {
+      for (let last = -1, since = Date.now(); Date.now() - since < 400; await new Promise((r) => setTimeout(r, 50))) {
+        if (heard !== last) { last = heard; since = Date.now(); }
+      }
+    };
+    try {
+      for (let i = 1; i <= 4; i++) {
+        await quiet();
+        const before = heard;
+        other.write('.tykerf/tasks.json', String(i));
+        await until(() => heard > before, 5000);
+      }
+    } finally {
+      stop();
+    }
+  }, 30_000);
+
+  it('hears of files in a folder made after it started, and stops when asked', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'tykerf-watch-'));
+    const mine = new FolderStore(dir), other = new FolderStore(dir);
+    const seen: string[] = [];
+    const stop = mine.watch((p) => seen.push(p));
+    other.write('boxes/new.html', '<p>one</p>');
+    await until(() => seen.includes('boxes/new.html'));
+    other.write('boxes/new.html', '<p>two</p>'); // later changes in that new folder too
+    await until(() => seen.filter((p) => p === 'boxes/new.html').length > 1);
+    stop();
+    const count = seen.length;
+    other.write('boxes/new.html', '<p>three</p>');
+    await new Promise((r) => setTimeout(r, 300));
+    expect(seen.length).toBe(count);
+  });
+});
+
 describe('memory store', () => {
   it('lists only the files directly in a folder', () => {
     const s = new MemoryStore('memory:', { 'a.txt': '1', 'boxes/x.html': '2', 'boxes/sub/y.html': '3' });

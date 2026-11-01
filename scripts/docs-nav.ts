@@ -51,7 +51,9 @@ function pages(): { file: string; guide?: Guide; up: Place[] }[] {
     { file: 'docs/slicing-notation.md', up: [TYKERF, DOCS] },
     { file: 'docs/plans/0.2-finish.md', up: [TYKERF, ROADMAP] },
     { file: 'docs/plans/claude-plugin.md', up: [TYKERF, ROADMAP] },
+    { file: 'docs/plans/tasks-and-handbook.md', up: [TYKERF, ROADMAP] },
     { file: 'docs/plans/site-manager.md', up: [TYKERF, ROADMAP] },
+    { file: 'docs/plans/site-sharing.md', up: [TYKERF, ROADMAP] },
     { file: 'docs/plans/templates-redesign.md', up: [TYKERF, ROADMAP] },
     ...['DEPLOY.md', 'ROADMAP.md', 'BRAND.md', 'CONTRIBUTING.md', 'CODE_OF_CONDUCT.md', 'SECURITY.md', 'CHANGELOG.md', 'Other_Layouts/README.md'].map((file) => ({ file, up: [TYKERF] })),
   );

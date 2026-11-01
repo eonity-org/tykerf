@@ -3,7 +3,7 @@
 // whole path is real: the chooser, the new page, the AI run with the picture, the editor on its AI tab.
 
 import { type ChildProcess, spawn } from 'node:child_process';
-import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { createServer, type Server } from 'node:http';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -65,6 +65,7 @@ describe('show or describe it', () => {
   it('makes the first page and opens the editor on the AI building it from the words and the picture', async () => {
     const { url, site } = await editor({ TYKERF_RUNNER: 'anthropic', TYKERF_API_KEY: 'k', TYKERF_API_BASE_URL: `http://127.0.0.1:${(api.address() as { port: number }).port}` });
     const page = await browser.newPage({ viewport: { width: 1280, height: 860 } });
+    await page.addInitScript(() => localStorage.setItem('tykerf.mode', '\"edit\"')); // her conversation is in the Edit mode
     page.setDefaultTimeout(8000);
     await page.goto(url);
     await page.locator('.chooser').waitFor();
@@ -130,6 +131,7 @@ describe('show or describe it', () => {
     replies.push(message([{ type: 'text', text: 'I built the page from your design.' }], 'end_turn'));
     const before = got.length;
     const page = await browser.newPage({ viewport: { width: 1280, height: 860 } });
+    await page.addInitScript(() => localStorage.setItem('tykerf.mode', '\"edit\"')); // her conversation is in the Edit mode
     page.setDefaultTimeout(8000);
     await page.goto(url);
     await page.locator('.chooser').waitFor();
@@ -169,6 +171,7 @@ describe('show or describe it', () => {
     const r = await fetch(`${url}_tykerf/site/new`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ name: 'slow', prompt: 'a long page' }) }).then((x) => x.json());
     expect(r.ok).toBe(true);
     const page = await browser.newPage({ viewport: { width: 1280, height: 800 } });
+    await page.addInitScript(() => localStorage.setItem('tykerf.mode', '\"edit\"')); // her conversation is in the Edit mode
     await page.goto(`${url}slow/`);
     // while Kaity works, its progress is a small card in the bottom right corner, over the page
     await page.locator('.jobmodal.running').waitFor();
@@ -195,6 +198,7 @@ describe('show or describe it', () => {
     const post = (path: string, body: unknown) => fetch(`${url}${path}`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) }).then((x) => x.json());
     expect((await post('_tykerf/site/new', { name: 'tour', layout: 'blank' })).ok).toBe(true);
     const page = await browser.newPage({ viewport: { width: 1280, height: 860 } });
+    await page.addInitScript(() => localStorage.setItem('tykerf.mode', '\"edit\"')); // her conversation is in the Edit mode
     page.setDefaultTimeout(8000);
     await page.goto(`${url}tour/`); // the page's editor is open: Kaity runs in it
     // only this run's slow reply: one left by an earlier test would end it at once
@@ -205,6 +209,7 @@ describe('show or describe it', () => {
 
     // the site manager lists it, and marks the page
     const manager = await browser.newPage();
+    await manager.addInitScript(() => localStorage.setItem('tykerf.mode', '\"edit\"')); // her conversation is in the Edit mode
     await manager.goto(`${url}_tykerf/site/`);
     await manager.locator('.now li').waitFor();
     expect(await manager.locator('.now li').textContent()).toBe('tour · nav');
@@ -228,6 +233,7 @@ describe('show or describe it', () => {
   it('starts from a layout when the AI is not ready, and says why', async () => {
     const { url } = await editor({ TYKERF_RUNNER: 'anthropic' }); // no key
     const page = await browser.newPage();
+    await page.addInitScript(() => localStorage.setItem('tykerf.mode', '\"edit\"')); // her conversation is in the Edit mode
     await page.goto(url);
     await page.locator('.chooser').waitFor();
     expect(await page.locator('[data-from="layout"]').getAttribute('aria-pressed')).toBe('true');
@@ -247,6 +253,7 @@ describe("Kaity's steps in the AI tab", () => {
     replies.push(message([{ type: 'text', text: 'built' }], 'end_turn') as any);
     await fetch(`${url}_tykerf/site/new`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ name: 'log', prompt: 'a page' }) });
     const page = await browser.newPage({ viewport: { width: 1280, height: 860 } });
+    await page.addInitScript(() => localStorage.setItem('tykerf.mode', '\"edit\"')); // her conversation is in the Edit mode
     page.setDefaultTimeout(8000);
     await page.goto(`${url}log/`);
     await page.locator('[data-job="editor"]').click();
@@ -282,20 +289,10 @@ describe("Kaity's steps in the AI tab", () => {
 });
 
 describe('the start screen', () => {
-  it('opens the page made in its folder from elsewhere (Claude Desktop, the command line)', async () => {
-    const { url, site } = await editor({ TYKERF_RUNNER: 'anthropic' });
-    const page = await browser.newPage();
-    page.setDefaultTimeout(8000);
-    await page.goto(url);
-    await page.locator('.chooser').waitFor();
-    createPage(new Workspace(site), 'blank'); // as use_layout does in an empty folder
-    await page.locator('[data-sw="nav"]').waitFor();
-    expect(await page.locator('[data-sw="nav"]').textContent()).toContain('Site name');
-  });
-
   it('offers the pages made in its folder meanwhile', async () => {
     const { url, site } = await editor({ TYKERF_RUNNER: 'anthropic' });
     const page = await browser.newPage();
+    await page.addInitScript(() => localStorage.setItem('tykerf.mode', '\"edit\"')); // her conversation is in the Edit mode
     page.setDefaultTimeout(8000);
     await page.goto(url);
     await page.locator('.chooser').waitFor();
@@ -344,6 +341,7 @@ describe('a page Kaity builds', () => {
     );
     await fetch(`${url}_tykerf/site/new`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ name: 'bakery', prompt: 'a bakery' }) });
     const page = await browser.newPage({ viewport: { width: 1280, height: 800 } });
+    await page.addInitScript(() => localStorage.setItem('tykerf.mode', '\"edit\"')); // her conversation is in the Edit mode
     page.setDefaultTimeout(10_000);
     await page.goto(`${url}bakery/`);
     const focus = () => page.evaluate(() => document.getElementById('tykerf-focus')?.textContent ?? '');
@@ -369,6 +367,38 @@ describe('a page Kaity builds', () => {
   }, 60_000);
 });
 
+describe('Kaity at work on the page', () => {
+  it('scrolls the page to the block she works on, and carries her label there, unless you scroll yourself', async () => {
+    const { url } = await editor({ TYKERF_RUNNER: 'anthropic', TYKERF_API_KEY: 'k', TYKERF_API_BASE_URL: `http://127.0.0.1:${(api.address() as { port: number }).port}` });
+    const post = (path: string, data: unknown) => fetch(`${url}${path}`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(data) });
+    await post('_tykerf/site/new', { name: 'home', layout: 'launch' });
+    const call = (id: string, name: string, input: unknown, delay = 200) => ({ ...message([{ type: 'tool_use', id, name, input }]), delay }) as any;
+    replies.splice(0);
+    replies.push(
+      call('f1', 'get_layout', {}),
+      call('f2', 'get_content', { id: 'faq' }, 1500), // far down the page
+      call('f3', 'get_content', { id: 'nav' }, 2500), // you scroll meanwhile: she doesn't pull you back
+      { ...message([{ type: 'text', text: 'Read them.' }], 'end_turn'), delay: 3000 } as any, // she stays on the navigation a while
+    );
+    const page = await browser.newPage({ viewport: { width: 1280, height: 720 } });
+    page.setDefaultTimeout(10_000);
+    await page.goto(`${url}home/?edit`);
+    await page.locator('section.panel').waitFor();
+    expect(await page.evaluate('scrollY')).toBe(0);
+    await post('home/_tykerf/ask', { id: 'page', prompt: 'Read the FAQ and the navigation' });
+    // she reads the FAQ: the page goes there, and her label is on it
+    await expect.poll(() => page.evaluate('Math.round(document.querySelector("[data-sw=faq]").getBoundingClientRect().top)'), { timeout: 8000 }).toBeLessThan(720);
+    await page.locator('.kframe .ktag', { hasText: 'get content faq' }).waitFor();
+    // scrolling yourself pauses the following: her next block (the navigation, out of sight above) doesn't pull you back
+    await page.mouse.wheel(0, 200);
+    await page.waitForTimeout(500); // the wheel's own scroll is animated: let it settle
+    const yours = await page.evaluate('scrollY');
+    await page.locator('.kframe .ktag', { hasText: 'get content nav' }).waitFor();
+    await page.waitForTimeout(600);
+    expect(Math.abs((await page.evaluate('scrollY')) as number - (yours as number))).toBeLessThan(40); // not back up at the navigation
+  }, 40_000);
+});
+
 describe('Kaity for the whole site', () => {
   it('goes through the pages one by one from the site manager, while page-level work waits', async () => {
     const { url, site } = await editor({ TYKERF_RUNNER: 'anthropic', TYKERF_API_KEY: 'k', TYKERF_API_BASE_URL: `http://127.0.0.1:${(api.address() as { port: number }).port}` });
@@ -386,6 +416,7 @@ describe('Kaity for the whole site', () => {
       message([{ type: 'text', text: 'Both navigations now link to every page.' }], 'end_turn') as any,
     );
     const page = await browser.newPage({ viewport: { width: 1280, height: 800 } });
+    await page.addInitScript(() => localStorage.setItem('tykerf.mode', '\"edit\"')); // her conversation is in the Edit mode
     page.setDefaultTimeout(10_000);
     await page.goto(`${url}_tykerf/site/`);
     await page.locator('.kaity-btn').click();
@@ -397,6 +428,13 @@ describe('Kaity for the whole site', () => {
     const rename = await post('_tykerf/site/rename', { name: 'rome', to: 'roma' });
     expect([rename.status, (await rename.json()).error]).toEqual([409, 'Kaity is working on the whole site; wait for her to finish before you rename a page']);
     expect((await post('rome/_tykerf/ask', { id: 'nav', prompt: 'hi' })).status).toBe(409);
+    expect((await post('rome/_tykerf/tasks/ask', { id: 'nav' })).status).toBe(409); // a page's tasks too
+    const build = await post('_tykerf/site/new', { name: 'lisbon', prompt: 'A page about Lisbon' }); // and a new page she would build
+    expect([build.status, (await build.json()).error]).toEqual([409, 'Kaity is working on the whole site; wait for her to finish']);
+    expect(existsSync(join(site, 'lisbon'))).toBe(false);
+    // the site's log of her work shows the run going on, with what she does now
+    const going = (await fetch(`${url}_tykerf/site/kaity`).then((r) => r.json())).runs[0];
+    expect(going).toMatchObject({ page: null, request: 'Link every page from the navigation', state: 'working' });
 
     await page.locator('.kaity .msg.ai', { hasText: 'Both navigations now link to every page.' }).waitFor({ timeout: 20_000 });
     for (const name of ['rome', 'munich']) expect(readFileSync(join(site, name, 'boxes', 'nav.html'), 'utf8')).toContain('<a href="/munich/">Munich</a>');
@@ -405,5 +443,6 @@ describe('Kaity for the whole site', () => {
     expect(await page.locator('.kaity .msg.user').textContent()).toBe('Link every page from the navigation');
     // her conversation is the site's, kept in its folder
     expect(JSON.parse(readFileSync(join(site, '.tykerf', 'chats', 'site.json'), 'utf8')).messages.at(-1)).toMatchObject({ role: 'ai' });
+    expect((await fetch(`${url}_tykerf/site/kaity`).then((r) => r.json())).runs[0]).toMatchObject({ page: null, state: 'done', steps: 5, answer: 'Both navigations now link to every page.' });
   }, 60_000);
 });

@@ -29,7 +29,7 @@ To put the site online without downloading anything, **Publish** in the site man
 npm run cli -- export my-site export/              # a folder
 npm run cli -- export my-site my-site.zip          # a zip
 npm run cli -- export my-site export/ --files      # links that open from disk
-npm run cli -- export my-page export/              # a single page: export/index.html
+npm run cli -- export my-site/home export/         # one page of the site: export/index.html
 ```
 
 ## What you get
@@ -40,6 +40,7 @@ export/
   about/index.html
   home/index.html
   home/assets/…          each page's images and files, next to it
+  kit/…                  the site kit's behaviours and their loader, when the site has any
   pages/index.html       the list of pages
   favicon.svg            the site's icon (or your own favicon.png / favicon.ico)
   404.html               what web hosts show for an address that isn't there: the list of pages
@@ -47,6 +48,8 @@ export/
 
 - Links between pages and other addresses written from the site root (`/about/`, `/home/assets/logo.png`) become relative (`../about/`). The export works at the root of a domain, under a sub-path (`example.com/our-site/`), and from disk.
 - Each page looks as it does in the editor at every width: its responsive rules and its `head.html` come along.
+- The [site kit](sites.md#the-site-kit) comes along: its styles are in each page, its behaviours are files next to the pages, and a shared block (the navigation, the footer) is written into every page that shows it, so each exported page stands alone. **Export this page…** includes the kit's behaviours too.
+- Tasks and the handbook don't: they are TYKERF's, not the page's.
 
 ## What to check before publishing
 

@@ -103,7 +103,7 @@ describe('property: random move sequences stay valid', () => {
       }
     }
     expect(applied).toBeGreaterThan(5000);
-  });
+  }, 60_000); // about 1 s here, 5.7 s on a CI runner: over vitest's 5 s default
 });
 
 describe('insertNext', () => {

@@ -104,6 +104,14 @@ Links between pages are written from the site root (`/about/`); export makes the
 - **`newPageLike`** copies a page's header, footer, head, types and images, with a `text` section between.
 - **The four states** a page's look can be in: inherited; inherited with own values; own theme (a `data-tykerf-theme` block in the page head); own look (`NO_SITE_HEAD`). The Page tab shows which one, from `GET /_tykerf/head` (`sharedTheme`, `overrides`, `ownLook`).
 
+**The site kit** (`src/kit.ts`; plan `docs/plans/site-sharing.md`): what every page shares besides the theme, in `<site>/kit/`, one named file each (`kitPath`: `styles/*.css`, `scripts/*.js`, `blocks/*.html`, `types/*.json`, `tags.json`).
+- **Writes** go through `kitWrite` (checked by `kitError`: no `@import` or other servers in CSS, types parsed like `types/`, tags not TYKERF's own) under the site store's lock, with the previous version in `.tykerf/kit.jsonl` (`undoKit`, `lastKitChange`).
+- **Styles** reach every page through `SiteLink.kit()` → `Workspace.kitHead()`, rendered after `siteHead()` and before the page's `head()`. They are *not* part of `siteHead()`: the theme code writes `siteHead()` back to the site's `head.html`. The plan's cascade layers became this fixed order, because layering TYKERF's base styles (unlayered today) would turn their cascade around.
+- **Behaviours:** with any `kit/scripts/*.js`, `kitHead()` adds `<script type="module" src="/kit/loader.js">` (`KIT_LOADER`), which imports `./scripts/<name>.js` for each `[data-use]` element and calls its default export once per element; on `tykerf:render` (the editor re-rendered the page) it first calls the clean-ups of elements that are gone.
+- **Shared blocks:** a leaf `use=<name>` (notation, `LeafAttrs.use`). `Workspace.contents()`/`content()` return the block (`SiteLink.block`) for linked boxes; `ownContent()` is the box's own file, kept for unlinking. `setContent` on a linked box writes the block (`SiteLink.setBlock`, the site's history) instead of the page's; emptying it empties only the box. `Workspace.page()` marks links to the page itself with `aria-current` (`markCurrentPage`, `SiteLink.page`). `shareBlock`, `linkBlock`, `unlinkBlock` (one page undo group), `identicalBoxes` and `shareIdentical` are in `site.ts`; `newSitePage` links boxes named like an existing block.
+- **Types:** `Workspace.types()` is `SiteLink.types()` (the kit's) under the page's own `types/`.
+- **Export** inlines the styles (they're in each page's head) and copies `kit/loader.js` and `kit/scripts/` (`kitFiles` in `export.ts`); `/kit/` addresses are made relative like `/assets/`.
+
 ## Layouts, themes and components
 
 `library/` holds:

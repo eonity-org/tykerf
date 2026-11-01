@@ -15,6 +15,7 @@ import { mkdirSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { linkedPage, pageTitle, pageWorkspace, readSite, siteIndex, siteKind, siteIcon, siteMap, siteOf, sitePages, TYKERF_REPO, withCredit } from './site.js';
 import { FolderStore } from './store.js';
+import { KIT_LOADER, kitList, kitRead } from './kit.js';
 import { Workspace } from './workspace.js';
 import { type ZipFile, zip } from './zip.js';
 
@@ -70,7 +71,7 @@ export function relativize(html: string, depth: number, pages: string[], opts: E
       if (m) return `${up}${page}/${opts.files ? 'index.html' : ''}${m[1] ?? ''}`;
       return `${up}${page}${rest}`;
     }
-    if (page && page !== 'assets') broken(u);
+    if (page && page !== 'assets' && page !== 'kit') broken(u);
     return `${up}${u.slice(1)}`;
   };
   return html
@@ -106,6 +107,13 @@ function pageFiles(ws: Workspace, name: string, prefix: string, depth: number, p
   return files;
 }
 
+/** The site kit's behaviours and their loader, which pages load from /kit/ (its styles are in each page's head). */
+function kitFiles(dir: string): ZipFile[] {
+  const scripts = kitList(dir).scripts;
+  if (!scripts.length) return [];
+  return [{ path: 'kit/loader.js', bytes: enc.encode(KIT_LOADER) }, ...scripts.map((n) => ({ path: `kit/scripts/${n}.js`, bytes: enc.encode(kitRead(dir, 'scripts', n) ?? '') }))];
+}
+
 /** Everything an export holds, in memory: a lone page at the root, or each page of a site in its own folder. */
 export function exportFiles(dir: string, opts: ExportOptions = {}): Export {
   const report: ExportReport = { pages: [], files: 0, bytes: 0, broken: [], remote: [] };
@@ -119,6 +127,7 @@ export function exportFiles(dir: string, opts: ExportOptions = {}): Export {
       const site = new FolderStore(dirname(dir));
       for (const f of site.list('assets')) if (!files.some((x) => x.path === `assets/${f}`)) files.push({ path: `assets/${f}`, bytes: site.readBytes(`assets/${f}`)! });
     }
+    if (ws.kitHead()) files.push(...kitFiles(dirname(dir)));
   } else {
     const pages = sitePages(dir);
     if (!pages.length) throw new Error('the site has no pages yet');
@@ -128,6 +137,7 @@ export function exportFiles(dir: string, opts: ExportOptions = {}): Export {
     // the site's own files (the shared theme's fonts), which the pages load from /assets/
     const site = new FolderStore(dir);
     for (const f of site.list('assets')) files.push({ path: `assets/${f}`, bytes: site.readBytes(`assets/${f}`)! });
+    files.push(...kitFiles(dir));
     // the site's front door opens its home page (or its first), and pages/ lists them all
     const front = settings.home ?? pages[0];
     const to = `./${front}/${opts.files ? 'index.html' : ''}`;

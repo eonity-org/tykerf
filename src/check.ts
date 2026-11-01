@@ -10,7 +10,7 @@ import type { Workspace } from './workspace.js';
 
 export interface Leftover {
   box: string;
-  kind: 'text' | 'picture' | 'link' | 'missing';
+  kind: 'text' | 'picture' | 'link' | 'missing' | 'block';
   /** What is left: the placeholder text, the picture's file, the address of a file that isn't there, or the link's address and words. */
   detail: string;
   /** For a link: why it has no target. */
@@ -27,6 +27,7 @@ export function say(l: Leftover): string {
   if (l.kind === 'text') return `${l.box}: placeholder text "${l.detail}"`;
   if (l.kind === 'picture') return `${l.box}: a placeholder picture (${l.detail})`;
   if (l.kind === 'missing') return `${l.box}: ${l.detail} is not one of the page's files, so it shows broken`;
+  if (l.kind === 'block') return `${l.box}: it shows the shared block "${l.detail}", which the site's kit doesn't have (kit/blocks/${l.detail}.html), so it shows its own code`;
   const [href, ...words] = l.detail.split(' ');
   const label = words.join(' ') || href;
   if (l.why === 'nowhere') return `${l.box}: the link "${label}" goes nowhere`;
@@ -110,7 +111,10 @@ export function leftovers(ws: Workspace, opts: { within?: string | null } = {}):
   const known = placeholderText();
   const out: Leftover[] = [];
   const add = (l: Leftover) => out.some((o) => leftoverKey(o) === leftoverKey(l)) || out.push(l);
+  const layout = ws.load();
   for (const box of boxes) {
+    const use = ws.sharedBlock(box, layout);
+    if (use && ws.site?.block && ws.site.block(use) === null) add({ box, kind: 'block', detail: use });
     const html = ws.content(box) ?? '';
     for (const s of texts(html)) if (known.has(s)) add({ box, kind: 'text', detail: s });
     for (const [img] of html.matchAll(/<img\b[^>]*>/gi)) {
@@ -125,7 +129,7 @@ export function leftovers(ws: Workspace, opts: { within?: string | null } = {}):
       const page = linkedPage(href);
       const why = href === '' || href === '#' ? 'nowhere'
         : href.startsWith('#') && !ids.has(decode(href.slice(1))) ? 'section'
-        : page && pages && !pages.includes(page) && !['_tykerf', 'assets', 'out'].includes(page) ? 'page'
+        : page && pages && !pages.includes(page) && !['_tykerf', 'assets', 'out', 'kit'].includes(page) ? 'page'
         : null;
       // a link written with a block's name (#faq) reaches it at the block's own element, #sw-faq
       const target = why === 'section' && ids.has(`sw-${decode(href.slice(1))}`) ? `#sw-${decode(href.slice(1))}` : undefined;

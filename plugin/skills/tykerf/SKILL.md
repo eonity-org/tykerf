@@ -17,8 +17,10 @@ Never edit `layout.slice`, `boxes/` or `head.html` with file tools or shell comm
 
 1. **Open a folder.** If the person named one, `open_folder` with that path. Otherwise `open_folder` without a path (the default folder). Then, before any other tool, write one line saying which folder is open, so the person can stop you and name another before anything is written. A folder that holds other files is refused: ask for another.
 2. **Start or read the page.**
-   - An empty folder: for one page, pick a layout and a theme (`list_layouts`, `list_themes`) and `use_layout`; for several pages, `new_page` for each.
-   - An existing page: `get_layout` first. In a site, `list_pages` and `open_page`.
+   - An empty folder becomes a site: pick a layout and a theme (`list_layouts`, `list_themes`) and `use_layout`, which makes its home page; `new_page` for each other page.
+   - An existing page: `get_layout` first. In a site, `list_pages` and `open_page`; `rename_page` and `remove_page` when the person asks (read a page before naming it after what it holds).
+   - Tasks people left on the page in the TYKERF editor: `list_tasks`. When asked to work through them, look at each at the width it was written at, do it, and `close_task` with a one-sentence reply.
+   - What every page of a site shares (the navigation, the footer, styles for all pages): the site kit. `list_kit` shows it; `share_block` makes a box of this page a shared block and `link_block` shows it in a box of another page (`unlink_block` gives a page its own copy); `get_kit_file` and `set_kit_file` read and change the kit's styles and behaviours. Don't copy the same navigation into every page.
    - Read a box's code with `get_content` and its name, when you are about to change that box. Without a name it returns every box at once, which is long and rarely needed: `get_layout` is the overview.
 3. **Focus before you change.** When the request is about one block ("the header", "the pricing"), `focus` on it, so nothing outside it can change. `unfocus` when you move on to another part.
 4. **Change it.**

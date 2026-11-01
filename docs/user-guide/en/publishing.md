@@ -53,6 +53,7 @@ Click **Publish**. TYKERF says how many files are new, changed and removed, with
 | `<page>/index.html` | Each page, with its images in `<page>/assets/` |
 | `pages/index.html` | The list of pages |
 | `404.html` | What the host shows for an address that isn't there: *This page isn't here*, and the list of pages |
+| `kit/…` | The [site kit](sites.md#the-site-kit)'s behaviours and their loader, when it has any (its styles and shared blocks are already inside each page) |
 | `favicon.svg` | The site's icon ([Styles & scripts](sites.md#styles--scripts)) |
 | `sitemap.xml` | For search engines, when the site's address is set |
 | `.nojekyll` | Tells GitHub Pages to serve every file as it is |
@@ -73,7 +74,7 @@ TYKERF_PUBLIC_URL=https://cities.example.org  # the site's address
 ```
 
 - **Visitors** get the pages without the editor, their images, `/`, `/pages/`, `/sitemap.xml` and the site's icon. Every editor address answers *sign in first*.
-- **You** sign in at `/_tykerf/login`; the list of pages links to it (*Sign in to edit*). **Sign out** is in the site manager.
+- **You** sign in at `/_tykerf/login` (TYKERF prints it when it starts, and `/_tykerf/` leads there too); the list of pages links to it (*Sign in to edit*). You stay signed in for a week, restarts included. After that, a browser that has signed in before gets **Edit with TYKERF** on every page, which signs you in and brings you back to the same page; visitors never see it. **Sign out** is in the site manager.
 - Run it behind a proxy that does HTTPS (Caddy or nginx). [DEPLOY.md](../../../DEPLOY.md#serve-a-site-to-visitors-with-an-admin) has the setup.
 
 Without `TYKERF_ADMIN_PASSWORD`, TYKERF is a local editor: anyone who can reach it edits, and uses your AI account. Don't put it on the internet that way.

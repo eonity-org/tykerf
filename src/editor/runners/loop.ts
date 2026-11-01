@@ -8,7 +8,7 @@
 // conversation can go on for a long time without growing without bound.
 
 import type { Attachment, RunEvents, RunRequest } from '../ai.js';
-import { step } from '../ai.js';
+import { step, stepAt } from '../ai.js';
 import { type ToolDef, type ToolOutput, type Tools, openTools } from '../tools-client.js';
 
 /** What the model hears when its reply was cut off at the length limit. */
@@ -104,9 +104,9 @@ export function runLoop<M>(runner: string, wire: Wire<M>, req: RunRequest, on: R
         const outputs: ToolOutput[] = [];
         for (const c of r.calls) {
           if (abort.signal.aborted) throw new DOMException('stopped', 'AbortError');
-          on.step(step(c.name, c.args));
+          on.step(step(c.name, c.args), stepAt(c.name, c.args));
           const out = await tools.call(c.name, c.args);
-          if (out.isError) on.step(`refused: ${out.text.replace(/^error: /, '').split('\n')[0].slice(0, 160)}`);
+          if (out.isError) on.step(`refused: ${out.text.replace(/^error: (refused: )?/, '').split('\n')[0].slice(0, 160)}`); // once, not "refused: refused:"
           outputs.push(out);
         }
         steps += r.calls.length;

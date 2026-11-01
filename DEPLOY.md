@@ -113,7 +113,7 @@ TYKERF_PUBLIC_URL=https://cities.example.org  # the site's address: allowed as a
 ```
 
 - **Visitors** get each page without the editor, its images and files, `/` (the home page set in the site manager, or the list of pages), `/pages/` and `/sitemap.xml`. Every editor address (`/_tykerf/…`) answers 401.
-- **You** sign in at `/_tykerf/login` (the list of pages, `/pages/`, links to it: *Sign in to edit*, or *Site manager* once you're in); the session is a cookie (`HttpOnly`, `SameSite=Strict`, `Secure` over HTTPS) that lasts a week, or until TYKERF restarts. **Sign out** is in the site manager. After five wrong passwords from one address, it waits ten minutes.
+- **You** sign in at `/_tykerf/login` (TYKERF prints it when it starts; `/_tykerf/` leads there too, and the list of pages, `/pages/`, links to it: *Sign in to edit*, or *Site manager* once you're in). The session is a cookie (`HttpOnly`, `SameSite=Strict`, `Secure` over HTTPS) that lasts a week; restarts keep it, and a new password ends it. Once a browser has signed in, the site's pages show it **Edit with TYKERF** whenever its session is over: it signs in and comes back to the same page. Other visitors never see it. **Sign out** is in the site manager (the button goes too). After five wrong passwords from one address, it waits ten minutes.
 - Run it behind a reverse proxy that does HTTPS and passes the `Host` header on (Caddy, nginx), with TYKERF on `127.0.0.1`. Write `TYKERF_PUBLIC_URL` with `https://`: the editor accepts changes only from that origin, and the sign-in cookie is then sent over HTTPS only. Caddy gets the certificate and sends `http://` visitors to `https://` by itself:
   ```
   cities.example.org {
@@ -154,7 +154,7 @@ The `screenshot` and `evaluate` tools need Chromium (`npx playwright install chr
 
 A release ships three things at once: the editor and CLI (people install them from the repository), the Claude Desktop extension (`tykerf.mcpb`), and the Claude plugin, which people get from TYKERF's own marketplace and, once it is listed, from Anthropic's directory.
 
-1. **Check.** `npm test && npm run typecheck`, and try the editor on `examples/widgets`. If the notation changed, check that `docs/slicing-notation.md` matches.
+1. **Check.** `npm test && npm run typecheck`, and try the editor on `examples` (the sample site). If the notation changed, check that `docs/slicing-notation.md` matches.
 2. **Try the plugin** if the MCP tools, the skill or `plugin/` changed: `npm run build:plugin`, `claude plugin validate dist/plugin`, then a page with a screenshot in Claude Code (`claude --plugin-dir dist/plugin`) and in Cowork (zip `dist/plugin`, *Customize → Plugins → Add → Upload plugin*, a new local task).
 3. **Raise the version** everywhere it appears:
    - `npm version <version> --no-git-tag-version` (`package.json` and `package-lock.json`; the plugin and the extension take theirs from it);

@@ -141,8 +141,8 @@ await closeScreenshots();                                   // the screenshot to
 ## From a shell or a CI job
 
 ```bash
-npm run cli -- new my-page launch --theme studio    # a page from a layout, in a new or empty folder
-npm run cli -- import https://example.com my-copy   # a copy of a website (Chromium)
+npm run cli -- new my-site launch --theme studio    # a new site with its home page from a layout (on a site: one more page)
+npm run cli -- import https://example.com my-copy   # a copy of a website (Chromium), as the home page of a new site
 npm run cli -- render my-site                       # a page, or every page of a site into its own out/
 npm run cli -- export my-site dist/                 # plain files for any host (--files: links that open from disk)
 npm run metrics -- dist/home/index.html --widths 375,1440   # layout scores as JSON

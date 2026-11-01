@@ -18,10 +18,11 @@ A layout is a set of components arranged on a page. Once the page is made, it ke
 
 ## Start from a layout and a theme
 
-A page can start from a layout and a theme. On a new site (`npm start -- my-site` on a new or empty folder), the **start screen** offers them under **A layout**, with a live preview at desktop or phone width; in a site, **New page…** (the page name next to the TYKERF logo) shows the same choices. After the first page, a site's pages share its theme, so New page… shows the layouts in that theme. To make a page directly:
+A page can start from a layout and a theme. On a new site (`npm start -- my-site` on a new or empty folder), the **start screen** offers them under **A layout**, with a live preview at desktop or phone width; in a site, **New page…** (the page name next to the TYKERF logo) shows the same choices. After the first page, a site's pages share its theme, so New page… shows the layouts in that theme. To start a site with its home page from a layout directly:
 
 ```bash
-npm start -- ~/tykerf-pages/my-page --layout launch --theme studio
+npm start -- ~/tykerf-sites/my-site --layout launch --theme studio
+npm start -- ~/tykerf-sites/my-site --layout launch --theme studio --name portfolio   # named portfolio, not home
 ```
 
 TYKERF keeps a small set, each one clearly different. Layouts differ in **layout and density**, themes in **colour, type and air**. Any layout works with any theme.
@@ -30,13 +31,14 @@ TYKERF keeps a small set, each one clearly different. Layouts differ in **layout
 |---|---|---|
 | `blank` (default) | A navigation bar and one text section | |
 | `launch` | A product launch: a big headline over the product, logos, features, two feature sections, numbers, quotes, pricing, FAQ, a call to action and a dark footer | Airy |
-| `company` | A statement, the latest news, what you do, numbers and a call to action | Balanced |
+| `company` | A headline that switches for each audience, the latest news, what you do, how it works in steps, numbers and a call to action | Balanced |
 | `magazine` | A front page: a lead story and a grid of stories, a most-read list beside them, a newsletter call | Packed |
 | `catalogue` | Products or services: a short intro, filters and a grid of cards, questions | Packed |
-| `portfolio` | A statement, a gallery of work, who is behind it, quotes and a contact form | Balanced |
+| `portfolio` | A headline beside a picture, a gallery of work, who is behind it, quotes and a contact form | Balanced |
 | `article` | An article with a sidebar (it moves below the article on narrow screens) | Reading |
 | `docs` | A documentation menu next to a documentation page | Reading |
 | `factual` | Facts and figures: a headline, figures on dark cards, a bar chart beside one highlighted figure, a timeline and a picture banner | Balanced |
+| `biased` | A case study told through its decisions: a title with a strip of facts, the work in a frame, the story in three parts, decision cards (what was chosen over what, why, what it cost), before and after, the numbers, a quote, credits, the next case and a call to action | Balanced |
 
 | Theme | Its look |
 |---|---|
@@ -46,24 +48,25 @@ TYKERF keeps a small set, each one clearly different. Layouts differ in **layout
 | `gallery` | **Soft:** off-white, pastel cards, a tight sans; suits images and portfolios (Manrope, DM Sans) |
 | `dark` | **For developers:** near-black, a mint accent, monospaced quotes and details (Inter) |
 | `warm` | **Warm editorial:** stone paper, deep navy, a terracotta accent and gilt details, a serif over a sans (Playfair Display, Plus Jakarta Sans) |
+| `biased` | **Ink and highlighter:** warm paper, near-black ink, an indigo accent, a lime highlighter on the words that matter and heavy rules (Manrope, Inter); made for the `biased` layout, and fine with any other |
 
 More layouts and themes, including layouts that show TYKERF's roots in chip floorplans (a pinwheel and a page frame), are kept in [`Other_Layouts/`](../../../Other_Layouts/README.md). TYKERF doesn't offer them, but any of them can be brought back.
 
-Themes use fonts bundled with TYKERF (Inter, Manrope, DM Sans, Newsreader, Playfair Display and Plus Jakarta Sans, all under the SIL Open Font License) or installed on the visitor's device. A page gets a copy of the bundled fonts its theme uses in its `assets/` folder, so it never calls a font server. `npm run cli -- layouts` lists layouts and themes, and `npm run cli -- new <folder> <layout> --theme <theme>` creates a page without opening the editor.
+Themes use fonts bundled with TYKERF (Inter, Manrope, DM Sans, Newsreader, Playfair Display and Plus Jakarta Sans, all under the SIL Open Font License) or installed on the visitor's device. A page gets a copy of the bundled fonts its theme uses in its `assets/` folder, so it never calls a font server. `npm run cli -- layouts` lists layouts and themes, and `npm run cli -- new <folder> <layout> --theme <theme>` creates a page without opening the editor. In a new or empty folder it makes a site, with the page as its home page (`home`, or `--name <page>`). Given a site (a folder of pages), it adds the page to it, named after the layout or `--name <page>`, and says so; in a site that shares one theme, the theme you name becomes that page's own values, so the other pages keep their look. A folder that is already a page, or holds other things, is refused.
 
-All the text and images are **placeholders**: replace them in the **Text** tab, or ask Kaity ("fill this page for a bakery in Murcia").
+All the text and images are **placeholders**: replace them in the **Text** tab, leave Kaity a task on them, or ask her ("fill this page for a bakery in Murcia").
 
 Kaity can use components too: ask for "a FAQ here" or "make this box a pricing table", and it starts from the matching component and adapts it. On a page without a theme, Kaity can add the theme only when the top block, `page`, is selected; from a smaller block, use the component from the panel.
 
 ## Use a component
 
-An empty box offers **Use a component** in its Text tab: navigation bar, hero (centred, or split beside a picture), statement, logos, feature (beside a picture; tag it `#reverse` to swap sides), updates (news cards), story grid (a front page of stories), list (numbered links for a sidebar), text section, features, numbers, testimonials, pricing, FAQ, call to action, gallery, card grid (products or services), image, contact form, footer, article, sidebar, docs menu and docs page. The component fills the box, brings its placeholder images into the page's `assets/` folder and is one undo step.
+An empty box offers **Use a component** in its Text tab: navigation bar, hero (centred, split beside a picture, or with a switcher: pills that change the headline, text and figures for each audience), statement, logos, feature (beside a picture; tag it `#reverse` to swap sides), updates (news cards), story grid (a front page of stories), list (numbered links for a sidebar), text section, features, numbers, steps on a line (steps hanging from a line that fills as the section scrolls into view), testimonials, pricing, FAQ, call to action, gallery, card grid (products or services), image, contact form, footer, article, sidebar, docs menu and docs page. The component fills the box, brings its placeholder images into the page's `assets/` folder and is one undo step.
 
 Components adapt to their width, so they work full width, in a column or on a phone. The contact form only shows a thank-you note: connect it to your own service before publishing.
 
 ## The theme
 
-Every layout and component uses the same **theme**: colours, fonts, corner radius, spacing and content width. In a site, the theme is shared by every page; a single page has its own. Change it in the **Page** tab of the top block (`page`):
+Every layout and component uses the same **theme**: colours, fonts, corner radius, spacing and content width. The site's theme is shared by every page; a page can have its own values over it (*This page only*). Change it in the **Page** tab of the top block (`page`):
 
 - **Where the look comes from:** a line at the top of the Page tab always says which case this page is in:
 
@@ -86,7 +89,7 @@ Every layout and component uses the same **theme**: colours, fonts, corner radiu
 - **Alternate bands**, **Cards**, **Lines** and **Soft accent** can follow the background or the accent. When they do, they are marked *auto*; pick a colour to set your own. When a preset or you set them, **make auto** makes them follow again.
 - **Head code:** everything the page adds to its `<head>` (the theme itself, fonts, page-wide styles and scripts).
 
-Saving reloads the page, because the head can only change with a reload. Undo reverts a page's own changes; the site theme has its own **Undo the last site theme change**. With `page` selected, you can ask Kaity to change the theme of a single page. In a site, Kaity changes the shared theme only while the site has a single page (so it can style a new site's first page, from a design for example; **Undo the last site theme change** reverts it). Once there are other pages, Kaity gives the page its own values over the shared theme, like *This page only*, and the other pages keep theirs. TYKERF offers its bundled fonts and fonts installed on the visitor's device: loading fonts from another server would send every visitor's IP address to that server. Choosing a bundled font copies its file into the page. To use another web font, put its files in `assets/` and declare them in the head code.
+Saving reloads the page, because the head can only change with a reload. Undo reverts a page's own changes; the site theme has its own **Undo the last site theme change**. With `page` selected, you can ask Kaity to change the page's theme. She changes the site's shared theme only while the site has that one page (so she can style a new site's first page, from a design for example; **Undo the last site theme change** reverts it). Once there are other pages, Kaity gives the page its own values over the shared theme, like *This page only*, and the other pages keep theirs. TYKERF offers its bundled fonts and fonts installed on the visitor's device: loading fonts from another server would send every visitor's IP address to that server. Choosing a bundled font copies its file into the page. To use another web font, put its files in `assets/` and declare them in the head code.
 
 ### Bands
 

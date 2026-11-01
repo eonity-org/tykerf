@@ -32,16 +32,21 @@ export type Registry = Record<string, TypeDef>;
 
 const KEYS = new Set(['label', 'within', 'notWithin', 'children', 'max', 'content', 'template']);
 
-export function loadTypes(store: Store): Registry {
+export function loadTypes(store: Store, dir = 'types'): Registry {
   const reg: Registry = {};
-  for (const f of store.list('types')) {
+  for (const f of store.list(dir)) {
     if (!f.endsWith('.json')) continue;
-    const name = f.slice(0, -5);
-    const def = JSON.parse(store.read(`types/${f}`) ?? '{}') as TypeDef;
-    for (const k of Object.keys(def)) if (!KEYS.has(k)) throw new Error(`types/${f}: unknown key "${k}" (allowed: ${[...KEYS].join(', ')})`);
-    reg[name] = def;
+    reg[f.slice(0, -5)] = parseType(store.read(`${dir}/${f}`) ?? '{}', `${dir}/${f}`);
   }
   return reg;
+}
+
+/** One type file's definition, checked for unknown keys (`where` names the file in the error). */
+export function parseType(json: string, where: string): TypeDef {
+  const def = JSON.parse(json) as TypeDef;
+  if (!def || typeof def !== 'object' || Array.isArray(def)) throw new Error(`${where}: a box type is a JSON object`);
+  for (const k of Object.keys(def)) if (!KEYS.has(k)) throw new Error(`${where}: unknown key "${k}" (allowed: ${[...KEYS].join(', ')})`);
+  return def;
 }
 
 const typeOf = (n: Node) => (n.type === 'empty' ? undefined : n.boxType);

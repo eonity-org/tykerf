@@ -10,7 +10,7 @@
 
 Kaity changes your page the same way you do: through named, validated moves on the tree, plus the code of each box. She never rewrites the whole page, she can't touch files or run commands, and every change she makes shows up in the history and can be undone.
 
-This page explains what Kaity does and how to set her up. For how to write requests that get good results, and recipes for common jobs, read [Getting good results from Kaity](asking-kaity.md).
+There are two ways to ask her. **Tasks** come first, because they are the quickest: point at anything on the page, say what should change, and hand your tasks over ([below](#tasks-point-say-hand-over)). For a longer conversation about one block there is its **Kaity tab**. This page explains what Kaity does and how to set her up. For how to write requests that get good results, and recipes for common jobs, read [Getting good results from Kaity](asking-kaity.md).
 
 ## Start a page with Kaity
 
@@ -24,14 +24,24 @@ On the start screen of a new site, or with **New page…**, choose **Show or des
   - checks the result at desktop and phone widths and fixes what looks wrong;
   - goes once more over what she left unfinished (sample text, placeholder pictures, links without a target).
 
-  Meanwhile the page comes into focus: sections Kaity hasn't reached are blurred, the one she's working on softly, and each section turns sharp once it's done. **See the page clearly** in the window turns the blur off. At the end, the window shows her summary, a short guide, and the choice between **Open the editor** (on the page's Kaity tab) and **See the page**.
+  Meanwhile the page comes into focus: sections Kaity hasn't reached are blurred, the one she's working on softly, and each section turns sharp once it's done. **See the page clearly** in the window turns the blur off. At the end, the window shows her summary, a short guide, and the choice between **Open the editor** (in the Tasks mode, ready for your first tasks) and **See the page**.
 - **A design ZIP** (up to 8 MB, one per page; Google Stitch exports one): TYKERF opens it without running anything in it. Its pictures go to Kaity like the ones you drop (five in all), and its text files (`.md`, `.txt`, `.html`, `.css`, `.json`) go with your request as the reference; anything else is left out. The conversation shows only the file names. Kaity rebuilds the design with TYKERF's components and the theme; she doesn't copy code that loads things from other servers (Tailwind, Google Fonts, icon fonts).
 - It uses your AI (see [Which AI answers](#which-ai-answers)) and takes a few minutes. Every step is a normal change: stop her, undo a step, or ask for more in the same conversation.
 - When Kaity is not ready (Claude Code not installed, no key), the option says why and the other ways to start remain.
 
+## Tasks: point, say, hand over
+
+The editor starts in the **Tasks** mode. Click anything on the page, write what should change, and when you have them all press **Give Kaity every task**: she works through them, with each task's block, element and window width, and answers each one. The page follows her while she works. **Edit** is the whole editor, with the Kaity tab below for talking to her block by block. See [Tasks](editor.md#tasks).
+
+- **Loose or exact.** A task can be as loose as "make the illustration more colorful" or as exact as "make the title six words at most". She looks at the page, decides, and tells you what she did. See [Writing a task](asking-kaity.md#writing-a-task).
+- **Every task, or one block's.** **Give Kaity every task** is one run over the whole page. *Give only these to Kaity* is a run for one block's tasks, where she can only change that block.
+- **She answers each task** and closes it, and says what she checked and what she didn't. The answers stay in the page's [handbook](editor.md#the-handbook).
+- **Every run is a normal request.** It is in the page's conversation word for word, in [Kaity's work](sites.md#kaitys-work), and every step she takes is one undo step.
+- **Not only for Kaity.** **Copy all** gives the open tasks as text for any AI agent, and MCP clients read and close them too (`list_tasks`, `close_task`).
+
 ## The Kaity tab
 
-Select a block and open the **Kaity** tab. A line above the text box says which block Kaity works on and which model answers; **Ask Kaity** sends it.
+For a longer talk about one block, switch to the **Edit** mode, select the block and open its **Kaity** tab. (For quick changes, tasks are simpler.) A line above the text box says which block Kaity works on and which model answers; **Ask Kaity** sends it.
 
 - **One conversation per block.** Kaity remembers what was said about this block; *New conversation* starts over.
 - **She only changes the selected block** and what is inside it. Changes elsewhere are refused.
@@ -52,8 +62,11 @@ Select a block and open the **Kaity** tab. A line above the text box says which 
 In the site manager, **Ask Kaity about the whole site** opens a conversation about every page at once: *"make the navigation the same height on every page, and link it to all the pages"*, *"add a footer like Rome's to every page"*. Kaity lists the pages, opens each in turn, changes it and checks it at desktop and phone widths, as Claude Desktop does with TYKERF's tools; her steps show as she goes, and **Stop** ends the run.
 
 - Each change goes into the history of its page, so it can be undone there.
-- While she works on the site, renaming or removing pages and asking Kaity about a single page wait; you can keep editing pages yourself. She waits for a run on a single page too.
+- While she works on the site, renaming or removing pages and asking Kaity about one page wait; you can keep editing pages yourself. She waits for a run on one page too.
+- She can make, rename and remove pages: a rename changes the page's address, and links to it on every page follow; a removed page goes to the site's trash. Open tabs of a page she renames or removes follow it.
 - She doesn't change the site's shared head (its theme, and Styles & scripts): those stay yours, in the site manager and the Page tab.
+- She does change the [site kit](sites.md#the-site-kit) (shared blocks such as the navigation and the footer, styles and behaviours for every page) when you ask for it here, and tells you which pages a change reaches. Asked about one block, she can't change a shared block.
+- Every request to her, about the site or about one block of any page, is listed in [Kaity's work](sites.md#kaitys-work).
 
 ## Which AI answers
 
@@ -108,7 +121,9 @@ Restart the client after editing the config. The tools, by what they do:
 | Change the tree | `split`, `add_leaf`, `wrap`, `unwrap`, `flip`, `swap`, `move`, `remove`, `rename`, `set_ratios`, `set_op`, `set_leaf`, `set_variant`, `tag`, `untag`, `add_rule`, `remove_rule`, `attach_overlay`, `detach_overlay`, `normalize` |
 | Change a box | `set_content`, `edit_content` (one exact piece of the code), `add_picture` (an SVG it draws, or an attached picture) |
 | Library and theme | `list_layouts`, `use_layout`, `list_components`, `use_component`, `use_page`, `list_themes`, `use_theme`, `get_theme`, `set_theme` |
-| Pages of a site | `list_pages`, `open_page`, `new_page` |
+| Pages of a site | `list_pages`, `open_page`, `new_page`, `rename_page`, `remove_page` |
+| The site kit | `list_kit`, `get_kit_file`, `set_kit_file` (styles, behaviours, tags), `share_block`, `link_block`, `unlink_block` (shared blocks such as the navigation and the footer) |
+| Tasks left on the page | `list_tasks`, `close_task` (with a reply for the person) |
 | Open a folder (the plugin only) | `open_folder` (a page, a site or an empty folder; without a path, the default folder). Only the plugin starts with no folder open and offers it |
 | Stay inside one block | `focus`, `unfocus` |
 | Check the result | `screenshot`, `evaluate` (layout checks at several widths), `check_page` (what is left unfinished), `estimate`, `optimize` |
