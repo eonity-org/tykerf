@@ -126,6 +126,10 @@ Open the page and press **Edit with TYKERF**. The editor starts in the **Tasks**
 
 Every change she makes is a step you can undo. See [Tasks](editor.md#tasks).
 
+[![Watch two tasks given to Kaity on a page about London (1:40)](../../media/tykerf-tasks.jpg)](https://eonity.org/tykerf-guides/videos/tykerf-tasks.mp4)
+
+*Two loose tasks, "make the illustration more colorful" and "add something about The Shard", written on the page and given to Kaity. She changes the skyline's colours and adds a caption about The Shard.*
+
 ## What next
 
 - **[Tasks and the editor](editor.md):** tasks first; then the **Edit** mode, for exact changes by hand (select blocks, edit text and images where they are, resize, move, undo anything).

@@ -12,6 +12,7 @@
 | [Developer guide](developer-guide/README.md) | People who work on TYKERF, extend it, or build on it (scripts, their own agents, CI) | [English](developer-guide/en/README.md) |
 | [The slicing notation](slicing-notation.md) | The formal specification of TYKERF's page notation | |
 | [Demo video](https://eonity.org/tykerf-guides/videos/tykerf-builds-lisbon.mp4) | Anyone: Kaity builds a page about Lisbon from one sentence (2:48) | |
+| [Tasks video](https://eonity.org/tykerf-guides/videos/tykerf-tasks.mp4) | Anyone: two tasks left on a page and given to Kaity (1:40) | |
 
 Each guide lives in a folder per language (`en/` today; `es/` and others will sit next to it).
 

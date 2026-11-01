@@ -104,6 +104,8 @@ A task is something to be done, left on the exact place on the page it is about:
 
 ![The Tasks mode: three tasks on the page, each a numbered tab on its element, and the panel listing them by block with the button that gives them all to Kaity](../images/tasks.png)
 
+[![Watch two tasks given to Kaity on a page about London (1:40)](../../media/tykerf-tasks.jpg)](https://eonity.org/tykerf-guides/videos/tykerf-tasks.mp4)
+
 - In the **Tasks** mode, the element under the pointer is outlined, with its place in words (`hero › h1 "The short promise…"`). Click it, write the task and press **Enter** (or **Add task**). Nothing else happens on the page in this mode; **Edit** goes back to the whole editor.
 - In the **Edit** mode: right-click anything and choose *Add a task for Kaity here…*. The same form opens on the element you clicked, with **Add task** (for later) and **Add and give it to Kaity** (Kaity works on the block's open tasks at once; **Enter** does this).
 - Each open task shows as a **numbered tab** (`T3`) on its element's top-right corner, which follows it when the page changes. The header shows how many are open. Click a tab to read the task: **Done** closes it, **Remove** deletes it, **Give it to Kaity** hands every open task on that block to Kaity.

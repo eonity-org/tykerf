@@ -25,6 +25,10 @@ TYKERF gives people and AI a shared language for building and changing web pages
 
 [![Watch Kaity build a page about Lisbon from one sentence (2:48)](docs/media/tykerf-builds-lisbon.jpg)](https://eonity.org/tykerf-guides/videos/tykerf-builds-lisbon.mp4)
 
+**Then change it by pointing:** leave two loose tasks on a page ("make the illustration more colorful", "add something about The Shard") and hand them to Kaity (1:40).
+
+[![Watch two tasks given to Kaity on a page about London (1:40)](docs/media/tykerf-tasks.jpg)](https://eonity.org/tykerf-guides/videos/tykerf-tasks.mp4)
+
 TYKERF is an [eonity](https://eonity.org) project.
 
 ## Quick start
