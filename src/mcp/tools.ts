@@ -16,7 +16,7 @@ import { inScope, scopeViolation } from '../scope.js';
 import { cost, optimize } from '../shape.js';
 import { leftovers, missingFiles, say } from '../check.js';
 import { closeTask, sayTask, tasks } from '../tasks.js';
-import { type KitKind, kitList, kitRead, kitTags, kitWarning, kitWrite } from '../kit.js';
+import { type KitKind, blockSlots, kitList, kitRead, kitTags, kitWarning, kitWrite } from '../kit.js';
 import { HOME_PAGE, blockUsers, linkBlock, newSitePage, pageTitle, pagesWithOwnTheme, pageWorkspace, readSite, setLang, setTitle, shareTheme, removePage, renamePage, shareBlock, movedFiles, siteHead, siteKind, unlinkBlock, unsafeSVG, siteOf, sitePages, usePage } from '../site.js';
 import { DEFAULT_THEME, components, createPage, hasTheme, pageLayouts, readOverrides, readTheme, setTheme, themeTarget, themes, useComponent, useLayout } from '../library.js';
 import { FolderStore, MemoryStore } from '../store.js';
@@ -120,6 +120,39 @@ export function folderPath(path: string): string {
   return resolve(p === '~' || p.startsWith('~/') ? join(homedir(), p.slice(1)) : p);
 }
 
+/** The boxes of a page that show a shared block, with the block: [['nav', 'nav'], …]. */
+function linkedBoxes(ws: Workspace): [string, string][] {
+  const out: [string, string][] = [];
+  walk(ws.load().root, (n) => { if (n.type === 'leaf' && n.use) out.push([n.id, n.use]); });
+  return out;
+}
+
+/** The shared blocks a page shows, for a reply: "" or "; it shows the site's shared blocks nav, footer (…)". */
+function sharedSay(linked: [string, string][]): string {
+  if (!linked.length) return '';
+  const names = linked.map(([box, use]) => (box === use ? box : `${use} (in ${box})`)).join(', ');
+  return `; it shows the site's shared ${linked.length === 1 ? 'block' : 'blocks'} ${names}, the same on every page: change them only when the request is about every page`;
+}
+
+/**
+ * After a layout replaced a page of a site: each box the layout declares shared shows the site's block of that
+ * name, or becomes it when the site has none (shareBlock). Part of the caller's undo group. Returns a reply part.
+ */
+function shareLayoutBoxes(site: string, ws: Workspace, layout: string, author: string): string {
+  const blocks = new Set(kitList(site).blocks);
+  const linked: string[] = [], made: string[] = [];
+  for (const box of pageLayouts().find((p) => p.name === layout)?.shared ?? []) {
+    const n = find(ws.load().root, box)?.node;
+    if (n?.type !== 'leaf' || n.use) continue;
+    if (blocks.has(box)) linkBlock(site, ws, box, box, author), linked.push(box);
+    else shareBlock(site, ws, box, box, author), made.push(box);
+  }
+  return [
+    linked.length ? `; ${linked.join(', ')} ${linked.length === 1 ? 'shows the site\'s shared block' : 'show the site\'s shared blocks'} of that name` : '',
+    made.length ? `; ${made.join(', ')} ${made.length === 1 ? 'is now a shared block' : 'are now shared blocks'} for every page of the site` : '',
+  ].join('');
+}
+
 /** The MCP server with every TYKERF tool, working on `start` (null: no folder open yet, see `folders`). */
 export function createTykerfServer(start: Workspace | null, opts: TykerfServerOptions = {}): McpServer {
   let runScope = opts.scope ?? null;
@@ -189,9 +222,46 @@ export function createTykerfServer(start: Workspace | null, opts: TykerfServerOp
   }
 
   /** A box that shows a shared block changes every page that shows it: only from a run on the whole site. */
+  /**
+   * A shared block changes every page that shows it: as for the theme, only when the scope is the whole page (or
+   * there is none). Inside a smaller block the change is refused, with the ways on.
+   */
   function assertMayChangeShared(l: Layout, target: string) {
     const use = ws.sharedBlock(target, l);
-    if (use && (scope(l) || !(home || folders))) throw new Error(`refused: "${target}" shows the shared block "${use}", which other pages of the site show too. Changing it is for a request about the whole site (Kaity in the site manager); if only this page should change, ask the user to make it this page's own copy first (right-click → Make this page's own copy)`);
+    const sc = scope(l);
+    if (use && sc && sc !== l.root.id) throw new Error(`refused: "${target}" shows the shared block "${use}", which other pages of the site show too, and the scope is "${sc}". Changing it is for a request about every page: ask the user to select the page block ("${l.root.id}"); if only this page should change, ask them to make it this page's own copy first (right-click → Make this page's own copy)`);
+  }
+
+  /** After a change to a box that shows a shared block, what it reached: "" or "; shared block nav: this changes 3 pages (a, b, c)". */
+  function sharedReach(l: Layout, target: string): string {
+    const use = ws.sharedBlock(target, l);
+    if (!use || !ws.site) return '';
+    const pages = Object.keys(blockUsers(ws.site.dir, use));
+    return `; shared block ${use}: this changes ${pages.length} ${pages.length === 1 ? 'page' : 'pages'} (${pages.join(', ')}); say so in your answer`;
+  }
+
+  /** What a change to a box that shows a shared block did: its slots (this page's), the block (every page's), or both. */
+  function sharedSaid(l: Layout, target: string, split: { block: string | null; slots: Record<string, string | null> }): string {
+    const names = Object.keys(split.slots);
+    const slots = names.length ? `; this page's ${names.length === 1 ? 'slot' : 'slots'} ${names.join(', ')} of the shared block ${ws.sharedBlock(target, l)} (the other pages keep theirs)` : '';
+    return slots + (split.block !== null ? sharedReach(l, target) : names.length ? '; the shared block itself didn\'t change' : '');
+  }
+
+  /** A box's slots, for get_content: "slots: title (filled: "Qué es un CMS"), lead (fallback)". */
+  function slotsLine(box: string): string {
+    const slots = ws.slots(box);
+    if (!slots.length) return '';
+    const short = (v: string) => { const s = v.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim(); return s.length > 60 ? `${s.slice(0, 57)}…` : s; };
+    return `\n\nslots: ${slots.map((s) => `${s.name} (${s.value === null ? 'fallback' : `filled: "${short(s.value)}"`})`).join(', ')}. set_slot fills one for this page; the rest of the code is the shared block ${ws.sharedBlock(box)}, every page's.`;
+  }
+
+  /** An outline with the slots of each shared block it shows: use=banner (shared block, slots: title, lead). */
+  function withSlotNames(text: string): string {
+    if (!ws.site) return text;
+    return text.replace(/use=([a-z0-9][a-z0-9-]*) \(shared block\)/g, (all, name: string) => {
+      const slots = blockSlots(ws.site!.block(name) ?? '').map((s) => s.name);
+      return slots.length ? `use=${name} (shared block, slots: ${slots.join(', ')})` : all;
+    });
   }
 
   /** A box or overlay: an overlay id as is, anything else as a node reference. */
@@ -223,8 +293,8 @@ export function createTykerfServer(start: Workspace | null, opts: TykerfServerOp
     guard(() => {
       const l = ws.load();
       const sc = scopeInfo(l);
-      if (!sc) return describe(l);
-      return `scope: ${pathOf(l, sc.id)} (set by ${sc.author}) — you may only change this block\n\n${scopeOutline(l, sc.id)}`;
+      if (!sc) return withSlotNames(describe(l));
+      return `scope: ${pathOf(l, sc.id)} (set by ${sc.author}) — you may only change this block\n\n${withSlotNames(scopeOutline(l, sc.id))}`;
     }));
 
   server.registerTool('focus', {
@@ -331,7 +401,7 @@ export function createTykerfServer(start: Workspace | null, opts: TykerfServerOp
         mkdirSync(site, { recursive: true });
         ws = newSitePage(site, HOME_PAGE, name, themeName ?? DEFAULT_THEME);
         if (!runScope) home = site;
-        return `ok: a new site in ${site}, with its home page "${HOME_PAGE}" from the ${name} layout with the ${themeName ?? DEFAULT_THEME} theme; the page is open. Rewrite every box's placeholder text for this page\n\n${outline(ws.load())}`;
+        return `ok: a new site in ${site}, with its home page "${HOME_PAGE}" from the ${name} layout with the ${themeName ?? DEFAULT_THEME} theme${sharedSay(linkedBoxes(ws))}; the page is open. Rewrite every box's placeholder text for this page\n\n${outline(ws.load())}`;
       }
       return ws.transaction(() => {
         createPage(ws, name, themeName ?? DEFAULT_THEME);
@@ -342,8 +412,12 @@ export function createTykerfServer(start: Workspace | null, opts: TykerfServerOp
       const l = ws.load();
       const sc = scope(l);
       if (sc && sc !== l.root.id) throw new Error(`refused: a layout replaces the whole page, and the scope is "${sc}". Ask the user to select the page block ("${l.root.id}").`);
-      useLayout(ws, name, 'ai');
-      return `ok: the page now follows the ${name} layout; rewrite every box's placeholder text for this page\n\n${outline(ws.load())}`;
+      // on a page of a site, the layout's navigation and footer are the site's: linked, or made shared (one step)
+      const said = ws.group(`use layout ${name}`, 'ai', () => {
+        useLayout(ws, name, 'ai');
+        return ws.site ? shareLayoutBoxes(ws.site.dir, ws, name, 'ai') : '';
+      });
+      return `ok: the page now follows the ${name} layout${said}; rewrite every box's placeholder text for this page\n\n${outline(ws.load())}`;
     });
   }));
 
@@ -532,9 +606,11 @@ export function createTykerfServer(start: Workspace | null, opts: TykerfServerOp
     const ov = l.overlays.find((o) => o.id === target);
     if (!ov && find(l.root, target)?.node.type !== 'leaf') throw new Error(`"${ref}" is not a box (leaf) or overlay`);
     assertInScope(l, ov ? ov.target : target);
-    if (html !== null) assertMayChangeShared(l, target);
+    // a box that shows a shared block: its slots are this page's, the rest is every page's
+    const split = html === null ? null : ws.sharedEdit(target, html, l);
+    if (html !== null && (!split || split.block !== null)) assertMayChangeShared(l, target);
     ws.setContent(target, html);
-    return `ok: content of "${target}" ${html === null ? 'removed' : 'set'}${noFiles(html ?? '')}`;
+    return `ok: content of "${target}" ${html === null ? 'removed' : 'set'}${split ? sharedSaid(l, target, split) : ''}${noFiles(html ?? '')}`;
   })) as never);
 
   server.registerTool('edit_content', {
@@ -548,15 +624,33 @@ export function createTykerfServer(start: Workspace | null, opts: TykerfServerOp
     const ov = l.overlays.find((o) => o.id === target);
     if (!ov && find(l.root, target)?.node.type !== 'leaf') throw new Error(`"${ref}" is not a box (leaf) or overlay`);
     assertInScope(l, ov ? ov.target : target);
-    assertMayChangeShared(l, target);
     const code = ws.content(target);
     if (code === null) throw new Error(`"${target}" has no code yet; use set_content`);
     const n = code.split(old).length - 1;
     if (!n) throw new Error(`the text to replace was not found in "${target}"; call get_content and copy it exactly`);
     if (n > 1 && !all) throw new Error(`the text to replace appears ${n} times in "${target}"; include more of the code around it, or set all to change every one`);
     const html = all ? code.split(old).join(next) : code.replace(old, () => next);
+    // a box that shows a shared block: a change inside its slots is this page's, the rest every page's
+    const split = ws.sharedEdit(target, html, l);
+    if (!split || split.block !== null) assertMayChangeShared(l, target);
     ws.setContent(target, html);
-    return `ok: ${all ? n : 1} change${(all ? n : 1) === 1 ? '' : 's'} in "${target}"${noFiles(html)}`;
+    return `ok: ${all ? n : 1} change${(all ? n : 1) === 1 ? '' : 's'} in "${target}"${split ? sharedSaid(l, target, split) : ''}${noFiles(html)}`;
+  })) as never);
+
+  server.registerTool('set_slot', {
+    title: 'Fill a slot of a shared block', annotations: CHANGE,
+    description: 'A box that shows a shared block (get_layout: use=<name> (shared block, slots: …)) shows the same code on every page, except its slots: the parts each page fills itself (a title, a lead). ' +
+      'Fill one slot for this page only, with HTML (html null: back to the block\'s own text). The other pages keep theirs, and the block doesn\'t change. Allowed in the box\'s scope: a slot is the page\'s content.',
+    inputSchema: { id: id.describe('box (leaf) reference'), slot: z.string().describe('the slot\'s name (get_content lists them)'), html: z.string().nullable() },
+  }, guard(({ id: ref, slot, html }: { id: string; slot: string; html: string | null }) => ws.transaction(() => {
+    const l = ws.load();
+    const target = resolveRef(l, ref);
+    assertInScope(l, target);
+    ws.setSlots(target, { [slot]: html });
+    const use = ws.sharedBlock(target, l);
+    return html === null
+      ? `ok: the slot "${slot}" of "${target}" shows the shared block ${use}'s own text again on this page`
+      : `ok: the slot "${slot}" of "${target}" is set for this page; the other pages that show ${use} keep theirs, and the block didn't change${noFiles(html)}`;
   })) as never);
 
   server.registerTool('get_content', {
@@ -565,7 +659,8 @@ export function createTykerfServer(start: Workspace | null, opts: TykerfServerOp
     inputSchema: { id: id.describe('box (leaf) reference or overlay id').optional() },
   }, guard(({ id: ref }: { id?: string }) => {
     if (!ref) return JSON.stringify(ws.contents(), null, 2);
-    return ws.content(boxRef(ws.load(), ref)) ?? '(no content: placeholder)';
+    const box = boxRef(ws.load(), ref);
+    return (ws.content(box) ?? '(no content: placeholder)') + slotsLine(box);
   }) as never);
 
   server.registerTool('undo', { title: 'Undo', annotations: CHANGE, description: 'Revert the last change (layout or box code). Refused if it would change something outside the scope.' },
@@ -774,23 +869,25 @@ export function createTykerfServer(start: Workspace | null, opts: TykerfServerOp
     server.registerTool('new_page', {
       title: 'Make a new page', annotations: CHANGE,
       description: 'Make a new page in the site from a page layout (see list_layouts) and open it. It gets the theme given (see list_themes), unless the site\'s pages share one theme. ' +
+        'The layout\'s navigation and footer are the site\'s shared blocks: the page shows them (the site\'s first page makes them); with shared false it gets copies of its own instead. ' +
         'Name: lowercase letters, digits and -. Links between pages are written /<name>/.',
       inputSchema: {
         name: z.string(), layout: z.string().optional().describe('layout name from list_layouts (default blank)'), theme: z.string().optional().describe(`theme preset from list_themes (default ${DEFAULT_THEME})`),
         copy: z.string().optional().describe('another page to copy instead of a layout: its blocks, code, images and (unless the pages share one) its theme'),
+        shared: z.boolean().optional().describe('show the site\'s shared navigation and footer (default true); false: copies of its own'),
       },
-    }, guard(({ name, layout, theme: themeName, copy }: { name: string; layout?: string; theme?: string; copy?: string }) => {
+    }, guard(({ name, layout, theme: themeName, copy, shared: linkShared }: { name: string; layout?: string; theme?: string; copy?: string; shared?: boolean }) => {
       const site = siteOnly();
       if (copy && !sitePages(site).includes(copy)) throw new Error(`there is no page "${copy}" to copy (pages: ${sitePages(site).join(', ') || 'none yet'})`);
       mkdirSync(site, { recursive: true });
       const shared = hasTheme(siteHead(site));
-      ws = newSitePage(site, name, layout ?? 'blank', themeName ?? DEFAULT_THEME);
+      ws = newSitePage(site, name, layout ?? 'blank', themeName ?? DEFAULT_THEME, { shared: linkShared !== false });
       if (copy) {
         usePage(ws, site, copy, { theme: !shared, author: 'ai' });
         return `ok: new page "${name}", a copy of "${copy}"; it is open now. Rewrite its text for this page.\n\n${outline(ws.load())}`;
       }
       const look = shared ? 'it uses the theme the site\'s pages share' : `with the ${themeName ?? DEFAULT_THEME} theme`;
-      return `ok: new page "${name}" from the ${layout ?? 'blank'} layout, ${look}; it is open now. Rewrite every box's placeholder text for this page.\n\n${outline(ws.load())}`;
+      return `ok: new page "${name}" from the ${layout ?? 'blank'} layout, ${look}${sharedSay(linkedBoxes(ws))}; it is open now. Rewrite every box's placeholder text for this page.\n\n${outline(ws.load())}`;
     }));
     server.registerTool('rename_page', {
       title: 'Rename a page', annotations: CHANGE,

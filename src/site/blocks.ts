@@ -85,6 +85,17 @@ export function shareBlock(dir: string, ws: Workspace, box: string, wish = box, 
   return { name, files };
 }
 
+/**
+ * Start a shared block from a new page's box (its layout declares it shared, and the site has none of that
+ * name): the block is the box's code, with its files at the site (siteFiles) and no current-page marks. A step of
+ * the site's history; the page itself only links it (see newSitePage). Returns the files that moved to the site.
+ */
+export function startBlock(dir: string, ws: Workspace, box: string, author = 'user'): string[] {
+  const { code, files } = siteFiles(dir, ws, unmarkCurrentPage(ws.ownContent(box) ?? ''));
+  kitWrite(dir, 'blocks', box, code, `share ${box} with every page`, author);
+  return files;
+}
+
 /** The files sharing a block took to the site, for a reply: "" or "; its file went to the site's assets/, for every page: logo.png". */
 export const movedFiles = (files: string[]) => (files.length ? `; ${files.length === 1 ? 'its file' : 'its files'} went to the site's assets/, for every page: ${files.join(', ')}` : '');
 

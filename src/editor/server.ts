@@ -351,7 +351,7 @@ async function serveGlobal(req: IncomingMessage, res: ServerResponse, p: string,
       const { importPage, importURL, writeWorkspace } = await import('../importer.js');
       const from = importURL(String(a.url));
       const first = !sitePages(dir).length; // a new site takes the copy's language
-      newSitePage(dir, name, 'blank');
+      newSitePage(dir, name, 'blank', DEFAULT_THEME, { shared: false }); // the copy replaces it: nothing to share
       const host = hostOf(name)!;
       const stop = new AbortController();
       host.job.start('copy', { site: new URL(from).host, stop: () => stop.abort() });
@@ -407,20 +407,25 @@ async function serveGlobal(req: IncomingMessage, res: ServerResponse, p: string,
       const themeBrief = shared ? 'The page uses the theme the site\'s pages share: keep it unless the request asks for other colours or fonts.'
         : chosen ? `The user chose the ${chosen} theme: keep it unless the request asks for other colours or fonts.`
         : 'The user left the theme to you: pick the preset that fits the request best (list_themes, use_theme), or give the theme the design\'s own colours and fonts (set_theme), before you write the sections.';
+      // the site's navigation and footer: shared blocks, the same on every page (use_layout links or makes them)
+      const blocks = kitList(dir).blocks.filter((b) => b === 'nav' || b === 'footer');
+      const sharedBrief = blocks.length
+        ? `This site's pages share ${blocks.join(' and ')} as shared blocks: the layout you use shows them on this page. Don't rewrite them for this page; change them only if the request is about every page, and say so.`
+        : 'The layout\'s navigation and footer become the site\'s shared blocks, which every later page shows: write them for the whole site, not only this page.';
       newSitePage(dir, name, EMPTY_LAYOUT, chosen ?? DEFAULT_THEME);
       const host = hostOf(name)!;
       const root = pageWorkspace(dir, name).load().root.id;
       const asked = String(a.prompt ?? '').trim() || (design ? 'Make this page from the attached design.' : 'Make this page look like the attached picture.');
       const prompt = design ? `${asked}\n\n${designNote(design.name, design.zip)}` : asked;
       host.job.start('ai', { select: root, stop: () => host.ai.cancel() });
-      host.ai.ask(root, prompt, undefined, images, `${BUILD_BRIEF}\n${themeBrief}`, design ? designContext(design.name, design.zip) : undefined);
+      host.ai.ask(root, prompt, undefined, images, `${BUILD_BRIEF}\n${themeBrief}\n${sharedBrief}`, design ? designContext(design.name, design.zip) : undefined);
       refreshAll();
       json(res, 200, { ok: true, url: `/${name}/`, select: root });
       return true;
     }
     // "Like this page": its header, footer and theme, with an empty section between
     if (a.like) newPageLike(dir, name, String(a.like));
-    else newSitePage(dir, name, String(a.layout ?? 'blank'), String(a.theme ?? DEFAULT_THEME));
+    else newSitePage(dir, name, String(a.layout ?? 'blank'), String(a.theme ?? DEFAULT_THEME), { shared: a.shared !== false });
     refreshAll(); // the other pages' lists of pages
     json(res, 200, { ok: true, url: `/${name}/` });
     return true;
@@ -531,7 +536,9 @@ async function serveGlobal(req: IncomingMessage, res: ServerResponse, p: string,
   if (p.startsWith('/_tykerf/site/kit')) {
     if (req.method === 'GET' && p === '/_tykerf/site/kit') {
       const files = kitList(dir);
-      return json(res, 200, { ok: true, files, last: lastKitChange(dir), identical: identicalBoxes(dir), users: Object.fromEntries(files.blocks.map((b) => [b, Object.keys(blockUsers(dir, b))])) }), true;
+      // each shared block's pages, and its boxes on each (to open the page on it)
+      const where = Object.fromEntries(files.blocks.map((b) => [b, blockUsers(dir, b)]));
+      return json(res, 200, { ok: true, files, last: lastKitChange(dir), identical: identicalBoxes(dir), users: Object.fromEntries(Object.entries(where).map(([b, w]) => [b, Object.keys(w)])), where }), true;
     }
     if (req.method === 'GET' && p === '/_tykerf/site/kit/file') {
       const kitKind = String(url.searchParams.get('kind')) as KitKind;

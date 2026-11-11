@@ -11,8 +11,8 @@ import { Site, linkBlock, newSitePage, pageWorkspace, shareBlock } from '../src/
 /** A site of two pages showing one shared navigation. */
 function twoPages() {
   const dir = mkdtempSync(join(tmpdir(), 'tykerf-site-undo-'));
-  newSitePage(dir, 'home', 'launch', 'studio');
-  newSitePage(dir, 'about', 'company', 'studio');
+  newSitePage(dir, 'home', 'launch', 'studio', { shared: false });
+  newSitePage(dir, 'about', 'company', 'studio', { shared: false });
   shareBlock(dir, pageWorkspace(dir, 'home'), 'nav');
   linkBlock(dir, pageWorkspace(dir, 'about'), 'nav', 'nav');
   return { dir, home: pageWorkspace(dir, 'home'), about: pageWorkspace(dir, 'about'), site: new Site(dir) };

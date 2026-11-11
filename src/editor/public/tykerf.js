@@ -666,9 +666,15 @@ function renderWork() {
     !isRoot ? `<button data-act="remove" class="danger" title="${t('Delete (code goes into the previous box) or remove (code goes to the buffer)')}">${ic('delete')}${t('Delete…')}</button>` : '',
   ].join('');
   const users = n.shared ? S.kit.users[n.shared] ?? [] : [];
-  const sharedExplanation = n.shared ? `<p class="shared-explanation">${ic('site')}<span>${users.length > 1
-    ? t('This box shows the shared block {name}, which {n} pages show: a change here changes all of them.', { name: `<b>${esc(n.shared)}</b>`, n: users.length })
-    : t('This box shows the shared block {name}: a change here changes it on every page that shows it.', { name: `<b>${esc(n.shared)}</b>` })}</span><button data-act="unlink" title="${t('This page gets its own copy of the block, which stops following the shared one')}">${t('Make this page\'s own copy')}</button></p>` : '';
+  // the pages it reaches, by name when there are a few (always on hover), linked to the block in the site kit
+  const kitHref = `/_tykerf/site/?kit=${encodeURIComponent(`blocks/${n.shared}`)}`;
+  const npages = (k) => `<a href="${kitHref}" target="_blank" class="shared-pages">${esc(t('{n} pages', { n: k }))}</a>`;
+  const sharedExplanation = n.shared ? `<p class="shared-explanation">${ic('site')}<span title="${esc(users.join(', '))}">${users.length > 1 && users.length <= 6
+    ? t('This box shows the shared block {name}, which {pages} show ({names}): a change here changes all of them.', { name: `<b>${esc(n.shared)}</b>`, pages: npages(users.length), names: esc(users.join(', ')) })
+    : users.length > 1
+    ? t('This box shows the shared block {name}, which {pages} show: a change here changes all of them.', { name: `<b>${esc(n.shared)}</b>`, pages: npages(users.length) })
+    : t('This box shows the shared block {name}: a change here changes it on every page that shows it.', { name: `<b>${esc(n.shared)}</b>` })}
+    <a href="${kitHref}" target="_blank" class="kit-link">${t('Open in the site kit')}</a></span><button data-act="unlink" title="${t('This page gets its own copy of the block, which stops following the shared one')}">${t('Make this page\'s own copy')}</button></p>` : '';
 
   w.innerHTML = `
     <div class="w-head">
@@ -995,6 +1001,8 @@ async function renderText(body, id) {
   const box = await loadBox(id);
   if (S.sel !== id || per(id).tab !== 'text') return;
   const p = per(id);
+  // a shared block with slots: this page fills its slots; the rest of the box is the block (Code, or the site kit)
+  if (box.shared && box.slots?.length) return renderSlots(body, id, box);
   const parsed = textFields(box.html);
   if (!parsed.fields.length) {
     body.innerHTML = `<p class="muted">${box.html ? t('This box has no text to edit. Use Code, or ask Kaity.') : t('This box is empty. Write its code, or ask Kaity to fill it.')}</p>
@@ -1054,6 +1062,47 @@ async function renderText(body, id) {
       e.preventDefault();
       saveText(id, parsed);
     }
+  };
+}
+
+/** The slots of the shared block a box shows: one field each, the block's own text as its placeholder. */
+function renderSlots(body, id, box) {
+  const p = per(id);
+  const plain = (html) => html.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
+  p.slots ??= Object.fromEntries(box.slots.map((s) => [s.name, s.value ?? '']));
+  body.innerHTML = `<p class="muted">${t('This box shows the shared block {name}. Its slots are this page\'s own: fill them here, and the other pages keep theirs. Empty, a slot shows the block\'s text.', { name: `<b>${esc(box.shared.name)}</b>` })}</p>
+    <div class="fields">${box.slots.map((s) => `
+      <label class="field slot"><span>${esc(s.name)}</span>
+      <textarea rows="1" data-slot="${esc(s.name)}" placeholder="${esc(plain(s.fallback))}">${esc(p.slots[s.name] ?? '')}</textarea></label>`).join('')}</div>
+    <div class="savebar"><span class="status"></span><button data-text="revert">${t('Revert')}</button><button data-text="save" class="primary">${t('Save for this page')}</button></div>`;
+  const status = $('.status', body);
+  const mark = () => (status.textContent = box.slots.some((s) => (p.slots[s.name] ?? '') !== (s.value ?? '')) ? t('Unsaved changes') : '');
+  for (const ta of body.querySelectorAll('textarea')) autosize(ta);
+  mark();
+  body.oninput = (e) => {
+    const ta = e.target.closest('textarea[data-slot]');
+    if (!ta) return;
+    p.slots[ta.dataset.slot] = ta.value;
+    autosize(ta);
+    mark();
+  };
+  const save = async () => {
+    try {
+      await api('/slots', { id, values: p.slots });
+      p.slots = null;
+      p.box = null;
+      toast(t('Saved for this page'));
+    } catch (err) {
+      toast(err.message, true);
+    }
+  };
+  body.onclick = (e) => {
+    const a = e.target.closest('[data-text]')?.dataset.text;
+    if (a === 'revert') return (p.slots = null), renderSlots(body, id, box);
+    if (a === 'save') save();
+  };
+  body.onkeydown = (e) => {
+    if ((e.metaKey || e.ctrlKey) && e.key === 's') e.preventDefault(), save();
   };
 }
 

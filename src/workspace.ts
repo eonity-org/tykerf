@@ -16,7 +16,7 @@
 
 import { basename, dirname, join, resolve } from 'node:path';
 import { type Layout, find, walk } from './model.js';
-import { markCurrentPage } from './kit.js';
+import { blockSlots, fillSlots, markCurrentPage, slotContents, slotValues, unfillSlots, withSlotValues } from './kit.js';
 import { FolderStore, type Store } from './store.js';
 import * as M from './moves.js';
 import { type Registry, contentErrors, loadTypes, newTypeErrors } from './types.js';
@@ -451,7 +451,8 @@ export class Workspace {
       if (there) this.site!.undo();
       this.pushRedo({ entry: e, site: there ? 'undone' : 'gone' });
     } else if (e.kind === 'content') {
-      this.pushRedo({ entry: e, content: this.content(e.id) });
+      // the box's own file (a content step is always about it: for a box that shows a shared block, its slots)
+      this.pushRedo({ entry: e, content: this.ownContent(e.id) });
       this.writeBox(e.id, e.prev);
     } else if (e.kind === 'head') {
       this.pushRedo({ entry: e, head: this.store.read(HEAD) });
@@ -549,11 +550,11 @@ export class Workspace {
       const css = this.store.read(`${BOXES}/${id}.css`);
       c[id] = css !== null ? joinStyle(html, css) : html;
     }
-    // a box linked to a shared block shows the block (its own code waits, for when it's unlinked)
+    // a box linked to a shared block shows the block, with the slots its own file fills
     if (this.site) walk(this.load().root, (n) => {
       if (n.type === 'leaf' && n.use) {
         const b = this.site!.block(n.use);
-        if (b !== null) c[n.id] = b;
+        if (b !== null) c[n.id] = fillSlots(b, this.ownContent(n.id) ?? '');
       }
     });
     return c;
@@ -565,9 +566,59 @@ export class Workspace {
     const use = this.site ? this.sharedBlock(id) : null;
     if (use) {
       const b = this.site!.block(use);
-      if (b !== null) return b;
+      if (b !== null) return fillSlots(b, this.ownContent(id) ?? '');
     }
     return this.ownContent(id);
+  }
+
+  /**
+   * What new code for a box that shows a shared block changes: the block (its new code, or null when it stays as
+   * it is) and this page's slots (the values that change; null: back to the fallback). What the code holds inside
+   * the block's slots is this page's; the rest is the block's, every page's. Null when the box shows no block.
+   */
+  sharedEdit(id: string, html: string, layout: Layout = this.load()): { block: string | null; slots: Record<string, string | null> } | null {
+    const use = this.site ? this.sharedBlock(id, layout) : null;
+    const block = use ? this.site!.block(use) : null;
+    if (block === null) return null;
+    const slots = blockSlots(block);
+    const values: Record<string, string | null> = {};
+    if (slots.length) {
+      const wanted = slotContents(html), now = slotValues(this.ownContent(id) ?? '');
+      for (const s of slots) {
+        if (!Object.hasOwn(wanted, s.name)) continue;
+        const v = wanted[s.name] === s.fallback ? null : wanted[s.name];
+        if ((Object.hasOwn(now, s.name) ? now[s.name] : null) !== v) values[s.name] = v;
+      }
+    }
+    // the block changes only when its code does (the editor sends a box's code re-joined: its blank lines may differ)
+    const same = (a: string, b: string) => { const x = splitStyle(a), y = splitStyle(b); return x.html === y.html && x.css === y.css; };
+    const unfilled = slots.length ? unfillSlots(html, block) : html;
+    return { block: same(unfilled, block) ? null : unfilled, slots: values };
+  }
+
+  /**
+   * The slots of the shared block a box shows: each one's name, its fallback (the block's content for it) and what
+   * this page fills it with (null: the fallback shows). [] for a box that shows no block, or a block without slots.
+   */
+  slots(id: string): { name: string; fallback: string; value: string | null }[] {
+    const use = this.site ? this.sharedBlock(id) : null;
+    const block = use ? this.site!.block(use) : null;
+    if (block === null) return [];
+    const values = slotValues(this.ownContent(id) ?? '');
+    return blockSlots(block).map((s) => ({ ...s, value: Object.hasOwn(values, s.name) ? values[s.name] : null }));
+  }
+
+  /**
+   * Fill slots of the shared block a box shows, for this page only (null: back to the fallback). They are the
+   * box's own file (<template data-slot>), so this is a change of the page, undone like any other.
+   */
+  setSlots(id: string, values: Record<string, string | null>, author: string = 'ai') {
+    this.transaction(() => {
+      const slots = this.slots(id);
+      if (!slots.length) throw new Error(`"${id}" doesn't show a shared block with slots`);
+      for (const name of Object.keys(values)) if (!slots.some((s) => s.name === name)) throw new Error(`the shared block ${this.sharedBlock(id)} has no slot "${name}" (slots: ${slots.map((s) => s.name).join(', ')})`);
+      this.setContentNow(id, withSlotValues(this.ownContent(id) ?? '', values), author, true);
+    });
   }
 
   /** A box's own code, even while it shows a shared block. */
@@ -673,12 +724,19 @@ export class Workspace {
     // a box that shows a shared block changes the block, on every page (the site keeps its undo);
     // emptying it only empties the box's own code
     const use = node?.type === 'leaf' ? node.use : undefined;
-    if (use && !own && html !== null && this.site && this.site.block(use) !== null) {
-      if (this.site.block(use) === html) return;
+    const split = use && !own && html !== null ? this.sharedEdit(id, html, layout) : null;
+    if (use && split) {
+      const { block: nextBlock, slots: values } = split;
+      if (nextBlock === null && !Object.keys(values).length) return;
       this.checkGuards({ kind: 'content', id, layout });
-      const step = this.site.setBlock(use, html, author);
-      // the page's Undo can take it back too, while it is still the site's last step
-      if (step) this.log({ kind: 'site', label: `edit the shared block ${use}`, author, at: new Date().toISOString(), id, block: use, step });
+      this.group(`edit ${id}`, author, () => {
+        if (nextBlock !== null) {
+          const step = this.site!.setBlock(use, nextBlock, author);
+          // the page's Undo can take it back too, while it is still the site's last step
+          if (step) this.log({ kind: 'site', label: `edit the shared block ${use}`, author, at: new Date().toISOString(), id, block: use, step });
+        }
+        if (Object.keys(values).length) this.setContentNow(id, withSlotValues(this.ownContent(id) ?? '', values), author, true);
+      });
       return;
     }
     const prev = this.ownContent(id);

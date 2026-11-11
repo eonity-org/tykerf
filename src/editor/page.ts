@@ -482,7 +482,8 @@ export function createPageHost(ws: Workspace, opts: { name: string; site?: () =>
       const inside = find(l.root, id) ? codeOf(l, id).boxes.length : 0;
       const use = ws.sharedBlock(id, l);
       const shared = use && ws.site?.dir ? { name: use, pages: Object.keys(blockUsers(ws.site.dir, use)) } : null;
-      return json(res, 200, { id, ...parts, path: pathOf(l, id), previous: find(l.root, id) ? previousBox(l, id) : null, boxesWithCode: inside, shared });
+      // the shared block's slots: what this page fills in, each with the block's fallback
+      return json(res, 200, { id, ...parts, path: pathOf(l, id), previous: find(l.root, id) ? previousBox(l, id) : null, boxesWithCode: inside, shared, slots: ws.slots(id) });
     }
     if (req.method === 'GET' && p.startsWith('/_tykerf/image/')) {
       const name = p.slice('/_tykerf/image/'.length);
@@ -521,6 +522,13 @@ export function createPageHost(ws: Workspace, opts: { name: string; site?: () =>
       const result = ws.transaction(() => op(a));
       changed();
       return json(res, 200, { ok: true, result });
+    }
+    // the slots of a shared block, filled for this page only (its box's own file)
+    if (p === '/_tykerf/slots') {
+      const values = Object.fromEntries(Object.entries((a.values ?? {}) as Record<string, unknown>).map(([k, v]) => [k, typeof v === 'string' && v.trim() ? v : null]));
+      ws.setSlots(String(a.id ?? ''), values, 'user');
+      changed();
+      return json(res, 200, { ok: true });
     }
     if (p === '/_tykerf/box') {
       const err = ws.transaction(() => {

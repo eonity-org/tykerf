@@ -8,14 +8,15 @@ import { type Layout, type Node, find, isOp, walk } from '../model.js';
 import * as M from '../moves.js';
 import { serializeSlice } from '../notation.js';
 import { FolderStore } from '../store.js';
-import { DEFAULT_THEME, componentCode, createPage, hasTheme, readTheme, themes, withFonts, withOverrides } from '../library.js';
+import { DEFAULT_THEME, componentCode, createPage, hasTheme, pageLayouts, readTheme, themes, withFonts, withOverrides } from '../library.js';
 import { Workspace } from '../workspace.js';
-import { kitList } from '../kit.js';
+import { kitList, kitRead, kitWrite } from '../kit.js';
 import { readSite, writeSite, setHome, pageTitle } from './settings.js';
 import { SiteHistory } from './history.js';
 import { iconLink } from './icon.js';
 import { SITE_HEAD, siteHead, startSiteTheme } from './head.js';
 import { pageWorkspace } from './index.js';
+import { startBlock } from './blocks.js';
 
 /** The name of a new site's first page, which becomes its home page. */
 export const HOME_PAGE = 'home';
@@ -75,7 +76,7 @@ export function pageNameError(dir: string, name: string): string | null {
  * sharing the preset's theme with this first page; an older site whose pages each have their own
  * theme gets one more page with its own. The site's first page becomes its home page.
  */
-export function newSitePage(dir: string, name: string, layout = 'blank', themeName = DEFAULT_THEME): Workspace {
+export function newSitePage(dir: string, name: string, layout = 'blank', themeName = DEFAULT_THEME, opts: { shared?: boolean } = {}): Workspace {
   const err = pageNameError(dir, name);
   if (err) throw new Error(err);
   const first = !sitePages(dir).length;
@@ -86,14 +87,32 @@ export function newSitePage(dir: string, name: string, layout = 'blank', themeNa
   if (fresh) startSiteTheme(dir, themeName);
   // a site's first page is its home: the site's address opens it
   if (first && !readSite(dir).home) setHome(dir, name);
-  // a box named like one of the site's shared blocks (its navigation, its footer) shows that block
+  if (opts.shared !== false) linkSharedBoxes(dir, ws, layout);
+  return ws;
+}
+
+/**
+ * Link a new page's boxes to the site's shared blocks: a box named like one (its navigation, its footer) shows
+ * it, and a box its layout declares shared (layouts.json `shared`) becomes one when the site has none yet, so a
+ * site's first page starts its navigation and footer. The box keeps no copy of the code (the block is the code).
+ * Written as the page's starting point: a new page starts with nothing to undo. Returns the blocks linked.
+ */
+function linkSharedBoxes(dir: string, ws: Workspace, layout: string): string[] {
+  const declared = new Set(pageLayouts().find((p) => p.name === layout)?.shared ?? []);
   const blocks = new Set(kitList(dir).blocks);
   const start = ws.load();
   let l = start;
-  walk(start.root, (n) => { if (n.type === 'leaf' && blocks.has(n.id)) l = M.setLeaf(l, n.id, { use: n.id }); });
-  // written as the page's starting point: a new page starts with nothing to undo
+  const linked: string[] = [];
+  walk(start.root, (n) => {
+    if (n.type !== 'leaf' || n.use || !(blocks.has(n.id) || declared.has(n.id))) return;
+    if (!blocks.has(n.id)) startBlock(dir, ws, n.id);
+    l = M.setLeaf(l, n.id, { use: n.id });
+    ws.store.remove(`boxes/${n.id}.html`);
+    ws.store.remove(`boxes/${n.id}.css`);
+    linked.push(n.id);
+  });
   if (l !== start) ws.store.write('layout.slice', serializeSlice(l));
-  return ws;
+  return linked;
 }
 
 /** A name for a new page of the site: `wish` when it's free, else `wish-2`, `wish-3`… */
@@ -303,7 +322,10 @@ function rewriteHrefs(html: string, fn: (href: string) => string): string {
   });
 }
 
-/** Rewrite links to page `from` so they point at `to`, in every box and head of the site. Returns how many changed. */
+/**
+ * Rewrite links to page `from` so they point at `to`, in every box and head of the site, and in its shared
+ * blocks (once each, a step of the site's history). Returns how many changed.
+ */
 export function rewriteLinks(dir: string, from: string, to: string): number {
   let n = 0;
   const swap = (href: string) => {
@@ -311,6 +333,12 @@ export function rewriteLinks(dir: string, from: string, to: string): number {
     n++;
     return `/${to}${href.trim().slice(from.length + 1)}`;
   };
+  for (const block of kitList(dir).blocks) {
+    const html = kitRead(dir, 'blocks', block);
+    const next = html === null ? html : rewriteHrefs(html, swap);
+    if (next !== null && next !== html) kitWrite(dir, 'blocks', block, next, `links follow page ${from} → ${to} in the shared block ${block}`);
+  }
+  // each page's own code (a box that shows a shared block keeps its own file for when it's unlinked: it follows too)
   for (const page of sitePages(dir)) {
     const ws = new Workspace(join(dir, page));
     ws.transaction(() => ws.group(`links follow page ${from} → ${to}`, 'user', () => {
@@ -347,8 +375,12 @@ export function pageLinks(dir: string): PageLink[] {
     }
   };
   for (const page of pages) {
-    const ws = new Workspace(join(dir, page));
-    for (const id of ws.boxIds()) scan(page, id, ws.content(id) ?? '');
+    // as visitors see the page: a box that shows a shared block has the block's links
+    const ws = pageWorkspace(dir, page);
+    const l = ws.load();
+    const ids = new Set(ws.boxIds());
+    walk(l.root, (n) => { if (n.type === 'leaf' && n.use) ids.add(n.id); });
+    for (const id of ids) scan(page, id, ws.content(id) ?? '');
     scan(page, null, ws.head());
   }
   return out;

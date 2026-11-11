@@ -27,6 +27,8 @@ npm start -- ~/tykerf-sites/my-site --layout launch --theme studio --name portfo
 
 TYKERF keeps a small set, each one clearly different. Layouts differ in **layout and density**, themes in **colour, type and air**. Any layout works with any theme.
 
+Each layout also says which of its boxes every page of a site shares: its navigation (`nav`) and its footer (`footer`; *Blank* has only the navigation). In a site, they're [shared blocks](sites.md#the-site-kit): the site's first page makes them, and every page made later from a layout shows them, unless you untick *With the site's navigation and footer (shared)*.
+
 | Layout | What it has | Density |
 |---|---|---|
 | `blank` (default) | A navigation bar and one text section | |

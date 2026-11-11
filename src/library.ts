@@ -32,6 +32,8 @@ export interface ComponentInfo {
 /** A ready-made page layout: its tree of blocks (`layout`, in the notation) and the component for each box. */
 export interface PageLayout extends ComponentInfo {
   layout: string;
+  /** The boxes every page of a site shares (its navigation, its footer): a site's page from this layout links them (site/pages.ts). */
+  shared?: string[];
   boxes: Record<string, string>; // box name -> component name
 }
 

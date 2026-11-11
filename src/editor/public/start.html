@@ -64,6 +64,8 @@
   .kitsec .acts { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
   .kitsec .acts .msg { flex: 1 1 220px; font-size: 13px; }
   .kitsec .msg.error { color: #B42318; }
+  .kitsec .block-row .edit-block { margin-left: 4px; font-size: 12px; padding: 2px 8px; }
+  .kitsec .block-row .users a { color: inherit; }
   .kitsec .msg.warning { color: #B54708; }
   .kitsec button { font: inherit; font-size: 13px; padding: 5px 11px; border: 1px solid #C6D7DE; border-radius: 6px; background: #fff; color: #10303F; cursor: pointer; }
   .kitsec button.primary { background: #0A5475; border-color: #0A5475; color: #fff; font-weight: 600; }
@@ -514,10 +516,16 @@ async function openKit() {
     const files = kind === 'tags' ? (j.files.tags ? ['tags'] : []) : j.files[kind];
     return el('div', { className: 'kind', title: help() }, el('b', { textContent: label() }),
       ...files.map((n) => {
-        const users = kind === 'blocks' ? j.users[n] ?? [] : null;
         const b = el('button', { type: 'button', className: 'link file', textContent: kind === 'tags' ? 'tags.json' : n });
         b.onclick = () => editKit(kind, n);
-        return users ? el('span', {}, b, el('span', { className: 'users', textContent: users.length ? ` (${users.join(', ')})` : ` (${t('no page')})` })) : b;
+        if (kind !== 'blocks') return b;
+        // a shared block: Edit block, and the pages that show it, each opening on its box
+        const where = j.where?.[n] ?? {};
+        const edit = Object.assign(el('button', { type: 'button', className: 'edit-block', textContent: t('Edit block') }), { onclick: () => editKit(kind, n) });
+        const pagesOf = Object.entries(where).map(([pg, boxes]) => el('a', { href: at(pg, boxes[0], 'code'), textContent: pg, title: t('Open {page} on the box that shows it', { page: pg }) }));
+        const row = el('span', { className: 'block-row' }, b, ' ', edit, el('span', { className: 'users' }, ...(pagesOf.length ? [' · ', ...pagesOf.flatMap((a, i) => (i ? [', ', a] : [a]))] : [` (${t('no page')})`])));
+        row.setAttribute('data-block', n);
+        return row;
       }),
       ...(kind === 'tags' && files.length ? [] : [Object.assign(el('button', { type: 'button', textContent: t('+ New') }), { onclick: () => editKit(kind, null) })]));
   }));
@@ -1271,6 +1279,14 @@ renderNow();
 render();
 refreshTrash();
 loadSiteHistory();
+// ?kit=blocks/<name> (the editor's "Open in the site kit"): Styles & scripts open, with that file in the kit's editor
+{
+  const want = /^(styles|scripts|blocks|types|tags)\/([a-z0-9][a-z0-9-]*)$/.exec(new URLSearchParams(location.search).get('kit') ?? '');
+  if (want) {
+    history.replaceState(null, '', location.pathname + location.hash);
+    openCode().then(() => editKit(want[1], want[2])).then(() => kEditor.scrollIntoView({ block: 'center' }));
+  }
+}
 // pages may come and go from elsewhere meanwhile (Claude Desktop, another tab)
 setInterval(() => (refresh(), refreshTrash()), 2000);
 // the editor's Site menu opens her work here (#kaity-work)

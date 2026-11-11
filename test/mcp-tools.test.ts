@@ -68,3 +68,46 @@ describe('the MCP tools', () => {
     }
   });
 });
+
+describe('the slots of a shared block', () => {
+  it('are listed by get_content and get_layout, and filled by set_slot or an edit inside them, in the box\'s scope', async () => {
+    const { mkdtempSync } = await import('node:fs');
+    const { tmpdir } = await import('node:os');
+    const { join } = await import('node:path');
+    const { kitRead, kitWrite } = await import('../src/kit.js');
+    const { componentCode } = await import('../src/library.js');
+    const { newSitePage, pageWorkspace } = await import('../src/site.js');
+    const M = await import('../src/moves.js');
+    const { openTools } = await import('../src/editor/tools-client.js');
+    const dir = mkdtempSync(join(tmpdir(), 'tykerf-slots-'));
+    newSitePage(dir, 'home', 'launch', 'studio');
+    newSitePage(dir, 'about', 'company', 'studio');
+    const banner = componentCode('page-banner');
+    kitWrite(dir, 'blocks', 'banner', banner);
+    const home = pageWorkspace(dir, 'home');
+    home.save(M.setLeaf(home.load(), 'logos', { use: 'banner' }), 'link', 'user');
+
+    const box = await openTools(pageWorkspace(dir, 'home'), 'logos'); // Kaity on that one box
+    expect((await box.call('get_content', { id: 'logos' })).text).toMatch(/\n\nslots: title \(fallback\), lead \(fallback\)\. set_slot fills one for this page/);
+    expect((await box.call('get_layout', {})).text).toContain('use=banner (shared block, slots: title, lead)');
+    expect((await box.call('set_slot', { id: 'logos', slot: 'title', html: 'Our story' })).text)
+      .toBe('ok: the slot "title" of "logos" is set for this page; the other pages that show banner keep theirs, and the block didn\'t change');
+    expect((await box.call('get_content', { id: 'logos' })).text).toMatch(/slots: title \(filled: "Our story"\), lead \(fallback\)/);
+    // an edit inside a slot is the page's too; outside one, it would change every page, which this scope can't
+    expect((await box.call('edit_content', { id: 'logos', old: 'One sentence that says what this page is about.', new: 'Since 1952.' })).text)
+      .toBe('ok: 1 change in "logos"; this page\'s slot lead of the shared block banner (the other pages keep theirs); the shared block itself didn\'t change');
+    expect((await box.call('edit_content', { id: 'logos', old: 'max-width: 22ch', new: 'max-width: 30ch' })).text).toMatch(/refused: "logos" shows the shared block "banner"/);
+    expect((await box.call('set_slot', { id: 'logos', slot: 'subtitle', html: 'x' })).text).toMatch(/has no slot "subtitle" \(slots: title, lead\)/);
+    await box.close();
+    expect(kitRead(dir, 'blocks', 'banner')).toBe(banner);
+    expect(pageWorkspace(dir, 'home').slots('logos').map((s) => s.value)).toEqual(['Our story', 'Since 1952.']);
+
+    // another block's scope can't fill it
+    const other = await openTools(pageWorkspace(dir, 'home'), 'hero');
+    expect((await other.call('set_slot', { id: 'logos', slot: 'title', html: 'x' })).text).toMatch(/refused/);
+    await other.close();
+    const again = await openTools(pageWorkspace(dir, 'home'), 'logos');
+    expect((await again.call('set_slot', { id: 'logos', slot: 'title', html: null })).text).toMatch(/shows the shared block banner's own text again/);
+    await again.close();
+  });
+});

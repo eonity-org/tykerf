@@ -65,8 +65,13 @@ describe('a new site', () => {
   });
 
   it('creates the first page from them; its theme becomes the theme of the whole site', async () => {
+    // the layout's navigation and footer become the site's, shared, unless the box is unticked
+    expect(await page.locator('.chooser .ch-shared input').isChecked()).toBe(true);
+    expect(await page.locator('.chooser .ch-shared').textContent()).toMatch(/With the site's navigation and footer \(shared\)/);
     await page.locator('.chooser [type=submit]').click();
     await page.waitForURL(`${url}home/`);
+    expect(existsSync(join(site, 'kit', 'blocks', 'nav.html')) && existsSync(join(site, 'kit', 'blocks', 'footer.html'))).toBe(true);
+    expect(readFileSync(join(site, 'home', 'layout.slice'), 'utf8')).toMatch(/nav\[[^\]]*use=nav/);
     expect(siteTheme()).toEqual(values('dark'));
     expect(existsSync(join(site, 'home', 'head.html'))).toBe(false);
     await page.locator('.pagesw').waitFor();
@@ -108,7 +113,9 @@ describe('a new site', () => {
     await page.locator('.newpage [type=submit]').click();
     await page.waitForURL(`${url}team/`);
     expect(readFileSync(join(site, 'team', 'layout.slice'), 'utf8')).toMatch(/nav\b.*main\b.*footer\b/s);
-    expect(readFileSync(join(site, 'team', 'boxes', 'footer.html'), 'utf8')).toBe(readFileSync(join(site, 'home', 'boxes', 'footer.html'), 'utf8'));
+    // the site's navigation and footer are shared blocks: the copy shows them too, with no code of its own
+    expect(readFileSync(join(site, 'team', 'layout.slice'), 'utf8')).toMatch(/footer\[[^\]]*use=footer/);
+    expect(existsSync(join(site, 'team', 'boxes', 'footer.html'))).toBe(false);
   });
 
   it('shares one theme: a preset in any Page tab restyles every page, with its own undo', async () => {
@@ -220,7 +227,8 @@ describe('a new site', () => {
     await expect.poll(() => page.url(), { timeout: 8000 }).toBe(`${url}about-us/`);
     await page.waitForLoadState();
     expect(existsSync(join(site, 'about'))).toBe(false);
-    expect(readFileSync(join(site, 'home', 'boxes', `${first}.html`), 'utf8')).toContain('href="/about-us/"');
+    // (home's first box is the site's shared navigation: the link follows there, for every page)
+    expect(await (await fetch(`${url}home/`)).text()).toContain('href="/about-us/"');
     expect((await fetch(`${url}about/`)).status).toBe(404);
     // the old address says what happened and lists the pages there are
     await page.goto(`${url}about/`);
@@ -240,7 +248,8 @@ describe('a new site', () => {
     await page.goto(`${url}about-us/`);
     await page.locator('.pagesw').click();
     await page.locator('.pop [data-pg="remove"]').click();
-    expect(await page.locator('.pop .hint').textContent()).toMatch(/One link to it from home will point nowhere/);
+    // the link is in the shared navigation, so on every page that shows it
+    expect(await page.locator('.pop .hint').textContent()).toMatch(/2 links to it from home, team will point nowhere/);
     await page.locator('.pop [data-r="ok"]').click();
     // the tab goes to the site's home, with the pages left
     await expect.poll(() => page.url(), { timeout: 8000 }).toBe(`${url}_tykerf/site/`);
@@ -249,7 +258,7 @@ describe('a new site', () => {
     const { readdirSync } = await import('node:fs');
     expect(readdirSync(join(site, '.trash'))[0]).toMatch(/^about-us-/);
     const links = await fetch(`${url}_tykerf/site/links`).then((x) => x.json());
-    expect(links.links.filter((l: any) => l.broken).map((l: any) => l.href)).toEqual(['/about-us/']);
+    expect(links.links.filter((l: any) => l.broken).map((l: any) => `${l.page} ${l.href}`)).toEqual(['home /about-us/', 'team /about-us/']);
   });
 
   it('downloads the site as a zip with a short report', async () => {
@@ -257,7 +266,7 @@ describe('a new site', () => {
     expect(r.status).toBe(200);
     expect(r.headers.get('content-type')).toBe('application/zip');
     expect(r.headers.get('content-disposition')).toMatch(/^attachment; filename="my-site-\d{4}-\d{2}-\d{2}\.zip"$/);
-    expect(JSON.parse(r.headers.get('x-tykerf-report')!)).toMatchObject({ pages: 2, broken: 1 });
+    expect(JSON.parse(r.headers.get('x-tykerf-report')!)).toMatchObject({ pages: 2, broken: 2 }); // the shared navigation's link, on both pages
     const bytes = Buffer.from(await r.arrayBuffer());
     expect(bytes.readUInt32LE(0)).toBe(0x04034b50);
     // one page of the site, its link to another page reported; never a page that isn't there
@@ -479,7 +488,9 @@ describe('a new site', () => {
     await page.locator('.links-btn').click();
     await page.locator('.links .summary', { hasText: /of them broken/ }).waitFor();
     expect(await page.locator('.links h3').first().textContent()).toBe("Links to pages that don't exist");
-    const bad = page.locator('.links ul').first().locator('li', { hasText: '/nowhere/' });
+    // the link is in the shared navigation: every page that shows it has it
+    const bad = page.locator('.links ul').first().locator('li', { hasText: `home · ${first}/nowhere/` });
+    expect(await page.locator('.links ul').first().locator('li', { hasText: '/nowhere/' }).count()).toBeGreaterThan(1);
     expect(await bad.textContent()).toBe(`home · ${first}/nowhere/no page "nowhere"`);
     expect(await page.locator('.links li', { hasText: /^home→/ }).textContent()).toMatch(/team/);
     expect(await bad.locator('a').getAttribute('href')).toBe(`/home/?block=${first}&tab=text`);
@@ -488,6 +499,25 @@ describe('a new site', () => {
     await expect.poll(() => page.locator('.tree .item.sel').getAttribute('data-id')).toBe(first);
     expect(await page.locator('.work .tabs [data-tab="text"]').getAttribute('aria-selected')).toBe('true');
     expect(page.url()).toBe(`${url}home/`);
+  });
+
+  it('goes from a shared block to the pages that show it, and from a page to the block in the site kit', async () => {
+    const where = (await fetch(`${url}_tykerf/site/kit`).then((r) => r.json())).where.nav as Record<string, string[]>;
+    const [first, boxes] = Object.entries(where)[0];
+    // the manager: each page that shows the navigation opens on its box, and Edit block opens it in the kit's editor
+    await page.goto(`${url}_tykerf/site/`);
+    await page.locator('.pages .styles-btn').click();
+    const row = page.locator('.kitsec .block-row[data-block="nav"]');
+    expect(await row.locator('.users a').first().getAttribute('href')).toBe(`/${first}/?block=${boxes[0]}&tab=code`);
+    await row.locator('.edit-block').click();
+    await expect.poll(() => page.locator('.kitsec .editor input').inputValue()).toBe('nav');
+    // the editor: a box that shows it links to it in the site kit, which opens on it
+    await page.goto(`${url}${first}/?block=${boxes[0]}`);
+    const link = page.locator('.shared-explanation .kit-link');
+    expect(await link.getAttribute('href')).toBe('/_tykerf/site/?kit=blocks%2Fnav');
+    await page.goto(`${url}_tykerf/site/?kit=blocks%2Fnav`);
+    await expect.poll(() => page.locator('.kitsec .editor input').inputValue()).toBe('nav');
+    expect(await page.locator('.kitsec .editor textarea').inputValue()).toBe(readFileSync(join(site, 'kit', 'blocks', 'nav.html'), 'utf8'));
   });
 
   it("follows a page renamed or removed from another process (Kaity's site run), and lists Kaity's work", async () => {

@@ -205,3 +205,105 @@ export function markCurrentPage(code: string, page: string | undefined, home = f
   const here = [`/${page.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}/?(?:index\\.html)?`, ...(home ? ['/', '/index\\.html'] : [])];
   return plain.replace(new RegExp(`(<a\\b[^>]*\\bhref\\s*=\\s*["'](?:${here.join('|')})["'])`, 'gi'), '$1 aria-current="page"');
 }
+
+// ---------- slots: a shared block differs per page through its box's own code ----------
+// In a block, an element with data-slot="<name>" is a slot; its content is the fallback. A page that shows the
+// block fills a slot with <template data-slot="<name>">…</template> in its box's own file (boxes/<id>.html).
+// Plain text and regular expressions, no DOM: the same on the server and in tests.
+
+export const SLOT_NAME = /^[a-z][a-z0-9-]*$/;
+const VOID = new Set(['area', 'base', 'br', 'col', 'embed', 'hr', 'img', 'input', 'link', 'meta', 'source', 'track', 'wbr']);
+
+/** Where an element's content ends: the index of its matching close tag, counting nested elements of the same name. */
+function closeOf(html: string, tag: string, from: number): number {
+  const re = new RegExp(`<(/?)${tag}\\b[^>]*>`, 'gi');
+  re.lastIndex = from;
+  let depth = 1;
+  for (let m: RegExpExecArray | null; (m = re.exec(html)); ) {
+    if (m[1]) depth--;
+    else if (!m[0].endsWith('/>')) depth++;
+    if (!depth) return m.index;
+  }
+  return -1;
+}
+
+/**
+ * The slot elements of some HTML, in order: name, and where their content starts and ends. With `tagFilter`, only
+ * elements of that tag (a page's <template>s); without, every slot element but templates (a block's, a page's code).
+ */
+function slotSpans(html: string, tagFilter?: string): { name: string; start: number; end: number; after: number }[] {
+  const out: { name: string; start: number; end: number; after: number }[] = [];
+  const open = /<([a-z][a-z0-9-]*)\b[^>]*?\bdata-slot\s*=\s*(["'])([^"']*)\2[^>]*>/gi;
+  for (let m: RegExpExecArray | null; (m = open.exec(html)); ) {
+    const tag = m[1].toLowerCase();
+    if ((tagFilter ? tag !== tagFilter : tag === 'template') || VOID.has(tag) || m[0].endsWith('/>') || !SLOT_NAME.test(m[3])) continue;
+    const start = m.index + m[0].length;
+    const end = closeOf(html, tag, start);
+    if (end < 0) continue;
+    out.push({ name: m[3], start, end, after: html.indexOf('>', end) + 1 });
+    open.lastIndex = html.indexOf('>', end) + 1; // a slot inside a slot is part of its content
+  }
+  return out;
+}
+
+/** A block's slots, in order: name and fallback (the element's content). The first of a name counts. */
+export function blockSlots(block: string): { name: string; fallback: string }[] {
+  const seen = new Set<string>();
+  return slotSpans(block).filter((s) => !seen.has(s.name) && seen.add(s.name)).map((s) => ({ name: s.name, fallback: block.slice(s.start, s.end) }));
+}
+
+/** The slots a box's own file fills: { name: content } from its <template data-slot="name"> elements. */
+export function slotValues(own: string): Record<string, string> {
+  const out: Record<string, string> = {};
+  for (const s of slotSpans(own, 'template')) if (!(s.name in out)) out[s.name] = own.slice(s.start, s.end);
+  return out;
+}
+
+/** The content of each slot element in some HTML (a page's code as it shows the block): { name: content }. */
+export function slotContents(html: string): Record<string, string> {
+  const out: Record<string, string> = {};
+  for (const s of slotSpans(html)) if (!(s.name in out)) out[s.name] = html.slice(s.start, s.end);
+  return out;
+}
+
+/** Some HTML with its slot elements' content replaced: `value(name)` gives the new content, or null to keep it. */
+function replaceSlots(html: string, value: (name: string) => string | null, tagFilter?: string): string {
+  let out = '', at = 0;
+  for (const s of slotSpans(html, tagFilter)) {
+    const v = value(s.name);
+    if (v === null) continue;
+    out += html.slice(at, s.start) + v;
+    at = s.end;
+  }
+  return out + html.slice(at);
+}
+
+/** A block as a page shows it: each slot the page fills (`own`'s templates) in place of its fallback. */
+export function fillSlots(block: string, own: string): string {
+  const values = slotValues(own);
+  return Object.keys(values).length ? replaceSlots(block, (n) => (Object.hasOwn(values, n) ? values[n] : null)) : block;
+}
+
+/** A page's code for a block, with every slot back to the block's fallback: what the block itself is. */
+export function unfillSlots(html: string, block: string): string {
+  const fallback = Object.fromEntries(blockSlots(block).map((s) => [s.name, s.fallback]));
+  return replaceSlots(html, (n) => (Object.hasOwn(fallback, n) ? fallback[n] : null));
+}
+
+/**
+ * A box's own file with these slots filled (a value) or back to the fallback (null): the other templates and
+ * anything else in the file stay. Templates are written one per line, in name order.
+ */
+export function withSlotValues(own: string, values: Record<string, string | null>): string {
+  const merged = { ...slotValues(own), ...values };
+  // what isn't a slot template (an older page's copy of the block, say) stays as it was
+  let rest = '', at = 0;
+  for (const s of slotSpans(own, 'template')) {
+    const begin = own.lastIndexOf('<', s.start - 1);
+    rest += own.slice(at, begin);
+    at = s.after;
+  }
+  rest = (rest + own.slice(at)).trim();
+  const templates = Object.keys(merged).sort().filter((n) => merged[n] !== null && SLOT_NAME.test(n)).map((n) => `<template data-slot="${n}">${merged[n]}</template>`);
+  return [rest, ...templates].filter(Boolean).join('\n');
+}

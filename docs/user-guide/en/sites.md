@@ -145,25 +145,33 @@ The site kit holds what every page shares besides the theme, one small named fil
 2. Put the name on an element, in the box's *Code* tab (or ask Kaity): `© <span data-use="year"></span> Seville city guide`.
 3. Every page that has such an element runs it; pages that don't never load it. Several behaviours go in one attribute, separated by spaces (`data-use="year reveal"`). If the function returns a function, TYKERF calls it when the element goes away.
 
-**Shared blocks.** A navigation or a footer is the same on every page, so it should be one thing:
-- The kit lists the boxes that are already the same on several pages (*These boxes are the same on several pages…*). **Share nav** makes one shared block from it and shows it on all of those pages.
-- In the editor, **Share…** on a box does the same from one page; the dialog also offers the site's other shared blocks to show instead.
-- A box that shows a shared block has a **shared** chip in the tree and a notice above its tabs. A change to it (its text, its code, Kaity's) changes every page that shows it. **Undo** on that page takes it back from every page, and says so (*shared block nav, on 8 pages*), as long as it's still the site's last change; once something else changed the site after it, Undo says to use the site manager's **Undo**, with a link to it.
-- **Make this page's own copy** gives this page the block's code as it is now, to change on its own; the other pages keep the shared block. It's one undo step on the page.
+**Shared blocks.** A navigation or a footer is the same on every page, so it is one thing, shared already:
+- **A new site's navigation and footer are shared from its first page.** The layout says which of its boxes every page shares (its `nav` and its `footer`); the first page makes them the site's shared blocks, and every page made later from a layout shows them. When you make a page from a layout, *With the site's navigation and footer (shared)* is ticked; untick it and the page gets copies of its own instead.
+- A box that shows a shared block has a **shared** chip in the tree and a notice above its tabs, which names the pages that show it and links to it in the site kit (**Open in the site kit**). A change to it (its text, its code, Kaity's) changes every page that shows it. **Undo** on that page takes it back from every page, and says so (*shared block nav, on 8 pages*), as long as it's still the site's last change; once something else changed the site after it, Undo says to use the site manager's **Undo**, with a link to it.
+- In the site kit, each shared block lists the pages that show it: a page's name opens it on that box. **Edit block** opens the block's code in the kit's editor.
+- **Make this page's own copy** gives this page the block as it shows now (its slots filled), to change on its own; the other pages keep the shared block. It's one undo step on the page.
+- For a site made before, the kit lists the boxes that are already the same on several pages (*These boxes are the same on several pages…*): **Share nav** makes one shared block from it and shows it on all of those pages. **Share…** on a box in the editor does the same from one page, and offers the site's other shared blocks to show instead.
 - Pictures and other files a shared block uses are the site's, not one page's. When you share a box that uses its page's files (a logo in `assets/`), they're copied to the site's `assets/` and the block points at them there (`/assets/logo.png`), so every page shows them; the message after sharing names them. If the site already has a different file of that name, it stays, and the copy gets a name of its own (`logo-1a2b3c….png`).
 - If you write a shared block by hand in the kit with a page's file (`assets/logo.png`), it's saved, with a warning: only that page has the file. Kaity's check lists it on every page that shows the block.
 - A link to the page you're on, inside a shared block, is marked as the current page (`aria-current`), so a menu can show where you are. On the home page, links to `/` are marked too. The block itself keeps no such mark: each page gets its own when it's shown.
 - Copies of a box that differ only in which link is marked current (each page marking its own) count as the same: the kit offers them as one, saying *they differ only in which link is marked current*, and the shared block it makes has no marks.
-- A new page whose layout has a box with the same name as a shared block (`nav`, `footer`) shows the shared block from the start.
+- Renaming a page changes the links to it in the shared blocks too, once for every page.
 
-**One menu for every page, from start to finish**
-1. Make the navigation on one page (by hand, or ask Kaity), and give its box a name such as `nav`.
-2. Select the box and press **Share…**, or open the kit and press **Share nav** if the pages already have the same box. The box now shows a shared block, with a **shared** chip.
-3. On each other page, select its navigation box, press **Share…** and choose the site's `nav` to show instead of its own code. A page made later from a layout with a `nav` box shows it from the start.
-4. Change the menu on any page, in its text or code: every page shows the change. **Undo** on that page, or in the site manager, takes it back.
-5. A page that should differ takes **Make this page's own copy**. To show where you are, style `a[aria-current]` in a kit style: the current page's link in a shared block is marked for you.
+### Slots
 
-Kaity changes the kit only when you ask her for the whole site in the site manager, and she says which pages a change reaches. Asked about one block, she can't change a shared block; she'll suggest making the page's own copy. Exports and Publish include the kit: its styles in each page, its behaviours as files.
+A shared block can leave parts to each page: its **slots**. A banner with the page's title, a navigation whose button says something different on one page, a footer line: the block is one, and each page fills in its own.
+
+- In the block's code, an element with `data-slot="title"` is a slot named `title`, and what it holds is the block's own text, shown on any page that doesn't fill it.
+- On a page, the Text tab of a box that shows such a block lists its slots, the block's text in grey; what you write is this page's only (**Save for this page**). Editing a slot's text on the page itself does the same; anything outside the slots is the block, every page's.
+- The library's **Page banner** has two slots, `title` and `lead`: share it once, show it on every page, and give each page its own title and sentence. The navigation's button (`action`) and the footer's last line (`note`) are slots too.
+- Undo takes a slot back like any change of the page. A page's own copy keeps what its slots showed.
+
+**One banner over every page**
+1. On one page, use the component *Page banner* in a box under the navigation, and press **Share…** (name it `banner`).
+2. On each other page, add a box under the navigation, press **Share…** and choose `banner`.
+3. On each page, select the banner and fill its `title` and `lead` in the Text tab, or edit them on the page.
+
+Kaity changes a shared block when you ask her about the whole page (the page block selected), or for the whole site in the site manager, and she says which pages a change reaches. Asked about a smaller block, she can't change one, but she can fill its slots; she'll suggest selecting the page, or making the page's own copy. Exports and Publish include the kit: its styles in each page, its behaviours as files.
 
 ## One theme for every page
 

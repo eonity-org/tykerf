@@ -7,16 +7,17 @@ import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { leftovers, say } from '../src/check.js';
 import { exportFiles } from '../src/export.js';
-import { KIT_LOADER, kitError, kitWarning, kitList, kitRead, kitStyles, kitTags, kitWrite, lastKitChange, markCurrentPage, undoKit } from '../src/kit.js';
+import { KIT_LOADER, blockSlots, fillSlots, slotValues, unfillSlots, withSlotValues, kitError, kitWarning, kitList, kitRead, kitStyles, kitTags, kitWrite, lastKitChange, markCurrentPage, undoKit } from '../src/kit.js';
 import { parseSlice, serializeSlice } from '../src/notation.js';
 import { blockUsers, identicalBoxes, linkBlock, newSitePage, pageWorkspace, shareBlock, shareIdentical, unlinkBlock } from '../src/site.js';
 import { contentHash, pageFileRefs } from '../src/assets.js';
 import * as M from '../src/moves.js';
 
+// a site made the way older ones were: each page with its own navigation and footer (shared: false), to share them here
 const site = () => {
   const dir = mkdtempSync(join(tmpdir(), 'tykerf-kit-'));
-  newSitePage(dir, 'home', 'launch', 'studio');
-  newSitePage(dir, 'about', 'company', 'studio');
+  newSitePage(dir, 'home', 'launch', 'studio', { shared: false });
+  newSitePage(dir, 'about', 'company', 'studio', { shared: false });
   return dir;
 };
 
@@ -133,7 +134,7 @@ describe('shared blocks', () => {
 
   it('are found when each page marks its own link current, shared without the marks, and marked again on each page', () => {
     const dir = site();
-    newSitePage(dir, 'contact', 'company', 'studio');
+    newSitePage(dir, 'contact', 'company', 'studio', { shared: false });
     const nav = (here: string) => `<nav>\n  <a href="/"${here === 'home' ? ' aria-current="page"' : ''}>Home</a>\n  <a href="/about/"${here === 'about' ? ' aria-current="page"' : ''}>About</a>\n  <a href="/contact/"${here === 'contact' ? " aria-current='page'" : ''}>Contact</a>\n</nav>`;
     for (const p of ['home', 'about', 'contact']) pageWorkspace(dir, p).setContent('nav', nav(p) + (p === 'about' ? '  \n\n' : ''), 'user');
     // a real difference in the text still keeps a page out
@@ -217,6 +218,84 @@ describe('site types and tags', () => {
     expect(() => ws.setContent('cta', '<p>x</p><script>1</script>', 'user')).toThrow(/refused by box type/);
     ws.store.write('types/card.json', JSON.stringify({ content: { scripts: true } }));
     expect(ws.types().card).toEqual({ content: { scripts: true } });
+  });
+});
+
+describe('slots', () => {
+  const block = '<style>h1{color:red}</style>\n<header><div data-slot="title"><h1>Title</h1></div><p data-slot="lead">Lead</p><a data-slot="cta" href="/x/">Go</a></header>';
+
+  it('fill a shared block from a page\'s own templates: a value, the fallback, nested markup, unknown names ignored', () => {
+    expect(blockSlots(block)).toEqual([{ name: 'title', fallback: '<h1>Title</h1>' }, { name: 'lead', fallback: 'Lead' }, { name: 'cta', fallback: 'Go' }]);
+    const own = '<template data-slot="title"><h1>Our <em>bakery</em> <span><div>nested</div></span></h1></template>\n<template data-slot="nope">x</template>';
+    expect(slotValues(own)).toEqual({ title: '<h1>Our <em>bakery</em> <span><div>nested</div></span></h1>', nope: 'x' });
+    expect(fillSlots(block, own)).toBe(block.replace('<h1>Title</h1>', '<h1>Our <em>bakery</em> <span><div>nested</div></span></h1>'));
+    expect(fillSlots(block, '')).toBe(block);
+    // a page's code back to the block, and the templates written back in name order, the rest of the file kept
+    expect(unfillSlots(fillSlots(block, own), block)).toBe(block);
+    expect(withSlotValues('<p>old copy</p>\n<template data-slot="lead">L</template>', { title: 'T', lead: null })).toBe('<p>old copy</p>\n<template data-slot="title">T</template>');
+  });
+
+  it('make two pages differ by their slots, undone like any change of the page, and kept when the page takes its own copy', () => {
+    const dir = site();
+    kitWrite(dir, 'blocks', 'banner', block);
+    const home = pageWorkspace(dir, 'home'), about = pageWorkspace(dir, 'about');
+    for (const ws of [home, about]) ws.save(M.setLeaf(ws.load(), 'cta', { use: 'banner' }), 'link', 'user');
+    home.setSlots('cta', { title: '<h1>Welcome</h1>', lead: 'Fresh bread' }, 'user');
+    expect(home.slots('cta')).toEqual([
+      { name: 'title', fallback: '<h1>Title</h1>', value: '<h1>Welcome</h1>' }, { name: 'lead', fallback: 'Lead', value: 'Fresh bread' }, { name: 'cta', fallback: 'Go', value: null },
+    ]);
+    expect(home.page()).toContain('<h1>Welcome</h1>');
+    expect(about.page()).toContain('<h1>Title</h1>');
+    expect(about.page()).not.toContain('Welcome');
+    expect(kitRead(dir, 'blocks', 'banner')).toBe(block); // the block didn't change
+    expect(() => home.setSlots('cta', { subtitle: 'x' })).toThrow(/has no slot "subtitle" \(slots: title, lead, cta\)/);
+    expect(home.undo()).toMatch(/set_content cta/);
+    expect(home.content('cta')).toBe(block);
+    expect(home.redo()).toMatch(/set_content cta/);
+
+    // editing the page's code: what is inside a slot is the page's, the rest is the block's
+    home.setContent('cta', home.content('cta')!.replace('Fresh bread', 'Rye on Sundays'), 'user');
+    expect(home.slots('cta').find((s) => s.name === 'lead')!.value).toBe('Rye on Sundays');
+    expect(kitRead(dir, 'blocks', 'banner')).toBe(block);
+    home.setContent('cta', home.content('cta')!.replace('h1{color:red}', 'h1{color:blue}'), 'user');
+    expect(kitRead(dir, 'blocks', 'banner')).toBe(block.replace('red', 'blue')); // no page's slot values in the block
+    expect(about.content('cta')).toContain('<h1>Title</h1>');
+    // a page's own copy is what it shows, slots filled
+    unlinkBlock(home, 'cta');
+    expect(home.ownContent('cta')).toContain('<h1>Welcome</h1>');
+    expect(home.ownContent('cta')).not.toContain('<template');
+
+    // a slot the block doesn't have is reported
+    about.setSlots('cta', { lead: 'About us' }, 'user');
+    kitWrite(dir, 'blocks', 'banner', block.replace(' data-slot="lead"', ''));
+    expect(leftovers(pageWorkspace(dir, 'about')).filter((l) => l.kind === 'slot').map(say))
+      .toEqual(['cta: it fills the slot "lead", which the shared block banner doesn\'t have, so the page doesn\'t show it (set_slot fills one it has)']);
+  });
+});
+
+describe("Kaity's rule on shared blocks", () => {
+  it('lets her change one when the scope is the whole page, naming the pages it reaches; refuses from a smaller block', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'tykerf-kit-rule-'));
+    newSitePage(dir, 'home', 'launch', 'studio'); // the navigation and footer are shared from the start
+    newSitePage(dir, 'about', 'company', 'studio');
+    const { openTools } = await import('../src/editor/tools-client.js');
+    const home = pageWorkspace(dir, 'home');
+    const page = await openTools(home, home.load().root.id); // the page block selected, as from the editor
+    expect((await page.call('set_content', { id: 'footer', html: '<footer>© Bakery</footer>' })).text)
+      .toBe('ok: content of "footer" set; shared block footer: this changes 2 pages (about, home); say so in your answer');
+    expect((await page.call('edit_content', { id: 'footer', old: 'Bakery', new: 'Bakery 2026' })).text).toMatch(/^ok: 1 change in "footer"; shared block footer: this changes 2 pages/);
+    await page.close();
+    expect(kitRead(dir, 'blocks', 'footer')).toBe('<footer>© Bakery 2026</footer>');
+    expect(pageWorkspace(dir, 'about').content('footer')).toBe('<footer>© Bakery 2026</footer>');
+
+    const block = await openTools(pageWorkspace(dir, 'home'), 'hero');
+    expect((await block.call('set_content', { id: 'footer', html: '<footer>x</footer>' })).text).toMatch(/refused: "footer" is outside the scope|refused/);
+    await block.close();
+    const narrow = await openTools(pageWorkspace(dir, 'home'), 'footer');
+    expect((await narrow.call('set_content', { id: 'footer', html: '<footer>x</footer>' })).text)
+      .toMatch(/refused: "footer" shows the shared block "footer", which other pages of the site show too, and the scope is "footer"\. Changing it is for a request about every page: ask the user to select the page block \("page"\)/);
+    await narrow.close();
+    expect(kitRead(dir, 'blocks', 'footer')).toBe('<footer>© Bakery 2026</footer>');
   });
 });
 

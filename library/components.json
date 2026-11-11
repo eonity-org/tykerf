@@ -162,5 +162,9 @@
   "case-next": {
     "label": "Next case",
     "description": "One wide link to the next case study, between two rules"
+  },
+  "page-banner": {
+    "label": "Page banner",
+    "description": "A title and one sentence over each page, shared by every page; each page fills in its own (slots)"
   }
 }

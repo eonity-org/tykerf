@@ -66,7 +66,7 @@ In the site manager, **Ask Kaity about the whole site** opens a conversation abo
 - She can make, rename and remove pages: a rename changes the page's address, and links to it on every page follow; a removed page goes to the site's trash. Open tabs of a page she renames or removes follow it.
 - When each page has a theme of its own (a site from before shared themes, or one built page by page in Claude), she can make one page's theme the one every page shares (`share_theme`): *"use the home page's colours and fonts on every page"*. The other pages give up their own theme, each with one undo step on the page, and the site theme's own **Undo** in the Page tab takes the shared theme back. Copies of websites keep their own look.
 - She sets the site's language when you ask (`set_site`). Otherwise the site's shared head (its theme's values, and Styles & scripts) stays yours, in the site manager and the Page tab.
-- She does change the [site kit](sites.md#the-site-kit) (shared blocks such as the navigation and the footer, styles and behaviours for every page) when you ask for it here, and tells you which pages a change reaches. Asked about one block, she can't change a shared block.
+- She does change the [site kit](sites.md#the-site-kit) (shared blocks such as the navigation and the footer, styles and behaviours for every page) when you ask for it here, and tells you which pages a change reaches. On a page, she changes a shared block only when you ask her about the whole page (the page block selected), and says which pages it reached; asked about a smaller block, she can't, but she can fill its [slots](sites.md#slots) for that page.
 - Every request to her, about the site or about one block of any page, is listed in [Kaity's work](sites.md#kaitys-work).
 
 ## Which AI answers
@@ -122,7 +122,7 @@ Restart the client after editing the config. The tools, by what they do:
 | Change the tree | `split`, `add_leaf`, `wrap`, `unwrap`, `flip`, `swap`, `move`, `remove`, `rename`, `set_ratios`, `set_op`, `set_leaf`, `set_variant`, `tag`, `untag`, `add_rule`, `remove_rule`, `attach_overlay`, `detach_overlay`, `normalize` |
 | Change a box | `set_content`, `edit_content` (one exact piece of the code), `add_picture` (an SVG it draws, or an attached picture) |
 | Library and theme | `list_layouts`, `use_layout`, `list_components`, `use_component`, `use_page`, `list_themes`, `use_theme`, `get_theme`, `set_theme` |
-| Pages of a site | `list_pages`, `open_page`, `new_page`, `rename_page`, `remove_page`, `set_title` (a page's title), `set_site` (the site's language), `share_theme` (one page's theme for every page) |
+| Pages of a site | `list_pages`, `open_page`, `new_page`, `rename_page`, `remove_page`, `set_title` (a page's title), `set_site` (the site's language), `share_theme` (one page's theme for every page), `set_slot` (a shared block's slot, for one page) |
 | The site kit | `list_kit`, `get_kit_file`, `set_kit_file` (styles, behaviours, tags), `share_block`, `link_block`, `unlink_block` (shared blocks such as the navigation and the footer) |
 | Tasks left on the page | `list_tasks`, `close_task` (with a reply for the person) |
 | Open a folder (the plugin only) | `open_folder` (a page, a site or an empty folder; without a path, the default folder). Only the plugin starts with no folder open and offers it |

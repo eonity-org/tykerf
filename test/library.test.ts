@@ -21,8 +21,9 @@ describe('the library', () => {
   });
 
   it('uses every component in some page layout, so each one is seen and kept working', () => {
-    // Image fills a box sized by hand (its handles): a building block for pages people compose themselves
-    const BUILDING_BLOCKS = ['image'];
+    // Image fills a box sized by hand (its handles): a building block for pages people compose themselves; the page
+    // banner is shared by every page of a site, each filling its slots: a block for sites, not for one layout
+    const BUILDING_BLOCKS = ['image', 'page-banner'];
     const used = new Set(pageLayouts().flatMap((p) => Object.values(p.boxes)));
     expect(components().map((c) => c.name).filter((c) => !used.has(c) && !BUILDING_BLOCKS.includes(c))).toEqual([]);
   });
@@ -50,6 +51,15 @@ describe('the library', () => {
       for (const [, file] of Object.values(ws.contents()).join('\n').matchAll(/assets\/([\w.-]+)/g)) expect(ws.store.exists(`assets/${file}`), `${p.name}: ${file}`).toBe(true);
       expect(ws.history()).toEqual([]); // a new page starts with nothing to undo
     }
+  });
+
+  it('declares the boxes every page of a site shares, and each is a box of its layout', () => {
+    for (const p of pageLayouts()) {
+      expect(p.shared, p.name).toBeDefined();
+      for (const box of p.shared!) expect(Object.keys(p.boxes), `${p.name}: ${box}`).toContain(box);
+    }
+    expect(pageLayouts().find((p) => p.name === 'launch')!.shared).toEqual(['nav', 'footer']);
+    expect(pageLayouts().find((p) => p.name === 'blank')!.shared).toEqual(['nav']); // it has no footer
   });
 
   it('refuses to start a page over an existing one', () => {

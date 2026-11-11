@@ -14,7 +14,7 @@ import { type ChildProcess, spawn } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { basename, dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { KIND_WORD, find, isOp } from '../model.js';
+import { KIND_WORD, type Layout, find, isOp, walk } from '../model.js';
 import { pathOf } from '../refs.js';
 import { type Leftover, leftoverKey, leftovers, say } from '../check.js';
 import { type TaskNow, sayTask, tasks } from '../tasks.js';
@@ -471,8 +471,20 @@ export class AI {
       'Make the change, then look at it with screenshot (at 1440 and 375 px) and check it with evaluate; fix what looks wrong. Answer in 1-3 short sentences saying what you changed.',
       'If the user only asks a question, answer it without changing anything. If the request cannot be done inside this block, say so.',
       ...this.otherPages(),
+      ...this.sharedNote(layout, id),
       ...(brief ? [brief] : []),
     ].join('\n');
+  }
+
+  /** What Kaity is told about the shared blocks (get_layout marks them `use=`): the page's own rule, as for the theme. */
+  private sharedNote(layout: Layout, id: string): string[] {
+    let any = false;
+    walk(layout.root, (n) => { if (n.type === 'leaf' && n.use) any = true; });
+    if (!any) return [];
+    const slots = 'Some shared blocks have slots (get_layout: slots: …): the parts each page fills itself, such as a title. set_slot fills one for this page, from any block, and the other pages keep theirs; set_content and edit_content inside a slot do the same.';
+    return [slots, id === layout.root.id
+      ? 'Boxes marked use=<name> show a shared block of the site: a change to one changes every page that shows it (the tool\'s reply names them). Change one only when the request is about every page, and say in your answer which pages it reached.'
+      : 'Boxes marked use=<name> show a shared block of the site, which every page shows: from this block you can\'t change one. If the request needs it, say the user can select the page block for a change on every page, or make it this page\'s own copy (right-click → Make this page\'s own copy).'];
   }
 
   /** What the page has left unfinished now that it didn't have before, less what the person chose to keep. */
@@ -572,7 +584,8 @@ function siteSystem(brief?: string): string {
     CODE_RULES.replace(/, and never touch other boxes/, ''),
     'The site\'s shared head (the theme every page uses, and the free code in Styles & scripts) is not yours to change: tell the user it is in the site manager or a page\'s Page tab. ' +
       'One exception: when get_theme says each page has a theme of its own and the user wants one look for the site, share_theme makes one page\'s theme every page\'s (ask which page if it isn\'t clear), instead of a preset on each page.',
-    'The site kit is yours (list_kit, get_kit_file, set_kit_file): what every page shares besides the theme. Use it for what should be the same everywhere: a navigation or footer as one shared block (share_block on one page, link_block on the others), a button or card style in kit styles, a behaviour in kit scripts, a tag the site uses. Say which pages each change reaches.',
+    'The site kit is yours (list_kit, get_kit_file, set_kit_file): what every page shares besides the theme. Use it for what should be the same everywhere: a navigation or footer as one shared block (share_block on one page, link_block on the others), a button or card style in kit styles, a behaviour in kit scripts, a tag the site uses. Say which pages each change reaches. ' +
+      'A shared block\'s slots (get_layout: slots: …) are the parts each page fills itself, such as a page title: set_slot fills one on the open page, and the other pages keep theirs.',
     'Answer in a few short sentences: what you changed, page by page. If the user only asks a question, answer it without changing anything.',
     ...(brief ? [brief] : []),
   ].join('\n');

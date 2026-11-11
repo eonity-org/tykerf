@@ -1,0 +1,10 @@
+<style>
+:scope { background: var(--section-bg, var(--color-surface, var(--color-bg))); }
+.wrap { max-width: var(--max-width); margin: 0 auto; padding: calc(var(--space-section) * .55) var(--gap) calc(var(--space-section) * .45); }
+h1 { font-size: var(--text-title); max-width: 22ch; margin: 0; }
+p { font-size: var(--text-lead); color: var(--color-muted); max-width: 40em; margin: 14px 0 0; }
+</style>
+<div class="wrap">
+  <h1 data-slot="title">The title of this page</h1>
+  <p data-slot="lead">One sentence that says what this page is about.</p>
+</div>

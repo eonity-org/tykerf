@@ -5,10 +5,11 @@ import { spawnSync } from 'node:child_process';
 import { describe, expect, it } from 'vitest';
 import { leftovers, say } from '../src/check.js';
 import { kitRead, kitWrite, lastKitChange } from '../src/kit.js';
-import { Site, duplicatePage, freePageName, linkBlock, shareBlock, unlinkBlock, iconLink, madeIcon, setSiteIcon, siteIcon, lastSiteHeadChange, linkedPage, newPageLike, newSitePage, pageLinks, pageNameError, pageWorkspace, removePage, renamePage, setSiteHead, emptyTrash, langTag, pageTitle, readSite, setHome, setLang, siteIndex, setSiteCode, setTitle, shareTheme, siteCode, siteHead, siteKind, siteOf, sitePages, trashedPages, undoSiteHead, usePage } from '../src/site.js';
+import { Site, blockUsers, duplicatePage, freePageName, linkBlock, shareBlock, unlinkBlock, iconLink, madeIcon, setSiteIcon, siteIcon, lastSiteHeadChange, linkedPage, newPageLike, newSitePage, pageLinks, pageNameError, pageWorkspace, removePage, renamePage, setSiteHead, emptyTrash, langTag, pageTitle, readSite, setHome, setLang, siteIndex, setSiteCode, setTitle, shareTheme, siteCode, siteHead, siteKind, siteOf, sitePages, trashedPages, undoSiteHead, usePage } from '../src/site.js';
 import { NO_SITE_HEAD, Workspace } from '../src/workspace.js';
 import * as M from '../src/moves.js';
-import { createPage, readOverrides, readTheme, themes } from '../src/library.js';
+import { componentCode, createPage, readOverrides, readTheme, themes } from '../src/library.js';
+import { pageFileRefs } from '../src/assets.js';
 
 const tmp = () => mkdtempSync(join(tmpdir(), 'tykerf-site-'));
 
@@ -124,9 +125,45 @@ describe('sites', () => {
     await site.close();
   });
 
-  it('copy a page with its shared blocks as links, never as copies of the blocks\' code', async () => {
+  it('start a new site with its navigation and footer shared, and link them on every new page', async () => {
     const dir = tmp();
     const home = newSitePage(dir, 'home', 'launch', 'studio');
+    // the library's navigation and footer, with their pictures at the site's assets/
+    expect(kitRead(dir, 'blocks', 'nav')).toContain(componentCode('nav').match(/class="[^"]+"/)![0]);
+    expect(kitRead(dir, 'blocks', 'footer')!.length).toBeGreaterThan(100);
+    for (const b of ['nav', 'footer']) expect(pageFileRefs(kitRead(dir, 'blocks', b)!), b).toEqual([]);
+    expect([home.sharedBlock('nav'), home.sharedBlock('footer'), home.sharedBlock('hero')]).toEqual(['nav', 'footer', null]);
+    expect(existsSync(join(dir, 'home', 'boxes', 'nav.html'))).toBe(false); // no copy of the code: the block is the code
+    expect(home.history()).toEqual([]); // a new page starts with nothing to undo
+    expect(home.contents().footer).toBe(kitRead(dir, 'blocks', 'footer'));
+    const about = newSitePage(dir, 'about', 'company', 'studio');
+    expect([about.sharedBlock('nav'), about.sharedBlock('footer')]).toEqual(['nav', 'footer']);
+    expect(blockUsers(dir, 'nav')).toEqual({ about: ['nav'], home: ['nav'] });
+    // a change reaches both
+    kitWrite(dir, 'blocks', 'footer', '<footer>© Bakery</footer>');
+    expect(pageWorkspace(dir, 'about').page()).toContain('© Bakery');
+    // shared: false gives the page copies of its own
+    const own = newSitePage(dir, 'own', 'company', 'studio', { shared: false });
+    expect([own.sharedBlock('nav'), own.sharedBlock('footer')]).toEqual([null, null]);
+    expect(own.ownContent('footer')).toBe(componentCode('footer'));
+    expect(own.page()).not.toContain('© Bakery');
+
+    // Kaity's new_page says which blocks the page shows; shared: false, none
+    const { openTools } = await import('../src/editor/tools-client.js');
+    const run = await openTools(home, '', dir);
+    expect((await run.call('new_page', { name: 'shop', layout: 'catalogue' })).text).toMatch(/^ok: new page "shop" from the catalogue layout, it uses the theme the site's pages share; it shows the site's shared blocks nav, footer, the same on every page/);
+    expect((await run.call('new_page', { name: 'shop2', layout: 'catalogue', shared: false })).text).not.toMatch(/shared block/);
+    // use_layout on a page of the site: its navigation and footer show the site's blocks, in the same undo step
+    await run.call('open_page', { name: 'own' });
+    expect((await run.call('use_layout', { name: 'launch' })).text).toMatch(/^ok: the page now follows the launch layout; nav, footer show the site's shared blocks of that name/);
+    expect([pageWorkspace(dir, 'own').sharedBlock('nav'), pageWorkspace(dir, 'own').sharedBlock('footer')]).toEqual(['nav', 'footer']);
+    expect(pageWorkspace(dir, 'own').history(1)[0].label).toBe('use layout launch');
+    await run.close();
+  });
+
+  it('copy a page with its shared blocks as links, never as copies of the blocks\' code', async () => {
+    const dir = tmp();
+    const home = newSitePage(dir, 'home', 'launch', 'studio', { shared: false }); // an older site: shared by hand below
     const mine = home.ownContent('nav')!;
     shareBlock(dir, home, 'nav');
     kitWrite(dir, 'blocks', 'nav', '<nav>shared, second version</nav>');
@@ -166,7 +203,7 @@ describe('sites', () => {
 
   it('make a new page like another: its header, footer and theme, one section between', () => {
     const dir = tmp();
-    const home = newSitePage(dir, 'home', 'launch', 'studio');
+    const home = newSitePage(dir, 'home', 'launch', 'studio', { shared: false }); // its own navigation, with its own logo
     home.store.write('assets/logo.png', new Uint8Array([1, 2, 3]));
     home.setContent('nav', home.content('nav')!.replace('Site name', '<img src="assets/logo.png" alt="">Bakery'), 'user');
     const about = newPageLike(dir, 'about', 'home');
@@ -509,7 +546,7 @@ describe("the site's one history", () => {
     newSitePage(dir, 'home', 'blank', 'studio');
     newSitePage(dir, 'about', 'blank', 'studio');
     const site = new Site(dir);
-    expect(site.steps().map((s) => s.label)).toEqual(['make home the home page', 'site theme studio']);
+    expect(site.steps().map((s) => s.label)).toEqual(['share nav with every page', 'make home the home page', 'site theme studio']);
     setSiteCode(dir, '<style>.a{}</style>');
     kitWrite(dir, 'styles', 'base', 'h2 { color: red }', undefined, 'ai');
     setTitle(dir, 'about', 'About us');

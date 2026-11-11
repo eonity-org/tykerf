@@ -6,16 +6,18 @@
 import { find, isOp, walk } from './model.js';
 import { derivedTitle, linkedPage, pageTitle, readSite, sitePages } from './site.js';
 import { pageFileRefs } from './assets.js';
+import { blockSlots, slotValues } from './kit.js';
 import { componentCode, components } from './library.js';
 import type { Workspace } from './workspace.js';
 
 export interface Leftover {
   box: string;
-  kind: 'text' | 'picture' | 'link' | 'missing' | 'block' | 'shared-file' | 'title';
+  kind: 'text' | 'picture' | 'link' | 'missing' | 'block' | 'shared-file' | 'title' | 'slot';
   /**
    * What is left: the placeholder text, the picture's file, the address of a file that isn't there, the link's
-   * address and words, (shared-file) the shared block's name and the page's file it uses ("nav logo.png"), or
-   * (title, on the page's top block) the page's title.
+   * address and words, (shared-file) the shared block's name and the page's file it uses ("nav logo.png"),
+   * (title, on the page's top block) the page's title, or (slot) the shared block's name and a slot the page
+   * fills that the block doesn't have ("banner subtitle").
    */
   detail: string;
   /** For a link: why it has no target. */
@@ -35,6 +37,10 @@ export function say(l: Leftover): string {
   if (l.kind === 'text') return `${l.box}: placeholder text "${l.detail}"`;
   if (l.kind === 'picture') return `${l.box}: a placeholder picture (${l.detail})`;
   if (l.kind === 'missing') return `${l.box}: ${l.detail} is not one of the page's files, so it shows broken`;
+  if (l.kind === 'slot') {
+    const [name, slot] = l.detail.split(' ');
+    return `${l.box}: it fills the slot "${slot}", which the shared block ${name} doesn't have, so the page doesn't show it (set_slot fills one it has)`;
+  }
   if (l.kind === 'title') return `${l.page}: its title "${l.detail}" is the same as ${l.other}'s; give it a title of its own (set_title)`;
   if (l.kind === 'shared-file') {
     const [name, ...file] = l.detail.split(' ');
@@ -142,6 +148,11 @@ export function leftovers(ws: Workspace, opts: { within?: string | null } = {}):
     if (use && ws.site && block === null) add({ box, kind: 'block', detail: use });
     // a shared block shows on pages at other addresses: a page's own file (assets/…) is there only on one of them
     if (use && block) for (const f of pageFileRefs(block)) add({ box, kind: 'shared-file', detail: `${use} ${f}` });
+    // a slot this page fills that the block doesn't have (renamed or removed in the block since)
+    if (use && block) {
+      const has = new Set(blockSlots(block).map((s) => s.name));
+      for (const slot of Object.keys(slotValues(ws.ownContent(box) ?? ''))) if (!has.has(slot)) add({ box, kind: 'slot', detail: `${use} ${slot}` });
+    }
     const html = ws.content(box) ?? '';
     for (const s of texts(html)) if (known.has(s)) add({ box, kind: 'text', detail: s });
     for (const [img] of html.matchAll(/<img\b[^>]*>/gi)) {

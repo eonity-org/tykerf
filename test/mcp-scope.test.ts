@@ -72,7 +72,7 @@ describe('a site of pages', () => {
     expect(await call('open_page', { name: 'munich' })).toMatchObject({ error: true, text: expect.stringMatching(/no page "munich" in the site \(pages: prague, rome\)/) });
 
     const made = await call('new_page', { name: 'munich', layout: 'factual', theme: 'warm' });
-    expect(made.text).toMatch(/^ok: new page "munich" from the factual layout, with the warm theme; it is open now/);
+    expect(made.text).toMatch(/^ok: new page "munich" from the factual layout, with the warm theme; it shows the site's shared blocks nav, footer, the same on every page: change them only when the request is about every page; it is open now/);
     expect(readFileSync(join(site, 'munich', 'head.html'), 'utf8')).toContain('data-tykerf-preset="warm"');
     expect((await call('get_layout')).text).toMatch(/intro leaf/);
     expect((await call('list_pages')).text).toMatch(/^site .*\nmunich \(open\): .*\nprague: .*\nrome: .*$/);
