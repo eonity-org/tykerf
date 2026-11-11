@@ -521,7 +521,10 @@ async function openKit() {
       b.onclick = () => kitDo('/_tykerf/site/kit/share', { box: g.box }, (r) => r.result.files.length
         ? t('{box} is now a shared block on {pages}. Its files went to the site, for every page: {files}.', { box: g.box, pages: r.result.pages.join(', '), files: r.result.files.join(', ') })
         : t('{box} is now a shared block on {pages}.', { box: g.box, pages: r.result.pages.join(', ') }));
-      return el('p', {}, el('span', { textContent: t('{box} on {pages} ', { box: g.box, pages: g.pages.join(', ') }) }), b);
+      const where = g.normalized
+        ? t('{box} on {pages} (they differ only in which link is marked current) ', { box: g.box, pages: g.pages.join(', ') })
+        : t('{box} on {pages} ', { box: g.box, pages: g.pages.join(', ') });
+      return el('p', {}, el('span', { textContent: where }), b);
     }));
 }
 

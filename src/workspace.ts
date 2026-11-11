@@ -92,6 +92,8 @@ export interface SiteLink {
   setHead?(html: string, label: string): void;
   /** This page's name in the site (for marking links to it in shared blocks). */
   page?: string;
+  /** Whether this page is the site's home (site.json), so links to / in shared blocks are marked as it too. */
+  home?(): boolean;
   /** The site's folder (its kit: shared blocks, styles, tags). */
   dir?: string;
   /** The site kit's part of every page's head: its styles and the behaviours' loader (src/kit.ts). */
@@ -639,9 +641,12 @@ export class Workspace {
     const l = this.load();
     const c = this.contents();
     // a site menu in a shared block shows which page this is
-    if (this.site?.page) walk(l.root, (n) => {
-      if (n.type === 'leaf' && n.use && c[n.id] !== undefined) c[n.id] = markCurrentPage(c[n.id], this.site!.page);
-    });
+    if (this.site?.page) {
+      let home: boolean | undefined; // read once, and only when a box shows a shared block
+      walk(l.root, (n) => {
+        if (n.type === 'leaf' && n.use && c[n.id] !== undefined) c[n.id] = markCurrentPage(c[n.id], this.site!.page, (home ??= this.site!.home?.() ?? false));
+      });
+    }
     return toHTML(l, c, { ...opts, head: (this.site?.icon?.() ?? '') + this.siteHead() + this.kitHead() + this.head() + (opts.head ?? '') });
   }
 

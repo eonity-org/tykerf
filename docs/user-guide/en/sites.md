@@ -144,7 +144,8 @@ The site kit holds what every page shares besides the theme, one small named fil
 - **Make this page's own copy** gives this page the block's code as it is now, to change on its own; the other pages keep the shared block. It's one undo step on the page.
 - Pictures and other files a shared block uses are the site's, not one page's. When you share a box that uses its page's files (a logo in `assets/`), they're copied to the site's `assets/` and the block points at them there (`/assets/logo.png`), so every page shows them; the message after sharing names them. If the site already has a different file of that name, it stays, and the copy gets a name of its own (`logo-1a2b3c….png`).
 - If you write a shared block by hand in the kit with a page's file (`assets/logo.png`), it's saved, with a warning: only that page has the file. Kaity's check lists it on every page that shows the block.
-- A link to the page you're on, inside a shared block, is marked as the current page (`aria-current`), so a menu can show where you are.
+- A link to the page you're on, inside a shared block, is marked as the current page (`aria-current`), so a menu can show where you are. On the home page, links to `/` are marked too. The block itself keeps no such mark: each page gets its own when it's shown.
+- Copies of a box that differ only in which link is marked current (each page marking its own) count as the same: the kit offers them as one, saying *they differ only in which link is marked current*, and the shared block it makes has no marks.
 - A new page whose layout has a box with the same name as a shared block (`nav`, `footer`) shows the shared block from the start.
 
 **One menu for every page, from start to finish**

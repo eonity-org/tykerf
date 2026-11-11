@@ -191,9 +191,25 @@ export function kitBlock(dir: string, name: string): string | null {
   return KIT_NAME.test(name) ? kitRead(dir, 'blocks', name) : null;
 }
 
-/** Mark the links to the page being rendered in a shared block (aria-current="page"), so a site menu shows where you are. */
-export function markCurrentPage(code: string, page: string | undefined): string {
-  if (!page) return code;
-  const here = new RegExp(`(<a\\b(?![^>]*\\baria-current=)[^>]*\\bhref\\s*=\\s*["']/${page}/?(?:index\\.html)?["'])`, 'gi');
-  return code.replace(here, '$1 aria-current="page"');
+/**
+ * A shared block's code without its current-page marks (aria-current="page", "true" or bare, on any element;
+ * other values such as "step" mean something else and stay). The renderer marks each page's own link
+ * (markCurrentPage), so a block keeps none: two pages' copies of one navigation differ only by them.
+ * Tags only: a style's a[aria-current] selector and a script are left as they are.
+ */
+export function unmarkCurrentPage(code: string): string {
+  return code.replace(/<(style|script)\b[\s\S]*?<\/\1\s*>|<[a-z][^>]*>/gi, (tag, inside?: string) =>
+    inside ? tag : tag.replace(/\s+aria-current(?:\s*=\s*(?:"(?:page|true)?"|'(?:page|true)?'|page|true))?(?=[\s/>])/gi, ''));
+}
+
+/**
+ * Mark the links to the page being rendered in a shared block (aria-current="page"), so a site menu shows
+ * where you are: /<page>/ (also without the slash, or with index.html) and, on the site's home page, / and
+ * /index.html. The block's own marks go first, so only this page's links are marked.
+ */
+export function markCurrentPage(code: string, page: string | undefined, home = false): string {
+  const plain = unmarkCurrentPage(code);
+  if (!page) return plain;
+  const here = [`/${page.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}/?(?:index\\.html)?`, ...(home ? ['/', '/index\\.html'] : [])];
+  return plain.replace(new RegExp(`(<a\\b[^>]*\\bhref\\s*=\\s*["'](?:${here.join('|')})["'])`, 'gi'), '$1 aria-current="page"');
 }

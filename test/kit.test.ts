@@ -98,7 +98,13 @@ describe('shared blocks', () => {
     // each page marks its own link
     expect(pageWorkspace(dir, 'about').page()).toContain('<a href="/about/" aria-current="page">About</a>');
     expect(pageWorkspace(dir, 'home').page()).toContain('<a href="/home/" aria-current="page">Home</a>');
-    expect(markCurrentPage('<a aria-current="page" href="/x/">x</a>', 'x')).toBe('<a aria-current="page" href="/x/">x</a>');
+    // the block's own marks go first; only marks of the current page (page, true, bare) do, and never in a style
+    expect(markCurrentPage('<a aria-current="page" href="/x/">x</a>', 'x')).toBe('<a href="/x/" aria-current="page">x</a>');
+    expect(markCurrentPage('<a href="/x/" aria-current="true">x</a> <a href="/y/" aria-current>y</a> <li aria-current="step">2</li>', 'y'))
+      .toBe('<a href="/x/">x</a> <a href="/y/" aria-current="page">y</a> <li aria-current="step">2</li>');
+    expect(markCurrentPage('<style>a[aria-current="page"] { font-weight: 700 }</style><a href="/">Home</a>', 'home', true))
+      .toBe('<style>a[aria-current="page"] { font-weight: 700 }</style><a href="/" aria-current="page">Home</a>');
+    expect(markCurrentPage('<a href="/">Home</a><a href="/index.html">Home</a>', 'about')).toBe('<a href="/">Home</a><a href="/index.html">Home</a>');
     // making a page's own copy: one undo step, the other page keeps the shared block
     unlinkBlock(about, 'nav');
     expect(about.sharedBlock('nav')).toBeNull();
@@ -123,6 +129,25 @@ describe('shared blocks', () => {
     newSitePage(dir, 'shop', 'catalogue', 'studio');
     expect(pageWorkspace(dir, 'shop').sharedBlock('footer')).toBe('footer');
     expect(pageWorkspace(dir, 'shop').history()).toEqual([]); // a new page starts with nothing to undo
+  });
+
+  it('are found when each page marks its own link current, shared without the marks, and marked again on each page', () => {
+    const dir = site();
+    newSitePage(dir, 'contact', 'company', 'studio');
+    const nav = (here: string) => `<nav>\n  <a href="/"${here === 'home' ? ' aria-current="page"' : ''}>Home</a>\n  <a href="/about/"${here === 'about' ? ' aria-current="page"' : ''}>About</a>\n  <a href="/contact/"${here === 'contact' ? " aria-current='page'" : ''}>Contact</a>\n</nav>`;
+    for (const p of ['home', 'about', 'contact']) pageWorkspace(dir, p).setContent('nav', nav(p) + (p === 'about' ? '  \n\n' : ''), 'user');
+    // a real difference in the text still keeps a page out
+    pageWorkspace(dir, 'contact').setContent('footer', '<footer><p>Write to us</p></footer>', 'user');
+    const groups = identicalBoxes(dir);
+    expect(groups.find((g) => g.box === 'nav')).toEqual({ box: 'nav', pages: ['about', 'contact', 'home'], normalized: true });
+    expect(groups.find((g) => g.box === 'footer')).toEqual({ box: 'footer', pages: ['about', 'home'] });
+
+    expect(shareIdentical(dir, 'nav')).toMatchObject({ name: 'nav', pages: ['about', 'contact', 'home'] });
+    expect(kitRead(dir, 'blocks', 'nav')).not.toContain('aria-current');
+    const marked = (p: string) => [...pageWorkspace(dir, p).page().matchAll(/<a href="([^"]*)" aria-current="page">/g)].map((m) => m[1]);
+    expect(marked('home')).toEqual(['/']); // the site's home marks its link to /
+    expect(marked('about')).toEqual(['/about/']);
+    expect(marked('contact')).toEqual(['/contact/']);
   });
 
   it('take the page\'s own files they use to the site, so every page shows them', () => {

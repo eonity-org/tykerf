@@ -8,6 +8,8 @@
 
 ## Unreleased
 
+- **The kit finds navigations that mark their own page.** A navigation copied onto every page usually marks that page's link (`aria-current="page"`), so no two copies were the same and the kit never offered to share it. Copies that differ only in that mark, or in white space, now count as the same (the offer says so), and the shared block is made without the marks. Each page marks its own link when it's shown, and the home page now marks links to `/` too.
+
 - **Shared blocks keep their pictures on every page.** Sharing a box that used its page's files (`assets/logo.png`) made a block that looked for them under each page's own address, so the logo showed on one page and was broken on the others. Sharing now copies those files to the site's `assets/` and points the block at them (`/assets/logo.png`); a different file already there under the same name stays, and the copy gets a name of its own. The reply of **Share**, of `share_block` and of the manager's **Share nav** names the files. A shared block saved by hand with a page's file gets a warning in the kit editor and in `set_kit_file`, and `check_page` lists it (a new leftover, `shared-file`).
 
 ## 0.3.0 (2026-11-01): tasks, the handbook and the site kit

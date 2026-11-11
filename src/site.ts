@@ -13,7 +13,7 @@ import { serializeSlice } from './notation.js';
 import { FolderStore } from './store.js';
 import { DEFAULT_THEME, componentCode, createPage, hasTheme, readTheme, theme, themes, withFonts, withOverrides, withPresetName, withThemeValues } from './library.js';
 import { NO_SITE_HEAD, type SiteLink, Workspace } from './workspace.js';
-import { kitBlock, kitList, kitLoaderTag, kitStyles, kitTypes, kitWrite } from './kit.js';
+import { kitBlock, kitList, kitLoaderTag, kitStyles, kitTypes, kitWrite, unmarkCurrentPage } from './kit.js';
 import { hashedName, mapPageFiles } from './assets.js';
 import type { Registry } from './types.js';
 
@@ -389,7 +389,7 @@ export const siteLink = (dir: string, page?: string): SiteLink => ({
   files: () => (existsSync(join(dir, 'assets')) ? readdirSync(join(dir, 'assets')) : []), asset: (f) => siteStore(dir).readBytes(`assets/${f}`),
   icon: () => iconLink(dir), setHead: (html, label) => setSiteHead(dir, html, label),
   // the site kit (src/kit.ts): styles and behaviours for every page, shared blocks, box types
-  dir, page, kit: () => kitStyles(dir) + kitLoaderTag(dir), block: (name) => kitBlock(dir, name),
+  dir, page, home: () => page !== undefined && readSite(dir).home === page, kit: () => kitStyles(dir) + kitLoaderTag(dir), block: (name) => kitBlock(dir, name),
   setBlock: (name, code, author) => kitWrite(dir, 'blocks', name, code, `edit the shared block ${name}`, author), types: () => kitTypes(dir) as Registry,
 });
 
@@ -793,7 +793,8 @@ export function shareBlock(dir: string, ws: Workspace, box: string, wish = box, 
   if (n?.type !== 'leaf') throw new Error(`"${box}" is not a box`);
   if (n.use) throw new Error(`"${box}" already shows the shared block "${n.use}"`);
   const name = freeBlockName(dir, wish);
-  const { code, files } = siteFiles(dir, ws, ws.content(box) ?? '');
+  // without current-page marks: each page's are put back when it renders (markCurrentPage)
+  const { code, files } = siteFiles(dir, ws, unmarkCurrentPage(ws.content(box) ?? ''));
   kitWrite(dir, 'blocks', name, code, `share ${box} as the shared block ${name}`, author);
   ws.save(M.setLeaf(l, box, { use: name }), `share ${box} with every page as ${name}`, author);
   return { name, files };
@@ -822,12 +823,16 @@ export function unlinkBlock(ws: Workspace, box: string, author = 'user') {
   });
 }
 
+/** A box's code as identicalBoxes compares it: without current-page marks, whitespace runs as one space, trimmed. */
+const sameness = (code: string) => unmarkCurrentPage(code).replace(/\s+/g, ' ').trim();
+
 /**
- * Boxes that are already the same on several pages and not shared yet (a navigation, a footer):
- * the box name, the pages, and whether a shared block of that name exists.
+ * Boxes that are already the same on several pages and not shared yet (a navigation, a footer): the box name
+ * and the pages. Copies that differ only in which link is marked current (aria-current) or in white space count
+ * as the same; such a group says `normalized: true`.
  */
-export function identicalBoxes(dir: string): { box: string; pages: string[] }[] {
-  const seen = new Map<string, Map<string, string[]>>(); // box name → code → pages
+export function identicalBoxes(dir: string): { box: string; pages: string[]; normalized?: true }[] {
+  const seen = new Map<string, Map<string, { pages: string[]; codes: Set<string> }>>(); // box name → compared code → pages
   for (const p of sitePages(dir)) {
     const ws = pageWorkspace(dir, p);
     let l: Layout;
@@ -836,17 +841,21 @@ export function identicalBoxes(dir: string): { box: string; pages: string[] }[] 
       if (n.type !== 'leaf' || n.use) return;
       const code = ws.ownContent(n.id);
       if (!code?.trim()) return;
-      const byCode = seen.get(n.id) ?? new Map<string, string[]>();
-      byCode.set(code, [...(byCode.get(code) ?? []), p]);
+      const byCode = seen.get(n.id) ?? new Map<string, { pages: string[]; codes: Set<string> }>();
+      const key = sameness(code);
+      const g = byCode.get(key) ?? { pages: [], codes: new Set<string>() };
+      g.pages.push(p);
+      g.codes.add(code);
+      byCode.set(key, g);
       seen.set(n.id, byCode);
     });
   }
-  const out: { box: string; pages: string[] }[] = [];
-  for (const [box, byCode] of seen) for (const pages of byCode.values()) if (pages.length > 1) out.push({ box, pages });
+  const out: { box: string; pages: string[]; normalized?: true }[] = [];
+  for (const [box, byCode] of seen) for (const { pages, codes } of byCode.values()) if (pages.length > 1) out.push({ box, pages, ...(codes.size > 1 ? { normalized: true as const } : {}) });
   return out.sort((a, b) => b.pages.length - a.pages.length || a.box.localeCompare(b.box));
 }
 
-/** Share a box that is the same on several pages: one shared block from it, linked on each of those pages. */
+/** Share a box that is the same on several pages: one shared block from it (the first page's code, without current-page marks), linked on each of those pages. */
 export function shareIdentical(dir: string, box: string, author = 'user'): { name: string; pages: string[]; files: string[] } {
   const group = identicalBoxes(dir).find((g) => g.box === box);
   if (!group) throw new Error(`no box "${box}" is the same on several pages`);
