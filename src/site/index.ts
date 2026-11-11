@@ -13,9 +13,8 @@
 //   blocks.ts    the kit's shared blocks (the rest of the kit is src/kit.ts)
 // and here the Site object over them, and what a page needs of its site (SiteLink).
 
-import { existsSync, readdirSync } from 'node:fs';
 import { basename, dirname, join } from 'node:path';
-import { FolderStore } from '../store.js';
+import { type Store, SubStore } from '../store.js';
 import { type SiteLike, Workspace } from '../workspace.js';
 import { type KitKind, kitCSS, kitFonts, kitBlock, kitList, kitLoaderTag, kitRead, kitStyles, kitTags, kitTypes, kitWrite, lastKitChange } from '../kit.js';
 import type { Registry } from '../types.js';
@@ -24,25 +23,30 @@ import { type SiteSettings, readSite } from './settings.js';
 import { isSite, sitePages } from './pages.js';
 import { iconLink } from './icon.js';
 import { setSiteHead, siteHead } from './head.js';
-import { SiteHistory, type SiteStep, siteStore } from './history.js';
+import { SiteHistory, type SiteStep, type SiteStore, isRegistered, registerSite, siteStore } from './history.js';
 
 /**
  * A site, by its folder: its settings, its pages, its shared head and its kit, its one history, and what each
  * page needs of it (SiteLike, which Workspace takes: `site.page(name)` is a page of it).
  */
 export class Site implements SiteLike {
-  readonly store: FolderStore;
+  readonly store: SiteStore;
   /** The site's one history: its head, its kit and its settings (history.ts). */
   readonly history: SiteHistory;
 
-  constructor(readonly dir: string) {
-    this.store = siteStore(dir);
-    this.history = new SiteHistory(dir);
+  /** The site's folder, or for a site in a store of its own (in memory: tests, previews) that store's location. */
+  readonly dir: string;
+
+  /** A site in a folder, or in any store (a MemoryStore): its pages are its folders either way. */
+  constructor(where: string | SiteStore) {
+    this.dir = typeof where === 'string' ? where : registerSite(where);
+    this.store = siteStore(this.dir);
+    this.history = new SiteHistory(this.dir);
   }
 
   /** A page of the site, with the site's head, kit and history. */
   page(name: string): Workspace {
-    return new Workspace(join(this.dir, name), { site: this, page: name });
+    return new Workspace(pageStore(this.dir, name), { site: this, page: name });
   }
 
   // ---- its history ----
@@ -120,7 +124,7 @@ export class Site implements SiteLike {
   }
 
   files(): string[] {
-    return existsSync(join(this.dir, 'assets')) ? readdirSync(join(this.dir, 'assets')) : [];
+    return this.store.list('assets');
   }
 
   asset(file: string): Uint8Array | null {
@@ -185,6 +189,9 @@ export const siteLink = (dir: string): Site => new Site(dir);
 /** A page of the site, with the site's shared head (new Site(dir).page(name)). */
 export const pageWorkspace = (dir: string, name: string) => new Site(dir).page(name);
 
+/** Where a page's files are: its folder in the site's, or its part of the site's store when that isn't a folder. */
+export const pageStore = (dir: string, name: string): string | Store => (isRegistered(dir) ? new SubStore(siteStore(dir), name) : join(dir, name));
+
 /** The site a page folder belongs to (its parent folder, when that is a site and lists it), or null. */
 export function siteOf(pageDir: string): Site | null {
   const parent = dirname(pageDir);
@@ -201,5 +208,6 @@ export { type SiteSettings, LANG, langTag, type PublishSettings, publishSettings
 export { unsafeSVG, madeIcon, siteIcon, iconLink, setSiteIcon } from './icon.js';
 export { siteHead, setSiteHead, lastSiteHeadChange, siteCode, setSiteCode, headStyles, migrateHeadStyles, undoSiteHead, shareTheme, pagesWithOwnTheme } from './head.js';
 export { type MediaFile, siteMedia, removeMediaFile, moveToSite, moveSiteDuplicates, pruneMedia, siteFileRefs } from './media.js';
+export { type SiteStore, registerSite } from './history.js';
 export { SiteHistory, type SiteStep, type SiteEntry, type SiteChangeKind } from './history.js';
 export { blockUsers, siteFiles, shareBlock, movedFiles, linkBlock, unlinkBlock, identicalBoxes, shareIdentical } from './blocks.js';

@@ -1,11 +1,10 @@
 // The site's settings, site.json: its home page, its pages' titles, its language, where it's published.
 
-import { readFileSync } from 'node:fs';
-import { join } from 'node:path';
 import { walk } from '../model.js';
 import { Workspace } from '../workspace.js';
 import { sitePages } from './pages.js';
 import { SiteHistory, siteStore } from './history.js';
+import { pageStore } from './index.js';
 
 // ---------- the site's settings (site.json): its home page, its pages' titles, where it's published ----------
 // Written on the first change, so a site without one needs nothing. Pages that are gone are left out
@@ -59,7 +58,7 @@ export function publishSettingsError(p: Partial<PublishSettings>): string | null
 export function readSite(dir: string): SiteSettings {
   let raw: Partial<SiteSettings> = {};
   try {
-    raw = JSON.parse(readFileSync(join(dir, SITE_FILE), 'utf8'));
+    raw = JSON.parse(siteStore(dir).read(SITE_FILE) ?? '{}');
   } catch {}
   const pages = new Set(sitePages(dir));
   const titles = Object.fromEntries(Object.entries(raw.titles ?? {}).filter(([p, t]) => pages.has(p) && typeof t === 'string' && t.trim()));
@@ -148,7 +147,7 @@ export function pageTitle(dir: string, page: string, settings = readSite(dir)): 
  * (When shared blocks get slots, docs/plans/site-sharing-2.md phase 2, a slot this page fills can count again.)
  */
 export function derivedTitle(dir: string, page: string): string {
-  const ws = new Workspace(join(dir, page));
+  const ws = new Workspace(pageStore(dir, page));
   const l = ws.load();
   const order: string[] = [];
   walk(l.root, (n) => n.type === 'leaf' && !n.use && order.push(n.id));

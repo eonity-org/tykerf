@@ -12,12 +12,12 @@ import { DEFAULT_THEME, componentCode, copyBehaviours, createPage, hasTheme, pag
 import { Workspace } from '../workspace.js';
 import { kitList, kitRead, kitWrite } from '../kit.js';
 import { readSite, writeSite, setHome, pageTitle } from './settings.js';
-import { SiteHistory } from './history.js';
+import { SiteHistory, isRegistered, siteStore } from './history.js';
 import { copyPageFiles, fileHash, siteFilesByHash } from './media.js';
 import { mapPageFiles } from '../assets.js';
 import { iconLink } from './icon.js';
 import { SITE_HEAD, siteHead, startSiteTheme } from './head.js';
-import { pageWorkspace } from './index.js';
+import { pageStore, pageWorkspace } from './index.js';
 import { startBlock } from './blocks.js';
 
 /** The name of a new site's first page, which becomes its home page. */
@@ -27,8 +27,13 @@ export const PAGE_NAME = /^[a-z0-9][a-z0-9-]{0,62}$/;
 /** Names the editor uses at the top of its addresses. */
 export const RESERVED = new Set(['_tykerf', 'assets', 'out', 'pages', 'sitemap.xml', 'kit']);
 
-const isPage = (dir: string) => existsSync(join(dir, 'layout.slice'));
-const entries = (dir: string) => (existsSync(dir) ? readdirSync(dir) : []);
+// what a folder holds, through the site's store: a folder on disk, or a site in a store of its own (registerSite)
+const isPage = (dir: string) => siteStore(dir).exists('layout.slice');
+/** The names inside a folder of a site's store (files and folders); `sub` a folder in it. */
+const entries = (dir: string, sub = '') => {
+  const s = siteStore(dir);
+  return [...s.list(sub), ...s.folders(sub)];
+};
 
 /**
  * Whether a folder is a site: empty or new, or a folder of pages. Besides its pages it may hold files (head.html,
@@ -36,12 +41,11 @@ const entries = (dir: string) => (existsSync(dir) ? readdirSync(dir) : []);
  * other things that happen to include a page, such as a home folder with Desktop and Documents: not a site.
  */
 export function isSite(dir: string): boolean {
+  const s = siteStore(dir);
   let pages = 0;
-  for (const f of entries(dir).filter((f) => !f.startsWith('.'))) {
-    const path = join(dir, f);
-    if (!statSync(path).isDirectory()) continue;
-    if (isPage(path)) pages++;
-    else if (!RESERVED.has(f) && entries(path).some((g) => !g.startsWith('.'))) return false;
+  for (const f of s.folders('').filter((f) => !f.startsWith('.'))) {
+    if (s.exists(`${f}/layout.slice`)) pages++;
+    else if (!RESERVED.has(f) && entries(dir, f).some((g) => !g.startsWith('.'))) return false;
   }
   return pages > 0 || !entries(dir).some((f) => !f.startsWith('.'));
 }
@@ -59,16 +63,22 @@ export function siteKind(dir: string): 'page' | 'site' {
 
 /** The pages of a site: its subfolders that hold a page, sorted by name. */
 export function sitePages(dir: string): string[] {
-  return entries(dir)
-    .filter((f) => PAGE_NAME.test(f) && !RESERVED.has(f) && statSync(join(dir, f)).isDirectory() && isPage(join(dir, f)))
-    .sort();
+  // its folders that hold a page, through the site's store (a folder, or a site in memory)
+  const s = siteStore(dir);
+  return s.folders('').filter((f) => PAGE_NAME.test(f) && !RESERVED.has(f) && s.exists(`${f}/layout.slice`));
+}
+
+/** Renames, removals and copies move a page's whole folder: only for a site in a folder (not one in memory). */
+function folderOnly(dir: string, what: string) {
+  if (isRegistered(dir)) throw new Error(`${what} needs a site in a folder`);
 }
 
 /** Why a name can't be a new page of the site, or null when it can. */
 export function pageNameError(dir: string, name: string): string | null {
   if (!PAGE_NAME.test(name)) return `"${name}" can't be a page name: use lowercase letters, digits and -, starting with a letter or digit`;
   if (RESERVED.has(name)) return `"${name}" is used by TYKERF itself; choose another name`;
-  if (existsSync(join(dir, name))) return `there is already a "${name}" in the site`;
+  const s = siteStore(dir);
+  if (s.folders('').includes(name) || s.exists(name)) return `there is already a "${name}" in the site`;
   return null;
 }
 
@@ -82,7 +92,7 @@ export function newSitePage(dir: string, name: string, layout = 'blank', themeNa
   const err = pageNameError(dir, name);
   if (err) throw new Error(err);
   const first = !sitePages(dir).length;
-  const fresh = first && !existsSync(join(dir, SITE_HEAD));
+  const fresh = first && !siteStore(dir).exists(SITE_HEAD);
   const ws = pageWorkspace(dir, name);
   const shared = hasTheme(siteHead(dir)) || fresh;
   createPage(ws, layout, themeName, { ownTheme: !shared });
@@ -348,7 +358,7 @@ export function rewriteLinks(dir: string, from: string, to: string): number {
   }
   // each page's own code (a box that shows a shared block keeps its own file for when it's unlinked: it follows too)
   for (const page of sitePages(dir)) {
-    const ws = new Workspace(join(dir, page));
+    const ws = new Workspace(pageStore(dir, page));
     ws.transaction(() => ws.group(`links follow page ${from} → ${to}`, 'user', () => {
       for (const id of ws.boxIds()) {
         const html = ws.content(id);
@@ -401,12 +411,12 @@ const MOVES = '.tykerf/moves.jsonl';
 export interface PageMove { from: string; to: string | null; at: string }
 
 function logMove(dir: string, from: string, to: string | null) {
-  new FolderStore(dir).append(MOVES, `${JSON.stringify({ from, to, at: new Date().toISOString() })}\n`);
+  siteStore(dir).append(MOVES, `${JSON.stringify({ from, to, at: new Date().toISOString() })}\n`);
 }
 
 /** Every page move the site recorded, oldest first. */
 export function pageMoves(dir: string): PageMove[] {
-  const raw = new FolderStore(dir).read(MOVES) ?? '';
+  const raw = siteStore(dir).read(MOVES) ?? '';
   return raw.split('\n').flatMap((l) => { try { return l ? [JSON.parse(l) as PageMove] : []; } catch { return []; } });
 }
 
@@ -424,6 +434,7 @@ function renamedInSettings(text: string, from: string, to: string): string {
 }
 
 export function renamePage(dir: string, from: string, to: string): { links: number } {
+  folderOnly(dir, 'renaming a page');
   if (!sitePages(dir).includes(from)) throw new Error(`there is no page "${from}" in the site`);
   if (from === to) return { links: 0 };
   const err = pageNameError(dir, to);
@@ -447,6 +458,7 @@ export function renamePage(dir: string, from: string, to: string): { links: numb
  * none is given). Its history and Kaity's conversations stay with the original. A title of its own gets "(copy)".
  */
 export function duplicatePage(dir: string, from: string, to?: string): string {
+  folderOnly(dir, 'duplicating a page');
   if (!sitePages(dir).includes(from)) throw new Error(`there is no page "${from}" in the site`);
   let name = to?.trim() || `${from}-copy`.slice(0, 60);
   if (!to?.trim()) for (let i = 2; existsSync(join(dir, name)); i++) name = `${from}-copy-${i}`;
@@ -489,6 +501,7 @@ export interface TrashedPage {
 
 /** The pages in the site's .trash (removePage), the latest removed first. */
 export function trashedPages(dir: string): TrashedPage[] {
+  if (isRegistered(dir)) return []; // a site in a store of its own has no trash: removing a page needs a folder
   const trash = join(dir, '.trash');
   if (!existsSync(trash)) return [];
   return readdirSync(trash).filter((f) => !f.startsWith('.') && statSync(join(trash, f)).isDirectory()).map((folder) => {
@@ -499,6 +512,7 @@ export function trashedPages(dir: string): TrashedPage[] {
 
 /** Delete the removed pages for good: the site's .trash folder goes. Returns how many pages were in it. */
 export function emptyTrash(dir: string): number {
+  if (isRegistered(dir)) return 0; // no trash (see trashedPages)
   const n = trashedPages(dir).length;
   rmSync(join(dir, '.trash'), { recursive: true, force: true });
   return n;
@@ -506,6 +520,7 @@ export function emptyTrash(dir: string): number {
 
 /** Remove a page from the site. Nothing is deleted: the folder goes to .trash/. Returns the links that now point nowhere. */
 export function removePage(dir: string, name: string): { trash: string; broken: number } {
+  folderOnly(dir, 'removing a page');
   if (!sitePages(dir).includes(name)) throw new Error(`there is no page "${name}" in the site`);
   const s = readSite(dir);
   if (s.home === name || name in s.titles) {

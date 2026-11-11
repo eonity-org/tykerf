@@ -25,6 +25,10 @@ export interface Store {
   exists(path: string): boolean;
   /** Names of the files directly inside a folder ('' = the top), sorted; [] when the folder doesn't exist. */
   list(dir: string): string[];
+  /** Names of the folders directly inside a folder ('' = the top), sorted (a site's pages are folders). */
+  folders?(dir: string): string[];
+  /** A file's time and size, to tell it changed without reading it (caches use it); null when it isn't there. */
+  stamp?(path: string): string | null;
   /** Call `onChange` with the path of each file changed from outside this object. Returns a stop function. */
   watch?(onChange: (path: string) => void): () => void;
   /**
@@ -114,6 +118,11 @@ export class FolderStore implements Store {
     const d = checkDir(dir) ? this.abs(dir) : this.root;
     if (!existsSync(d)) return [];
     return readdirSync(d).filter((f) => !isTmp(f) && statSync(join(d, f)).isFile()).sort();
+  }
+  folders(dir: string) {
+    const d = checkDir(dir) ? this.abs(dir) : this.root;
+    if (!existsSync(d)) return [];
+    return readdirSync(d).filter((f) => !isTmp(f) && f !== LOCK && statSync(join(d, f)).isDirectory()).sort();
   }
   private held = 0;
   lock<T>(fn: () => T): T {
@@ -242,6 +251,16 @@ export class MemoryStore implements Store {
       .map((p) => p.slice(prefix.length))
       .sort();
   }
+  folders(dir: string) {
+    const prefix = checkDir(dir) ? `${dir}/` : '';
+    const out = new Set<string>();
+    for (const p of this.files.keys()) if (p.startsWith(prefix) && p.slice(prefix.length).includes('/')) out.add(p.slice(prefix.length).split('/')[0]);
+    return [...out].sort();
+  }
+  /** One process holds a store in memory: a read-modify-write is whole as it is. */
+  lock<T>(fn: () => T): T {
+    return fn();
+  }
   /** Every file, for copying the page elsewhere (export, sync to a remote store). */
   snapshot(): Record<string, Uint8Array> {
     return Object.fromEntries([...this.files].map(([p, b]) => [p, b.slice()]));
@@ -259,3 +278,25 @@ export class MemoryStore implements Store {
 }
 
 const bytes = (d: string | Uint8Array) => (typeof d === 'string' ? new TextEncoder().encode(d) : d.slice());
+
+/**
+ * Another store's files under a folder, as a store of their own: a page of a site whose files aren't in a folder
+ * on disk (a site in memory: tests, previews; later a remote one). Its lock is its parent's.
+ */
+export class SubStore implements Store {
+  readonly location: string;
+  constructor(readonly parent: Store, readonly prefix: string) {
+    checkPath(prefix);
+    this.location = `${parent.location.replace(/\/$/, '')}/${prefix}`;
+  }
+  private at = (path: string) => `${this.prefix}/${checkPath(path)}`;
+  read(path: string) { return this.parent.read(this.at(path)); }
+  readBytes(path: string) { return this.parent.readBytes(this.at(path)); }
+  write(path: string, data: string | Uint8Array) { this.parent.write(this.at(path), data); }
+  append(path: string, text: string) { this.parent.append(this.at(path), text); }
+  remove(path: string) { this.parent.remove(this.at(path)); }
+  exists(path: string) { return this.parent.exists(this.at(path)); }
+  list(dir: string) { return this.parent.list(checkDir(dir) ? this.at(dir) : this.prefix); }
+  folders(dir: string) { return this.parent.folders?.(checkDir(dir) ? this.at(dir) : this.prefix) ?? []; }
+  lock<T>(fn: () => T): T { return this.parent.lock ? this.parent.lock(fn) : fn(); }
+}

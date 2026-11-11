@@ -3,7 +3,6 @@
 
 import { createHash } from 'node:crypto';
 import type { Store } from '../store.js';
-import { FolderStore } from '../store.js';
 import type { Workspace } from '../workspace.js';
 import { mapPageFiles, pageFileRefs } from '../assets.js';
 import { SiteHistory, siteStore } from './history.js';
@@ -15,7 +14,7 @@ const hashes = new Map<string, { stamp: string; hash: string }>();
 
 /** A hash of a file's bytes (cached by its time and size in a folder store), or null when it isn't there. */
 export function fileHash(store: Store, path: string): string | null {
-  const stamp = store instanceof FolderStore ? store.stamp(path) : null;
+  const stamp = store.stamp?.(path) ?? null;
   const key = `${store.location}\0${path}`;
   if (stamp) {
     const known = hashes.get(key);
@@ -106,13 +105,14 @@ const listings = new Map<string, { stamp: string; files: MediaFile[] }>();
 function mediaStamp(dir: string): string {
   const site = siteStore(dir);
   const parts: string[] = [];
-  const add = (s: FolderStore, path: string) => parts.push(`${s.root}/${path}=${s.stamp(path)}`);
+  // (a store that can't tell a file's time gives a value never the same, so its listing is never kept)
+  const add = (s: Store, path: string) => parts.push(`${s.location}/${path}=${s.stamp ? String(s.stamp(path)) : Math.random()}`);
   for (const f of ['head.html', '.tykerf/site.jsonl', '.tykerf/site-redo.jsonl']) add(site, f);
   for (const kind of ['styles', 'blocks']) for (const f of site.list(`kit/${kind}`)) add(site, `kit/${kind}/${f}`);
   add(site, 'kit/fonts.json');
   for (const f of site.list('assets')) add(site, `assets/${f}`);
   for (const p of sitePages(dir)) {
-    const s = new FolderStore(`${dir}/${p}`);
+    const s = pageWorkspace(dir, p).store;
     for (const f of ['layout.slice', 'head.html', 'contents.json', '.history.jsonl', '.redo.jsonl', '.tykerf/buffer.json', '.images.json']) add(s, f);
     for (const f of s.list('boxes')) add(s, `boxes/${f}`);
     for (const f of s.list('assets')) add(s, `assets/${f}`);
@@ -123,7 +123,7 @@ function mediaStamp(dir: string): string {
 /** Every file of the site and of its pages, with who uses it, newest knowledge (cached while nothing changed). */
 export function siteMedia(dir: string): MediaFile[] {
   const stamp = mediaStamp(dir);
-  const root = siteStore(dir).root;
+  const root = siteStore(dir).location;
   const known = listings.get(root);
   if (known?.stamp === stamp) return known.files;
   const site = siteStore(dir);

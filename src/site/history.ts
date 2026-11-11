@@ -15,7 +15,7 @@
 
 import { createHash, randomUUID } from 'node:crypto';
 import { resolve } from 'node:path';
-import { FolderStore } from '../store.js';
+import { FolderStore, type Store, SubStore } from '../store.js';
 import { trimSteps } from '../history-trim.js';
 
 export type SiteChangeKind = 'head' | 'kit' | 'settings' | 'file';
@@ -64,9 +64,31 @@ const ARCHIVE = '.tykerf/site-archive.jsonl';
 const OLD_HEAD = '.tykerf/site-head.jsonl';
 const OLD_KIT = '.tykerf/kit.jsonl';
 
-const stores = new Map<string, FolderStore>();
-/** The site folder's one store in this process (its lock is reentrant within it). */
-export function siteStore(dir: string): FolderStore {
+/** A store a site lives in: any Store with a lock (a FolderStore's is the folder's; a MemoryStore's is a no-op). */
+export type SiteStore = Store & { lock<T>(fn: () => T): T; folders(dir: string): string[] };
+
+const stores = new Map<string, SiteStore>();
+// sites that aren't folders (in memory: tests, previews; later remote), by their store's location
+const registered = new Map<string, SiteStore>();
+
+/**
+ * Make a site of a store that isn't a folder (new Site(store)): every site function given its location as the
+ * site's "dir" works on it. Returns that location.
+ */
+export function registerSite(store: SiteStore): string {
+  registered.set(store.location, store);
+  return store.location;
+}
+
+/** Whether a site's "dir" is a site in a store of its own (registerSite), not a folder. */
+export const isRegistered = (dir: string) => registered.has(dir);
+
+/** The site's one store in this process (its lock is reentrant within it): the folder's, or a registered one. */
+export function siteStore(dir: string): SiteStore {
+  const known = registered.get(dir);
+  if (known) return known;
+  // a folder inside a site in a store of its own (memory:shop/home): that store's files under its name
+  for (const [at, store] of registered) if (dir.startsWith(`${at}/`)) return new SubStore(store, dir.slice(at.length + 1));
   const root = resolve(dir);
   let s = stores.get(root);
   if (!s) stores.set(root, (s = new FolderStore(root)));
@@ -80,7 +102,7 @@ const lines = (text: string | null) => (text ?? '').split('\n').filter(Boolean);
 const jsonl = (rows: string[]) => rows.map((l) => l + '\n').join('');
 
 export class SiteHistory {
-  readonly store: FolderStore;
+  readonly store: SiteStore;
 
   constructor(readonly dir: string) {
     this.store = siteStore(dir);
@@ -177,7 +199,7 @@ export class SiteHistory {
     this.store.append(HISTORY, JSON.stringify(e) + '\n');
     const hadRedo = this.store.exists(REDO);
     this.store.remove(REDO);
-    if (grouping.has(this.store.root)) return;
+    if (grouping.has(this.store.location)) return;
     const cut = trimSteps(lines(this.store.read(HISTORY)));
     if (cut) {
       this.store.append(ARCHIVE, cut.archived);
@@ -199,7 +221,7 @@ export class SiteHistory {
    * reverts them together. If `fn` throws, what it changed is undone. A group inside a group is part of it.
    */
   group<T>(label: string, author: string, fn: () => T): T {
-    const root = this.store.root;
+    const root = this.store.location;
     if (grouping.has(root)) return fn();
     return this.store.lock(() => {
       const before = this.lines().length;

@@ -1,12 +1,13 @@
 // The site's icon (favicon).
 
-import { existsSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
-import { basename, join } from 'node:path';
+import { basename } from 'node:path';
 import { readTheme } from '../library.js';
 import { Workspace } from '../workspace.js';
 import { sitePages } from './pages.js';
 import { readSite } from './settings.js';
 import { siteHead } from './head.js';
+import { SiteHistory, siteStore } from './history.js';
+import { pageStore } from './index.js';
 
 // ---------- the site's icon (favicon) ----------
 // A site's icon is its own file at the site's root (favicon.svg, .png or .ico: uploaded in the site manager),
@@ -34,7 +35,7 @@ export function madeIcon(dir: string): string {
   const page = s.home ?? pages[0];
   const letter = ((page ?? basename(dir)).match(/[a-z0-9]/i)?.[0] ?? 'T').toUpperCase();
   // the theme: the site's shared one, else the home page's own
-  const theme = { ...(page ? readTheme(new Workspace(join(dir, page)).head()) : {}), ...readTheme(siteHead(dir)) };
+  const theme = { ...(page ? readTheme(new Workspace(pageStore(dir, page)).head()) : {}), ...readTheme(siteHead(dir)) };
   const bg = plainColor(theme['--color-accent'], '#0A5475');
   const fg = plainColor(theme['--color-on-accent'], '#ffffff');
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" height="64" rx="14" fill="${bg}"/>` +
@@ -43,9 +44,10 @@ export function madeIcon(dir: string): string {
 
 /** The site's icon: its own file, or the one made from it. */
 export function siteIcon(dir: string): { file: string; type: string; bytes: Uint8Array; own: boolean } {
+  const store = siteStore(dir);
   for (const file of OWN_ICONS) {
-    const p = join(dir, file);
-    if (existsSync(p)) return { file, type: ICON_TYPES[file.split('.').pop()!], bytes: readFileSync(p), own: true };
+    const bytes = store.readBytes(file);
+    if (bytes) return { file, type: ICON_TYPES[file.split('.').pop()!], bytes, own: true };
   }
   return { file: 'favicon.svg', type: ICON_TYPES.svg, bytes: new TextEncoder().encode(madeIcon(dir)), own: false };
 }
@@ -57,7 +59,7 @@ export function iconLink(dir: string): string {
 }
 
 /** Give the site an icon of its own (SVG, PNG or ICO, up to 512 KB), or go back to the made one (null). */
-export function setSiteIcon(dir: string, icon: { type: string; bytes: Uint8Array } | null) {
+export function setSiteIcon(dir: string, icon: { type: string; bytes: Uint8Array } | null, author = 'user') {
   if (icon) {
     const ext = Object.keys(ICON_TYPES).find((e) => ICON_TYPES[e] === icon.type || (e === 'ico' && icon.type === 'image/vnd.microsoft.icon'));
     if (!ext) throw new Error('the icon must be SVG, PNG or ICO');
@@ -69,7 +71,19 @@ export function setSiteIcon(dir: string, icon: { type: string; bytes: Uint8Array
       const why = unsafeSVG(new TextDecoder().decode(b));
       if (why) throw new Error(`this SVG can't be the site's icon: ${why}`);
     }
-    for (const f of OWN_ICONS) rmSync(join(dir, f), { force: true });
-    writeFileSync(join(dir, `favicon.${ext}`), b);
-  } else for (const f of OWN_ICONS) rmSync(join(dir, f), { force: true });
+    // one step of the site's history: the icon it had out, this one in (undo puts the old one back)
+    const history = new SiteHistory(dir);
+    const same = history.store.readBytes(`favicon.${ext}`);
+    if (same && Buffer.from(same).equals(b)) return;
+    // (a group of one change keeps that change's label: each says what the whole does)
+    history.group('the site\'s icon', author, () => {
+      for (const f of OWN_ICONS) history.removeFile(f, 'the site\'s icon', author);
+      history.addFile(`favicon.${ext}`, b, 'the site\'s icon', author);
+    });
+  } else {
+    const history = new SiteHistory(dir);
+    history.group('the site\'s icon made from its name again', author, () => {
+      for (const f of OWN_ICONS) history.removeFile(f, 'the site\'s icon made from its name again', author);
+    });
+  }
 }

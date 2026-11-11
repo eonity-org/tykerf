@@ -1,24 +1,21 @@
 // What a page still has to be finished (src/check.ts): the placeholders layouts and components bring,
 // and links without a real target.
 
-import { mkdtempSync, writeFileSync, mkdirSync } from 'node:fs';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { leftoverKey, leftovers, say } from '../src/check.js';
 import { openTools } from '../src/editor/tools-client.js';
 import { createPage } from '../src/library.js';
-import { MemoryStore } from '../src/store.js';
+import { MemoryStore, SubStore } from '../src/store.js';
 import { Workspace } from '../src/workspace.js';
 import { Site } from '../src/site.js';
 
-/** A real site in a temporary folder, with these pages (blank) and these files in its assets/. */
+/** A real site in memory, with these pages (blank) and these files in its assets/. */
+let sites = 0;
 function siteWith(pages: string[], files: string[] = []): Site {
-  const dir = mkdtempSync(join(tmpdir(), 'tykerf-check-'));
-  for (const p of pages) createPage(new Workspace(join(dir, p)), 'blank');
-  if (files.length) mkdirSync(join(dir, 'assets'));
-  for (const f of files) writeFileSync(join(dir, 'assets', f), '');
-  return new Site(dir);
+  const store = new MemoryStore(`memory:check-${++sites}`);
+  for (const p of pages) createPage(new Workspace(new SubStore(store, p)), 'blank');
+  for (const f of files) store.write(`assets/${f}`, '');
+  return new Site(store);
 }
 
 /** A page in memory, in a site with these pages (or in none). */

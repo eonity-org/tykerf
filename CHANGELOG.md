@@ -8,6 +8,9 @@
 
 ## Unreleased
 
+- **The site's icon can be undone.** Uploading an icon, or going back to the one made from the site's name, is a step of the site's history: **Undo** in the site manager puts the previous icon back.
+- **For developers: a site in memory.** `new Site(new MemoryStore('memory:shop'))` is a whole site, its pages views of the store: tests and previews no longer need a folder. Renaming, removing and duplicating pages still need one.
+
 - **Pasting a shared block keeps it shared.** A removed navigation or footer, pasted elsewhere, became a copy of its code that no later change reached. It is the shared block now (pasted into a box, the box shows it); **Make this page's own copy** gives a copy when one is wanted.
 
 - **A picture added to a shared block from a page is the site's.** The image tool saved it in that page's files, so the navigation showed it on that page only; it goes to the site's files now (`/assets/…`), for every page.

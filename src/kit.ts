@@ -142,7 +142,7 @@ export function kitWrite(dir: string, kind: KitKind, name: string, text: string 
     if (err) throw new Error(err);
   }
   const s = store(dir);
-  if (kind === 'styles') hashes.delete(s.root); // (the files' times also tell; a same-size edit in the same millisecond might not)
+  if (kind === 'styles') hashes.delete(s.location); // (the files' times also tell; a same-size edit in the same millisecond might not)
   if (kind === 'fonts') return writeFonts(dir, text, label, author);
   return s.lock(() => {
     const prev = s.read(path);
@@ -250,11 +250,12 @@ export function kitStylesHash(dir: string): string {
   const s = store(dir);
   const files = kitList(dir).styles;
   if (!files.length) return '';
-  const stamp = files.map((n) => `${n}=${s.stamp(kitPath('styles', n))}`).join('|');
-  const known = hashes.get(s.root);
-  if (known?.stamp === stamp) return known.hash;
+  // (a store that can't tell a file's time, as one in memory, makes it again each time: its files are few and near)
+  const stamp = s.stamp ? files.map((n) => `${n}=${s.stamp!(kitPath('styles', n))}`).join('|') : null;
+  const known = hashes.get(s.location);
+  if (stamp !== null && known?.stamp === stamp) return known.hash;
   const hash = createHash('sha1').update(kitCSS(dir)).digest('hex').slice(0, 12);
-  hashes.set(s.root, { stamp, hash });
+  if (stamp !== null) hashes.set(s.location, { stamp, hash });
   return hash;
 }
 

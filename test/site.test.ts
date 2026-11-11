@@ -825,6 +825,15 @@ describe("the site's head code", () => {
     setSiteIcon(dir, null);
     expect(siteIcon(dir)).toMatchObject({ file: 'favicon.svg', own: false });
     expect(sitePages(dir)).toEqual(['munich', 'rome']); // icon files aren't pages
+    // each change is a step of the site's history: undo puts the icon before it back, redo takes it again
+    const site = new Site(dir);
+    expect(site.undo()).toBe('the site\'s icon made from its name again');
+    expect(siteIcon(dir)).toMatchObject({ file: 'favicon.svg', own: true });
+    expect(site.undo()).toBe('the site\'s icon');
+    expect(siteIcon(dir)).toMatchObject({ file: 'favicon.png', own: true });
+    expect(readdirSync(dir).filter((f) => f.startsWith('favicon'))).toEqual(['favicon.png']);
+    site.redo();
+    expect(siteIcon(dir)).toMatchObject({ file: 'favicon.svg', own: true });
   });
 });
 
