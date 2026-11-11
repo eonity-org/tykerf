@@ -128,6 +128,8 @@ export interface SiteLike {
   fonts(): FontRegistry;
   /** Put a file in the site's assets/ when it has none of that name (a library picture a shared block uses). */
   putFile(file: string, bytes: Uint8Array): void;
+  /** Give the site a library behaviour (kit/scripts/<name>.js) it hasn't got; whether it was written. */
+  useBehaviour(name: string, code: string, author: string): boolean;
   /** A shared block's code (kit/blocks/<name>.html), or null. */
   block(name: string): string | null;
   /**

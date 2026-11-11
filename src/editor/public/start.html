@@ -578,7 +578,7 @@ const kEditor = kitSec.querySelector('.editor'), kName = kEditor.querySelector('
 const kMsg = kEditor.querySelector('.msg'), kitMsg = kitSec.querySelector('.kmsg');
 const KINDS = [
   ['styles', () => t('Styles'), () => t('CSS for every page, after the theme and before each page\'s own styles.'), '/* every page */\n'],
-  ['scripts', () => t('Behaviours'), () => t('A module per behaviour; an element with data-use="<name>" turns it on.'), 'export default function (el) {\n  // what it does to el\n  return () => { /* undo it */ };\n}\n'],
+  ['scripts', () => t('Behaviours'), () => t('A module per behaviour; an element with data-use="<name>" turns it on.'), '// A behaviour: every element with data-use="<this file\'s name>" gets it, on every page.\nexport default function (el) {\n  // el is that element: add listeners to it, change it, read its data-* attributes.\n  const onClick = () => el.classList.toggle(\'open\');\n  el.addEventListener(\'click\', onClick);\n  // the function it returns undoes it (the editor re-renders the page, and runs it again)\n  return () => el.removeEventListener(\'click\', onClick);\n}\n'],
   ['blocks', () => t('Shared blocks'), () => t('A box shows one with Use a shared block… in the editor; a change reaches every page that shows it.'), '<nav>\n</nav>\n'],
   ['types', () => t('Box types'), () => t('Rules for boxes of a type, on every page (a page\'s own type of the same name wins).'), '{\n  "content": { "scripts": false }\n}\n'],
   ['tags', () => t('Tags'), () => t('The site\'s own tags, offered in Size & look; style each as .t-<tag> in a styles file.'), '{\n  "highlighted": { "label": "Highlighted", "description": "A thin accent border" }\n}\n'],
@@ -597,6 +597,15 @@ async function openKit() {
       ...files.map((n) => {
         const b = el('button', { type: 'button', className: 'link file', textContent: kind === 'tags' ? 'tags.json' : n });
         b.onclick = () => editKit(kind, n);
+        // a behaviour from the library: say so, and offer the library's version when the site's copy differs
+        if (kind === 'scripts' && j.library?.[n]) {
+          const row = el('span', { className: 'from-library' }, b, el('span', { className: 'users', textContent: ` (${t('the library\'s')})` }));
+          if (j.library[n] === 'changed') row.append(' ', Object.assign(el('button', { type: 'button', className: 'update-behaviour', textContent: t('Update from the library') }), {
+            title: t('Replace the site\'s copy with the library\'s version (Undo takes it back)'),
+            onclick: () => kitDo('/_tykerf/site/kit/update-behaviour', { name: n }, () => t('{name} is the library\'s version again.', { name: n })),
+          }));
+          return row;
+        }
         if (kind !== 'blocks') return b;
         // a shared block: Edit block, and the pages that show it, each opening on its box
         const where = j.where?.[n] ?? {};

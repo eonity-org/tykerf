@@ -8,7 +8,7 @@ import { type Layout, type Node, find, isOp, walk } from '../model.js';
 import * as M from '../moves.js';
 import { serializeSlice } from '../notation.js';
 import { FolderStore } from '../store.js';
-import { DEFAULT_THEME, componentCode, createPage, hasTheme, pageLayouts, readTheme, themes, withFonts, withOverrides } from '../library.js';
+import { DEFAULT_THEME, componentCode, copyBehaviours, createPage, hasTheme, pageLayouts, readTheme, themes, withFonts, withOverrides } from '../library.js';
 import { Workspace } from '../workspace.js';
 import { kitList, kitRead, kitWrite } from '../kit.js';
 import { readSite, writeSite, setHome, pageTitle } from './settings.js';
@@ -89,6 +89,8 @@ export function newSitePage(dir: string, name: string, layout = 'blank', themeNa
   if (fresh) startSiteTheme(dir, themeName);
   // a site's first page is its home: the site's address opens it
   if (first && !readSite(dir).home) setHome(dir, name);
+  // the library behaviours its components ask for (data-use) come into the site's kit
+  copyBehaviours(ws, Object.values(ws.contents()).join('\n'));
   if (opts.shared !== false) linkSharedBoxes(dir, ws, layout);
   return ws;
 }

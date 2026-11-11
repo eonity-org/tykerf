@@ -142,6 +142,12 @@ export class Site implements SiteLike {
     return kitFonts(this.dir);
   }
 
+  useBehaviour(name: string, code: string, author: string): boolean {
+    if (kitRead(this.dir, 'scripts', name) !== null) return false;
+    kitWrite(this.dir, 'scripts', name, code, `add behaviour ${name} from the library`, author);
+    return true;
+  }
+
   putFile(file: string, bytes: Uint8Array) {
     if (!this.store.exists(`assets/${file}`)) this.store.write(`assets/${file}`, bytes);
   }

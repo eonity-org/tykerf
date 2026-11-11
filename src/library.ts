@@ -68,6 +68,44 @@ export function pageLayouts(): PageLayout[] {
   return Object.entries(json<Record<string, Omit<PageLayout, 'name'>>>('layouts.json')).map(([name, p]) => ({ name, ...p }));
 }
 
+/** A behaviour the library ships (library/behaviours/<name>.js): a component asks for it with data-use="<name>". */
+export interface LibraryBehaviour extends ComponentInfo {
+  /** The markup it expects. */
+  markup: string;
+  /** Used by no component: for people (and Kaity) to use in their own code. */
+  standalone?: boolean;
+}
+
+export function libraryBehaviours(): LibraryBehaviour[] {
+  return Object.entries(json<Record<string, Omit<LibraryBehaviour, 'name'>>>('behaviours.json')).map(([name, b]) => ({ name, ...b }));
+}
+
+/** A library behaviour's code, or null when the library has none of that name. */
+export function behaviourCode(name: string): string | null {
+  if (!NAME.test(name) || !libraryBehaviours().some((b) => b.name === name)) return null;
+  return readFileSync(join(DIR, 'behaviours', `${name}.js`), 'utf8');
+}
+
+/** The behaviours some code asks for (data-use="a b"), by name. */
+export function behavioursIn(code: string): string[] {
+  return [...new Set([...code.matchAll(/\bdata-use\s*=\s*["']([^"']*)["']/gi)].flatMap((m) => m[1].trim().split(/\s+/)).filter(Boolean))];
+}
+
+/**
+ * Give a page's site the library behaviours some code asks for, as fonts are copied: each one its kit lacks is
+ * written to kit/scripts/<name>.js (a step of the site's history). Outside a site nothing is copied: the code
+ * still works as plain HTML (a form sends, a <details> opens), only without the behaviour.
+ */
+export function copyBehaviours(ws: Workspace, code: string, author = 'user'): string[] {
+  if (!ws.site) return [];
+  const added: string[] = [];
+  for (const name of behavioursIn(code)) {
+    const lib = behaviourCode(name);
+    if (lib !== null && ws.site.useBehaviour(name, lib, author)) added.push(name);
+  }
+  return added;
+}
+
 export function componentCode(name: string): string {
   if (!NAME.test(name) || !components().some((c) => c.name === name)) throw new Error(`unknown component "${name}" (known: ${components().map((c) => c.name).join(', ')})`);
   return readFileSync(join(DIR, 'components', `${name}.html`), 'utf8');
@@ -245,6 +283,7 @@ export function useLayout(ws: Workspace, name: string, author = 'user') {
     for (const [box, c] of Object.entries(t.boxes)) {
       const code = componentCode(c);
       copyAssets(ws, code);
+      copyBehaviours(ws, code, author);
       ws.setContent(box, code, author);
     }
     if (!hasTheme(ws.siteHead() + ws.head())) ws.setHead(withFonts(ws, themeVariables() + ws.head()), author);
@@ -266,9 +305,11 @@ export function useComponent(ws: Workspace, id: string, name: string, author = '
         site.putFile(f, new Uint8Array(readFileSync(src)));
         return `/assets/${f}`;
       });
+      copyBehaviours(ws, code, author);
       return ws.setContent(id, shared, author);
     }
     copyAssets(ws, code);
+    copyBehaviours(ws, code, author);
     ws.setContent(id, code, author);
   });
 }

@@ -8,6 +8,9 @@
 
 ## Unreleased
 
+- **Behaviours from the library.** TYKERF ships six: a contact form that says thank you (and sends to your form service), an accordion, tabs, a carousel, a reveal on scroll and the current year. The contact form, the FAQ and the footer use them; using one brings its behaviour into the site kit, and the kit says which are the library's (with **Update from the library** when it has another version). Writing `data-use="tabs"` in a box's code brings that one too; the Code tab points at one when a box's own script does the same. Kaity sees them in `list_components`.
+- **Behaviours are checked.** + New starts one from a template; saving one without a default export, or with a mistake in its code, is refused; and one that fails on a page is said in the editor (*A behaviour failed on this page*).
+
 - **Add files.** Kaity's `add_file` (and `add_files`, up to 50) brings a picture, a font or a PDF into a page or the site, from an address, a picture attached to the request, or (in Claude Desktop and the plugin) a file on your computer; each is checked by its content, up to 25 MB, kept once, and taken back by Undo. The reply says what to write. **Add files…** does the same in the Page tab and the site manager. Long code can come from a file too (`set_content` with `file`).
 - **Shared things use the site's files.** A picture Kaity draws for the whole site or for a shared block, and a component's pictures in a shared block, are the site's. Copying a page takes only the files it has of its own, and never one the site already has (the copy points at the site's).
 - **Media** in the site manager: every file of the site and its pages, with who uses each; add files, move a page's file to the site (every page with the same file uses the site's), use the site's files where pages have copies, and move the unused ones to the trash, each a step Undo takes back. Kaity has `list_files` and `remove_file`.

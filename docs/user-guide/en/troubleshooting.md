@@ -89,6 +89,10 @@ TYKERF edits in place only when it can find that exact text in the box's code. T
 **An image is the wrong size on the page.**
 An image's size comes from its box or from the section's layout, not from the image file. Drag the box's handles, or leave Kaity a task on the section. See [Editing in place](editor.md#editing-in-place).
 
+**"A behaviour failed on this page"**
+
+A behaviour of the site kit (a script an element asks for with `data-use`) stopped with an error on this page. The browser's console (right-click → *Inspect* → *Console*) says why and on which element. Open it in the site manager (*Site kit & head code*, under *Behaviours*): an element missing what it expects, often; for a library behaviour that you changed, **Update from the library** puts its version back.
+
 ## Copying, exporting and publishing
 
 **The copy of a website looks different from the original.**

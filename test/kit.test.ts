@@ -7,7 +7,7 @@ import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { leftovers, say } from '../src/check.js';
 import { exportFiles } from '../src/export.js';
-import { KIT_LOADER, kitFonts, kitClasses, kitCSS, kitStylesHash, blockSlots, fillSlots, slotValues, unfillSlots, withSlotValues, kitError, kitWarning, kitList, kitRead, kitStyles, kitTags, kitWrite, lastKitChange, markCurrentPage, undoKit } from '../src/kit.js';
+import { KIT_LOADER, kitLibraryScripts, kitFonts, kitClasses, kitCSS, kitStylesHash, blockSlots, fillSlots, slotValues, unfillSlots, withSlotValues, kitError, kitWarning, kitList, kitRead, kitStyles, kitTags, kitWrite, lastKitChange, markCurrentPage, undoKit } from '../src/kit.js';
 import { parseSlice, serializeSlice } from '../src/notation.js';
 import { Site, blockUsers, identicalBoxes, linkBlock, newSitePage, pageWorkspace, shareBlock, shareIdentical, unlinkBlock } from '../src/site.js';
 import { contentHash, pageFileRefs } from '../src/assets.js';
@@ -67,7 +67,10 @@ describe('kit files', () => {
     const before = ws.page();
     kitWrite(dir, 'styles', 'b-buttons', '.btn { padding: 2px }');
     expect(pageWorkspace(dir, 'home').page()).not.toBe(before);
-    expect(html).not.toContain('/kit/loader.js');
+    // (the launch layout's FAQ and footer brought the library's accordion and year: the loader is there)
+    expect(html).toContain('<script type="module" src="/kit/loader.js"></script>');
+    const plain = mkdtempSync(join(tmpdir(), 'tykerf-kit-plain-'));
+    expect(newSitePage(plain, 'home', 'blank', 'studio').page()).not.toContain('/kit/loader.js'); // no behaviour, no loader
     kitWrite(dir, 'scripts', 'reveal', 'export default (el) => el.classList.add("shown");');
     expect(pageWorkspace(dir, 'home').page()).toContain('<script type="module" src="/kit/loader.js"></script>');
     // the site head's theme is never written with the kit in it
@@ -137,6 +140,39 @@ describe("the site's fonts", () => {
     const site = await openTools(pageWorkspace(dir, 'home'), '', dir);
     expect((await site.call('list_kit', {})).text).toContain('fonts: "Diavlo" (400, 700; licence: free for web use)');
     await site.close();
+  });
+});
+
+describe("the library's behaviours", () => {
+  it('come into the kit when a page uses a component that asks for one, and say when the library has another version', async () => {
+    const { behaviourCode, useComponent } = await import('../src/library.js');
+    const dir = mkdtempSync(join(tmpdir(), 'tykerf-behaviours-'));
+    newSitePage(dir, 'home', 'launch', 'studio'); // its FAQ asks for accordion, its footer for year
+    expect(kitRead(dir, 'scripts', 'accordion')).toBe(behaviourCode('accordion'));
+    expect(kitRead(dir, 'scripts', 'year')).toBe(behaviourCode('year'));
+    expect(new Site(dir).steps().map((s) => s.label)).toContain('add behaviour accordion from the library');
+    const home = pageWorkspace(dir, 'home');
+    useComponent(home, 'cta', 'contact', 'user');
+    expect(kitRead(dir, 'scripts', 'form')).toBe(behaviourCode('form'));
+    expect(home.page()).toContain('<script type="module" src="/kit/loader.js"></script>');
+    // outside a site nothing is copied: the code works as plain HTML
+    const { Workspace } = await import('../src/workspace.js');
+    const { MemoryStore } = await import('../src/store.js');
+    const { createPage } = await import('../src/library.js');
+    const lone = new Workspace(new MemoryStore('memory:lone'));
+    createPage(lone, 'blank');
+    useComponent(lone, 'text', 'faq', 'user');
+    expect(lone.content('text')).toContain('data-use="accordion"');
+
+    // Kaity writing data-use brings the library's too; list_kit says which are the library's, and when they differ
+    const { openTools } = await import('../src/editor/tools-client.js');
+    const run = await openTools(pageWorkspace(dir, 'home'), '', dir);
+    expect((await run.call('set_content', { id: 'logos', html: '<div data-use="tabs"><div role="tablist"></div></div>' })).text).toMatch(/; the site kit has the library's tabs behaviour now/);
+    kitWrite(dir, 'scripts', 'year', 'export default function (el) { el.textContent = "1999"; }');
+    expect((await run.call('list_kit', {})).text).toMatch(/^styles: none\nclasses: none\nscripts: accordion \(the library's\), form \(the library's\), tabs \(the library's\), year \(from the library, which has another version now\)\n/);
+    expect((await run.call('list_components', {})).text).toMatch(/^contact: .*\(behaviours: form\)$/m);
+    await run.close();
+    expect(kitLibraryScripts(dir)).toEqual({ accordion: 'same', form: 'same', tabs: 'same', year: 'changed' });
   });
 });
 

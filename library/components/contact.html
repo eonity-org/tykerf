@@ -17,21 +17,10 @@ button { font: inherit; font-weight: 600; padding: 14px; border: 0; border-radiu
     <p class="lead">Tell us what you need and we will answer within a day.</p>
     <div class="ways"><span><b>Email</b> hello@example.com</span><span><b>Phone</b> +00 000 000 000</span></div>
   </div>
-  <form>
+  <form data-use="form">
     <label>Name <input name="name" autocomplete="name" required></label>
     <label>Email <input name="email" type="email" autocomplete="email" required></label>
     <label>Message <textarea name="message" rows="5" required></textarea></label>
     <button type="submit">Send message</button>
   </form>
 </div>
-<script>
-// Placeholder behaviour: shows a thank-you note. Connect the form to your own service before publishing.
-{
-  const box = document.currentScript.closest('[data-sw]');
-  const form = box.querySelector('form');
-  form.addEventListener('submit', (e) => {
-    e.preventDefault();
-    form.outerHTML = '<p class="sent">Thank you! Your message is on its way.</p>';
-  });
-}
-</script>

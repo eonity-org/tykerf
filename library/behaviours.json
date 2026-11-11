@@ -1,0 +1,8 @@
+{
+  "form": { "label": "Contact form", "description": "Says thank you when the form is sent; with a real action (your form service's address) it sends there first", "markup": "<form data-use=\"form\" action=\"…\">" },
+  "accordion": { "label": "Accordion", "description": "A group of questions where one answer is open at a time", "markup": "<div data-use=\"accordion\"> with <details><summary>…</summary>…</details> inside" },
+  "tabs": { "label": "Tabs", "description": "Buttons that each show one panel; arrow keys move between them", "markup": "<div data-use=\"tabs\"> with [role=tablist] > [role=tab][aria-controls=<id>] and [role=tabpanel][id=<id>]", "standalone": true },
+  "carousel": { "label": "Carousel", "description": "Slides side by side, one at a time, with Previous and Next", "markup": "<div data-use=\"carousel\"> with [data-slides] > slides, and buttons [data-prev], [data-next]", "standalone": true },
+  "reveal": { "label": "Reveal", "description": "Fades a section in as it scrolls into view, unless the visitor asks for less motion", "markup": "data-use=\"reveal\" on any element", "standalone": true },
+  "year": { "label": "Current year", "description": "Writes the current year, for a footer's ©", "markup": "<span data-use=\"year\">2026</span>" }
+}

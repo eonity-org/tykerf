@@ -16,10 +16,10 @@ import { inScope, scopeViolation } from '../scope.js';
 import { cost, optimize } from '../shape.js';
 import { leftovers, missingFiles, say } from '../check.js';
 import { closeTask, sayTask, tasks } from '../tasks.js';
-import { type KitKind, blockSlots, kitClasses, kitFonts, kitList, kitRead, kitTags, kitWarning, kitWrite } from '../kit.js';
+import { type KitKind, blockSlots, kitClasses, kitFonts, kitLibraryScripts, kitList, kitRead, kitTags, kitWarning, kitWrite } from '../kit.js';
 import { removeMediaFile, siteMedia } from '../site.js';
 import { HOME_PAGE, blockUsers, linkBlock, newSitePage, pageTitle, pagesWithOwnTheme, pageWorkspace, readSite, setLang, setTitle, shareTheme, removePage, renamePage, shareBlock, movedFiles, siteHead, siteKind, unlinkBlock, unsafeSVG, siteOf, sitePages, usePage } from '../site.js';
-import { DEFAULT_THEME, components, createPage, fontWarning, hasTheme, pageLayouts, readOverrides, readTheme, setTheme, themeTarget, themes, useComponent, useLayout } from '../library.js';
+import { DEFAULT_THEME, behavioursIn, componentCode, copyBehaviours, components, createPage, fontWarning, hasTheme, libraryBehaviours, pageLayouts, readOverrides, readTheme, setTheme, themeTarget, themes, useComponent, useLayout } from '../library.js';
 import { FolderStore, MemoryStore } from '../store.js';
 import { Workspace } from '../workspace.js';
 import { addFile, readSource } from '../files.js';
@@ -450,7 +450,15 @@ export function createTykerfServer(start: Workspace | null, opts: TykerfServerOp
   })));
 
   server.registerTool('list_components', { title: 'List components', annotations: READ, description: 'Ready-made sections (hero, features, FAQ, pricing, footer...) that fill a box with working code styled by the page theme, at every width. Use one with use_component, then adapt its text and images.' },
-    guard(() => components().map((c) => `${c.name}: ${c.label}. ${c.description}`).join('\n')));
+    guard(() => {
+      // a component's behaviours (data-use): using it brings them into the site's kit
+      const lines = components().map((c) => {
+        const uses = behavioursIn(componentCode(c.name));
+        return `${c.name}: ${c.label}. ${c.description}${uses.length ? ` (behaviours: ${uses.join(', ')})` : ''}`;
+      });
+      const shelf = libraryBehaviours().filter((b) => b.standalone).map((b) => `${b.name} (${b.markup})`);
+      return [...lines, '', `behaviours for your own code (data-use="<name>"; the site kit gets one when a page uses it, or set_kit_file): ${shelf.join('; ')}`].join('\n');
+    }));
 
   server.registerTool('use_component', {
     title: 'Fill a box with a component', annotations: REPLACE,
@@ -717,8 +725,9 @@ export function createTykerfServer(start: Workspace | null, opts: TykerfServerOp
     // a box that shows a shared block: its slots are this page's, the rest is every page's
     const split = html === null ? null : ws.sharedEdit(target, html, l);
     if (html !== null && (!split || split.block !== null)) assertMayChangeShared(l, target);
+    const brought = html === null ? [] : copyBehaviours(ws, html, 'ai');
     ws.setContent(target, html);
-    return `ok: content of "${target}" ${html === null ? 'removed' : 'set'}${read ? ` from ${read.path} (${read.size} bytes)` : ''}${split ? sharedSaid(l, target, split) : ''}${noFiles(html ?? '')}`;
+    return `ok: content of "${target}" ${html === null ? 'removed' : 'set'}${brought.length ? `; the site kit has the library's ${brought.join(', ')} behaviour now` : ''}${read ? ` from ${read.path} (${read.size} bytes)` : ''}${split ? sharedSaid(l, target, split) : ''}${noFiles(html ?? '')}`;
   })) as never);
 
   server.registerTool('edit_content', {
@@ -747,8 +756,9 @@ export function createTykerfServer(start: Workspace | null, opts: TykerfServerOp
     // a box that shows a shared block: a change inside its slots is this page's, the rest every page's
     const split = ws.sharedEdit(target, html, l);
     if (!split || split.block !== null) assertMayChangeShared(l, target);
+    const brought = copyBehaviours(ws, html, 'ai');
     ws.setContent(target, html);
-    return `ok: ${all ? n : 1} change${(all ? n : 1) === 1 ? '' : 's'} in "${target}"${read ? ` (the new text from ${read.path}, ${read.size} bytes)` : ''}${split ? sharedSaid(l, target, split) : ''}${noFiles(html)}`;
+    return `ok: ${all ? n : 1} change${brought.length ? `; the site kit has the library's ${brought.join(', ')} behaviour now` : ''}${(all ? n : 1) === 1 ? '' : 's'} in "${target}"${read ? ` (the new text from ${read.path}, ${read.size} bytes)` : ''}${split ? sharedSaid(l, target, split) : ''}${noFiles(html)}`;
   })) as never);
 
   server.registerTool('set_slot', {
@@ -873,7 +883,9 @@ export function createTykerfServer(start: Workspace | null, opts: TykerfServerOp
       const blocks = f.blocks.map((b) => { const u = Object.keys(blockUsers(site, b)); return `${b} (on ${u.length ? u.join(', ') : 'no page'})`; });
       const classes = kitClasses(site).map((c) => `${c} (class k-${c})`);
       const fonts = Object.entries(kitFonts(site)).map(([f, v]) => `"${f}" (${v.files.map((x) => `${x.weight}${x.style === 'italic' ? ' italic' : ''}`).join(', ')}; licence: ${v.licence?.trim() || 'not noted'})`);
-      return [`styles: ${f.styles.join(', ') || 'none'}`, `classes: ${classes.join(', ') || 'none'}`, `scripts: ${f.scripts.join(', ') || 'none'}`, `blocks: ${blocks.join(', ') || 'none'}`, `types: ${f.types.join(', ') || 'none'}`, `tags: ${tags.join('; ') || 'none'}`, `fonts: ${fonts.join('; ') || 'none'}`].join('\n');
+      const fromLib = kitLibraryScripts(site);
+      const scripts = f.scripts.map((s) => (fromLib[s] === 'same' ? `${s} (the library's)` : fromLib[s] === 'changed' ? `${s} (from the library, which has another version now)` : s));
+      return [`styles: ${f.styles.join(', ') || 'none'}`, `classes: ${classes.join(', ') || 'none'}`, `scripts: ${scripts.join(', ') || 'none'}`, `blocks: ${blocks.join(', ') || 'none'}`, `types: ${f.types.join(', ') || 'none'}`, `tags: ${tags.join('; ') || 'none'}`, `fonts: ${fonts.join('; ') || 'none'}`].join('\n');
     }));
     server.registerTool('get_kit_file', {
       title: 'Read a site kit file', annotations: READ,

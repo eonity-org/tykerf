@@ -18,7 +18,7 @@ import { addTask, clearDone, closeTask, removeTask, reopenTask, sayTask, tasks }
 import { pathOf } from '../refs.js';
 import { renderParts } from '../render.js';
 import { checkPath } from '../store.js';
-import { components, hasTheme, pageLayouts, readOverrides, themeVariables, useComponent, withFonts, withOverrides } from '../library.js';
+import { components, copyBehaviours, hasTheme, libraryBehaviours, pageLayouts, readOverrides, themeVariables, useComponent, withFonts, withOverrides } from '../library.js';
 import { NO_SITE_HEAD, type Workspace, joinStyle, splitStyle } from '../workspace.js';
 import { AI, type Runner } from './ai.js';
 
@@ -507,7 +507,7 @@ export function createPageHost(ws: Workspace, opts: { name: string; site?: () =>
     if (req.method === 'GET' && p === '/_tykerf/kit') {
       const dir = ws.site?.dir;
       const blocks = dir ? kitList(dir).blocks : [];
-      return json(res, 200, dir ? { site: true, blocks, tags: kitTags(dir), classes: kitClasses(dir), users: Object.fromEntries(blocks.map((b) => [b, Object.keys(blockUsers(dir, b))])) } : { site: false, blocks: [], tags: {}, classes: [], users: {} });
+      return json(res, 200, dir ? { site: true, blocks, tags: kitTags(dir), classes: kitClasses(dir), scripts: kitList(dir).scripts, behaviours: libraryBehaviours().map((b) => b.name), users: Object.fromEntries(blocks.map((b) => [b, Object.keys(blockUsers(dir, b))])) } : { site: false, blocks: [], tags: {}, classes: [], users: {} });
     }
     if (req.method === 'GET' && p === '/_tykerf/tasks') return json(res, 200, { tasks: tasks(ws), text: tasks(ws, { open: true }).map(sayTask).join('\n') });
     if (req.method === 'GET' && p === '/_tykerf/events') {
@@ -540,6 +540,8 @@ export function createPageHost(ws: Workspace, opts: { name: string; site?: () =>
         // Content-only saves keep the style as it is, and vice versa.
         const cur = ws.parts(a.id) ?? { html: '', css: '' };
         const parts = typeof a.full === 'string' ? splitStyle(a.full) : { html: a.html ?? cur.html, css: a.css ?? cur.css };
+        // a library behaviour the code asks for (data-use) comes into the site's kit
+        copyBehaviours(ws, parts.html, 'user');
         ws.setContent(a.id, joinStyle(parts.html, parts.css), 'user');
         return null;
       });

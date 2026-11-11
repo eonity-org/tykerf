@@ -62,6 +62,8 @@ Kaity can use components too: ask for "a FAQ here" or "make this box a pricing t
 
 ## Use a component
 
+Some components come with a behaviour: the contact form says thank you when it is sent, the FAQ keeps one answer open at a time, and the footer's year is always the current one. In a site, using one brings its behaviour into the site kit ([the library's behaviours](sites.md#the-site-kit)).
+
 An empty box offers **Use a component** in its Text tab: navigation bar, hero (centred, split beside a picture, or with a switcher: pills that change the headline, text and figures for each audience), statement, logos, feature (beside a picture; tag it `#reverse` to swap sides), updates (news cards), story grid (a front page of stories), list (numbered links for a sidebar), text section, features, numbers, steps on a line (steps hanging from a line that fills as the section scrolls into view), testimonials, pricing, FAQ, call to action, gallery, card grid (products or services), image, contact form, footer, article, sidebar, docs menu and docs page. The component fills the box, brings its placeholder images into the page's `assets/` folder and is one undo step.
 
 Components adapt to their width, so they work full width, in a column or on a phone. The contact form only shows a thank-you note: connect it to your own service before publishing.

@@ -53,6 +53,24 @@ describe('the library', () => {
     }
   });
 
+  it('ships behaviours that components ask for, each small, with a default export, and each used or standalone', async () => {
+    const { behaviourCode, behavioursIn, libraryBehaviours } = await import('../src/library.js');
+    const shelf = libraryBehaviours();
+    expect(shelf.map((b) => b.name).sort()).toEqual(['accordion', 'carousel', 'form', 'reveal', 'tabs', 'year']);
+    expect(readdirSync(join(LIBRARY, 'behaviours')).sort()).toEqual(shelf.map((b) => `${b.name}.js`).sort());
+    const asked = new Set(components().flatMap((c) => behavioursIn(componentCode(c.name))));
+    for (const name of asked) expect(shelf.map((b) => b.name), `a component asks for "${name}"`).toContain(name);
+    for (const b of shelf) {
+      const code = behaviourCode(b.name)!;
+      expect(code.length, b.name).toBeLessThanOrEqual(3 * 1024);
+      expect(code, b.name).toMatch(/^export default function \(el\) \{/m);
+      expect(code, b.name).not.toMatch(/^\s*import\b/m); // no dependencies
+      expect(asked.has(b.name) || b.standalone, `${b.name}: used by a component, or standalone`).toBe(true);
+    }
+    expect(componentCode('contact')).not.toContain('<script'); // the form's script is the library's form now
+    expect(behavioursIn(componentCode('faq'))).toEqual(['accordion']);
+  });
+
   it('declares the boxes every page of a site shares, and each is a box of its layout', () => {
     for (const p of pageLayouts()) {
       expect(p.shared, p.name).toBeDefined();

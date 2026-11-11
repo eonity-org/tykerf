@@ -19,7 +19,7 @@ import { basename, dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { HOME_PAGE, type PublishSettings, addSitePage, pageMoves, emptyTrash, lastSiteHeadChange, newPageLike, newSitePage, pageLinks, pageNameError, pageTitle, pageWorkspace, readSite, setLang, duplicatePage, removePage, renamePage, setHome, setPublish, setSiteIcon, siteIcon, setSiteCode, setSiteHead, setTitle, shareTheme, siteCode, siteHead, siteIndex, siteKind, siteMap, siteOf, sitePages, trashedPages, Site, siteMedia, removeMediaFile, moveToSite, moveSiteDuplicates, pruneMedia, headStyles, migrateHeadStyles, blockUsers, identicalBoxes, shareIdentical } from '../site.js';
 import { FolderStore, MemoryStore } from '../store.js';
-import { KIT_LOADER, type KitKind, kitCSS, kitFonts, kitList, kitRead, kitWarning, kitWrite, lastKitChange } from '../kit.js';
+import { KIT_LOADER, type KitKind, kitCSS, kitFonts, kitLibraryScripts, kitList, kitRead, kitWarning, kitWrite, lastKitChange } from '../kit.js';
 import { DEFAULT_THEME, EMPTY_LAYOUT, createPage, hasTheme, pageLayouts, libraryAsset, theme, themes } from '../library.js';
 import { Workspace } from '../workspace.js';
 import { AI, type Runner, SITE_CHAT } from './ai.js';
@@ -580,7 +580,7 @@ async function serveGlobal(req: IncomingMessage, res: ServerResponse, p: string,
       const where = Object.fromEntries(files.blocks.map((b) => [b, blockUsers(dir, b)]));
       // the site's fonts, and the font files its assets/ has for a new one
       const fontFiles = new Site(dir).files().filter((f) => /\.(woff2|woff|ttf|otf)$/i.test(f)).sort();
-      return json(res, 200, { ok: true, files, last: lastKitChange(dir), identical: identicalBoxes(dir), users: Object.fromEntries(Object.entries(where).map(([b, w]) => [b, Object.keys(w)])), where, fonts: kitFonts(dir), fontFiles }), true;
+      return json(res, 200, { ok: true, files, last: lastKitChange(dir), identical: identicalBoxes(dir), users: Object.fromEntries(Object.entries(where).map(([b, w]) => [b, Object.keys(w)])), where, fonts: kitFonts(dir), fontFiles, library: kitLibraryScripts(dir) }), true;
     }
     if (req.method === 'GET' && p === '/_tykerf/site/kit/file') {
       const kitKind = String(url.searchParams.get('kind')) as KitKind;
@@ -599,6 +599,14 @@ async function serveGlobal(req: IncomingMessage, res: ServerResponse, p: string,
       }
       else if (p === '/_tykerf/site/kit/share') result = shareIdentical(dir, String(a.box ?? ''));
       else if (p === '/_tykerf/site/kit/migrate-head') result = migrateHeadStyles(dir);
+      else if (p === '/_tykerf/site/kit/update-behaviour') {
+        // the library's version of a behaviour the site took from it, in place of the site's copy
+        const { behaviourCode } = await import('../library.js');
+        const name = String(a.name ?? ''), code = behaviourCode(name);
+        if (code === null) return json(res, 422, { ok: false, error: `the library has no behaviour "${name}"` }), true;
+        kitWrite(dir, 'scripts', name, code, `update behaviour ${name} from the library`);
+        result = name;
+      }
       else if (p === '/_tykerf/site/kit/font') {
         // one font file for a family (a new family, or one more file of it), from the manager's form
         const fonts = kitFonts(dir);

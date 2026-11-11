@@ -159,16 +159,33 @@ The site kit holds what every page shares besides the theme, one small named fil
 
 **Fonts.** Besides the fonts TYKERF bundles, a site can have its own: put the font's files (`.woff2` is best) in the site's `assets/` folder, then press **+ New** next to **Fonts** in the kit and give its family name, its file, its weight (`400`, or `100 900` for a variable font), its style and its licence; **Edit JSON** shows `kit/fonts.json` itself. Every page then declares it, and the theme's font fields and the kit's styles can name it. A theme that names a font that is neither bundled nor registered gets a warning, since visitors without it installed see the next font in the list. An export, and Publish, list the fonts with no licence noted: make sure the site may publish them.
 
-**A behaviour, step by step.** A behaviour is a small script an element asks for by name. To put the current year in every footer:
+**The library's behaviours.** TYKERF ships a few behaviours, ready to use: an element asks for one with `data-use="<name>"`, and the first page that uses one brings it into the site's kit (*the library's*, next to its name), as a component's fonts and pictures come along.
 
-1. In the kit, next to **Behaviours**, press **+ New**, name it `year` and write:
+| Behaviour | What it does | The markup it expects |
+|---|---|---|
+| `form` | The contact form says thank you; with a real `action` (your form service's address) it sends there first | `<form data-use="form" action="…">` (the *Contact form* component) |
+| `accordion` | A group of questions with one answer open at a time | an element with `data-use="accordion"` around `<details>` (the *FAQ* component) |
+| `year` | The current year, so the footer's © never goes stale | `<span data-use="year">2026</span>` (the *Footer* component) |
+| `tabs` | Buttons that each show one panel; the arrow keys move between them | `data-use="tabs"` around `[role=tablist]` with `[role=tab][aria-controls=<id>]`, and `[role=tabpanel][id=<id>]` |
+| `carousel` | Slides one at a time, with Previous and Next, announced to screen readers | `data-use="carousel"` around `[data-slides]` and buttons `[data-prev]`, `[data-next]` |
+| `reveal` | Fades a section in as it scrolls into view, unless the visitor asks for less motion | `data-use="reveal"` on any element |
+
+Write the attribute in a box's *Code* tab (or ask Kaity), and the site kit gets the behaviour when you save. When a box has a script of its own that does what one of these does, the Code tab says so. If the library's version changes after the site took it (or you changed the site's copy), the kit offers **Update from the library**, which Undo takes back. A page outside a site gets no behaviours: its components still work as plain HTML (the form sends, the questions open).
+
+**A behaviour, step by step.** A behaviour is a small script an element asks for by name. To mark the links a visitor has opened:
+
+1. In the kit, next to **Behaviours**, press **+ New** and name it `seen`. It starts from a template that says what `el` is and how to undo what it does; write:
    ```js
    export default function (el) {
-     el.textContent = new Date().getFullYear();
+     const mark = () => el.classList.add('seen');
+     el.addEventListener('click', mark);
+     return () => el.removeEventListener('click', mark);
    }
    ```
-2. Put the name on an element, in the box's *Code* tab (or ask Kaity): `© <span data-use="year"></span> Seville city guide`.
-3. Every page that has such an element runs it; pages that don't never load it. Several behaviours go in one attribute, separated by spaces (`data-use="year reveal"`). If the function returns a function, TYKERF calls it when the element goes away.
+2. Put the name on an element, in the box's *Code* tab (or ask Kaity): `<a href="/menu/" data-use="seen">Our menu</a>`.
+3. Every page that has such an element runs it; pages that don't never load it. Several behaviours go in one attribute, separated by spaces (`data-use="seen reveal"`). If the function returns a function, TYKERF calls it when the element goes away.
+
+A behaviour is checked when you save it: it must export a function as default (`export default function (el) { … }`), and a mistake in its code is refused, since it would fail on every page. One that fails anyway (on some element it didn't expect) is said in the editor: *A behaviour failed on this page*, with its name; the browser's console says why.
 
 **Shared blocks.** A navigation or a footer is the same on every page, so it is one thing, shared already:
 - **A new site's navigation and footer are shared from its first page.** The layout says which of its boxes every page shares (its `nav` and its `footer`); the first page makes them the site's shared blocks, and every page made later from a layout shows them. When you make a page from a layout, *With the site's navigation and footer (shared)* is ticked; untick it and the page gets copies of its own instead.

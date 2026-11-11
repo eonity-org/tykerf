@@ -15,7 +15,7 @@ import { createHash } from 'node:crypto';
 import { pageFileRefs } from './assets.js';
 import { SiteHistory, siteStore } from './site/history.js';
 import { parseType } from './types.js';
-import { type FontRegistry, withFonts } from './library.js';
+import { type FontRegistry, behaviourCode, withFonts } from './library.js';
 
 export type KitKind = 'styles' | 'scripts' | 'blocks' | 'types' | 'tags' | 'fonts';
 export const KIT_KINDS: KitKind[] = ['styles', 'scripts', 'blocks', 'types', 'tags', 'fonts'];
@@ -61,6 +61,18 @@ export function kitError(kind: KitKind, name: string, text: string): string | nu
     if (/@import/i.test(text)) return `${name}.css: no @import (put the other file in the kit too)`;
     if (/<\/style/i.test(text)) return `${name}.css: no </style> in CSS`;
     for (const m of text.matchAll(/url\(\s*["']?([^"')]+)/gi)) if (/^([a-z]+:|\/\/)/i.test(m[1].trim()) && !/^data:/i.test(m[1].trim())) return `${name}.css: url(${m[1].trim()}) loads from another server; put the file in the site's assets/ and write url(/assets/<file>)`;
+  }
+  if (kind === 'scripts') {
+    // a behaviour is a module whose default export the loader calls with each element: without one it does nothing
+    if (!/\bexport\s+default\b/.test(text)) return `${name}.js: a behaviour exports a function as default: export default function (el) { … }`;
+    // its syntax, checked without running it: the module as a function body (a file with imports can't be one: skipped)
+    if (!/^\s*import\b/m.test(text)) {
+      try {
+        new Function(text.replace(/\bexport\s+default\b/, 'return'));
+      } catch (e) {
+        return `${name}.js: ${(e as Error).message} (a mistake in the code: it would fail on every page)`;
+      }
+    }
   }
   if (kind === 'types') {
     try {
@@ -154,6 +166,20 @@ function writeFonts(dir: string, text: string | null, label: string | undefined,
     if (head !== null) history.change('head', 'head.html', withFonts(s, head, '/assets/', registry), 'the site\'s fonts block', author);
     return at;
   });
+}
+
+/**
+ * The kit's behaviours that came from the library (library/behaviours/): 'same' while the site's copy is the
+ * library's, 'changed' when they differ (the library's was updated, or the copy edited); the manager offers to
+ * take the library's again.
+ */
+export function kitLibraryScripts(dir: string): Record<string, 'same' | 'changed'> {
+  const out: Record<string, 'same' | 'changed'> = {};
+  for (const name of kitList(dir).scripts) {
+    const lib = behaviourCode(name);
+    if (lib !== null) out[name] = kitRead(dir, 'scripts', name) === lib ? 'same' : 'changed';
+  }
+  return out;
 }
 
 /** The fonts the site registers (kit/fonts.json), by family; {} when there are none or the file is broken. */
@@ -261,7 +287,14 @@ async function run() {
       if (!/^[a-z0-9][a-z0-9-]*$/.test(name)) continue;
       import(new URL('./scripts/' + name + '.js', import.meta.url).href)
         .then((m) => { const stop = typeof m.default === 'function' ? m.default(el) : null; if (typeof stop === 'function') stops.push(stop); })
-        .catch((e) => console.warn('kit behaviour "' + name + '":', e));
+        .catch((e) => {
+          console.warn('kit behaviour "' + name + '" failed on', el, e);
+          // the editor shows it (tykerf.js): a behaviour that fails, fails on every page that uses it; kept too,
+          // for an editor that starts listening later
+          const detail = { name, message: String(e && e.message || e) };
+          (window.tykerfBehaviourErrors = window.tykerfBehaviourErrors || []).push(detail);
+          dispatchEvent(new CustomEvent('tykerf:behaviour-error', { detail }));
+        });
     }
   }
 }

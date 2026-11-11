@@ -55,7 +55,7 @@ const S = {
   showPins: store.get('pins', true),
   taskAt: null, // in task mode, what the pointer is on: { el, block }
   taskTarget: null, // the element whose task is being written
-  kit: { site: false, blocks: [], tags: {}, classes: [], users: {} }, // the site kit: shared blocks (and the pages that show them), the site's own tags, its class styles
+  kit: { site: false, blocks: [], tags: {}, classes: [], scripts: [], behaviours: [], users: {} }, // the site kit: shared blocks (and the pages that show them), the site's own tags, its class styles
 };
 const per = (id) => {
   if (!S.per.has(id)) S.per.set(id, {});
@@ -1464,6 +1464,20 @@ async function exportZip(files, page, inlineKit = false) {
 const CODE_TABS = [['html', () => t('Content')], ['css', () => t('Style')], ['full', () => t('Full code')]];
 const joinCode = (html, css) => (css.trim() ? `<style>\n${css.replace(/\s+$/, '')}\n</style>\n${html}` : html);
 
+// what a box's own <script> seems to do, by its words, and the library behaviour that does it
+const BEHAVIOUR_WORDS = { accordion: /accordion|<details|\bdetails\b/i, tabs: /\btabs?\b|tablist/i, carousel: /carousel|slider|slides/i, reveal: /reveal|IntersectionObserver/i, year: /getFullYear/i, form: /\bsubmit\b/i };
+
+/** A hint for a box whose own script does what a behaviour does: write data-use instead (HTML), or nothing. */
+function behaviourHint(html) {
+  if (!S.kit.site || !/<script\b/i.test(html ?? '')) return '';
+  const script = (html.match(/<script\b[\s\S]*?<\/script>/gi) ?? []).join('\n');
+  const name = Object.keys(BEHAVIOUR_WORDS).find((n) => (S.kit.behaviours ?? []).includes(n) && BEHAVIOUR_WORDS[n].test(script));
+  if (!name) return '';
+  return (S.kit.scripts ?? []).includes(name)
+    ? t('The site kit has a {name} behaviour: {code} on the element, instead of a script of its own.', { name: `<b>${esc(name)}</b>`, code: `<code>data-use="${esc(name)}"</code>` })
+    : t('The library has a {name} behaviour: write {code} on the element instead of a script of its own, and the site kit gets it when you save.', { name: `<b>${esc(name)}</b>`, code: `<code>data-use="${esc(name)}"</code>` });
+}
+
 async function renderCode(body, id) {
   body.innerHTML = `<p class="muted">${t('Loading…')}</p>`;
   const box = await loadBox(id);
@@ -1475,6 +1489,7 @@ async function renderCode(body, id) {
   body.innerHTML = `
     <div class="subtabs">${CODE_TABS.map(([k, l]) => `<button data-code="${k}" aria-selected="${p.codeTab === k}">${l()}</button>`).join('')}
       <span class="hint">${p.codeTab === 'css' ? t('Scoped to this box: plain selectors are safe') : p.codeTab === 'html' ? t('Markup, text and scripts') : t('Style and content together')}</span></div>
+    ${behaviourHint(p.code.html) ? `<p class="hint behaviour-hint">${behaviourHint(p.code.html)}</p>` : ''}
     ${S.kit.classes?.length ? `<p class="hint class-styles">${t('The site\'s class styles: give an element one with {classes}.', { classes: S.kit.classes.map((c) => `<code>class="k-${esc(c)}"</code>`).join(', ') })}</p>` : ''}
     <textarea class="code" spellcheck="false" wrap="off">${esc(value())}</textarea>
     <div class="savebar"><span class="status"></span><button data-c="revert">${t('Revert')}</button><button data-c="save" class="primary" title="⌘S">${t('Save code')}</button></div>`;
@@ -3600,6 +3615,17 @@ async function refresh() {
     redraw();
   } else select(keep);
 }
+
+// a site kit behaviour that failed on this page (the loader says so, kit.ts KIT_LOADER): one notice per behaviour
+const failedBehaviours = new Set();
+const behaviourFailed = (detail) => {
+  const name = detail?.name;
+  if (!name || failedBehaviours.has(name)) return;
+  failedBehaviours.add(name);
+  toast(t('A behaviour failed on this page: {name} (the browser\'s console says why; it is in the site kit, kit/scripts/{name}.js).', { name }), true);
+};
+addEventListener('tykerf:behaviour-error', (e) => behaviourFailed(e.detail));
+for (const d of window.tykerfBehaviourErrors ?? []) behaviourFailed(d); // the ones that failed before the editor started
 
 const events = new EventSource(`${API}/events`);
 events.addEventListener('open', () => checkVersion()); // back after a restart: maybe a newer TYKERF
