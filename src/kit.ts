@@ -11,16 +11,18 @@
 //
 // Every change is a step of the site's history (site/history.ts), with the head's and the settings'.
 
+import { createHash } from 'node:crypto';
 import { pageFileRefs } from './assets.js';
 import { SiteHistory, siteStore } from './site/history.js';
 import { parseType } from './types.js';
+import { type FontRegistry, withFonts } from './library.js';
 
-export type KitKind = 'styles' | 'scripts' | 'blocks' | 'types' | 'tags';
-export const KIT_KINDS: KitKind[] = ['styles', 'scripts', 'blocks', 'types', 'tags'];
+export type KitKind = 'styles' | 'scripts' | 'blocks' | 'types' | 'tags' | 'fonts';
+export const KIT_KINDS: KitKind[] = ['styles', 'scripts', 'blocks', 'types', 'tags', 'fonts'];
 
 /** File names in the kit: they become addresses (/kit/scripts/<name>.js) and data-use values. */
 export const KIT_NAME = /^[a-z0-9][a-z0-9-]{0,40}$/;
-const EXT: Record<KitKind, string> = { styles: '.css', scripts: '.js', blocks: '.html', types: '.json', tags: '.json' };
+const EXT: Record<KitKind, string> = { styles: '.css', scripts: '.js', blocks: '.html', types: '.json', tags: '.json', fonts: '.json' };
 const MAX = 400_000;
 
 /** Tags the library's theme already gives every page; the site's own tags can't take these names. */
@@ -31,16 +33,17 @@ const store = (dir: string) => siteStore(dir);
 /** Where a kit file lives in the site folder. */
 export function kitPath(kind: KitKind, name: string): string {
   if (kind === 'tags') return 'kit/tags.json';
+  if (kind === 'fonts') return 'kit/fonts.json';
   if (!KIT_KINDS.includes(kind)) throw new Error(`unknown kind of kit file "${kind}" (${KIT_KINDS.join(', ')})`);
   if (!KIT_NAME.test(name)) throw new Error(`"${name}" can't be a kit file name: lowercase letters, digits and -, up to 41`);
   return `kit/${kind}/${name}${EXT[kind]}`;
 }
 
 /** The kit's files, by kind, names without their extension (tags: whether kit/tags.json exists). */
-export function kitList(dir: string): Record<Exclude<KitKind, 'tags'>, string[]> & { tags: boolean } {
+export function kitList(dir: string): Record<Exclude<KitKind, 'tags' | 'fonts'>, string[]> & { tags: boolean; fonts: boolean } {
   const s = store(dir);
-  const names = (kind: Exclude<KitKind, 'tags'>) => s.list(`kit/${kind}`).filter((f) => f.endsWith(EXT[kind])).map((f) => f.slice(0, -EXT[kind].length)).filter((n) => KIT_NAME.test(n)).sort();
-  return { styles: names('styles'), scripts: names('scripts'), blocks: names('blocks'), types: names('types'), tags: s.exists('kit/tags.json') };
+  const names = (kind: Exclude<KitKind, 'tags' | 'fonts'>) => s.list(`kit/${kind}`).filter((f) => f.endsWith(EXT[kind])).map((f) => f.slice(0, -EXT[kind].length)).filter((n) => KIT_NAME.test(n)).sort();
+  return { styles: names('styles'), scripts: names('scripts'), blocks: names('blocks'), types: names('types'), tags: s.exists('kit/tags.json'), fonts: s.exists('kit/fonts.json') };
 }
 
 export function kitRead(dir: string, kind: KitKind, name = 'tags'): string | null {
@@ -51,6 +54,9 @@ export function kitRead(dir: string, kind: KitKind, name = 'tags'): string | nul
 export function kitError(kind: KitKind, name: string, text: string): string | null {
   if (text.length > MAX) return `a kit file is at most ${MAX / 1000} KB`;
   if (kind === 'styles') {
+    // a style for a class is scoped to the class of its own name: kit/styles/card.css to .k-card
+    const scoped = /^(?:\s|\/\*[\s\S]*?\*\/)*@scope\s*\(\s*([^)]*?)\s*\)/.exec(text);
+    if (scoped && /^\.k-/.test(scoped[1]) && scoped[1] !== `.k-${name}`) return `${name}.css: a style for a class is scoped to the class of the file's name, .k-${name}, not ${scoped[1]} (rename the file, or the class)`;
     // nothing fetched from another server (it would send every visitor's address there), no way out of the <style>
     if (/@import/i.test(text)) return `${name}.css: no @import (put the other file in the kit too)`;
     if (/<\/style/i.test(text)) return `${name}.css: no </style> in CSS`;
@@ -61,6 +67,28 @@ export function kitError(kind: KitKind, name: string, text: string): string | nu
       parseType(text, `kit/types/${name}.json`);
     } catch (e) {
       return (e as Error).message;
+    }
+  }
+  if (kind === 'fonts') {
+    let fonts: unknown;
+    try {
+      fonts = JSON.parse(text);
+    } catch {
+      return 'kit/fonts.json is not JSON';
+    }
+    const shape = 'kit/fonts.json is an object: { "<Family>": { "files": [{ "file": "<in the site\'s assets/>", "weight": "400" or "100 900", "style": "normal" or "italic" }], "display": "swap", "licence": "…" } }';
+    if (!fonts || typeof fonts !== 'object' || Array.isArray(fonts)) return shape;
+    for (const [family, v] of Object.entries(fonts as Record<string, unknown>)) {
+      if (!/^[A-Za-z0-9 .'-]{1,60}$/.test(family)) return `"${family}" can't be a font's name: letters, digits, spaces and . ' -`;
+      const f = v as { files?: unknown; display?: unknown; licence?: unknown };
+      if (!f || typeof f !== 'object' || !Array.isArray(f.files) || !f.files.length) return `${family}: ${shape}`;
+      for (const x of f.files as { file?: unknown; weight?: unknown; style?: unknown }[]) {
+        if (typeof x?.file !== 'string' || !/^[A-Za-z0-9][A-Za-z0-9._-]*\.(woff2|woff|ttf|otf)$/i.test(x.file)) return `${family}: a font file is a name in the site's assets/ ending in .woff2, .woff, .ttf or .otf`;
+        if (typeof x.weight !== 'string' || !/^\d{3}( \d{3})?$/.test(x.weight)) return `${family}: the weight of ${x.file} is "400", or a range for a variable font, "100 900"`;
+        if (x.style !== 'normal' && x.style !== 'italic') return `${family}: the style of ${x.file} is "normal" or "italic"`;
+      }
+      if (f.display !== undefined && !['auto', 'block', 'swap', 'fallback', 'optional'].includes(f.display as string)) return `${family}: display is auto, block, swap, fallback or optional`;
+      if (f.licence !== undefined && typeof f.licence !== 'string') return `${family}: the licence is text, such as "SIL OFL 1.1"`;
     }
   }
   if (kind === 'tags') {
@@ -102,10 +130,36 @@ export function kitWrite(dir: string, kind: KitKind, name: string, text: string 
     if (err) throw new Error(err);
   }
   const s = store(dir);
+  if (kind === 'styles') hashes.delete(s.root); // (the files' times also tell; a same-size edit in the same millisecond might not)
+  if (kind === 'fonts') return writeFonts(dir, text, label, author);
   return s.lock(() => {
     const prev = s.read(path);
     return new SiteHistory(dir).change('kit', path, text, label ?? `${text === null ? 'remove' : prev === null ? 'add' : 'edit'} kit/${path.slice(4)}`, author);
   });
+}
+
+/**
+ * Change the site's fonts (kit/fonts.json): its files must be in the site's assets/. The site head's fonts block
+ * follows (withFonts), in the same step of the site's history.
+ */
+function writeFonts(dir: string, text: string | null, label: string | undefined, author: string): string | null {
+  const s = store(dir);
+  const registry: FontRegistry = text === null ? {} : JSON.parse(text);
+  const missing = Object.values(registry).flatMap((f) => f.files.map((x) => x.file)).filter((file) => !s.exists(`assets/${file}`));
+  if (missing.length) throw new Error(`${missing.map((f) => `assets/${f}`).join(', ')} ${missing.length === 1 ? 'is' : 'are'} not in the site's assets/: put the font's files there first`);
+  const history = new SiteHistory(dir);
+  return history.group(label ?? 'the site\'s fonts', author, () => {
+    const at = history.change('kit', 'kit/fonts.json', text, label ?? `${text === null ? 'remove' : s.exists('kit/fonts.json') ? 'edit' : 'add'} kit/fonts.json`, author);
+    const head = s.read('head.html');
+    if (head !== null) history.change('head', 'head.html', withFonts(s, head, '/assets/', registry), 'the site\'s fonts block', author);
+    return at;
+  });
+}
+
+/** The fonts the site registers (kit/fonts.json), by family; {} when there are none or the file is broken. */
+export function kitFonts(dir: string): FontRegistry {
+  const raw = kitRead(dir, 'fonts');
+  return raw && !kitError('fonts', 'fonts', raw) ? JSON.parse(raw) : {};
 }
 
 /** The last change to the kit (in the site's history), or null. */
@@ -140,12 +194,54 @@ export function kitTypes(dir: string): Record<string, unknown> {
   return out;
 }
 
-/** The site's styles as one <style> for every page's head, in file-name order; '' without any. */
-export function kitStyles(dir: string): string {
+/**
+ * The kit's styles for a class: a styles file whose code starts with @scope (.k-<its name>) applies to any element
+ * with the class k-<name>, on any page (a box takes it whole with the tag #k-<name>). Their names, sorted.
+ */
+export function kitClasses(dir: string): string[] {
+  return kitList(dir).styles.filter((n) => classOf(kitRead(dir, 'styles', n) ?? '') === `k-${n}`);
+}
+
+/** The class a style is scoped to when it is a style for a class (@scope (.k-…) first), else null. */
+export function classOf(css: string): string | null {
+  return /^(?:\s|\/\*[\s\S]*?\*\/)*@scope\s*\(\s*\.(k-[a-z0-9][a-z0-9-]*)\s*\)/.exec(css)?.[1] ?? null;
+}
+
+/** The site's styles as one stylesheet, in file-name order, each after a comment naming its file; '' without any. */
+export function kitCSS(dir: string): string {
   const files = kitList(dir).styles;
   if (!files.length) return '';
-  const css = files.map((n) => `/* kit/styles/${n}.css */\n${(kitRead(dir, 'styles', n) ?? '').replace(/<\/style/gi, '')}`).join('\n');
-  return `<style data-tykerf-kit>\n${css}\n</style>\n`;
+  // in the kit's cascade layer (render.ts LAYERS): above the theme, below a page's head and a box's own styles
+  return `@layer kit {\n${files.map((n) => `/* kit/styles/${n}.css */\n${kitRead(dir, 'styles', n) ?? ''}`).join('\n')}\n}\n`;
+}
+
+// the stylesheet's hash by site, with the files' times and sizes it was made from: a change by anyone (this
+// process, Kaity's MCP process, an undo) changes those, so the hash is made again only then
+const hashes = new Map<string, { stamp: string; hash: string }>();
+
+/** A short hash of the site's stylesheet (kitCSS), for its address (/kit/site.css?v=<hash>); '' without styles. */
+export function kitStylesHash(dir: string): string {
+  const s = store(dir);
+  const files = kitList(dir).styles;
+  if (!files.length) return '';
+  const stamp = files.map((n) => `${n}=${s.stamp(kitPath('styles', n))}`).join('|');
+  const known = hashes.get(s.root);
+  if (known?.stamp === stamp) return known.hash;
+  const hash = createHash('sha1').update(kitCSS(dir)).digest('hex').slice(0, 12);
+  hashes.set(s.root, { stamp, hash });
+  return hash;
+}
+
+/** The link every page of the site gets to its stylesheet (/kit/site.css, cached by its hash); '' without styles. */
+export function kitStyles(dir: string): string {
+  const hash = kitStylesHash(dir);
+  return hash ? `<link rel="stylesheet" href="/kit/site.css?v=${hash}" data-tykerf-kit>\n` : '';
+}
+
+/** The site's styles inlined, for an export that wants no extra request (ExportOptions.inlineKit); '' without any. */
+export function kitStylesInline(dir: string): string {
+  const css = kitCSS(dir);
+  return css ? `<style data-tykerf-kit>\n${css.replace(/<\/style/gi, '')}\n</style>\n` : '';
 }
 
 /**

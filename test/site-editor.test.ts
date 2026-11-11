@@ -402,17 +402,17 @@ describe('a new site', () => {
     expect(await page.locator('.kitsec [data-kit="remove"]').isVisible()).toBe(false); // nothing to remove yet
     await page.locator('.kitsec [data-kit="cancel"]').click();
     expect(await page.locator('.kitsec .editor').isVisible()).toBe(false);
-    await page.locator('.code textarea').fill('<style>.t-note { outline: 3px solid red }</style>');
+    await page.locator('.code textarea').fill('<meta name="tykerf-note" content="outline: 3px solid red">');
     await page.locator('.code [data-code="save"]').click();
     await page.locator('.code .msg', { hasText: 'Saved' }).waitFor();
-    expect(await (await fetch(`${url}home/`)).text()).toContain('.t-note { outline: 3px solid red }');
+    expect(await (await fetch(`${url}home/`)).text()).toContain('<meta name="tykerf-note" content="outline: 3px solid red">');
     expect(siteTheme()).toBeTruthy(); // the theme stays
     await page.locator('.code textarea').fill('<style data-tykerf-theme>:root{}</style>');
     await page.locator('.code [data-code="save"]').click();
     await page.locator('.code .msg.error', { hasText: 'Page tab' }).waitFor();
     // the site's one Undo, at the top: it takes back the head's change and the kit's, newest first
     const undo = page.locator('.site-undo [data-site="undo"]');
-    await expect.poll(() => undo.textContent()).toBe('Undo: edit the styles and scripts of every page');
+    await expect.poll(() => undo.textContent()).toBe('Undo: edit the head code of every page');
     await page.locator('.code [data-code="close"]').click();
     kitWrite(site, 'styles', 'note', '.t-note { color: blue }'); // a kit change after it (as Kaity's would come)
     await page.reload();
@@ -421,13 +421,13 @@ describe('a new site', () => {
     await undo.click();
     await page.locator('.site-undo .msg', { hasText: 'Undone: add kit/styles/note.css' }).waitFor();
     expect(existsSync(join(site, 'kit', 'styles', 'note.css'))).toBe(false);
-    await expect.poll(() => undo.textContent()).toBe('Undo: edit the styles and scripts of every page');
+    await expect.poll(() => undo.textContent()).toBe('Undo: edit the head code of every page');
     await undo.click();
-    await page.locator('.site-undo .msg', { hasText: 'Undone: edit the styles and scripts of every page' }).waitFor();
+    await page.locator('.site-undo .msg', { hasText: 'Undone: edit the head code of every page' }).waitFor();
     expect(await (await fetch(`${url}home/`)).text()).not.toContain('outline: 3px solid red');
     // and Redo brings it back
     await page.locator('.site-undo [data-site="redo"]').click();
-    await page.locator('.site-undo .msg', { hasText: 'Redone: edit the styles and scripts of every page' }).waitFor();
+    await page.locator('.site-undo .msg', { hasText: 'Redone: edit the head code of every page' }).waitFor();
     expect(await (await fetch(`${url}home/`)).text()).toContain('outline: 3px solid red');
 
     // a page's name shows it as it is, the pencil opens it in the editor, and a name field renames it
@@ -501,8 +501,55 @@ describe('a new site', () => {
     expect(page.url()).toBe(`${url}home/`);
   });
 
+  it('serves the kit\'s styles as one stylesheet, kept for a year at the address pages link', async () => {
+    const { kitWrite } = await import('../src/kit.js');
+    kitWrite(site, 'styles', 'note', '.t-note { color: teal }');
+    const html = await (await fetch(`${url}home/`)).text();
+    const href = /<link rel="stylesheet" href="(\/kit\/site\.css\?v=[0-9a-f]{12})" data-tykerf-kit>/.exec(html)![1];
+    const css = await fetch(`${url}${href.slice(1)}`);
+    expect(css.headers.get('content-type')).toBe('text/css; charset=utf-8');
+    expect(css.headers.get('cache-control')).toBe('public, max-age=31536000, immutable');
+    expect(await css.text()).toContain('/* kit/styles/note.css */\n.t-note { color: teal }');
+    expect((await fetch(`${url}kit/site.css`)).headers.get('cache-control')).toBe('no-cache');
+    kitWrite(site, 'styles', 'note', null);
+  });
+
+  it('adds a font of the site from the kit, with its file, weight and licence', async () => {
+    const { mkdirSync } = await import('node:fs');
+    mkdirSync(join(site, 'assets'), { recursive: true });
+    writeFileSync(join(site, 'assets', 'diavlo.woff2'), 'x');
+    await page.goto(`${url}_tykerf/site/`);
+    await page.locator('.pages .styles-btn').click();
+    await page.locator('.kitsec .fonts .new-font').click();
+    const form = page.locator('.kitsec .font-form');
+    await form.locator('input[name=family]').fill('Diavlo');
+    await form.locator('select[name=file]').selectOption('diavlo.woff2');
+    await form.locator('input[name=licence]').fill('free for web use');
+    await form.locator('[type=submit]').click();
+    await expect.poll(() => page.locator('.kitsec .fonts .font').first().textContent()).toBe('Diavlo (400; free for web use)');
+    expect(JSON.parse(readFileSync(join(site, 'kit', 'fonts.json'), 'utf8'))).toEqual({ Diavlo: { files: [{ file: 'diavlo.woff2', weight: '400', style: 'normal' }], display: 'swap', licence: 'free for web use' } });
+    expect(readFileSync(join(site, 'head.html'), 'utf8')).toContain('font-family: "Diavlo"; src: url("/assets/diavlo.woff2")');
+  });
+
+  it("offers to move an older site's head styles to the kit, and does it when asked", async () => {
+    const { setSiteHead, siteHead } = await import('../src/site.js');
+    setSiteHead(site, `${siteHead(site)}\n<style>.old { color: red }</style>`); // written before styles were the kit's
+    await page.goto(`${url}_tykerf/site/`);
+    await page.locator('.pages .styles-btn').click();
+    const offer = page.locator('.code .head-styles');
+    await expect.poll(() => offer.textContent()).toMatch(/The head code has a style block: styles for every page belong in the site kit\. Move it to the kit/);
+    await offer.locator('button').click();
+    await page.locator('.code .msg', { hasText: 'Moved 1 to the kit: kit/styles/head.css' }).waitFor();
+    expect(readFileSync(join(site, 'kit', 'styles', 'head.css'), 'utf8')).toContain('.old { color: red }');
+    expect(siteHead(site)).not.toContain('.old');
+    expect(await offer.isHidden()).toBe(true);
+    expect(await page.locator('.code h2').textContent()).toBe('Head code');
+  });
+
   it('goes from a shared block to the pages that show it, and from a page to the block in the site kit', async () => {
-    const where = (await fetch(`${url}_tykerf/site/kit`).then((r) => r.json())).where.nav as Record<string, string[]>;
+    const kit = await fetch(`${url}_tykerf/site/kit`).then((r) => r.json());
+    expect(kit.where?.nav, JSON.stringify(kit).slice(0, 400)).toBeDefined();
+    const where = kit.where.nav as Record<string, string[]>;
     const [first, boxes] = Object.entries(where)[0];
     // the manager: each page that shows the navigation opens on its box, and Edit block opens it in the kit's editor
     await page.goto(`${url}_tykerf/site/`);
@@ -517,7 +564,8 @@ describe('a new site', () => {
     expect(await link.getAttribute('href')).toBe('/_tykerf/site/?kit=blocks%2Fnav');
     await page.goto(`${url}_tykerf/site/?kit=blocks%2Fnav`);
     await expect.poll(() => page.locator('.kitsec .editor input').inputValue()).toBe('nav');
-    expect(await page.locator('.kitsec .editor textarea').inputValue()).toBe(readFileSync(join(site, 'kit', 'blocks', 'nav.html'), 'utf8'));
+    // (its code comes a moment later, once fetched)
+    await expect.poll(() => page.locator('.kitsec .editor textarea').inputValue()).toBe(readFileSync(join(site, 'kit', 'blocks', 'nav.html'), 'utf8'));
   });
 
   it("follows a page renamed or removed from another process (Kaity's site run), and lists Kaity's work", async () => {

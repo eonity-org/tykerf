@@ -44,6 +44,20 @@ function unzip(b: Uint8Array): Record<string, Buffer> {
 }
 
 describe('export', () => {
+  it('names the site\'s fonts that have no licence noted', async () => {
+    const { mkdirSync, writeFileSync } = await import('node:fs');
+    const { kitWrite } = await import('../src/kit.js');
+    const { describeReport } = await import('../src/export.js');
+    const dir = mkdtempSync(join(tmpdir(), 'tykerf-export-fonts-'));
+    newSitePage(dir, 'home', 'blank', 'studio');
+    mkdirSync(join(dir, 'assets'), { recursive: true });
+    for (const f of ['a.woff2', 'b.woff2']) writeFileSync(join(dir, 'assets', f), 'x');
+    kitWrite(dir, 'fonts', 'fonts', JSON.stringify({ Diavlo: { files: [{ file: 'a.woff2', weight: '400', style: 'normal' }] }, Fira: { files: [{ file: 'b.woff2', weight: '400', style: 'normal' }], licence: 'SIL OFL 1.1' } }));
+    const { report } = exportFiles(dir);
+    expect(report.unlicensed).toEqual(['Diavlo']);
+    expect(describeReport(report)).toContain('fonts without a licence noted: Diavlo (kit/fonts.json); make sure the site may publish them');
+  });
+
   it("says the site's language in every page, its front door, its list of pages and its 404", () => {
     const dir = mkdtempSync(join(tmpdir(), 'tykerf-export-lang-'));
     newSitePage(dir, 'home', 'launch', 'studio');

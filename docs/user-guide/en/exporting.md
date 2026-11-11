@@ -17,6 +17,8 @@ Click the **Site** button (between the TYKERF logo and the page name) and choose
 
 The editor downloads a `.zip` named after the folder and the date. **Export the site…** holds every page, so links between pages keep working.
 
+In a site, **Inline the site's styles in every page** puts the kit's styles in each page's head instead of one stylesheet they all link (`kit/site.css`): for a host where one more request matters.
+
 **Export this page…** (in a site) holds only the page you're on, with the site's theme and fonts, in a `.zip` named after the page. Its links to other pages of the site are listed before you download: they lead nowhere until those pages are next to it.
 
 ## Publishing instead
@@ -29,6 +31,7 @@ To put the site online without downloading anything, **Publish** in the site man
 npm run cli -- export my-site export/              # a folder
 npm run cli -- export my-site my-site.zip          # a zip
 npm run cli -- export my-site export/ --files      # links that open from disk
+npm run cli -- export my-site export/ --inline-kit # the kit's styles in each page, not one kit/site.css
 npm run cli -- export my-site/home export/         # one page of the site: export/index.html
 ```
 
@@ -40,6 +43,7 @@ export/
   about/index.html
   home/index.html
   home/assets/…          each page's images and files, next to it
+  kit/site.css           the site kit's styles, which every page links (unless they are inlined)
   kit/…                  the site kit's behaviours and their loader, when the site has any
   pages/index.html       the list of pages
   favicon.svg            the site's icon (or your own favicon.png / favicon.ico)
@@ -48,14 +52,15 @@ export/
 
 - Links between pages and other addresses written from the site root (`/about/`, `/home/assets/logo.png`) become relative (`../about/`). The export works at the root of a domain, under a sub-path (`example.com/our-site/`), and from disk.
 - Each page looks as it does in the editor at every width: its responsive rules and its `head.html` come along.
-- The [site kit](sites.md#the-site-kit) comes along: its styles are in each page, its behaviours are files next to the pages, and a shared block (the navigation, the footer) is written into every page that shows it, so each exported page stands alone. **Export this page…** includes the kit's behaviours too.
+- The [site kit](sites.md#the-site-kit) comes along: its styles as one stylesheet every page links (or in each page, inlined), its behaviours as files next to the pages, and a shared block (the navigation, the footer) is written into every page that shows it, so each exported page stands alone. **Export this page…** includes the kit's behaviours too.
 - Tasks and the handbook don't: they are TYKERF's, not the page's.
 
 ## What to check before publishing
 
-The export reports two things:
+The export reports these:
 
 - **Links to pages that don't exist**, for example after a page was removed or renamed outside TYKERF. Fix them in the Text tab, where link fields list the site's pages.
+- **Fonts without a licence noted**: the site's own fonts (the kit's *Fonts*) whose licence field is empty. Publishing a font needs the right to; note its licence once you know it.
 - **Images, fonts or files that still load from other servers:** a file a [copy of a website](importing.md) couldn't download, or an address you typed. The export works while those servers answer, but you usually may not republish someone else's images or fonts. Copy each image you're allowed to use into the page (the image tool's *Copy into the page*), and replace the rest.
 
 An export only includes the files in `assets/` that a page uses. Earlier versions of cropped images and pictures of removed boxes stay behind.

@@ -719,3 +719,4 @@ textarea.code { flex: 1; min-height: 120px; font: var(--mono); tab-size: 2; whit
 .kaity-title { display: flex; align-items: center; gap: 6px; }
 .kaity-title .kaity svg { width: 22px; height: 11px; }
 .job-head .kaity svg { width: 28px; height: 14px; }
+.pop .inline-kit { display: flex; gap: 6px; align-items: center; margin: 10px 0 0; }

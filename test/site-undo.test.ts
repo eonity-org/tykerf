@@ -4,7 +4,7 @@
 import { mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { kitRead, kitWrite } from '../src/kit.js';
 import { Site, linkBlock, newSitePage, pageWorkspace, shareBlock } from '../src/site.js';
 
@@ -51,6 +51,19 @@ describe("a page's Undo of a shared block changed from it", () => {
     // and redo the other way: a site change after the undo leaves nothing for the page to redo
     kitWrite(dir, 'styles', 'base', 'h2 { color: blue }');
     expect(() => about.redo()).toThrow(/can't be redone here: the site changed since/);
+  });
+
+  it('tells two steps of the site apart when they come in the same millisecond', () => {
+    vi.useFakeTimers({ now: new Date('2026-11-11T10:00:00.000Z'), toFake: ['Date'] });
+    try {
+      const { dir, about } = twoPages();
+      about.setContent('nav', '<nav>one</nav>', 'user');
+      kitWrite(dir, 'styles', 'base', 'h2 { color: red }'); // the same instant
+      expect(() => about.undo()).toThrow(/other changes to the site came after it/);
+      expect(kitRead(dir, 'styles', 'base')).toBe('h2 { color: red }');
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it('passes over a change the site manager undid already', () => {

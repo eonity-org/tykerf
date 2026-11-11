@@ -44,7 +44,7 @@ Use **Site → Kaity status… → Test**. It sends one short request and shows 
 The API runners stop a request after 40 steps, and a single model turn after 180 seconds (`TYKERF_TURN_TIMEOUT` changes that). What she did so far stays. Ask her to go on in the same conversation.
 
 **Kaity refuses to change something.**
-In the Kaity tab and in *Give only these to Kaity*, she can only change the selected block. Select the block you mean (or `page`) and ask there, or use **Give Kaity every task**, which works on the whole page. The theme can be changed only with `page` selected, and the site's shared head (Styles & scripts) is never hers to change.
+In the Kaity tab and in *Give only these to Kaity*, she can only change the selected block. Select the block you mean (or `page`) and ask there, or use **Give Kaity every task**, which works on the whole page. The theme can be changed only with `page` selected, and the site's shared head (its head code) is never hers to change.
 
 **Undo and redo say *Kaity is working on …*.**
 While Kaity works, undo and redo wait, so they can't undo half of her change. Wait until she is done, or stop her (*Stop* in the Kaity tab, or the **×** of the build window).

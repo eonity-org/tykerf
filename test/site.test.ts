@@ -5,7 +5,7 @@ import { spawnSync } from 'node:child_process';
 import { describe, expect, it } from 'vitest';
 import { leftovers, say } from '../src/check.js';
 import { kitRead, kitWrite, lastKitChange } from '../src/kit.js';
-import { Site, blockUsers, duplicatePage, freePageName, linkBlock, shareBlock, unlinkBlock, iconLink, madeIcon, setSiteIcon, siteIcon, lastSiteHeadChange, linkedPage, newPageLike, newSitePage, pageLinks, pageNameError, pageWorkspace, removePage, renamePage, setSiteHead, emptyTrash, langTag, pageTitle, readSite, setHome, setLang, siteIndex, setSiteCode, setTitle, shareTheme, siteCode, siteHead, siteKind, siteOf, sitePages, trashedPages, undoSiteHead, usePage } from '../src/site.js';
+import { headStyles, migrateHeadStyles, Site, blockUsers, duplicatePage, freePageName, linkBlock, shareBlock, unlinkBlock, iconLink, madeIcon, setSiteIcon, siteIcon, lastSiteHeadChange, linkedPage, newPageLike, newSitePage, pageLinks, pageNameError, pageWorkspace, removePage, renamePage, setSiteHead, emptyTrash, langTag, pageTitle, readSite, setHome, setLang, siteIndex, setSiteCode, setTitle, shareTheme, siteCode, siteHead, siteKind, siteOf, sitePages, trashedPages, undoSiteHead, usePage } from '../src/site.js';
 import { NO_SITE_HEAD, Workspace } from '../src/workspace.js';
 import * as M from '../src/moves.js';
 import { componentCode, createPage, readOverrides, readTheme, themes } from '../src/library.js';
@@ -547,13 +547,13 @@ describe("the site's one history", () => {
     newSitePage(dir, 'about', 'blank', 'studio');
     const site = new Site(dir);
     expect(site.steps().map((s) => s.label)).toEqual(['share nav with every page', 'make home the home page', 'site theme studio']);
-    setSiteCode(dir, '<style>.a{}</style>');
+    setSiteCode(dir, '<meta name="a" content="1">');
     kitWrite(dir, 'styles', 'base', 'h2 { color: red }', undefined, 'ai');
     setTitle(dir, 'about', 'About us');
     setLang(dir, 'es');
     expect(site.steps(4).map((s) => [s.kind, s.label, s.author])).toEqual([
       ['settings', "the site's language: es", 'user'], ['settings', 'title of about: About us', 'user'],
-      ['kit', 'add kit/styles/base.css', 'ai'], ['head', 'edit the styles and scripts of every page', 'user'],
+      ['kit', 'add kit/styles/base.css', 'ai'], ['head', 'edit the head code of every page', 'user'],
     ]);
     expect(site.undo()).toBe("the site's language: es");
     expect(readSite(dir).lang).toBe('en');
@@ -561,10 +561,10 @@ describe("the site's one history", () => {
     expect(readSite(dir).titles).toEqual({});
     expect(site.undo()).toBe('add kit/styles/base.css');
     expect(existsSync(join(dir, 'kit', 'styles', 'base.css'))).toBe(false);
-    expect(site.undo()).toBe('edit the styles and scripts of every page');
+    expect(site.undo()).toBe('edit the head code of every page');
     expect(siteCode(dir)).toBe('');
-    expect(site.history.peekRedo()).toMatchObject({ label: 'edit the styles and scripts of every page', kind: 'head' });
-    expect(site.redo()).toBe('edit the styles and scripts of every page');
+    expect(site.history.peekRedo()).toMatchObject({ label: 'edit the head code of every page', kind: 'head' });
+    expect(site.redo()).toBe('edit the head code of every page');
     expect(site.redo()).toBe('add kit/styles/base.css');
     expect(kitRead(dir, 'styles', 'base')).toBe('h2 { color: red }');
     // a new change ends what there was to redo
@@ -584,14 +584,14 @@ describe("the site's one history", () => {
     site.group('dress the site', 'ai', () => {
       kitWrite(dir, 'styles', 'base', 'h2 { color: red }', undefined, 'ai');
       setTitle(dir, 'home', 'Welcome', 'ai');
-      setSiteCode(dir, '<style>.b{}</style>');
+      setSiteCode(dir, '<meta name="b" content="2">');
     });
     expect(site.steps()).toHaveLength(before + 1);
     expect(site.history.peekUndo()).toMatchObject({ label: 'dress the site', kind: 'group', author: 'ai', kinds: ['kit', 'settings', 'head'] });
     expect(site.undo()).toBe('dress the site');
     expect([existsSync(join(dir, 'kit', 'styles', 'base.css')), readSite(dir).titles, siteCode(dir)]).toEqual([false, {}, '']);
     expect(site.redo()).toBe('dress the site');
-    expect([kitRead(dir, 'styles', 'base'), readSite(dir).titles.home, siteCode(dir)]).toEqual(['h2 { color: red }', 'Welcome', '<style>.b{}</style>']);
+    expect([kitRead(dir, 'styles', 'base'), readSite(dir).titles.home, siteCode(dir)]).toEqual(['h2 { color: red }', 'Welcome', '<meta name="b" content="2">']);
 
     expect(() => site.group('half done', 'ai', () => {
       kitWrite(dir, 'styles', 'other', '.x{}');
@@ -649,18 +649,42 @@ describe("the site's one history", () => {
   });
 });
 
-describe("the site's styles and scripts", () => {
-  it('are the site head without its theme, which they never change', () => {
+describe("the site's head code", () => {
+  it('refuses a new style, and moves the styles an older site has to the kit, in one step undo takes back', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'tykerf-head-styles-'));
+    newSitePage(dir, 'home', 'blank', 'warm');
+    expect(() => setSiteCode(dir, '<style>.a { color: red }</style>')).toThrow(/styles for every page go in the site kit \(kit\/styles\)/);
+    setSiteCode(dir, '<link rel="stylesheet" href="/assets/extra.css">'); // a stylesheet link may stay
+    // an older site: styles in its head code, written before the rule
+    const head = siteHead(dir);
+    const old = '<meta name="theme-color" content="#123456">\n<style>.a { color: red }</style>\n<style media="print">nav { display: none }</style>';
+    setSiteHead(dir, head.replace('<link rel="stylesheet" href="/assets/extra.css">', old));
+    expect(headStyles(dir)).toHaveLength(2);
+    setSiteCode(dir, siteCode(dir) + '\n<meta name="b" content="2">'); // keeping its styles is fine
+    kitWrite(dir, 'styles', 'head', '.before { margin: 0 }');
+    const kitBefore = kitRead(dir, 'styles', 'head'), headBefore = siteHead(dir);
+
+    expect(migrateHeadStyles(dir)).toBe(2);
+    expect(siteCode(dir)).toBe('<meta name="theme-color" content="#123456">\n<meta name="b" content="2">');
+    expect(kitRead(dir, 'styles', 'head')).toBe(".before { margin: 0 }\n\n/* from the site head's code */\n.a { color: red }\n\n/* from the site head's code: <style media=\"print\"> */\n@media print {\nnav { display: none }\n}\n");
+    expect(siteHead(dir)).toContain('data-tykerf-preset="warm"'); // the theme stays
+    expect(migrateHeadStyles(dir)).toBe(0);
+    // one step back: both files as they were
+    expect(new Site(dir).undo()).toBe('move 2 styles from the head code to the kit');
+    expect([kitRead(dir, 'styles', 'head'), siteHead(dir)]).toEqual([kitBefore, headBefore]);
+  });
+
+  it('is the site head without its theme, which it never changes', () => {
     const dir = mkdtempSync(join(tmpdir(), 'tykerf-code-'));
     newSitePage(dir, 'home', 'blank', 'warm'); // the first page starts the site's shared theme
     const theme = siteHead(dir);
     expect(siteCode(dir)).toBe('');
-    setSiteCode(dir, '<style>.t-note { color: red }</style>\n<script src="/assets/menu.js" defer></script>');
-    expect(siteCode(dir)).toBe('<style>.t-note { color: red }</style>\n<script src="/assets/menu.js" defer></script>');
+    setSiteCode(dir, '<meta name="theme-color" content="#123456">\n<script src="/assets/menu.js" defer></script>');
+    expect(siteCode(dir)).toBe('<meta name="theme-color" content="#123456">\n<script src="/assets/menu.js" defer></script>');
     expect(siteHead(dir)).toContain('data-tykerf-preset="warm"');
     expect(siteHead(dir).startsWith(theme.trim())).toBe(true);
     expect(() => setSiteCode(dir, '<style data-tykerf-theme>:root{}</style>')).toThrow(/changed in the Page tab/);
-    expect(undoSiteHead(dir)).toBe('edit the styles and scripts of every page');
+    expect(undoSiteHead(dir)).toBe('edit the head code of every page');
     expect(siteCode(dir)).toBe('');
   });
 

@@ -55,7 +55,7 @@ const S = {
   showPins: store.get('pins', true),
   taskAt: null, // in task mode, what the pointer is on: { el, block }
   taskTarget: null, // the element whose task is being written
-  kit: { site: false, blocks: [], tags: {}, users: {} }, // the site kit: shared blocks (and the pages that show them), the site's own tags
+  kit: { site: false, blocks: [], tags: {}, classes: [], users: {} }, // the site kit: shared blocks (and the pages that show them), the site's own tags, its class styles
 };
 const per = (id) => {
   if (!S.per.has(id)) S.per.set(id, {});
@@ -1408,9 +1408,9 @@ async function renderPage(body) {
 const exportURL = (path, q) => `/_tykerf/${path}${(q = new URLSearchParams(q)).size ? `?${q}` : ''}`;
 
 /** Download the page (or the whole site, or one page of it) as a .zip of plain files, and say what the export found. */
-async function exportZip(files, page) {
+async function exportZip(files, page, inlineKit = false) {
   try {
-    const r = await fetch(exportURL('export.zip', { ...(files && { links: 'files' }), ...(page && { page }) }));
+    const r = await fetch(exportURL('export.zip', { ...(files && { links: 'files' }), ...(page && { page }), ...(inlineKit && { kit: 'inline' }) }));
     if (!r.ok) throw new Error((await r.json().catch(() => null))?.error || `HTTP ${r.status}`);
     const name = /filename="([^"]+)"/.exec(r.headers.get('content-disposition') ?? '')?.[1] ?? 'export.zip';
     const report = JSON.parse(r.headers.get('x-tykerf-report') ?? '{}');
@@ -1445,6 +1445,7 @@ async function renderCode(body, id) {
   body.innerHTML = `
     <div class="subtabs">${CODE_TABS.map(([k, l]) => `<button data-code="${k}" aria-selected="${p.codeTab === k}">${l()}</button>`).join('')}
       <span class="hint">${p.codeTab === 'css' ? t('Scoped to this box: plain selectors are safe') : p.codeTab === 'html' ? t('Markup, text and scripts') : t('Style and content together')}</span></div>
+    ${S.kit.classes?.length ? `<p class="hint class-styles">${t('The site\'s class styles: give an element one with {classes}.', { classes: S.kit.classes.map((c) => `<code>class="k-${esc(c)}"</code>`).join(', ') })}</p>` : ''}
     <textarea class="code" spellcheck="false" wrap="off">${esc(value())}</textarea>
     <div class="savebar"><span class="status"></span><button data-c="revert">${t('Revert')}</button><button data-c="save" class="primary" title="⌘S">${t('Save code')}</button></div>`;
   const ta = $('textarea.code', body);
@@ -1520,6 +1521,7 @@ function renderSize(body, id) {
       ${choice('tone', '', !tone, t('None'), t('The page\'s background'))}${choice('tone', 'alt', tone === 'alt', t('Alternate'), t('A shade of the background, to set a section apart'))}${choice('tone', 'soft', tone === 'soft', t('Soft'), t('A soft wash of the accent'))}${choice('tone', 'dark', tone === 'dark', t('Dark'), t('The dark band: its text turns light. Once or twice a page, for a footer or a strong section'))}</div></div>
     <div class="look-row"><span class="look-label">${t('Density')}</span><div class="choice-seg" role="radiogroup" aria-label="${t('Density')}">
       ${choice('dense', 'no', !dense, t('Normal'), t('The space the theme gives'))}${choice('dense', 'yes', dense, t('Dense'), t('Less space around it and smaller titles, whatever the theme'))}</div></div>
+    ${S.kit.classes?.length ? `<div class="look-row"><span class="look-label" title="${t('The site kit\'s styles for a class (kit/styles, scoped to .k-<name>): on, the block takes the class')}">${t('Class styles')}</span><div class="tag-row">${S.kit.classes.map((c) => `<button data-sitetag="k-${esc(c)}" aria-pressed="${tags.includes(`k-${c}`)}" title="class=&quot;k-${esc(c)}&quot;">${esc(c)}</button>`).join('')}</div></div>` : ''}
     ${Object.keys(S.kit.tags).length ? `<div class="look-row"><span class="look-label">${t('Site tags')}</span><div class="tag-row">${Object.entries(S.kit.tags).map(([tg, v]) => `<button data-sitetag="${esc(tg)}" aria-pressed="${tags.includes(tg)}" title="${esc(v.description ?? v.label)}">${esc(v.label)}</button>`).join('')}</div></div>` : ''}
   </section>`;
   html += lookHtml;
@@ -1879,16 +1881,19 @@ async function exportPrompt(page) {
   popover(r.left, r.bottom + 6, `<p><b>${whole ? t('Export the site') : page ? t('Export this page') : t('Export the page')}</b></p>
     <p class="hint">${page ? t('The page {page} ({kb} KB) as plain files in a .zip, with the site\'s theme and fonts. Its links to other pages of the site lead nowhere until those pages are next to it. TYKERF, its history and the conversations with Kaity stay out.', { page: esc(page), kb }) : whole ? t('Every page of the site, {n} in all ({kb} KB), as plain files in a .zip: links between pages and images keep working wherever you put them. TYKERF, its history and the conversations with Kaity stay out.', { n: report.pages.length, kb }) : t('This page ({kb} KB) as plain files in a .zip. TYKERF, its history and the conversations with Kaity stay out.', { kb })}</p>
     ${report.broken.length ? `<div class="report${page ? '' : ' bad'}"><b>${page ? t('Links to other pages') : t('Links to pages that don\'t exist')}</b>${report.broken.map((b) => `<div>${esc(b.page)} → <code>${esc(b.href)}</code></div>`).join('')}</div>` : ''}
+    ${report.unlicensed?.length ? `<div class="report"><b>${t('Fonts without a licence noted')}</b><div>${t('{fonts}: make sure the site may publish them (the site kit\'s Fonts).', { fonts: esc(report.unlicensed.join(', ')) })}</div></div>` : ''}
     ${report.remote.length ? `<div class="report"><b>${t('Still loaded from other servers')}</b><div>${t('{n} images, fonts or files from {hosts}. Copy the ones you may use into the page before publishing.', { n: report.remote.length, hosts: esc(hosts.join(', ')) })}</div></div>` : ''}
     <div class="choices">
       <button data-x="web" class="choice"><b>${ic('download')}${t('For a web server')}</b><span>${t('Links end in a folder (../about/), as web hosts serve them.')}</span></button>
       <button data-x="files" class="choice"><b>${ic('download')}${t('To open from disk')}</b><span>${t('Links end in index.html, so you can double-click the files without a web server.')}</span></button>
-    </div>`);
+    </div>
+    ${S.site ? `<label class="check inline-kit"><input type="checkbox" name="inlineKit"> ${t('Inline the site\'s styles in every page')}</label><p class="hint">${t('Instead of one stylesheet every page links (kit/site.css): for hosts where one more request matters.')}</p>` : ''}`);
   pop.onclick = (e) => {
     const x = e.target.closest('[data-x]')?.dataset.x;
     if (!x) return;
+    const inline = !!pop.querySelector('input[name=inlineKit]')?.checked;
     closePop();
-    exportZip(x === 'files', page);
+    exportZip(x === 'files', page, inline);
   };
 }
 

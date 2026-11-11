@@ -21,7 +21,8 @@ import { FolderStore, type Store } from './store.js';
 import * as M from './moves.js';
 import { type Registry, contentErrors, loadTypes, newTypeErrors } from './types.js';
 import { parseSlice, serializeSlice } from './notation.js';
-import { type Contents, toHTML } from './render.js';
+import { type Contents, layerStyles, toHTML } from './render.js';
+import type { FontRegistry } from './library.js';
 import { trimSteps } from './history-trim.js';
 
 type HistoryEntry =
@@ -30,7 +31,7 @@ type HistoryEntry =
   | { kind: 'content'; label: string; author: string; at: string; id: string; prev: string | null }
   | { kind: 'head'; label: string; author: string; at: string; prev: string | null } // head.html: page-wide fonts, theme, scripts
   | { kind: 'group'; label: string; author: string; at: string; count: number } // the previous `count` entries are one step
-  // a shared block changed from this page: the change is a step of the site's history (its time is `step`),
+  // a shared block changed from this page: the change is a step of the site's history (its id is `step`),
   // which the page's undo takes back while it is still the site's last
   | { kind: 'site'; label: string; author: string; at: string; id: string; block: string; step: string };
 
@@ -114,13 +115,17 @@ export interface SiteLike {
   icon(): string;
   /** Replace the shared head: a step of the site's history. */
   setHead(html: string, label: string, author?: string): void;
-  /** The site kit's part of every page's head: its styles and the behaviours' loader (src/kit.ts). */
+  /** The site kit's part of every page's head: the link to its stylesheet and the behaviours' loader (src/kit.ts). */
   kitHead(): string;
+  /** The site's stylesheet (kit/styles, joined), served at /kit/site.css. */
+  kitCSS(): string;
+  /** The fonts the site registers (kit/fonts.json): its fonts block declares them, so a page doesn't. */
+  fonts(): FontRegistry;
   /** A shared block's code (kit/blocks/<name>.html), or null. */
   block(name: string): string | null;
   /**
    * Change a shared block: every page that uses it changes. The site keeps it as a step of its history and
-   * returns the step's time (null: nothing changed), so the page's Undo can take it back too.
+   * returns the step's id (null: nothing changed), so the page's Undo can take it back too.
    */
   setBlock(name: string, code: string | null, author: string): string | null;
   /** The box types every page of the site has (kit/types/). */
@@ -128,7 +133,7 @@ export interface SiteLike {
   /** Undo or redo the site's last step (its history: the head, the kit, the settings); returns its label. */
   undo(): string;
   redo(): string;
-  /** The times of the site's steps, in the order undo (or redo) would take them. */
+  /** The ids of the site's steps, in the order undo (or redo) would take them. */
   undoAts(): string[];
   redoAts(): string[];
 }
@@ -788,7 +793,8 @@ export class Workspace {
         if (n.type === 'leaf' && n.use && c[n.id] !== undefined) c[n.id] = markCurrentPage(c[n.id], page, (home ??= site.home() === page));
       });
     }
-    return toHTML(l, c, { lang: site?.lang() ?? 'en', ...opts, head: (site?.icon() ?? '') + this.siteHead() + this.kitHead() + this.head() + (opts.head ?? '') });
+    // each head's styles in their cascade layer (render.ts LAYERS): the site's code with the kit, a page's above it
+    return toHTML(l, c, { lang: site?.lang() ?? 'en', ...opts, head: (site?.icon() ?? '') + layerStyles(this.siteHead(), 'kit') + this.kitHead() + layerStyles(this.head(), 'page') + (opts.head ?? '') });
   }
 
   /** Write the rendered page to out/index.html; returns where it went (a file path for folders). */

@@ -7,9 +7,9 @@ import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { leftovers, say } from '../src/check.js';
 import { exportFiles } from '../src/export.js';
-import { KIT_LOADER, blockSlots, fillSlots, slotValues, unfillSlots, withSlotValues, kitError, kitWarning, kitList, kitRead, kitStyles, kitTags, kitWrite, lastKitChange, markCurrentPage, undoKit } from '../src/kit.js';
+import { KIT_LOADER, kitFonts, kitClasses, kitCSS, kitStylesHash, blockSlots, fillSlots, slotValues, unfillSlots, withSlotValues, kitError, kitWarning, kitList, kitRead, kitStyles, kitTags, kitWrite, lastKitChange, markCurrentPage, undoKit } from '../src/kit.js';
 import { parseSlice, serializeSlice } from '../src/notation.js';
-import { blockUsers, identicalBoxes, linkBlock, newSitePage, pageWorkspace, shareBlock, shareIdentical, unlinkBlock } from '../src/site.js';
+import { Site, blockUsers, identicalBoxes, linkBlock, newSitePage, pageWorkspace, shareBlock, shareIdentical, unlinkBlock } from '../src/site.js';
 import { contentHash, pageFileRefs } from '../src/assets.js';
 import * as M from '../src/moves.js';
 
@@ -47,12 +47,26 @@ describe('kit files', () => {
     const dir = site();
     kitWrite(dir, 'styles', 'b-buttons', '.btn { padding: 1px }');
     kitWrite(dir, 'styles', 'a-base', 'body { margin: 0 }');
-    expect(kitStyles(dir).indexOf('a-base')).toBeLessThan(kitStyles(dir).indexOf('b-buttons')); // in file-name order
+    expect(kitCSS(dir).indexOf('a-base')).toBeLessThan(kitCSS(dir).indexOf('b-buttons')); // in file-name order
+    // one linked stylesheet, whose address changes with its content
+    const hash = kitStylesHash(dir);
+    expect(hash).toMatch(/^[0-9a-f]{12}$/);
+    expect(kitStyles(dir)).toBe(`<link rel="stylesheet" href="/kit/site.css?v=${hash}" data-tykerf-kit>\n`);
+    expect(kitStylesHash(dir)).toBe(hash); // the same while the files are
+    kitWrite(dir, 'styles', 'a-base', 'body { margin: 1px }');
+    expect(kitStylesHash(dir)).not.toBe(hash);
+    expect(kitCSS(dir)).toBe('@layer kit {\n/* kit/styles/a-base.css */\nbody { margin: 1px }\n/* kit/styles/b-buttons.css */\n.btn { padding: 1px }\n}\n');
     const ws = pageWorkspace(dir, 'home');
     ws.setHead('<style id="mine">.x{}</style>\n' + ws.head(), 'user');
     const html = ws.page();
     expect(html.indexOf('data-tykerf-theme')).toBeLessThan(html.indexOf('data-tykerf-kit'));
     expect(html.indexOf('data-tykerf-kit')).toBeLessThan(html.indexOf('id="mine"'));
+    expect(html).toContain(`<link rel="stylesheet" href="/kit/site.css?v=${kitStylesHash(dir)}" data-tykerf-kit>`);
+    expect(html).not.toContain('.btn { padding: 1px }'); // linked, not in the page
+    // the editor's page version follows the kit (it hashes the head, link included)
+    const before = ws.page();
+    kitWrite(dir, 'styles', 'b-buttons', '.btn { padding: 2px }');
+    expect(pageWorkspace(dir, 'home').page()).not.toBe(before);
     expect(html).not.toContain('/kit/loader.js');
     kitWrite(dir, 'scripts', 'reveal', 'export default (el) => el.classList.add("shown");');
     expect(pageWorkspace(dir, 'home').page()).toContain('<script type="module" src="/kit/loader.js"></script>');
@@ -70,9 +84,98 @@ describe('kit files', () => {
     expect(paths).toContain('kit/scripts/reveal.js');
     const home = new TextDecoder().decode(files.find((f) => f.path === 'home/index.html')!.bytes);
     expect(home).toContain('src="../kit/loader.js"');
-    expect(home).toContain('.btn { padding: 1px }');
+    // one stylesheet for the site, linked relatively from each page
+    expect(paths.filter((p) => p.endsWith('.css'))).toEqual(['kit/site.css']);
+    expect(new TextDecoder().decode(files.find((f) => f.path === 'kit/site.css')!.bytes)).toContain('.btn { padding: 1px }');
+    expect(home).toMatch(/<link rel="stylesheet" href="\.\.\/kit\/site\.css\?v=[0-9a-f]{12}" data-tykerf-kit>/);
+    expect(home).not.toContain('.btn { padding: 1px }');
     expect(report.broken).toEqual([]);
     expect(new TextDecoder().decode(files.find((f) => f.path === 'kit/loader.js')!.bytes)).toBe(KIT_LOADER);
+    // inlined, for a host where one more request matters: no stylesheet file
+    const inline = exportFiles(dir, { inlineKit: true });
+    expect(inline.files.map((f) => f.path)).not.toContain('kit/site.css');
+    const inlined = new TextDecoder().decode(inline.files.find((f) => f.path === 'home/index.html')!.bytes);
+    expect(inlined).toContain('<style data-tykerf-kit>\n@layer kit {\n/* kit/styles/base.css */\n.btn { padding: 1px }');
+    expect(inlined).not.toContain('kit/site.css');
+  });
+});
+
+describe("the site's fonts", () => {
+  it('are declared in the site head from kit/fonts.json, need their files, and a theme naming an unknown one is warned', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'tykerf-fonts-'));
+    newSitePage(dir, 'home', 'blank', 'studio');
+    const registry = { Diavlo: { files: [{ file: 'diavlo.woff2', weight: '400', style: 'normal' }, { file: 'diavlo-bold.woff2', weight: '700', style: 'normal' }], display: 'swap', licence: 'free for web use' } };
+    expect(kitError('fonts', 'fonts', '{"Diavlo": {"files": [{"file": "diavlo.woff2", "weight": "bold", "style": "normal"}]}}')).toMatch(/the weight of diavlo\.woff2 is "400"/);
+    expect(kitError('fonts', 'fonts', '{"Bad<Name>": {"files": []}}')).toMatch(/can't be a font's name/);
+    expect(() => kitWrite(dir, 'fonts', 'fonts', JSON.stringify(registry))).toThrow(/assets\/diavlo\.woff2, assets\/diavlo-bold\.woff2 are not in the site's assets\//);
+    const { mkdirSync, writeFileSync } = await import('node:fs');
+    mkdirSync(join(dir, 'assets'), { recursive: true });
+    for (const f of ['diavlo.woff2', 'diavlo-bold.woff2']) writeFileSync(join(dir, 'assets', f), 'x');
+    kitWrite(dir, 'fonts', 'fonts', JSON.stringify(registry));
+    expect(kitList(dir).fonts).toBe(true);
+    const head = readFileSync(join(dir, 'head.html'), 'utf8');
+    expect(head).toContain('@font-face { font-family: "Diavlo"; src: url("/assets/diavlo.woff2") format("woff2"); font-weight: 400; font-style: normal; font-display: swap; }');
+    expect(head).toContain('font-weight: 700');
+    expect(head).toMatch(/font-family: "Instrument Sans"|@font-face \{ font-family: "[A-Z]/); // the theme's bundled fonts stay
+    // one step of the site's history takes both back
+    expect(new Site(dir).history.peekUndo()?.kind).toBe('group');
+    new Site(dir).undo();
+    expect(readFileSync(join(dir, 'head.html'), 'utf8')).not.toContain('Diavlo');
+    new Site(dir).redo();
+
+    // a theme naming a font nobody has gets a warning, not a refusal; a registered or bundled one doesn't
+    const { fontWarning } = await import('../src/library.js');
+    expect(fontWarning('--font-heading', '"Comic Neue", sans-serif')).toMatch(/--font-heading: "Comic Neue" is not a bundled or registered font; register it in the kit's Fonts \(kit\/fonts\.json\)/);
+    expect(fontWarning('--font-heading', '"Diavlo", Georgia, serif', kitFonts(dir))).toBeNull();
+    expect(fontWarning('--font-body', '"Inter", system-ui, sans-serif')).toBeNull();
+    const { openTools } = await import('../src/editor/tools-client.js');
+    const home = pageWorkspace(dir, 'home');
+    const run = await openTools(home, home.load().root.id);
+    expect((await run.call('set_theme', { changes: [{ name: '--font-heading', value: '"Comic Neue", serif' }] })).text).toMatch(/\nwarning: --font-heading: "Comic Neue" is not a bundled or registered font/);
+    expect((await run.call('get_theme', {})).text).toContain('the site\'s own fonts (kit/fonts.json), which --font-* values can name: "Diavlo"');
+    await run.close();
+    const site = await openTools(pageWorkspace(dir, 'home'), '', dir);
+    expect((await site.call('list_kit', {})).text).toContain('fonts: "Diavlo" (400, 700; licence: free for web use)');
+    await site.close();
+  });
+});
+
+describe('styles for a class', () => {
+  it('apply to any element with the class, on every page, and nowhere else; a box takes one with the tag #k-<name>', async () => {
+    const dir = site();
+    expect(kitError('styles', 'card', '@scope (.k-quote) { :scope { color: red } }')).toMatch(/card\.css: a style for a class is scoped to the class of the file's name, \.k-card, not \.k-quote/);
+    expect(kitError('styles', 'card', '/* cards */\n@scope (.k-card) { :scope { color: red } }')).toBeNull();
+    kitWrite(dir, 'styles', 'card', '/* cards */\n@scope (.k-card) {\n  :scope { color: rgb(255, 0, 0) }\n}\n');
+    kitWrite(dir, 'styles', 'base', 'p { margin: 0 }');
+    expect(kitClasses(dir)).toEqual(['card']);
+    const home = pageWorkspace(dir, 'home'), about = pageWorkspace(dir, 'about');
+    home.setContent('hero', '<p class="k-card">a card</p><p class="other">not one</p>', 'user');
+    about.setContent('cta', '<p>plain</p>', 'user');
+    about.save(M.tag(about.load(), 'cta', 'k-card'), 'card', 'user'); // a whole box takes it (its own styles would still win)
+    expect(about.page()).toMatch(/class="sw-leaf [^"]*\bk-card\b/);
+    expect(about.page()).not.toContain('t-k-card');
+
+    const { chromium } = await import('playwright');
+    const browser = await chromium.launch();
+    try {
+      const page = await browser.newPage();
+      const color = (sel: string) => page.locator(sel).first().evaluate((e) => getComputedStyle(e).color);
+      const inline = (html: string) => html.replace(/<link rel="stylesheet" href="\/kit\/site\.css[^>]*>/, `<style>${kitCSS(dir)}</style>`);
+      await page.setContent(inline(pageWorkspace(dir, 'home').page()));
+      expect(await color('[data-sw="hero"] .k-card')).toBe('rgb(255, 0, 0)');
+      expect(await color('[data-sw="hero"] .other')).not.toBe('rgb(255, 0, 0)');
+      await page.setContent(inline(pageWorkspace(dir, 'about').page()));
+      expect(await color('[data-sw="cta"]')).toBe('rgb(255, 0, 0)');
+      expect(await color('[data-sw="nav"]')).not.toBe('rgb(255, 0, 0)');
+    } finally {
+      await browser.close();
+    }
+
+    // Kaity sees them in the kit
+    const { openTools } = await import('../src/editor/tools-client.js');
+    const run = await openTools(pageWorkspace(dir, 'home'), '', dir);
+    expect((await run.call('list_kit', {})).text).toMatch(/^styles: base, card\nclasses: card \(class k-card\)\n/);
+    await run.close();
   });
 });
 

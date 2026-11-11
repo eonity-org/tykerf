@@ -64,6 +64,9 @@
   .kitsec .acts { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
   .kitsec .acts .msg { flex: 1 1 220px; font-size: 13px; }
   .kitsec .msg.error { color: #B42318; }
+  .kitsec .font-form { display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: end; width: 100%; margin-top: 6px; }
+  .kitsec .font-form label { display: grid; gap: 2px; font-size: 12px; }
+  .kitsec .font-form .msg.error { color: #B42318; flex-basis: 100%; }
   .kitsec .block-row .edit-block { margin-left: 4px; font-size: 12px; padding: 2px 8px; }
   .kitsec .block-row .users a { color: inherit; }
   .kitsec .msg.warning { color: #B54708; }
@@ -318,7 +321,7 @@
     <div class="acts-top">
       <button type="button" class="add" aria-expanded="false" aria-controls="new-page"><span aria-hidden="true">+</span> <span data-t>New page</span></button>
       <button type="button" class="kaity-btn" aria-expanded="false" aria-controls="site-kaity"><span class="kslot"></span><span data-t>Ask Kaity about the whole site</span></button>
-      <button type="button" class="styles-btn" aria-expanded="false" aria-controls="site-code" data-t>Styles & scripts</button>
+      <button type="button" class="styles-btn" aria-expanded="false" aria-controls="site-code" data-t>Site kit & head code</button>
       <button type="button" class="links-btn" aria-expanded="false" aria-controls="site-links" data-t>Links between pages</button>
       <button type="button" class="work-btn" aria-expanded="false" aria-controls="site-work" data-t>Kaity's work</button>
       <button type="button" class="publish-btn" aria-expanded="false" aria-controls="site-publish" data-t>Publish</button>
@@ -350,8 +353,9 @@
       <div class="acts"><button type="button" class="link" data-k="reset" data-t>New conversation</button><span class="spacer"></span><span class="msg-k" role="status"></span><button type="button" class="primary" data-k="send" data-t>Ask Kaity</button></div>
     </section>
     <section class="code" id="site-code" hidden aria-labelledby="code-h">
-      <h2 id="code-h" data-t>Styles and scripts for every page</h2>
-      <p data-t>This code goes in the head of every page, before the page's own: a stylesheet, a &lt;style&gt; or a &lt;script&gt;, meta tags. Colours and fonts are the theme, in the Page tab of any page. Scripts here run on every page.</p>
+      <h2 id="code-h" data-t>Head code</h2>
+      <p data-t>What every page gets in its head that isn't a style: meta tags, scripts, a stylesheet link. Styles for every page go in the site kit below; colours and fonts are the theme, in the Page tab of any page.</p>
+      <p class="head-styles" hidden><span></span> <button type="button" data-code="migrate"></button></p>
       <div class="icon-row"><img class="icon-preview" alt=""><span class="icon-say"></span><button type="button" data-icon="pick" data-t>Upload an icon…</button><button type="button" data-icon="reset" hidden data-t>Use the made one</button><span class="icon-msg" role="status"></span></div>
       <div class="icon-row lang-row"><label><span data-t>Language</span> <input class="lang" spellcheck="false" size="8" maxlength="35" placeholder="en"></label><span class="icon-say" data-t>What language the pages are in, such as es, en or pt-BR: browsers, screen readers and search engines read it.</span><button type="button" data-lang="save" data-t>Save</button><span class="icon-msg" role="status"></span></div>
       <textarea spellcheck="false" aria-label="The code of every page's head"></textarea>
@@ -466,6 +470,15 @@ if (site.signin) try { localStorage.setItem('tykerf.admin', 'true'); } catch {}
 
 const code = document.querySelector('.code'), codeBox = code.querySelector('textarea'), codeMsg = code.querySelector('.msg');
 const stylesBtn = document.querySelector('.styles-btn');
+const headStylesLine = code.querySelector('.head-styles');
+
+/** An older site's head code with <style> blocks: the offer to move them to the kit (never done on its own). */
+function showHeadStyles(n) {
+  headStylesLine.hidden = !n;
+  if (!n) return;
+  headStylesLine.querySelector('span').textContent = n === 1 ? t('The head code has a style block: styles for every page belong in the site kit.') : t('The head code has {n} style blocks: styles for every page belong in the site kit.', { n });
+  headStylesLine.querySelector('button').textContent = n === 1 ? t('Move it to the kit') : t('Move {n} style blocks to the kit', { n });
+}
 
 async function openCode() {
   if (!newBox.hidden) closeNew();
@@ -477,6 +490,7 @@ async function openCode() {
   showLang();
   const j = await fetch('/_tykerf/site/code').then((r) => r.json()).catch(() => ({ code: '' }));
   codeBox.value = j.code ?? '';
+  showHeadStyles(j.styles ?? 0);
   codeMsg.textContent = '';
   code.hidden = false;
   idle.hidden = true;
@@ -493,7 +507,7 @@ function closeCode() {
 }
 
 // ---------- the site kit (src/kit.ts): what every page shares besides the theme ----------
-// It opens with Styles & scripts. Each kind lists its files; a file opens in the editor below; boxes
+// It opens with the head code. Each kind lists its files; a file opens in the editor below; boxes
 // already the same on several pages (a navigation, a footer) are offered as one shared block.
 
 const kitSec = document.querySelector('.kitsec'), kinds = kitSec.querySelector('.kinds'), suggest = kitSec.querySelector('.suggest');
@@ -505,6 +519,7 @@ const KINDS = [
   ['blocks', () => t('Shared blocks'), () => t('A box shows one with Use a shared block… in the editor; a change reaches every page that shows it.'), '<nav>\n</nav>\n'],
   ['types', () => t('Box types'), () => t('Rules for boxes of a type, on every page (a page\'s own type of the same name wins).'), '{\n  "content": { "scripts": false }\n}\n'],
   ['tags', () => t('Tags'), () => t('The site\'s own tags, offered in Size & look; style each as .t-<tag> in a styles file.'), '{\n  "highlighted": { "label": "Highlighted", "description": "A thin accent border" }\n}\n'],
+  ['fonts', () => t('Fonts'), () => t('The site\'s own fonts, with their files in the site\'s assets/ folder: every page declares them, and the theme can name them.'), '{\n  "Family": { "files": [{ "file": "family.woff2", "weight": "400", "style": "normal" }], "display": "swap", "licence": "SIL OFL 1.1" }\n}\n'],
 ];
 let kitOpen = null; // the file in the editor: { kind, name, isNew }
 
@@ -513,6 +528,7 @@ async function openKit() {
   const j = await fetch('/_tykerf/site/kit').then((r) => r.json()).catch(() => null);
   if (!j?.ok) return (kitSec.hidden = true);
   kinds.replaceChildren(...KINDS.map(([kind, label, help, ]) => {
+    if (kind === 'fonts') return fontsRow(j, label(), help());
     const files = kind === 'tags' ? (j.files.tags ? ['tags'] : []) : j.files[kind];
     return el('div', { className: 'kind', title: help() }, el('b', { textContent: label() }),
       ...files.map((n) => {
@@ -527,7 +543,9 @@ async function openKit() {
         row.setAttribute('data-block', n);
         return row;
       }),
-      ...(kind === 'tags' && files.length ? [] : [Object.assign(el('button', { type: 'button', textContent: t('+ New') }), { onclick: () => editKit(kind, null) })]));
+      ...(kind === 'tags' && files.length ? [] : [Object.assign(el('button', { type: 'button', textContent: t('+ New') }), { onclick: () => editKit(kind, null) })]),
+      // a style for a class: any element with class="k-<name>", on any page, takes it
+      ...(kind === 'styles' ? [Object.assign(el('button', { type: 'button', className: 'new-class', textContent: t('+ A style for a class') }), { onclick: () => editKit(kind, null, CLASS_STYLE) })] : []));
   }));
   // boxes already the same on several pages: one click shares them
   suggest.hidden = !j.identical.length;
@@ -544,14 +562,58 @@ async function openKit() {
     }));
 }
 
-async function editKit(kind, name) {
+// the start of a style for a class; its name (the file's) must follow k- (the kit checks it)
+const CLASS_STYLE = '@scope (.k-name) {\n  :scope { }\n}\n';
+
+/** The site's fonts: each family with its weights and licence, a form for a new one, and its JSON. */
+function fontsRow(j, label, help) {
+  const families = Object.entries(j.fonts ?? {});
+  const row = el('div', { className: 'kind fonts', title: help }, el('b', { textContent: label }),
+    ...families.map(([f, v]) => el('span', { className: 'font' }, el('span', { textContent: f, style: `font-family: "${f}"` }),
+      el('span', { className: 'users', textContent: ` (${v.files.map((x) => `${x.weight}${x.style === 'italic' ? ' italic' : ''}`).join(', ')}; ${v.licence ? v.licence : t('no licence noted')})` }))),
+    Object.assign(el('button', { type: 'button', className: 'new-font', textContent: t('+ New') }), { onclick: () => openFontForm(row, j.fontFiles ?? []) }),
+    ...(families.length ? [Object.assign(el('button', { type: 'button', textContent: t('Edit JSON') }), { onclick: () => editKit('fonts', 'fonts') })] : []));
+  return row;
+}
+
+function openFontForm(row, files) {
+  row.querySelector('.font-form')?.remove();
+  const form = el('form', { className: 'font-form' });
+  form.innerHTML = files.length
+    ? `<label><span>${t('Family')}</span><input name="family" required maxlength="60" placeholder="Diavlo"></label>
+      <label><span>${t('File')}</span><select name="file">${files.map((f) => `<option>${f.replace(/[<&"]/g, '')}</option>`).join('')}</select></label>
+      <label><span>${t('Weight')}</span><input name="weight" value="400" size="8" title="${t('400, or 100 900 for a variable font')}"></label>
+      <label><span>${t('Style')}</span><select name="style"><option value="normal">${t('normal')}</option><option value="italic">${t('italic')}</option></select></label>
+      <label><span>${t('Licence')}</span><input name="licence" placeholder="SIL OFL 1.1"></label>
+      <span class="acts"><button type="button" data-font="cancel">${t('Cancel')}</button><button type="submit" class="primary">${t('Add the font')}</button></span>
+      <span class="msg" role="status"></span>`
+    : `<span>${t('Put the font\'s files (.woff2) in the site\'s assets/ folder first: they are listed here then.')}</span> <button type="button" data-font="cancel">${t('Close')}</button>`;
+  form.onclick = (e) => e.target.closest('[data-font="cancel"]') && form.remove();
+  form.onsubmit = async (e) => {
+    e.preventDefault();
+    const msg = form.querySelector('.msg');
+    try {
+      await post('/_tykerf/site/kit/font', Object.fromEntries(new FormData(form)));
+      await openKit();
+    } catch (err) {
+      msg.className = 'msg error';
+      msg.textContent = err.message;
+    }
+  };
+  row.append(form);
+  form.querySelector('input')?.focus();
+}
+
+async function editKit(kind, name, template = null) {
   const def = KINDS.find((k) => k[0] === kind);
   kitOpen = { kind, name, isNew: !name };
-  kName.parentElement.hidden = kind === 'tags';
+  kName.parentElement.hidden = kind === 'tags' || kind === 'fonts';
   kName.previousElementSibling.textContent = def[1]();
   kName.value = name ?? '';
   kName.disabled = !!name;
-  kText.value = name ? (await fetch(`/_tykerf/site/kit/file?kind=${kind}&name=${encodeURIComponent(name)}`).then((r) => r.json())).text ?? '' : def[3];
+  kText.value = name ? (await fetch(`/_tykerf/site/kit/file?kind=${kind}&name=${encodeURIComponent(name)}`).then((r) => r.json())).text ?? '' : template ?? def[3];
+  // a style for a class takes its class from the file's name as it is typed
+  kName.oninput = template ? () => (kText.value = kText.value.replace(/@scope \(\.k-[a-z0-9-]*\)/, `@scope (.k-${kName.value.trim() || 'name'})`)) : null;
   kEditor.querySelector('[data-kit="remove"]').hidden = !name;
   kMsg.className = 'msg';
   kMsg.textContent = '';
@@ -578,7 +640,7 @@ kitSec.onclick = async (e) => {
   if (!a) return;
   if (a === 'cancel') return (kEditor.hidden = true);
   if (!kitOpen) return;
-  const name = kitOpen.kind === 'tags' ? 'tags' : kName.value.trim();
+  const name = kitOpen.kind === 'tags' || kitOpen.kind === 'fonts' ? kitOpen.kind : kName.value.trim();
   kMsg.className = 'msg';
   try {
     const r = await post('/_tykerf/site/kit/file', { kind: kitOpen.kind, name, text: a === 'remove' ? null : kText.value });
@@ -759,6 +821,11 @@ code.onclick = async (e) => {
       await post('/_tykerf/site/code', { code: codeBox.value });
       codeMsg.textContent = t('Saved: every page uses it now. Undo is at the top, with the site\'s other changes.');
     }
+    if (a === 'migrate') {
+      const r = await post('/_tykerf/site/kit/migrate-head', {});
+      await openCode(); // the code without them, and the kit with kit/styles/head.css
+      codeMsg.textContent = t('Moved {n} to the kit: kit/styles/head.css. Undo is at the top.', { n: r.result });
+    }
   } catch (err) {
     codeMsg.className = 'msg error';
     codeMsg.textContent = err.message;
@@ -838,6 +905,7 @@ publish.onclick = async (e) => {
       const details = [
         r.report.broken.length ? t('{n} links point at pages that don\'t exist.', { n: r.report.broken.length }) : '',
         r.report.remote.length ? t('{n} images, fonts or files still load from other servers.', { n: r.report.remote.length }) : '',
+        r.report.unlicensed?.length ? t('Fonts without a licence noted: {fonts}. Make sure the site may publish them.', { fonts: r.report.unlicensed.join(', ') }) : '',
       ].filter(Boolean).join(' ');
       pubMsg.textContent = `${r.commit
         ? t('Published: {added} new, {changed} changed and {removed} removed files. The host puts it live in a minute or two.', { added: r.added, changed: r.changed, removed: r.removed })
@@ -1279,7 +1347,7 @@ renderNow();
 render();
 refreshTrash();
 loadSiteHistory();
-// ?kit=blocks/<name> (the editor's "Open in the site kit"): Styles & scripts open, with that file in the kit's editor
+// ?kit=blocks/<name> (the editor's "Open in the site kit"): the kit opens, with that file in its editor
 {
   const want = /^(styles|scripts|blocks|types|tags)\/([a-z0-9][a-z0-9-]*)$/.exec(new URLSearchParams(location.search).get('kit') ?? '');
   if (want) {

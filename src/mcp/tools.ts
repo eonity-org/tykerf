@@ -16,9 +16,9 @@ import { inScope, scopeViolation } from '../scope.js';
 import { cost, optimize } from '../shape.js';
 import { leftovers, missingFiles, say } from '../check.js';
 import { closeTask, sayTask, tasks } from '../tasks.js';
-import { type KitKind, blockSlots, kitList, kitRead, kitTags, kitWarning, kitWrite } from '../kit.js';
+import { type KitKind, blockSlots, kitClasses, kitFonts, kitList, kitRead, kitTags, kitWarning, kitWrite } from '../kit.js';
 import { HOME_PAGE, blockUsers, linkBlock, newSitePage, pageTitle, pagesWithOwnTheme, pageWorkspace, readSite, setLang, setTitle, shareTheme, removePage, renamePage, shareBlock, movedFiles, siteHead, siteKind, unlinkBlock, unsafeSVG, siteOf, sitePages, usePage } from '../site.js';
-import { DEFAULT_THEME, components, createPage, hasTheme, pageLayouts, readOverrides, readTheme, setTheme, themeTarget, themes, useComponent, useLayout } from '../library.js';
+import { DEFAULT_THEME, components, createPage, fontWarning, hasTheme, pageLayouts, readOverrides, readTheme, setTheme, themeTarget, themes, useComponent, useLayout } from '../library.js';
 import { FolderStore, MemoryStore } from '../store.js';
 import { Workspace } from '../workspace.js';
 
@@ -341,7 +341,10 @@ export function createTykerfServer(start: Workspace | null, opts: TykerfServerOp
       const apart = dir && Object.keys(own).length && !hasTheme(siteHead(dir)) ? pagesWithOwnTheme(dir) : [];
       const each = apart.length > 1 ? `(each page of this site has a theme of its own (${apart.join(', ')}); they share none, so set_theme here changes this page only. share_theme, on a run over the whole site, makes one page's theme every page's${home && !runScope ? '' : ': ask for the whole site to use it'})\n` : '';
       const shared = Object.keys(own).length ? '' : `(the theme every page of the site shares${Object.keys(mine).length ? `, with this page's own values for ${Object.keys(mine).join(', ')}` : ''}; ${themeTarget(ws) === 'site' ? 'this is the site\'s only page, so set_theme changes the site theme' : 'set_theme sets this page\'s own values over it; the other pages keep theirs'})\n`;
-      return Object.keys(vars).length ? each + shared + Object.entries(vars).map(([n, v]) => `${n}: ${v}`).join('\n') : 'this page has no theme (the user can add one in the Page tab of the top block)';
+      // the fonts a theme can name besides the bundled ones: the site's own (kit/fonts.json)
+      const registered = Object.keys(ws.site?.fonts() ?? {});
+      const fonts = registered.length ? `\nthe site's own fonts (kit/fonts.json), which --font-* values can name: ${registered.map((f) => `"${f}"`).join(', ')}` : '';
+      return Object.keys(vars).length ? each + shared + Object.entries(vars).map(([n, v]) => `${n}: ${v}`).join('\n') + fonts : 'this page has no theme (the user can add one in the Page tab of the top block)';
     }));
 
   server.registerTool('set_theme', {
@@ -361,7 +364,9 @@ export function createTykerfServer(start: Workspace | null, opts: TykerfServerOp
     const changed = setTheme(ws, Object.fromEntries(changes.map((c) => [themeName(c.name), c.value])), 'ai');
     const lines = Object.entries(changed).map(([n, c]) => `${n}: ${c.from} -> ${c.to}`);
     const what = where === 'site' ? 'site theme changed (this is the site\'s only page)' : where === 'override' ? 'this page\'s own theme values changed (the other pages of the site keep the shared theme)' : 'theme changed';
-    return lines.length ? `${what}:\n${lines.join('\n')}` : 'theme unchanged (the values were already set)';
+    // a font family nobody has: a warning, not a refusal (the person may have it)
+    const warnings = changes.map((c) => fontWarning(themeName(c.name), c.value, ws.site?.fonts())).filter(Boolean).map((w) => `warning: ${w}`);
+    return [lines.length ? `${what}:\n${lines.join('\n')}` : 'theme unchanged (the values were already set)', ...warnings].join('\n');
   })));
 
   server.registerTool('list_themes', { title: 'List theme presets', annotations: READ, description: 'Theme presets: a whole set of colours, fonts and spacing in one go (apply one with use_theme, then fine-tune with set_theme).' },
@@ -490,7 +495,7 @@ export function createTykerfServer(start: Workspace | null, opts: TykerfServerOp
     (l, a) => M.setLeaf(l, a.leaf, { role: a.role, boxType: a.type, shapes: a.shapes?.map(parseShape), minW: a.minw, maxW: a.maxw, minH: a.minh }));
   moveTool('set_variant', 'Choose a box\'s shape', CHANGE, 'Choose which shape variant a leaf uses (0-based).', { leaf: id, variant: z.number().int().min(0) },
     (l, a) => M.setVariant(l, a.leaf, a.variant));
-  moveTool('tag', 'Add a tag', CHANGE, 'Add a tag (written here with #, passed with or without it: "tone-alt" or "#tone-alt"). Tags become CSS classes t-<tag>. Band tones: #tone-alt, #tone-soft, #tone-dark; #dense packs a section tighter. Special: #priority (must be in first screen), #lock / #equal (optimizer constraints), semantic tags (#main, #section...) on operators.',
+  moveTool('tag', 'Add a tag', CHANGE, 'Add a tag (written here with #, passed with or without it: "tone-alt" or "#tone-alt"). Tags become CSS classes t-<tag>, except #k-<name>, which gives the box the class k-<name> of the site kit style for that class (list_kit: classes). Band tones: #tone-alt, #tone-soft, #tone-dark; #dense packs a section tighter. Special: #priority (must be in first screen), #lock / #equal (optimizer constraints), semantic tags (#main, #section...) on operators.',
     { id, tag: z.string() }, (l, a) => M.tag(l, a.id, a.tag.trim().replace(/^#/, '')));
   moveTool('untag', 'Remove a tag', CHANGE, 'Remove a tag.', { id, tag: z.string() }, (l, a) => M.untag(l, a.id, a.tag.trim().replace(/^#/, '')));
   moveTool('attach_overlay', 'Add an overlay', CHANGE, 'Attach an overlay (modal, badge, tooltip) floating over a target node, with z-index. anchor = where inside the target: "box" = centered over it; "top"/"bottom"/"left"/"right" = against the middle of that edge; "top-left"/"top-right"/"bottom-left"/"bottom-right" = tucked into that corner. Its HTML comes from set_content(overlay id).',
@@ -740,7 +745,7 @@ export function createTykerfServer(start: Workspace | null, opts: TykerfServerOp
   // a run on one block (the editor's Kaity) never sees them
   if ((home || folders) && !runScope) {
     // ---------- the site kit (src/kit.ts): what every page shares besides its theme ----------
-    const kindArg = z.enum(['styles', 'scripts', 'blocks', 'types', 'tags']);
+    const kindArg = z.enum(['styles', 'scripts', 'blocks', 'types', 'tags', 'fonts']);
     const reach = (site: string, kind: KitKind, name: string) => {
       if (kind !== 'blocks') return `every page of the site (${sitePages(site).length})`;
       const users = Object.keys(blockUsers(site, name));
@@ -749,13 +754,17 @@ export function createTykerfServer(start: Workspace | null, opts: TykerfServerOp
     server.registerTool('list_kit', {
       title: 'Read the site kit', annotations: READ,
       description: 'The site kit: what every page of the site shares besides the theme. styles: CSS in every page, after the theme and before the page\'s own. scripts: behaviours, an ES module whose default export gets each element marked data-use="<name>". ' +
+        'classes: styles for a class, kit/styles/<name>.css starting with @scope (.k-<name>): any element with class="k-<name>" on any page takes it (a whole box: the tag #k-<name>). ' +
+        'fonts: the site\'s own fonts (kit/fonts.json), declared on every page; their files are in the site\'s assets/. ' +
         'blocks: shared blocks; a box with use=<name> (see get_layout) shows kit/blocks/<name>.html on every page that links it. types: box types for every page. tags: the site\'s own tags (#name on a block, styled as .t-<name> in kit styles).',
     }, guard(() => {
       const site = siteOnly();
       const f = kitList(site);
       const tags = Object.entries(kitTags(site)).map(([t, v]) => `#${t}: ${v.label}${v.description ? ` (${v.description})` : ''}`);
       const blocks = f.blocks.map((b) => { const u = Object.keys(blockUsers(site, b)); return `${b} (on ${u.length ? u.join(', ') : 'no page'})`; });
-      return [`styles: ${f.styles.join(', ') || 'none'}`, `scripts: ${f.scripts.join(', ') || 'none'}`, `blocks: ${blocks.join(', ') || 'none'}`, `types: ${f.types.join(', ') || 'none'}`, `tags: ${tags.join('; ') || 'none'}`].join('\n');
+      const classes = kitClasses(site).map((c) => `${c} (class k-${c})`);
+      const fonts = Object.entries(kitFonts(site)).map(([f, v]) => `"${f}" (${v.files.map((x) => `${x.weight}${x.style === 'italic' ? ' italic' : ''}`).join(', ')}; licence: ${v.licence?.trim() || 'not noted'})`);
+      return [`styles: ${f.styles.join(', ') || 'none'}`, `classes: ${classes.join(', ') || 'none'}`, `scripts: ${f.scripts.join(', ') || 'none'}`, `blocks: ${blocks.join(', ') || 'none'}`, `types: ${f.types.join(', ') || 'none'}`, `tags: ${tags.join('; ') || 'none'}`, `fonts: ${fonts.join('; ') || 'none'}`].join('\n');
     }));
     server.registerTool('get_kit_file', {
       title: 'Read a site kit file', annotations: READ,

@@ -12,7 +12,7 @@ A **site** is a folder of pages, one subfolder each, with what they share next t
 my-site/
   home/          a page (layout.slice, boxes/, head.html, assets/ …)
   about/         another page
-  head.html      the site's theme and the code every page gets (Styles & scripts)
+  head.html      the site's theme, its fonts and its head code
   kit/           what every page shares besides the theme (see The site kit)
   assets/        the theme's fonts
   site.json      the home page, titles set by hand, the site's language, where Publish sends the site
@@ -61,7 +61,7 @@ It starts with what acts on the whole site:
 |---|---|
 | **+ New page** | The ways to start a page, step by step; the button that makes the page always stays in sight |
 | **Ask Kaity about the whole site** | Kaity works across pages: she opens each, changes it and checks it ([Kaity for the whole site](ai.md#kaity-for-the-whole-site)) |
-| **Styles & scripts** | The site's icon and language, and the code every page gets in its head (see below) |
+| **Site kit & head code** | The site's icon and language, the code every page gets in its head (see below), and [the site kit](#the-site-kit) |
 | **Links between pages** | Broken links first, then the pages nothing links to (see below) |
 | **Kaity's work** | Everything Kaity did and is doing in the site, on any page or the whole site (see below) |
 | **Publish** | The site, live on GitHub Pages, Cloudflare Pages or Netlify ([publishing](publishing.md)) |
@@ -106,9 +106,9 @@ Links between pages are written from the site root: `/about/`, `/about/#team`. T
 - **pages no other page links to:** visitors reach them only from the list of pages or a search engine;
 - **what each page links to.**
 
-### Styles & scripts
+### Head code
 
-The code every page gets in its head, before the page's own: a stylesheet, a `<style>`, a `<script>`, meta tags. Scripts here run on every page. The theme (colours and fonts) isn't in it; that stays in the Page tab. **Undo**, at the top of the manager, takes a change back (see [Undo](#undo-and-the-sites-history)).
+**Site kit & head code** opens what every page gets in its head that isn't a style: meta tags, scripts, a link to a stylesheet. Scripts here run on every page. Styles for every page go in [the site kit](#the-site-kit), and the theme (colours and fonts) stays in the Page tab: a new `<style>` here is refused, with a word on where it goes. A site made before keeps the styles its head code has; the manager offers **Move N style blocks to the kit**, which moves them to `kit/styles/head.css` (each with a comment saying where it came from) as one step **Undo** takes back. From the command line, `npm run cli -- site <dir> migrate-head` does the same. Nothing moves on its own. **Undo**, at the top of the manager, takes a change back (see [Undo](#undo-and-the-sites-history)).
 
 Above the code is **the site's icon**, the one browser tabs and bookmarks show. TYKERF makes one from the home page's first letter on the theme's accent colour. **Upload an icon…** uses yours instead (SVG, PNG or ICO, up to 512 KB), and **Use the made one** goes back. While you edit, the editor's tabs show TYKERF's mark instead, so they're easy to find; visitors see the site's icon.
 
@@ -116,23 +116,31 @@ Below it is **the site's language**: the language its pages are written in, as a
 
 ### Undo and the site's history
 
-What the whole site shares has one history, apart from each page's: the theme and **Styles & scripts**, the site kit, and the settings (the home page, page titles, the language, where Publish sends the site). At the top of the manager, **Undo** takes back the last of those changes, whoever made it (you, or Kaity on the whole site), and says which one it is (*Undo: add kit/styles/note.css*); **Redo** brings back what you undid, until the next change. **Site history** below them lists the latest changes, who made them and when. A change Kaity makes as one request, across the kit and the settings, undoes as one step.
+What the whole site shares has one history, apart from each page's: the theme and the head code, the site kit, and the settings (the home page, page titles, the language, where Publish sends the site). At the top of the manager, **Undo** takes back the last of those changes, whoever made it (you, or Kaity on the whole site), and says which one it is (*Undo: add kit/styles/note.css*); **Redo** brings back what you undid, until the next change. **Site history** below them lists the latest changes, who made them and when. A change Kaity makes as one request, across the kit and the settings, undoes as one step.
 
 Renaming, duplicating or removing a page isn't a step of it: a removed page waits in the trash, and a rename can be made again the other way.
 
 ## The site kit
 
-![The site kit in the site manager, below Styles & scripts: the kit's styles and behaviours, a footer shared by all seven pages, box types and tags](../images/site-kit.png)
+![The site kit in the site manager, below the head code: the kit's styles and behaviours, a footer shared by all seven pages, box types and tags](../images/site-kit.png)
 
-The site kit holds what every page shares besides the theme, one small named file each, in the site's `kit/` folder. It opens below **Styles & scripts** in the site manager: each kind lists its files (click one to edit it, **+ New** to add one). **Undo**, at the top of the manager, takes back a change, with the site's other changes.
+The site kit holds what every page shares besides the theme, one small named file each, in the site's `kit/` folder. It opens with **Site kit & head code** in the site manager, below the head code: each kind lists its files (click one to edit it, **+ New** to add one). **Undo**, at the top of the manager, takes back a change, with the site's other changes.
 
 | Kind | What it is | Where it shows |
 |---|---|---|
-| **Styles** (`kit/styles/<name>.css`) | CSS for every page: a button style, a card | In every page, after the theme and before the page's own styles, in file-name order |
+| **Styles** (`kit/styles/<name>.css`) | CSS for every page: a button style, a card | In every page, as one stylesheet every page links (`/kit/site.css`), in file-name order: above the theme, below a page's own head and a box's own styles |
+| **Styles for a class** (`kit/styles/<name>.css`, starting `@scope (.k-<name>)`) | A look any element can take, on any page: `class="k-card"` | On every element with the class; a whole box takes it from **Size & look**, under *Class styles* |
 | **Behaviours** (`kit/scripts/<name>.js`) | A small script an element turns on with `data-use="<name>"`: `export default function (el) { … }` | On the elements that ask for it, on any page; only the behaviours a page uses load |
 | **Shared blocks** (`kit/blocks/<name>.html`) | One box's code that several pages show: the navigation, the footer | In every box that shows it (see below) |
 | **Box types** (`kit/types/<name>.json`) | Rules for boxes of a type (see box types) | On every page; a page's own type of the same name wins |
 | **Tags** (`kit/tags.json`) | The site's own tags, with a label and a description | In the editor's **Size & look** tab, under *Site tags*; style each as `.t-<tag>` in a styles file |
+| **Fonts** (`kit/fonts.json`) | The site's own fonts: each family's files in the site's `assets/`, their weights, and their licence | Declared on every page; the theme and the kit's styles can name them (see below) |
+
+**The order of styles.** Every page's styles come in a fixed order, so a rule never wins by accident: TYKERF's own look, then the theme, then the kit's styles, then a page's own head; a box's own styles (its Code tab) win over all of them. A kit rule can't override a box, however specific it is.
+
+**Styles for a class.** A kit style can be a look any element takes by its class, on any page: **+ A style for a class** starts one, `@scope (.k-card) { :scope { … } }`, named after its class (`card` for `k-card`). Write `class="k-card"` on any element in a box's code (the Code tab lists the site's class styles), or give a whole box the class in **Size & look**, under *Class styles*. A tag `k-card` on a box is that class itself, not `t-k-card`: tags starting `k-` are kept for class styles.
+
+**Fonts.** Besides the fonts TYKERF bundles, a site can have its own: put the font's files (`.woff2` is best) in the site's `assets/` folder, then press **+ New** next to **Fonts** in the kit and give its family name, its file, its weight (`400`, or `100 900` for a variable font), its style and its licence; **Edit JSON** shows `kit/fonts.json` itself. Every page then declares it, and the theme's font fields and the kit's styles can name it. A theme that names a font that is neither bundled nor registered gets a warning, since visitors without it installed see the next font in the list. An export, and Publish, list the fonts with no licence noted: make sure the site may publish them.
 
 **A behaviour, step by step.** A behaviour is a small script an element asks for by name. To put the current year in every footer:
 

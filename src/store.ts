@@ -98,6 +98,15 @@ export class FolderStore implements Store {
   remove(path: string) {
     rmSync(this.abs(path), { force: true });
   }
+  /** A file's time and size ("<mtime>:<size>"), to tell it changed without reading it; null when it isn't there. */
+  stamp(path: string): string | null {
+    try {
+      const st = statSync(this.abs(path));
+      return `${st.mtimeMs}:${st.size}`;
+    } catch {
+      return null;
+    }
+  }
   exists(path: string) {
     return existsSync(this.abs(path));
   }

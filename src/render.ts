@@ -73,7 +73,8 @@ function renderNode(n: Node, contents: Contents, anchored: Set<string>, itemStyl
   // Leaves get their element from `role`; operators from a semantic tag (e.g. #main).
   const semantic = n.type === 'leaf' ? n.role : n.tags.find((t) => SEMANTIC.has(t));
   const tag = semantic && SEMANTIC.has(semantic) ? semantic : 'div';
-  const classes = [n.type === 'leaf' ? 'sw-leaf' : `sw-op sw-${n.kind}`, `sw-d${depth % 4}`, ...n.tags.map((t) => `t-${t}`)];
+  // a tag k-<name> is the class of a kit style for a class (kit.ts kitClasses), as it is; any other tag is t-<tag>
+  const classes = [n.type === 'leaf' ? 'sw-leaf' : `sw-op sw-${n.kind}`, `sw-d${depth % 4}`, ...n.tags.map((t) => (t.startsWith('k-') ? t : `t-${t}`))];
   let style = itemStyle;
   if (anchored.has(n.id)) style += `anchor-name:${anchorName(n.id)};`;
   if (n.maxW !== undefined) style += `max-width:${n.maxW}px;margin-inline:auto;width:100%;`;
@@ -180,7 +181,8 @@ function rulesCSS(layout: Layout): string {
     const present = new Set<string>();
     walk(e.root, (n) => present.add(n.id));
     for (const [id, n] of base) {
-      if (!present.has(id) && n.type !== 'empty') blocks.push(`#sw-${cssId(id)},[data-slot="${id}"]{display:none !important}`);
+      // (.sw-slot: the renderer's own wrappers; a shared block's content slots use data-slot too)
+      if (!present.has(id) && n.type !== 'empty') blocks.push(`#sw-${cssId(id)},.sw-slot[data-slot="${id}"]{display:none !important}`);
     }
     walk(e.root, (n) => {
       if (!isOp(n)) return;
@@ -191,7 +193,7 @@ function rulesCSS(layout: Layout): string {
         blocks.push(`${sel}{display:flex !important;flex-direction:${n.kind === 'V' ? 'row' : 'column'} !important}`);
         n.children.forEach((c, i) => {
           if (c.type === 'empty') return;
-          blocks.push(`${sel}>#sw-${cssId(c.id)},${sel}>[data-slot="${c.id}"]{${important(childFlex(n, i, n.id === e.root.id))}}`);
+          blocks.push(`${sel}>#sw-${cssId(c.id)},${sel}>.sw-slot[data-slot="${c.id}"]{${important(childFlex(n, i, n.id === e.root.id))}}`);
         });
       } else blocks.push(`${sel}{${important(opStyle(n))}}`);
     });
@@ -208,7 +210,29 @@ export function renderParts(layout: Layout, contents: Contents = {}): { css: str
   const overlays = layout.overlays
     .map((o) => `<div id="sw-${cssId(o.id)}" data-sw="${esc(o.id)}" class="sw-overlay" style="position-anchor:${anchorName(o.target)};${ANCHOR_CSS[o.anchor]}z-index:${o.z}">${o.id in contents ? scopeStyles(contents[o.id], o.id) : esc(o.id)}</div>`)
     .join('\n');
-  return { css: `${BASE_CSS}${rulesCSS(layout)}`, body: `${tree}\n${overlays}` };
+  // the layers' order comes first; TYKERF's own look and the responsive rules are the lowest
+  return { css: `${LAYERS}\n@layer tykerf {\n${BASE_CSS}${rulesCSS(layout)}\n}`, body: `${tree}\n${overlays}` };
+}
+
+/**
+ * The order of a page's styles, lowest first: TYKERF's base look and the responsive rules, the theme (and a page's
+ * own values over it), the site kit, the page's own head. A box's own <style> (scopeStyles) is in no layer, so it
+ * wins over all of them, whatever their specificity. (An !important rule turns the order round: the base's hide
+ * rules beat everything, as they should.)
+ */
+export const LAYERS = '@layer tykerf, theme, kit, page;';
+
+/**
+ * A head with each <style> in its layer, at render time (the stored head stays as it is, so the theme code still
+ * finds its :root): the theme's and a page's own values in `theme`, the fonts in none (@font-face isn't in the
+ * cascade), any other style in `rest` (the site head's code: kit; a page's head: page).
+ */
+export function layerStyles(head: string, rest: 'kit' | 'page'): string {
+  return head.replace(/(<style\b([^>]*)>)([\s\S]*?)(<\/style>)/gi, (all, open: string, attrs: string, css: string, close: string) => {
+    if (/\bdata-tykerf-fonts\b/.test(attrs) || !css.trim() || /^\s*@layer\b/.test(css)) return all;
+    const layer = /\bdata-tykerf-(?:theme|override)\b/.test(attrs) ? 'theme' : rest;
+    return `${open}@layer ${layer} {\n${css}\n}${close}`;
+  });
 }
 
 export function toHTML(layout: Layout, contents: Contents = {}, opts: { title?: string; css?: string; head?: string; bodyEnd?: string; lang?: string } = {}): string {

@@ -69,6 +69,32 @@ describe('the MCP tools', () => {
   });
 });
 
+describe("a page's screenshot", () => {
+  it("has the site kit's styles: the stylesheet every page links is served to it", async () => {
+    const { mkdtempSync } = await import('node:fs');
+    const { tmpdir } = await import('node:os');
+    const { join } = await import('node:path');
+    const { kitWrite } = await import('../src/kit.js');
+    const { Site } = await import('../src/site.js');
+    const dir = mkdtempSync(join(tmpdir(), 'tykerf-kit-shot-'));
+    kitWrite(dir, 'styles', 'tall', '[data-sw="end"] { min-height: 5000px }');
+    const ws = new Workspace(new MemoryStore('memory:kit-shot'), { site: new Site(dir) });
+    ws.create('top end H', { top: '<p>top</p>', end: '<p>end</p>' });
+    const server = createTykerfServer(ws);
+    const [a, b] = InMemoryTransport.createLinkedPair();
+    const client = new Client({ name: 'test', version: '0' });
+    await Promise.all([server.connect(a), client.connect(b)]);
+    try {
+      const said = ((await client.callTool({ name: 'screenshot', arguments: { width: 800 } })) as { content: { text?: string }[] }).content.map((c) => c.text ?? '').join('');
+      expect(Number(/ of (\d+)/.exec(said)![1])).toBeGreaterThan(5000); // the kit's rule made the page that tall
+    } finally {
+      await client.close();
+      const { closeScreenshots } = await import('../src/screenshot.js');
+      await closeScreenshots();
+    }
+  });
+});
+
 describe('the slots of a shared block', () => {
   it('are listed by get_content and get_layout, and filled by set_slot or an edit inside them, in the box\'s scope', async () => {
     const { mkdtempSync } = await import('node:fs');

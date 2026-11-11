@@ -11,7 +11,7 @@ import * as M from '../moves.js';
 import { serializeSlice } from '../notation.js';
 import { leftovers } from '../check.js';
 import { handbookMarkdown, handbookPage } from '../handbook.js';
-import { kitList, kitTags } from '../kit.js';
+import { kitClasses, kitList, kitTags } from '../kit.js';
 import { blockUsers, linkBlock, shareBlock, unlinkBlock } from '../site.js';
 import { addTask, clearDone, closeTask, removeTask, reopenTask, sayTask, tasks } from '../tasks.js';
 import { pathOf } from '../refs.js';
@@ -251,7 +251,9 @@ export function createPageHost(ws: Workspace, opts: { name: string; site?: () =>
     /** The site's own tags (kit/tags.json) on a block: on or off. One step. */
     tag: (a: { id: string; tag: string; on: boolean }) => {
       const dir = ws.site?.dir;
-      if (!dir || !(a.tag in kitTags(dir))) throw new Error(`"${a.tag}" is not one of the site's tags`);
+      // the site's own tags, and its class styles (k-<name>)
+      const isClass = a.tag.startsWith('k-') && !!dir && kitClasses(dir).includes(a.tag.slice(2));
+      if (!dir || (!(a.tag in kitTags(dir)) && !isClass)) throw new Error(`"${a.tag}" is not one of the site's tags or class styles`);
       ws.save(a.on ? M.tag(ws.load(), a.id, a.tag) : M.untag(ws.load(), a.id, a.tag), `${a.id}: ${a.on ? '' : 'no '}#${a.tag}`, 'user');
       return a.id;
     },
@@ -504,7 +506,7 @@ export function createPageHost(ws: Workspace, opts: { name: string; site?: () =>
     if (req.method === 'GET' && p === '/_tykerf/kit') {
       const dir = ws.site?.dir;
       const blocks = dir ? kitList(dir).blocks : [];
-      return json(res, 200, dir ? { site: true, blocks, tags: kitTags(dir), users: Object.fromEntries(blocks.map((b) => [b, Object.keys(blockUsers(dir, b))])) } : { site: false, blocks: [], tags: {}, users: {} });
+      return json(res, 200, dir ? { site: true, blocks, tags: kitTags(dir), classes: kitClasses(dir), users: Object.fromEntries(blocks.map((b) => [b, Object.keys(blockUsers(dir, b))])) } : { site: false, blocks: [], tags: {}, classes: [], users: {} });
     }
     if (req.method === 'GET' && p === '/_tykerf/tasks') return json(res, 200, { tasks: tasks(ws), text: tasks(ws, { open: true }).map(sayTask).join('\n') });
     if (req.method === 'GET' && p === '/_tykerf/events') {

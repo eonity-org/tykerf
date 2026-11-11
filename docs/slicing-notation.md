@@ -102,6 +102,7 @@ rule r1 below=700 flip row2
 4. **Order.** The postfix order of boxes is the reading order. The generated DOM follows it, for accessibility.
 5. **Rules** apply while the viewport is narrower than `below`; the smallest `below` wins. `flip` on `W`/`P` stacks the slots in reading order.
 6. **Overlays** float over their target: `box` = centered; edges and corners = inside that edge or corner.
+7. **Tags** render as the CSS class `t-<tag>` on the block's element, except a tag starting `k-`: `#k-card` renders as the class `k-card` itself, the class of a site kit's style for a class (`kit/styles/card.css`, scoped to `.k-card`). The `k-` prefix is reserved for those.
 
 ## 4. Identity
 

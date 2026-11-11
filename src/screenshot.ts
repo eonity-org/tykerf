@@ -75,6 +75,8 @@ export function pageFiles(ws: Workspace): PageFiles {
     read: (path) => {
       if (path.startsWith(`${base}assets/`)) return ws.store.readBytes(path.slice(base.length));
       if (path.startsWith('/assets/')) return ws.site?.asset(path.slice('/assets/'.length)) ?? null;
+      // the site's stylesheet (kit/styles), which every page links, with its ?v= hash
+      if (path === '/kit/site.css' && ws.site) return new TextEncoder().encode(ws.site.kitCSS());
       return null;
     },
   };

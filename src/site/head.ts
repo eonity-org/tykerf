@@ -1,10 +1,11 @@
-// The site's shared head: one theme for every page, and the code every page gets (Styles & scripts).
+// The site's shared head: one theme for every page, and its code (Head code: meta tags, scripts; styles are the kit's).
 
 import { hasTheme, theme, themes, withFonts, withPresetName, withThemeValues } from '../library.js';
 import { NO_SITE_HEAD } from '../workspace.js';
 import { sitePages } from './pages.js';
 import { pageWorkspace } from './index.js';
 import { SiteHistory, siteStore } from './history.js';
+import { kitFonts, kitRead, kitWrite } from '../kit.js';
 
 // ---------- the site's shared head: one theme for every page ----------
 // <site>/head.html comes before each page's own head.html, so a page can still add or override
@@ -22,7 +23,7 @@ export function siteHead(dir: string): string {
 /** Replace the site's shared head (its fonts come along): one step of the site's history. */
 export function setSiteHead(dir: string, html: string, label = 'edit the site theme', author = 'user') {
   const store = siteStore(dir);
-  store.lock(() => new SiteHistory(dir).change('head', SITE_HEAD, withFonts(store, html, '/assets/'), label, author));
+  store.lock(() => new SiteHistory(dir).change('head', SITE_HEAD, withFonts(store, html, '/assets/', kitFonts(dir)), label, author));
 }
 
 /** The last change to the site's head (in the site's history), or null. */
@@ -40,11 +41,50 @@ export function siteCode(dir: string): string {
   return siteHead(dir).replace(KEPT, '').trim();
 }
 
-/** Replace the site head's own code, keeping its theme and fonts blocks; one step of the site's history. */
+/** The <style> blocks of some head code, each with what follows it up to the next tag. */
+const STYLE_BLOCK = /<style\b[^>]*>[\s\S]*?<\/style>\s*/gi;
+
+/** The <style> blocks of the site head's own code (Head code): the kit's styles are the place for them now. */
+export function headStyles(dir: string): string[] {
+  return (siteCode(dir).match(STYLE_BLOCK) ?? []).map((b) => b.trim());
+}
+
+/**
+ * Replace the site head's own code, keeping its theme and fonts blocks; one step of the site's history. A new
+ * <style> is refused: styles for every page are the kit's (kit/styles). The ones it already has may stay, until
+ * migrateHeadStyles moves them.
+ */
 export function setSiteCode(dir: string, code: string) {
   if (new RegExp(KEPT.source, 'i').test(code)) throw new Error('the theme and its fonts are changed in the Page tab, not here; leave them out of this code');
+  const had = new Set(headStyles(dir));
+  if ((code.match(STYLE_BLOCK) ?? []).some((b) => !had.has(b.trim()))) throw new Error('styles for every page go in the site kit (kit/styles); keep only what isn\'t CSS here: meta tags, scripts, a stylesheet link');
+  writeSiteCode(dir, code);
+}
+
+function writeSiteCode(dir: string, code: string, label = 'edit the head code of every page') {
   const kept = (siteHead(dir).match(KEPT) ?? []).map((b) => b.trim()).join('\n');
-  setSiteHead(dir, [kept, code.trim()].filter(Boolean).join('\n') + '\n', 'edit the styles and scripts of every page');
+  setSiteHead(dir, [kept, code.trim()].filter(Boolean).join('\n') + '\n', label);
+}
+
+/**
+ * Move the <style> blocks of the site head's code to the kit: kit/styles/head.css (after what it has, each with a
+ * comment saying where it came from), and out of the head. One step of the site's history. Returns how many moved.
+ */
+export function migrateHeadStyles(dir: string, author = 'user'): number {
+  const blocks = headStyles(dir);
+  if (!blocks.length) return 0;
+  const css = blocks.map((b) => {
+    const [, attrs, inner] = /<style\b([^>]*)>([\s\S]*?)<\/style>/i.exec(b)!;
+    const media = /\bmedia\s*=\s*["']([^"']+)["']/i.exec(attrs)?.[1];
+    // a style for some media only keeps that condition
+    return `/* from the site head's code${attrs.trim() ? `: <style ${attrs.trim()}>` : ''} */\n${media && media !== 'all' ? `@media ${media} {\n${inner.trim()}\n}` : inner.trim()}`;
+  }).join('\n\n');
+  new SiteHistory(dir).group(`move ${blocks.length} ${blocks.length === 1 ? 'style' : 'styles'} from the head code to the kit`, author, () => {
+    const before = kitRead(dir, 'styles', 'head');
+    kitWrite(dir, 'styles', 'head', `${before ? `${before.trimEnd()}\n\n` : ''}${css}\n`, undefined, author);
+    writeSiteCode(dir, siteCode(dir).replace(STYLE_BLOCK, '').trim(), 'move the head code\'s styles to the kit');
+  });
+  return blocks.length;
 }
 
 /**

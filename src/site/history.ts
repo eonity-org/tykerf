@@ -13,6 +13,7 @@
 // Every write goes through the site's one FolderStore (siteStore): its lock is reentrant within a store, so a
 // group can hold it while the changes inside take it again.
 
+import { randomUUID } from 'node:crypto';
 import { resolve } from 'node:path';
 import { FolderStore } from '../store.js';
 import { trimSteps } from '../history-trim.js';
@@ -25,6 +26,8 @@ export interface SiteFileEntry {
   label: string;
   author: string;
   at: string;
+  /** The step's own name (two steps may come in the same millisecond); older entries have none: their time stands in. */
+  id?: string;
   /** The file, relative to the site folder (head.html, kit/styles/base.css, site.json). */
   path: string;
   /** Its text before the change; null when it didn't exist. */
@@ -35,6 +38,7 @@ export interface SiteGroupEntry {
   label: string;
   author: string;
   at: string;
+  id?: string;
   count: number;
 }
 export type SiteEntry = SiteFileEntry | SiteGroupEntry;
@@ -110,17 +114,17 @@ export class SiteHistory {
 
   /**
    * Change one file of the site as a step: `text` replaces it (null removes it). Nothing is logged when it
-   * doesn't change. Returns the step's time, or null when nothing changed.
+   * doesn't change. Returns the step's id (what a page's history points at), or null when nothing changed.
    */
   change(kind: SiteChangeKind, path: string, text: string | null, label: string, author = 'user'): string | null {
     return this.store.lock(() => {
       const prev = this.store.read(path);
       if (prev === text) return null;
-      const at = new Date().toISOString();
-      this.log({ kind, label, author, at, path, prev });
+      const id = randomUUID();
+      this.log({ kind, label, author, at: new Date().toISOString(), id, path, prev });
       if (text === null) this.store.remove(path);
       else this.store.write(path, text);
-      return at;
+      return id;
     });
   }
 
@@ -159,7 +163,7 @@ export class SiteHistory {
         grouping.delete(root);
       }
       const count = this.lines().length - before;
-      if (count > 1) this.log({ kind: 'group', label, author, at: new Date().toISOString(), count });
+      if (count > 1) this.log({ kind: 'group', label, author, at: new Date().toISOString(), id: randomUUID(), count });
       return r;
     });
   }
@@ -250,25 +254,26 @@ export class SiteHistory {
     return out;
   }
 
-  /** The time of every step undo would take, in the order it would take them (a group's own time for a group). */
+  /** The id of every step undo would take, in the order it would take them (a group's own for a group; an older entry's time). */
   undoAts(): string[] {
     const all = this.lines().map((l) => JSON.parse(l) as SiteEntry);
     const out: string[] = [];
     for (let end = all.length; end > 0; ) {
       const e = all[end - 1];
-      out.push(e.at);
+      out.push(e.id ?? e.at);
       end -= e.kind === 'group' ? e.count + 1 : 1;
     }
     return out;
   }
 
-  /** The time of every step redo would bring back, in the order it would. */
+  /** The id of every step redo would bring back, in the order it would. */
   redoAts(): string[] {
     const rows = lines(this.store.read(REDO)).map((l) => JSON.parse(l) as SiteRedo);
     const out: string[] = [];
     for (let end = rows.length; end > 0; ) {
       const r = rows[end - 1];
-      out.push('group' in r ? r.group.at : r.entry.at);
+      const e = 'group' in r ? r.group : r.entry;
+      out.push(e.id ?? e.at);
       end -= 'group' in r ? r.group.count + 1 : 1;
     }
     return out;

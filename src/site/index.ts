@@ -17,8 +17,9 @@ import { existsSync, readdirSync } from 'node:fs';
 import { basename, dirname, join } from 'node:path';
 import { FolderStore } from '../store.js';
 import { type SiteLike, Workspace } from '../workspace.js';
-import { type KitKind, kitBlock, kitList, kitLoaderTag, kitRead, kitStyles, kitTags, kitTypes, kitWrite, lastKitChange } from '../kit.js';
+import { type KitKind, kitCSS, kitFonts, kitBlock, kitList, kitLoaderTag, kitRead, kitStyles, kitTags, kitTypes, kitWrite, lastKitChange } from '../kit.js';
 import type { Registry } from '../types.js';
+import type { FontRegistry } from '../library.js';
 import { type SiteSettings, readSite } from './settings.js';
 import { isSite, sitePages } from './pages.js';
 import { iconLink } from './icon.js';
@@ -133,6 +134,14 @@ export class Site implements SiteLike {
     return kitStyles(this.dir) + kitLoaderTag(this.dir);
   }
 
+  kitCSS(): string {
+    return kitCSS(this.dir);
+  }
+
+  fonts(): FontRegistry {
+    return kitFonts(this.dir);
+  }
+
   block(name: string): string | null {
     return kitBlock(this.dir, name);
   }
@@ -180,6 +189,6 @@ export function siteOf(pageDir: string): Site | null {
 export { HOME_PAGE, PAGE_NAME, siteKind, sitePages, pageNameError, newSitePage, freePageName, addSitePage, siteIndex, TYKERF_REPO, CREDIT, withCredit, siteMap, newPageLike, usePage, linkedPage, rewriteLinks, type PageLink, pageLinks, type PageMove, pageMoves, renamePage, duplicatePage, type TrashedPage, trashedPages, emptyTrash, removePage } from './pages.js';
 export { type SiteSettings, LANG, langTag, type PublishSettings, publishSettingsError, readSite, setLang, setHome, setTitle, setPublish, pageTitle, derivedTitle } from './settings.js';
 export { unsafeSVG, madeIcon, siteIcon, iconLink, setSiteIcon } from './icon.js';
-export { siteHead, setSiteHead, lastSiteHeadChange, siteCode, setSiteCode, undoSiteHead, shareTheme, pagesWithOwnTheme } from './head.js';
+export { siteHead, setSiteHead, lastSiteHeadChange, siteCode, setSiteCode, headStyles, migrateHeadStyles, undoSiteHead, shareTheme, pagesWithOwnTheme } from './head.js';
 export { SiteHistory, type SiteStep, type SiteEntry, type SiteChangeKind } from './history.js';
 export { blockUsers, siteFiles, shareBlock, movedFiles, linkBlock, unlinkBlock, identicalBoxes, shareIdentical } from './blocks.js';
