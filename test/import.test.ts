@@ -19,7 +19,7 @@ import { freePort } from './ports.js';
 
 vi.setConfig({ testTimeout: 60_000 });
 
-const SITE = `<!doctype html><html><head><title>Fixture</title><style>
+const SITE = `<!doctype html><html lang="es"><head><title>Fixture</title><style>
   body { margin: 0; font: 16px/1.5 Georgia, serif; color: #222; background: #fafaf5; }
   header { display: flex; justify-content: space-between; padding: 16px 40px; background: #123; color: #fff; }
   header nav a { color: #fff; margin-left: 16px; }
@@ -77,6 +77,18 @@ afterAll(async () => {
   fixture?.close();
 });
 
+describe('the import command', () => {
+  it('makes a new site in the copied page\'s language', async () => {
+    const where = join(mkdtempSync(join(tmpdir(), 'tykerf-import-cli-')), 'copied');
+    const cli = spawn(process.execPath, ['--import', 'tsx', 'src/cli.ts', 'import', fixtureURL, where, '--structure-only'], { stdio: ['ignore', 'pipe', 'pipe'] });
+    let out = '';
+    cli.stdout!.on('data', (d) => (out += d));
+    cli.stderr!.on('data', (d) => (out += d));
+    expect(await new Promise((ok) => cli.on('exit', ok)), out).toBe(0);
+    expect(JSON.parse(readFileSync(join(where, 'site.json'), 'utf8'))).toMatchObject({ home: 'home', lang: 'es' });
+  });
+});
+
 describe('graft', () => {
   const page = () => parseSlice('a b c H3@page');
   it('replaces a box with a subtree whose root keeps the box name', () => {
@@ -104,6 +116,7 @@ describe('importing a page', () => {
     const ws = new Workspace(new MemoryStore('memory:a'));
     createPage(ws, 'launch', 'clean');
     copy = await importPage(fixtureURL, { browser, sections: true, taken: namesIn(ws) });
+    expect(copy.lang).toBe('es'); // the page's <html lang>
     const ids = copy.sections!.map((s) => s.id);
     expect(ids.length).toBeGreaterThanOrEqual(3);
     expect(copy.sections!.every((s) => s.shot?.startsWith('data:image/jpeg;base64,'))).toBe(true);
@@ -291,6 +304,10 @@ describe('the importer in the editor', () => {
       .toEqual(expect.arrayContaining([expect.stringMatching(/^Opening 127\.0\.0\.1/), 'Cutting the page into rows, columns and boxes', 'Writing the page']));
     await page.waitForLoadState('load');
     expect(readFileSync(join(site, 'copy', 'layout.slice'), 'utf8')).toMatch(/^\/\/ imported from http:\/\/127\.0\.0\.1/);
+    // the copy started the site, which takes its language
+    expect(JSON.parse(readFileSync(join(site, 'site.json'), 'utf8')).lang).toBe('es');
+    expect(await fetch(`${url}copy/`).then((r) => r.text())).toContain('<html lang="es">');
+    await expect.poll(() => page.locator('html').getAttribute('lang').catch(() => null), { timeout: 15_000 }).toBe('es');
     // see the page as visitors do: the editor stays closed, and its button is pointed out
     await page.locator('[data-job="page"]').click();
     await page.locator('.jobmodal').waitFor({ state: 'hidden' });

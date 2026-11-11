@@ -141,7 +141,7 @@ export function exportFiles(dir: string, opts: ExportOptions = {}): Export {
     // the site's front door opens its home page (or its first), and pages/ lists them all
     const front = settings.home ?? pages[0];
     const to = `./${front}/${opts.files ? 'index.html' : ''}`;
-    files.unshift({ path: 'index.html', bytes: enc.encode(`<!doctype html>\n<meta charset="utf-8">\n<meta http-equiv="refresh" content="0; url=${to}">\n<title>${front}</title>\n<a href="${to}">${front}</a>\n`) });
+    files.unshift({ path: 'index.html', bytes: enc.encode(`<!doctype html>\n<html lang="${settings.lang}">\n<meta charset="utf-8">\n<meta http-equiv="refresh" content="0; url=${to}">\n<title>${front}</title>\n<a href="${to}">${front}</a>\n`) });
     // TYKERF's own pages (the list, the 404) say where TYKERF is; the site's pages only with the credit
     const by = { href: TYKERF_REPO, text: TYKERF_REPO.replace('https://', '') };
     files.push({ path: 'pages/index.html', bytes: enc.encode(relativize(siteIndex(dir, opts.credit ? by : undefined), 1, pages, opts)) });

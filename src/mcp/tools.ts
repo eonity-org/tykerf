@@ -17,7 +17,7 @@ import { cost, optimize } from '../shape.js';
 import { leftovers, missingFiles, say } from '../check.js';
 import { closeTask, sayTask, tasks } from '../tasks.js';
 import { type KitKind, kitList, kitRead, kitTags, kitWarning, kitWrite } from '../kit.js';
-import { HOME_PAGE, blockUsers, linkBlock, newSitePage, pageWorkspace, removePage, renamePage, shareBlock, movedFiles, siteHead, siteKind, unlinkBlock, unsafeSVG, siteOf, sitePages, usePage } from '../site.js';
+import { HOME_PAGE, blockUsers, linkBlock, newSitePage, pageTitle, pageWorkspace, readSite, setLang, setTitle, removePage, renamePage, shareBlock, movedFiles, siteHead, siteKind, unlinkBlock, unsafeSVG, siteOf, sitePages, usePage } from '../site.js';
 import { DEFAULT_THEME, components, createPage, hasTheme, pageLayouts, readOverrides, readTheme, setTheme, themeTarget, themes, useComponent, useLayout } from '../library.js';
 import { FolderStore, MemoryStore } from '../store.js';
 import { Workspace } from '../workspace.js';
@@ -616,6 +616,26 @@ export function createTykerfServer(start: Workspace | null, opts: TykerfServerOp
     return site;
   };
 
+  // a page's title: on a run over the site and on a page's run alike, not from inside a smaller block
+  server.registerTool('set_title', {
+    title: 'Set a page\'s title', annotations: REPLACE,
+    description: 'Give a page of the site a title of its own: the browser tab, search results and the site\'s list of pages show it. Without one, a page is titled by its first heading (<h1>), so pages with the same heading look the same: check_page says so. ' +
+      'page: a page of the site (list_pages; default: the open page). title "" goes back to the title from its first heading. Only when the scope is the whole page (or there is none).',
+    inputSchema: { page: z.string().optional().describe('the page\'s name (default: the open page)'), title: z.string().describe('the title, up to 120 characters; "" for the one from its first heading') },
+  }, guard(({ page, title }: { page?: string; title: string }) => {
+    const site = ws.site?.dir ?? siteDir();
+    if (!site) throw new Error('this page is not part of a site; its title is the <title> in its head');
+    const open = ws.site?.page ?? openPage(site);
+    const name = page ?? open;
+    if (!name) throw new Error('no page is open: say which page (list_pages lists them)');
+    const l = ws.load();
+    const sc = scope(l);
+    if (sc && sc !== l.root.id) throw new Error(`refused: the title is the whole page's, and the scope is "${sc}". Ask the user to select the page block ("${l.root.id}") to change it.`);
+    if (runScope && name !== open) throw new Error(`refused: this run works on the page "${open}"`);
+    setTitle(site, name, title);
+    return readSite(site).titles[name] ? `ok: "${name}" is titled "${pageTitle(site, name)}"` : `ok: "${name}" is titled by its first heading again: "${pageTitle(site, name)}"`;
+  }));
+
   // a run on one block (the editor's Kaity) never sees them
   if ((home || folders) && !runScope) {
     // ---------- the site kit (src/kit.ts): what every page shares besides its theme ----------
@@ -683,12 +703,35 @@ export function createTykerfServer(start: Workspace | null, opts: TykerfServerOp
       return `ok: "${box}" is this page's own copy now`;
     }));
 
-    server.registerTool('list_pages', { title: 'List the site\'s pages', annotations: READ, description: 'The pages of the site (a folder of page folders), and which one is open: the one every other tool works on.' },
+    // the whole site's settings (site.json): only the fields in SITE_SETTINGS, each with its own check
+    const SITE_SETTINGS: Record<string, (site: string, value: string) => void> = { lang: setLang };
+    server.registerTool('set_site', {
+      title: 'Change the site\'s settings', annotations: REPLACE,
+      description: 'Settings of the whole site; give only what changes. lang: the language its pages are written in, as a BCP 47 tag ("es", "en", "pt-BR"): ' +
+        'every page\'s <html lang>, read by browsers, screen readers and search engines. "" goes back to English. Set it when the site is not in English.',
+      inputSchema: { lang: z.string().optional().describe('BCP 47 language tag, such as es, en or pt-BR') },
+    }, guard((a: Record<string, string | undefined>) => {
+      const site = siteOnly();
+      const given = Object.entries(a).filter(([k, v]) => Object.hasOwn(SITE_SETTINGS, k) && typeof v === 'string');
+      if (!given.length) throw new Error(`nothing to change: give ${Object.keys(SITE_SETTINGS).join(' or ')}`);
+      for (const [k, v] of given) SITE_SETTINGS[k](site, v!);
+      const s = readSite(site) as unknown as Record<string, unknown>;
+      return `ok: ${given.map(([k]) => `the site's ${k} is "${s[k]}"`).join('; ')}; every page follows it`;
+    }));
+
+    server.registerTool('list_pages', { title: 'List the site\'s pages', annotations: READ, description: 'The pages of the site (a folder of page folders), which one is open (the one every other tool works on), and each page\'s title: set by hand (set_title) or from its first heading.' },
       guard(() => {
         const site = siteOnly();
         const pages = sitePages(site), open = openPage(site);
         if (!pages.length) return `the site ${site} has no pages yet: new_page makes the first one`;
-        return `site ${site}\n${pages.map((p) => `${p}${p === open ? ' (open)' : ''}`).join('\n')}${open ? '' : '\nno page is open: open_page opens one'}`;
+        const settings = readSite(site);
+        // each page's title, and where it comes from (set_title, or its first heading)
+        const title = (p: string) => {
+          if (settings.titles[p]) return `: "${settings.titles[p]}" (set by hand)`;
+          const t = pageTitle(site, p, settings);
+          return t === p ? ': no title (no heading either: its name stands in)' : `: "${t}" (from its first heading)`;
+        };
+        return `site ${site}\n${pages.map((p) => `${p}${p === open ? ' (open)' : ''}${title(p)}`).join('\n')}${open ? '' : '\nno page is open: open_page opens one'}`;
       }));
 
     server.registerTool('open_page', {

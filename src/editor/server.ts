@@ -17,7 +17,7 @@ import { type IncomingMessage, type ServerResponse, createServer } from 'node:ht
 import { isIP } from 'node:net';
 import { basename, dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { HOME_PAGE, type PublishSettings, addSitePage, pageMoves, emptyTrash, lastSiteHeadChange, newPageLike, newSitePage, pageLinks, pageNameError, pageTitle, pageWorkspace, readSite, duplicatePage, removePage, renamePage, setHome, setPublish, setSiteIcon, siteIcon, setSiteCode, setSiteHead, setTitle, shareTheme, siteCode, siteHead, siteIndex, siteKind, siteLink, siteMap, siteOf, sitePages, trashedPages, undoSiteHead, blockUsers, identicalBoxes, shareIdentical } from '../site.js';
+import { HOME_PAGE, type PublishSettings, addSitePage, pageMoves, emptyTrash, lastSiteHeadChange, newPageLike, newSitePage, pageLinks, pageNameError, pageTitle, pageWorkspace, readSite, setLang, duplicatePage, removePage, renamePage, setHome, setPublish, setSiteIcon, siteIcon, setSiteCode, setSiteHead, setTitle, shareTheme, siteCode, siteHead, siteIndex, siteKind, siteLink, siteMap, siteOf, sitePages, trashedPages, undoSiteHead, blockUsers, identicalBoxes, shareIdentical } from '../site.js';
 import { FolderStore, MemoryStore } from '../store.js';
 import { KIT_LOADER, type KitKind, kitList, kitRead, kitWarning, kitWrite, lastKitChange, undoKit } from '../kit.js';
 import { DEFAULT_THEME, EMPTY_LAYOUT, createPage, hasTheme, pageLayouts, libraryAsset, theme, themes } from '../library.js';
@@ -305,7 +305,7 @@ async function serveGlobal(req: IncomingMessage, res: ServerResponse, p: string,
   }
   if (req.method === 'GET' && p === '/_tykerf/site') {
     const pages = sitePages(dir), settings = readSite(dir);
-    json(res, 200, { pages, sharedTheme: sharedTheme(), home: settings.home ?? null, titles: Object.fromEntries(pages.map((pg) => [pg, pageTitle(dir, pg, settings)])), ownTitles: settings.titles, signin: auth.on, kaity: kaityNow() });
+    json(res, 200, { pages, sharedTheme: sharedTheme(), home: settings.home ?? null, titles: Object.fromEntries(pages.map((pg) => [pg, pageTitle(dir, pg, settings)])), ownTitles: settings.titles, lang: settings.lang, signin: auth.on, kaity: kaityNow() });
     return true;
   }
   // a copy of a page, next to it
@@ -322,11 +322,16 @@ async function serveGlobal(req: IncomingMessage, res: ServerResponse, p: string,
       return json(res, 422, { ok: false, error: (e as Error).message }), true;
     }
   }
-  // the site's settings: its home page, and a page's title set by hand
-  if (req.method === 'POST' && (p === '/_tykerf/site/home' || p === '/_tykerf/site/title')) {
+  // the site's settings: its home page, a page's title set by hand, the site's language
+  if (req.method === 'POST' && (p === '/_tykerf/site/home' || p === '/_tykerf/site/title' || p === '/_tykerf/site/lang')) {
     const a = await body(req);
-    if (p === '/_tykerf/site/home') setHome(dir, a.name ? String(a.name) : null);
-    else setTitle(dir, String(a.name ?? ''), String(a.title ?? ''));
+    try {
+      if (p === '/_tykerf/site/home') setHome(dir, a.name ? String(a.name) : null);
+      else if (p === '/_tykerf/site/lang') setLang(dir, String(a.lang ?? ''));
+      else setTitle(dir, String(a.name ?? ''), String(a.title ?? ''));
+    } catch (e) {
+      return json(res, 422, { ok: false, error: (e as Error).message }), true;
+    }
     for (const h of hosts.values()) h.refresh();
     return json(res, 200, { ok: true }), true;
   }
@@ -340,6 +345,7 @@ async function serveGlobal(req: IncomingMessage, res: ServerResponse, p: string,
       if (err) throw new Error(err);
       const { importPage, importURL, writeWorkspace } = await import('../importer.js');
       const from = importURL(String(a.url));
+      const first = !sitePages(dir).length; // a new site takes the copy's language
       newSitePage(dir, name, 'blank');
       const host = hostOf(name)!;
       const stop = new AbortController();
@@ -354,6 +360,8 @@ async function serveGlobal(req: IncomingMessage, res: ServerResponse, p: string,
           const store = new FolderStore(join(dir, name));
           for (const f of store.list('boxes')) store.remove(`boxes/${f}`);
           for (const f of ['layout.slice', 'head.html', '.history.jsonl', '.redo.jsonl']) store.remove(f);
+          // the language first: writing the copy reloads the page
+          if (first && r.lang) setLang(dir, r.lang);
           writeWorkspace(join(dir, name), r, from);
           host.job.end('done');
         } catch (e) {

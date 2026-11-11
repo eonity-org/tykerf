@@ -8,7 +8,7 @@ import { inflateRawSync } from 'node:zlib';
 import { chromium } from 'playwright';
 import { describe, expect, it, vi } from 'vitest';
 import { exportFiles, exportToFolder, exportZip, relativize, remoteLoads } from '../src/export.js';
-import { newSitePage, setHome, setTitle } from '../src/site.js';
+import { newSitePage, setHome, setLang, setTitle } from '../src/site.js';
 import { Workspace } from '../src/workspace.js';
 
 vi.setConfig({ testTimeout: 30_000 });
@@ -44,6 +44,17 @@ function unzip(b: Uint8Array): Record<string, Buffer> {
 }
 
 describe('export', () => {
+  it("says the site's language in every page, its front door, its list of pages and its 404", () => {
+    const dir = mkdtempSync(join(tmpdir(), 'tykerf-export-lang-'));
+    newSitePage(dir, 'home', 'launch', 'studio');
+    newSitePage(dir, 'about', 'company', 'studio');
+    setLang(dir, 'es');
+    const { files } = exportFiles(dir);
+    const text = (path: string) => new TextDecoder().decode(files.find((f) => f.path === path)!.bytes);
+    for (const path of ['home/index.html', 'about/index.html', 'index.html', 'pages/index.html', '404.html']) expect(text(path), path).toContain('<html lang="es">');
+    expect(files.filter((f) => f.path.endsWith('.html')).every((f) => !new TextDecoder().decode(f.bytes).includes('lang="en"'))).toBe(true);
+  });
+
   it('makes addresses written from the site root relative to each page', () => {
     const pages = ['home', 'about'];
     expect(relativize('<a href="/about/">', 1, pages)).toBe('<a href="../about/">');

@@ -67,7 +67,7 @@ switch (cmd) {
   }
   case 'import': {
     const { importPage, writeWorkspace } = await import('./importer.js');
-    const { HOME_PAGE, freePageName, setHome } = await import('./site.js');
+    const { HOME_PAGE, freePageName, setHome, setLang } = await import('./site.js');
     const where = resolve(rest[0] ?? '');
     if (!arg || !rest[0]) {
       console.error('usage: import <url> <site-or-page-dir> [--structure-only] [--name <page>]');
@@ -87,6 +87,7 @@ switch (cmd) {
     const r = await importPage(arg, { structureOnly: rest.includes('--structure-only') });
     writeWorkspace(dir, r, arg);
     if (first) setHome(where, basename(dir));
+    if (first && r.lang) setLang(where, r.lang); // a new site speaks the copied page's language
     console.log(`imported ${arg} -> ${dir}`);
     console.log(`${r.stats.boxes} boxes, ${r.stats.operators} rows/columns, depth ${r.stats.depth}, ${r.stats.rules} responsive rules`);
     console.log(`${Object.keys(r.files).length} images and fonts copied into assets/` + (r.remote.length ? `; ${r.remote.length} files still load from other servers` : ''));

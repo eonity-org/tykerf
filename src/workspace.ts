@@ -94,6 +94,8 @@ export interface SiteLink {
   page?: string;
   /** Whether this page is the site's home (site.json), so links to / in shared blocks are marked as it too. */
   home?(): boolean;
+  /** The site's language (site.json lang, BCP 47: "en", "es", "pt-BR"): every page's <html lang>. */
+  lang?(): string;
   /** The site's folder (its kit: shared blocks, styles, tags). */
   dir?: string;
   /** The site kit's part of every page's head: its styles and the behaviours' loader (src/kit.ts). */
@@ -647,7 +649,7 @@ export class Workspace {
         if (n.type === 'leaf' && n.use && c[n.id] !== undefined) c[n.id] = markCurrentPage(c[n.id], this.site!.page, (home ??= this.site!.home?.() ?? false));
       });
     }
-    return toHTML(l, c, { ...opts, head: (this.site?.icon?.() ?? '') + this.siteHead() + this.kitHead() + this.head() + (opts.head ?? '') });
+    return toHTML(l, c, { lang: this.site?.lang?.() ?? 'en', ...opts, head: (this.site?.icon?.() ?? '') + this.siteHead() + this.kitHead() + this.head() + (opts.head ?? '') });
   }
 
   /** Write the rendered page to out/index.html; returns where it went (a file path for folders). */

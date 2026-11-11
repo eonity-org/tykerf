@@ -15,7 +15,7 @@ my-site/
   head.html      the site's theme and the code every page gets (Styles & scripts)
   kit/           what every page shares besides the theme (see The site kit)
   assets/        the theme's fonts
-  site.json      the home page, titles set by hand, where Publish sends the site
+  site.json      the home page, titles set by hand, the site's language, where Publish sends the site
   favicon.svg    the site's icon, when you upload one (.svg, .png or .ico)
   .trash/        removed pages, until you empty the trash
 ```
@@ -61,7 +61,7 @@ It starts with what acts on the whole site:
 |---|---|
 | **+ New page** | The ways to start a page, step by step; the button that makes the page always stays in sight |
 | **Ask Kaity about the whole site** | Kaity works across pages: she opens each, changes it and checks it ([Kaity for the whole site](ai.md#kaity-for-the-whole-site)) |
-| **Styles & scripts** | The site's icon, and the code every page gets in its head (see below) |
+| **Styles & scripts** | The site's icon and language, and the code every page gets in its head (see below) |
 | **Links between pages** | Broken links first, then the pages nothing links to (see below) |
 | **Kaity's work** | Everything Kaity did and is doing in the site, on any page or the whole site (see below) |
 | **Publish** | The site, live on GitHub Pages, Cloudflare Pages or Netlify ([publishing](publishing.md)) |
@@ -72,7 +72,7 @@ Each page shows its name, its address and its title, and five icons; their names
 
 - **Make home** (the star): visitors get this page at the site's address (`/`). The home page's star is filled.
 - **Edit** (the pencil): opens the page with the editor open, as the pencil means everywhere in TYKERF.
-- **Name and title** (a name field): the page's name (its folder and address) and its **title**. Without a title of its own, a page is titled by its first heading. Titles name the pages in the browser tab, in the list of pages and in an export.
+- **Name and title** (a name field): the page's name (its folder and address) and its **title**. Without a title of its own, a page is titled by its first heading; a heading in a shared block (a banner every page shows) doesn't count, since it would give every page the same title. Titles name the pages in the browser tab, in the list of pages and in an export. The editor's **Page** tab shows the title too, with where it comes from (*from its first heading* or *set by hand*), and a field to change it. Kaity can set titles (`set_title`), and her check tells her when two pages have the same title from their headings, as a duplicated page does until you give it its own.
 - **Duplicate**: a copy of the page next to it, named `<name>-copy`, ready to rename. The copy doesn't bring the page's history or its conversations with Kaity.
 - **Remove** (the bin): after asking, the page goes to the site's trash (its `.trash` folder). **Removed pages** lists them with when they were removed, and **Empty the trash** deletes them for good, after asking again. Until then, move a page's folder from `.trash` back into the site folder to bring it back.
 
@@ -111,6 +111,8 @@ Links between pages are written from the site root: `/about/`, `/about/#team`. T
 The code every page gets in its head, before the page's own: a stylesheet, a `<style>`, a `<script>`, meta tags. Scripts here run on every page. The theme (colours and fonts) isn't in it; that stays in the Page tab. It has its own **Undo**.
 
 Above the code is **the site's icon**, the one browser tabs and bookmarks show. TYKERF makes one from the home page's first letter on the theme's accent colour. **Upload an icon…** uses yours instead (SVG, PNG or ICO, up to 512 KB), and **Use the made one** goes back. While you edit, the editor's tabs show TYKERF's mark instead, so they're easy to find; visitors see the site's icon.
+
+Below it is **the site's language**: the language its pages are written in, as a short tag such as `es` (Spanish), `en` (English) or `pt-BR` (Brazilian Portuguese). Every page says it (`<html lang>`), and so do the list of pages and an export; browsers, screen readers and search engines read it. A site is English until you set it, and a site that starts as a copy of a website takes that page's language. Kaity can set it too, when you ask her for the whole site. One language holds for the whole site.
 
 ## The site kit
 

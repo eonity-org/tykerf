@@ -211,10 +211,12 @@ export function renderParts(layout: Layout, contents: Contents = {}): { css: str
   return { css: `${BASE_CSS}${rulesCSS(layout)}`, body: `${tree}\n${overlays}` };
 }
 
-export function toHTML(layout: Layout, contents: Contents = {}, opts: { title?: string; css?: string; head?: string; bodyEnd?: string } = {}): string {
+export function toHTML(layout: Layout, contents: Contents = {}, opts: { title?: string; css?: string; head?: string; bodyEnd?: string; lang?: string } = {}): string {
   const { css, body } = renderParts(layout, contents);
+  // the site's language (site.json lang, checked there); a page on its own is English
+  const lang = /^[a-z]{2,3}(-[A-Za-z0-9]{2,8})*$/.test(opts.lang ?? '') ? opts.lang : 'en';
   return `<!doctype html>
-<html lang="en">
+<html lang="${lang}">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">

@@ -468,7 +468,8 @@ export function createPageHost(ws: Workspace, opts: { name: string; site?: () =>
     if (req.method === 'GET' && p === '/_tykerf/job') return json(res, 200, { job: publicJob() });
     if (req.method === 'GET' && p === '/_tykerf/assets') return json(res, 200, { images: pageImages(ws) });
     if (req.method === 'GET' && p === '/_tykerf/asset/origin') return json(res, 200, { origin: imageOrigin(ws, url.searchParams.get('src') ?? '') });
-    if (req.method === 'GET' && p === '/_tykerf/page') return json(res, 200, renderParts(ws.load(), ws.contents()));
+    // a refresh re-renders the body only: the site's language comes along for <html lang>
+    if (req.method === 'GET' && p === '/_tykerf/page') return json(res, 200, { ...renderParts(ws.load(), ws.contents()), lang: ws.site?.lang?.() ?? 'en' });
     if (req.method === 'GET' && p === '/_tykerf/box') {
       const id = url.searchParams.get('id') ?? '';
       const l = ws.load();

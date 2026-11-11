@@ -114,7 +114,13 @@ describe('a new site', () => {
     await page.goto(`${url}about/`);
     await page.locator('section.panel').waitFor();
     await page.locator('.work .tabs [data-tab="page"]').click();
-    expect(await page.locator('.work .size-head').first().textContent()).toMatch(/^Site theme/);
+    expect(await page.locator('.work .size-sec:not(.title-sec) .size-head').first().textContent()).toMatch(/^Site theme/);
+    // the page's title comes first: from its first heading until one is set
+    expect(await page.locator('.work .title-sec .size-head').textContent()).toMatch(/^Title \((from its first heading|none yet: its name stands in)\)/);
+    await page.locator('.work .page-title').fill('About the studio');
+    await page.locator('.work .page-title').press('Enter');
+    await expect.poll(() => JSON.parse(readFileSync(join(site, 'site.json'), 'utf8')).titles.about).toBe('About the studio');
+    await expect.poll(() => page.locator('.work .title-sec .size-head').textContent()).toBe('Title (set by hand)');
     await page.locator('.presets [data-preset="ivory"]').click();
     await expect.poll(() => siteTheme()).toEqual(values('ivory'));
     expect(existsSync(join(site, 'home', 'head.html'))).toBe(false); // no page changed
@@ -131,7 +137,7 @@ describe('a new site', () => {
     expect(await page.locator('.theme-status').textContent()).toMatch(/^Inherited: this page uses the site theme/);
     await page.locator('.theme-scope [data-scope="page"]').click();
     // the tab draws itself again for this page only
-    await expect.poll(() => page.locator('.work .size-head').first().textContent(), { timeout: 5000 }).toMatch(/^This page's theme/);
+    await expect.poll(() => page.locator('.work .size-sec:not(.title-sec) .size-head').first().textContent(), { timeout: 5000 }).toMatch(/^This page's theme/);
     await page.locator('.theme-var .origin').first().waitFor();
     expect(await page.locator('.theme-var .origin.mine').count()).toBe(0);
     // a preset for this page only: its values that differ from the site's become the page's own

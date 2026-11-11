@@ -1,9 +1,10 @@
-import { existsSync, mkdirSync, mkdtempSync, readdirSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { describe, expect, it } from 'vitest';
-import { freePageName, iconLink, madeIcon, setSiteIcon, siteIcon, lastSiteHeadChange, linkedPage, newPageLike, newSitePage, pageLinks, pageNameError, pageWorkspace, removePage, renamePage, setSiteHead, emptyTrash, pageTitle, readSite, setHome, setSiteCode, setTitle, shareTheme, siteCode, siteHead, siteKind, siteOf, sitePages, trashedPages, undoSiteHead, usePage } from '../src/site.js';
+import { leftovers, say } from '../src/check.js';
+import { freePageName, linkBlock, shareBlock, iconLink, madeIcon, setSiteIcon, siteIcon, lastSiteHeadChange, linkedPage, newPageLike, newSitePage, pageLinks, pageNameError, pageWorkspace, removePage, renamePage, setSiteHead, emptyTrash, langTag, pageTitle, readSite, setHome, setLang, siteIndex, setSiteCode, setTitle, shareTheme, siteCode, siteHead, siteKind, siteOf, sitePages, trashedPages, undoSiteHead, usePage } from '../src/site.js';
 import { NO_SITE_HEAD, Workspace } from '../src/workspace.js';
 import { createPage, readOverrides, readTheme, themes } from '../src/library.js';
 
@@ -303,7 +304,7 @@ describe("the site's settings", () => {
   it('keep a home page and titles that follow renames and removals, and never point at a page that is gone', () => {
     const dir = mkdtempSync(join(tmpdir(), 'tykerf-settings-'));
     for (const name of ['rome', 'munich']) createPage(new Workspace(join(dir, name)), 'blank');
-    expect(readSite(dir)).toEqual({ version: 1, titles: {} });
+    expect(readSite(dir)).toEqual({ version: 1, titles: {}, lang: 'en' });
     expect(existsSync(join(dir, 'site.json'))).toBe(false); // nothing written until something is set
 
     // a title: set by hand, else the page's first heading, else its name
@@ -316,13 +317,117 @@ describe("the site's settings", () => {
 
     setHome(dir, 'munich');
     renamePage(dir, 'munich', 'muenchen');
-    expect(readSite(dir)).toEqual({ version: 1, home: 'muenchen', titles: { muenchen: 'Munich in autumn' } });
+    expect(readSite(dir)).toEqual({ version: 1, home: 'muenchen', titles: { muenchen: 'Munich in autumn' }, lang: 'en' });
     removePage(dir, 'muenchen');
-    expect(readSite(dir)).toEqual({ version: 1, titles: {} });
+    expect(readSite(dir)).toEqual({ version: 1, titles: {}, lang: 'en' });
     setTitle(dir, 'rome', '');
     expect(pageTitle(dir, 'rome')).toBe('Rome, the eternal city');
     // the site's own addresses can't be page names
     expect(pageNameError(dir, 'pages')).toMatch(/used by TYKERF itself/);
+  });
+});
+
+describe("the site's language", () => {
+  it('is in site.json, checked, English by default, and every page and the list of pages say it', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'tykerf-lang-'));
+    newSitePage(dir, 'home', 'launch', 'studio');
+    expect(readSite(dir).lang).toBe('en');
+    expect(pageWorkspace(dir, 'home').page()).toMatch(/^<!doctype html>\n<html lang="en">/);
+    setLang(dir, 'es');
+    expect(readSite(dir).lang).toBe('es');
+    expect(JSON.parse(readFileSync(join(dir, 'site.json'), 'utf8')).lang).toBe('es');
+    expect(pageWorkspace(dir, 'home').page()).toMatch(/^<!doctype html>\n<html lang="es">/);
+    expect(siteIndex(dir)).toContain('<html lang="es">');
+    setLang(dir, 'pt-BR');
+    expect(readSite(dir).lang).toBe('pt-BR');
+    for (const bad of ['Spanish', 'ES', 'e', 'es_ES', 'es-', 'en"><script>']) expect(() => setLang(dir, bad), bad).toThrow(/not a language tag/);
+    expect(readSite(dir).lang).toBe('pt-BR');
+    setLang(dir, ''); // back to English, which site.json doesn't write
+    expect(readSite(dir).lang).toBe('en');
+    expect(JSON.parse(readFileSync(join(dir, 'site.json'), 'utf8'))).not.toHaveProperty('lang');
+    // a broken site.json value is English
+    writeFileSync(join(dir, 'site.json'), JSON.stringify({ version: 1, titles: {}, lang: '"><b>' }));
+    expect(readSite(dir).lang).toBe('en');
+    // as web pages write it
+    expect([langTag('ES_es'), langTag(' pt-BR '), langTag('English'), langTag('')]).toEqual(['es-es', 'pt-BR', null, null]);
+  });
+
+  it('is set by Kaity on a run over the site (set_site), and only there', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'tykerf-lang-'));
+    newSitePage(dir, 'home', 'launch', 'studio');
+    const { openTools } = await import('../src/editor/tools-client.js');
+    const site = await openTools(pageWorkspace(dir, 'home'), '', dir);
+    expect((await site.call('set_site', { lang: 'es' })).text).toBe('ok: the site\'s lang is "es"; every page follows it');
+    expect((await site.call('set_site', { lang: 'Spanish' })).text).toMatch(/not a language tag/);
+    expect((await site.call('set_site', {})).text).toMatch(/nothing to change: give lang/);
+    await site.close();
+    expect(readSite(dir).lang).toBe('es');
+    const block = await openTools(pageWorkspace(dir, 'home'), 'hero');
+    expect((await block.call('set_site', { lang: 'en' })).text).toMatch(/not found|unknown tool|error/i);
+    await block.close();
+    expect(readSite(dir).lang).toBe('es');
+  });
+});
+
+describe("a page's title", () => {
+  // three pages under one shared banner with a heading: news, about, and one without a heading of its own
+  const site = () => {
+    const dir = mkdtempSync(join(tmpdir(), 'tykerf-titles-'));
+    const own: Record<string, string> = { news: '<h1>Latest news</h1>', about: '<h1>About <em>us</em></h1>', plain: '<p>No heading here</p>' };
+    for (const [name, intro] of Object.entries(own)) new Workspace(join(dir, name)).create('banner intro H', { banner: '<header><h1>News</h1></header>', intro });
+    shareBlock(dir, pageWorkspace(dir, 'news'), 'banner');
+    for (const p of ['about', 'plain']) linkBlock(dir, pageWorkspace(dir, p), 'banner', 'banner');
+    return dir;
+  };
+
+  it("comes from the page's own first heading, never from a shared block's", () => {
+    const dir = site();
+    expect(pageTitle(dir, 'news')).toBe('Latest news');
+    expect(pageTitle(dir, 'about')).toBe('About us');
+    expect(pageTitle(dir, 'plain')).toBe('plain');
+  });
+
+  it('is reported when it is the same as another page\'s, until one is set by hand', () => {
+    const dir = site();
+    new Workspace(join(dir, 'team')).create('banner intro H', { banner: '', intro: '<h1>About us</h1>' }); // a copy of about
+    linkBlock(dir, pageWorkspace(dir, 'team'), 'banner', 'banner');
+    const titles = (p: string) => leftovers(pageWorkspace(dir, p)).filter((l) => l.kind === 'title').map(say);
+    expect(titles('team')).toEqual(['team: its title "About us" is the same as about\'s; give it a title of its own (set_title)']);
+    expect(titles('about')).toEqual(['about: its title "About us" is the same as team\'s; give it a title of its own (set_title)']);
+    expect(titles('news')).toEqual([]);
+    // only on the whole page, not in one block
+    expect(leftovers(pageWorkspace(dir, 'team'), { within: 'intro' }).filter((l) => l.kind === 'title')).toEqual([]);
+    setTitle(dir, 'team', 'Our team');
+    expect(titles('team')).toEqual([]);
+    expect(titles('about')).toEqual([]);
+  });
+
+  it('is set by Kaity with set_title, on the open page or another, and not from inside a block', async () => {
+    const dir = site();
+    const { openTools } = await import('../src/editor/tools-client.js');
+    const run = await openTools(pageWorkspace(dir, 'plain'), '');
+    expect((await run.call('set_title', { title: 'Plain and simple' })).text).toBe('ok: "plain" is titled "Plain and simple"');
+    expect((await run.call('set_title', { page: 'about', title: 'Who we are' })).text).toBe('ok: "about" is titled "Who we are"');
+    expect(readSite(dir).titles).toEqual({ plain: 'Plain and simple', about: 'Who we are' });
+    expect((await run.call('set_title', { page: 'about', title: '' })).text).toBe('ok: "about" is titled by its first heading again: "About us"');
+    expect((await run.call('set_title', { page: 'paris', title: 'x' })).text).toMatch(/no page "paris"/);
+    await run.close();
+
+    const scoped = await openTools(pageWorkspace(dir, 'plain'), 'intro');
+    expect((await scoped.call('set_title', { title: 'No' })).text).toMatch(/refused: the title is the whole page's, and the scope is "intro"/);
+    await scoped.close();
+    const root = pageWorkspace(dir, 'plain').load().root.id;
+    const whole = await openTools(pageWorkspace(dir, 'plain'), root);
+    expect((await whole.call('set_title', { title: 'Plain' })).text).toBe('ok: "plain" is titled "Plain"');
+    expect((await whole.call('set_title', { page: 'news', title: 'x' })).text).toMatch(/refused: this run works on the page "plain"/);
+    await whole.close();
+
+    // the site's list of pages says where each title comes from
+    const site_ = await openTools(pageWorkspace(dir, 'plain'), '', dir);
+    expect((await site_.call('list_pages', {})).text.split('\n').slice(1)).toEqual([
+      'about: "About us" (from its first heading)', 'news: "Latest news" (from its first heading)', 'plain (open): "Plain" (set by hand)',
+    ]);
+    await site_.close();
   });
 });
 

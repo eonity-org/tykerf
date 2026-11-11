@@ -4,23 +4,27 @@
 // what that request left: what the person had left that way before is theirs.
 
 import { find, isOp, walk } from './model.js';
-import { linkedPage } from './site.js';
+import { derivedTitle, linkedPage, pageTitle, readSite, sitePages } from './site.js';
 import { pageFileRefs } from './assets.js';
 import { componentCode, components } from './library.js';
 import type { Workspace } from './workspace.js';
 
 export interface Leftover {
   box: string;
-  kind: 'text' | 'picture' | 'link' | 'missing' | 'block' | 'shared-file';
+  kind: 'text' | 'picture' | 'link' | 'missing' | 'block' | 'shared-file' | 'title';
   /**
    * What is left: the placeholder text, the picture's file, the address of a file that isn't there, the link's
-   * address and words, or (shared-file) the shared block's name and the page's file it uses ("nav logo.png").
+   * address and words, (shared-file) the shared block's name and the page's file it uses ("nav logo.png"), or
+   * (title, on the page's top block) the page's title.
    */
   detail: string;
   /** For a link: why it has no target. */
   why?: 'nowhere' | 'section' | 'page';
   /** For a link to a section: the address that works, when it names a block (`#faq` → `#sw-faq`, the block's own element). */
   target?: string;
+  /** For a title: this page, and the other page that has the same title. */
+  page?: string;
+  other?: string;
 }
 
 /** One leftover as a stable key, to compare a page before and after a request and to remember what the person keeps. */
@@ -31,6 +35,7 @@ export function say(l: Leftover): string {
   if (l.kind === 'text') return `${l.box}: placeholder text "${l.detail}"`;
   if (l.kind === 'picture') return `${l.box}: a placeholder picture (${l.detail})`;
   if (l.kind === 'missing') return `${l.box}: ${l.detail} is not one of the page's files, so it shows broken`;
+  if (l.kind === 'title') return `${l.page}: its title "${l.detail}" is the same as ${l.other}'s; give it a title of its own (set_title)`;
   if (l.kind === 'shared-file') {
     const [name, ...file] = l.detail.split(' ');
     const f = file.join(' ');
@@ -121,6 +126,16 @@ export function leftovers(ws: Workspace, opts: { within?: string | null } = {}):
   const out: Leftover[] = [];
   const add = (l: Leftover) => out.some((o) => leftoverKey(o) === leftoverKey(l)) || out.push(l);
   const layout = ws.load();
+  // a page of a site whose title comes from its first heading, and is another page's title too (copies, a shared banner)
+  const site = ws.site?.dir, page = ws.site?.page;
+  if (site && page && (!opts.within || opts.within === layout.root.id)) {
+    const settings = readSite(site);
+    if (!settings.titles[page]) {
+      const mine = derivedTitle(site, page);
+      const other = sitePages(site).find((p) => p !== page && pageTitle(site, p, settings) === mine);
+      if (other) add({ box: layout.root.id, kind: 'title', detail: mine, page, other });
+    }
+  }
   for (const box of boxes) {
     const use = ws.sharedBlock(box, layout);
     const block = use && ws.site?.block ? ws.site.block(use) : null;

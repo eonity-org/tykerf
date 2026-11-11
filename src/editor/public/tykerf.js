@@ -1156,6 +1156,8 @@ async function renderPage(body) {
   const [{ html, themeVariables, sharedTheme, ownLook, overrides = {} }, { themes, theme: base }] = await Promise.all([api('/head'), fetch('/_tykerf/library').then((r) => r.json())]);
   // a page of a site that shares one theme: the theme part edits the site's head, or this page's own values over it
   const site = sharedTheme ? await siteApi('/head') : null;
+  // the page's title in the site (site.json): set by hand, or from its first heading
+  const info = S.site ? await siteApi('').catch(() => null) : null;
   if (per(S.sel).tab !== 'page') return;
   const p = per(S.sel);
   p.head ??= html;
@@ -1204,10 +1206,19 @@ async function renderPage(body) {
     }
     return `<label class="theme-var${mine ? ' mine' : ''}"><span class="name">${esc(label(name))}</span><span class="marks">${origin}</span><input type="text" value="${esc(value)}" data-var="${esc(name)}" spellcheck="false" ${name.startsWith('--font') ? 'list="tykerf-fonts"' : ''}></label>`;
   };
+  const here = S.site?.current;
+  const ownTitle = info?.ownTitles?.[here] ?? '';
+  const shownTitle = info?.titles?.[here] ?? here;
+  const titleSec = info && here ? `<section class="size-sec title-sec">
+      <p class="size-head">${t('Title')} <span class="muted">${ownTitle ? t('(set by hand)') : shownTitle === here ? t('(none yet: its name stands in)') : t('(from its first heading)')}</span></p>
+      <div class="title-row"><input type="text" class="page-title" maxlength="120" value="${esc(ownTitle)}" placeholder="${esc(shownTitle)}" aria-label="${t('The page\'s title')}"><button data-page="title" class="primary">${t('Save')}</button></div>
+      <p class="hint">${ownTitle ? `${t('The browser tab, search results and the list of pages show it.')} <button class="link" data-page="title-reset">${t('Use its first heading again')}</button>` : t('The browser tab, search results and the list of pages show it. Without one, the page is titled by its first heading.')}</p>
+    </section>` : '';
   const heading = scope === 'site' ? t('Site theme') : scope === 'page' ? t('This page\'s theme') : t('Theme');
   const sub = scope === 'site' ? t('(colours, fonts and spacing for every page of the site)') : scope === 'page' ? t('(values set here apply to this page only; the rest comes from the site theme)') : t('(colours, fonts and spacing for the whole page)');
   body.innerHTML = `
     <a class="handbook-link" href="${API}/handbook" target="_blank" rel="noopener" title="${t('The page\'s theme and every block, with chips to copy into a request, and their tasks')}">${ic('blocks')}<span><b>${t('Handbook')}</b> ${t('the page\'s system on one page')}</span>${ic('right')}</a>
+    ${titleSec}
     <section class="size-sec">
       ${status ? `<p class="theme-status ${status.cls}">${status.text}</p>` : ''}
       <p class="size-head">${heading} <span class="muted">${sub}</span></p>
@@ -1242,6 +1253,8 @@ async function renderPage(body) {
       <div class="row end"><button data-page="clean-files">${t('Move them to the trash')}</button></div>
       <p class="hint">${t('They go to the .trash folder of the page; nothing is deleted.')}</p>`;
   }, () => {});
+  const titleInput = $('.page-title', body);
+  if (titleInput) titleInput.onkeydown = (e) => e.key === 'Enter' && $('[data-page="title"]', body).click();
   const ta = $('.head-code', body);
   const saved = $('.savebar .status', body);
   const mark = () => (saved.textContent = p.head !== html ? t('Unsaved changes') : '');
@@ -1326,6 +1339,11 @@ async function renderPage(body) {
     if (a === 'reset-preset' && madeFrom) savePreset(madeFrom.values, madeFrom.name);
     if (a === 'site-undo') siteApi('/head/undo', {}).then((j) => toast(t('Undone: {label}', { label: j.result })), (err) => toast(err.message, true));
     if (a === 'share') siteApi('/theme/share', { page: S.site.current }).then((j) => toast(t('Every page now uses this theme ({n} pages changed).', { n: j.result.length })), (err) => toast(err.message, true));
+    if (a === 'title' || a === 'title-reset') {
+      e.preventDefault();
+      const title = a === 'title' ? $('.page-title', body).value : '';
+      siteApi('/title', { name: here, title }).then(() => (toast(title.trim() ? t('Title saved') : t('The page is titled by its first heading again')), renderPage(body)), (err) => toast(err.message, true));
+    }
     if (a === 'add-theme') save(themeVariables + html);
     if (a === 'save') save(p.head);
     if (a === 'revert') {
@@ -3447,8 +3465,9 @@ async function loadState() {
 
 /** Re-render the page from the tree in place (styles, markup, then box scripts run again). */
 async function reloadPage() {
-  const { css, body } = await api('/page');
+  const { css, body, lang } = await api('/page');
   document.getElementById('sw--style').textContent = css;
+  if (lang) document.documentElement.lang = lang; // the site's language may have changed
   const pg = page();
   pg.innerHTML = body;
   for (const old of pg.querySelectorAll('script')) {

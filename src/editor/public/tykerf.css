@@ -398,6 +398,8 @@ textarea.code { flex: 1; min-height: 120px; font: var(--mono); tab-size: 2; whit
 .size-head .link { font: inherit; font-weight: 600; color: var(--text); }
 .sliders { display: flex; flex-direction: column; gap: 6px; margin-bottom: 12px; }
 .size-sec + .size-sec { margin-top: 16px; padding-top: 12px; border-top: 1px solid var(--line); }
+.title-row { display: flex; gap: 8px; }
+.title-row input { flex: 1; min-width: 0; font: inherit; padding: 4px 8px; border: 1px solid var(--line); border-radius: 6px; background: var(--bg); color: var(--text); }
 .slider .auto { font-size: 12px; }
 .slider { display: grid; grid-template-columns: minmax(60px, 30%) 1fr 54px auto; align-items: center; gap: 10px; padding: 2px 6px; border-radius: 6px; }
 .slider.mine { background: var(--bg-2); font-weight: 600; }

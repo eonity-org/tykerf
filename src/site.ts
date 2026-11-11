@@ -136,6 +136,17 @@ export interface SiteSettings {
   titles: Record<string, string>;
   /** Where Publish sends the site (src/publish.ts). The token is never here: it's TYKERF_GITHUB_TOKEN in .env. */
   publish?: PublishSettings;
+  /** The site's language, BCP 47 ("en", "es", "pt-BR"): every page's <html lang>. "en" when site.json has none. */
+  lang: string;
+}
+
+/** A language tag a site can have: BCP 47's language, then subtags ("es", "pt-BR", "sr-Latn-RS"). */
+export const LANG = /^[a-z]{2,3}(-[A-Za-z0-9]{2,8})*$/;
+
+/** A language tag as web pages write it (<html lang="ES_es">) made one a site can have ("es-es"), or null. */
+export function langTag(raw: string | null | undefined): string | null {
+  const l = String(raw ?? '').trim().replace(/_/g, '-').replace(/^[A-Za-z]+/, (m) => m.toLowerCase());
+  return LANG.test(l) ? l : null;
 }
 
 /** A GitHub repository ("owner/name"), the branch and folder the site goes to, and its public address. */
@@ -168,13 +179,24 @@ export function readSite(dir: string): SiteSettings {
   const pages = new Set(sitePages(dir));
   const titles = Object.fromEntries(Object.entries(raw.titles ?? {}).filter(([p, t]) => pages.has(p) && typeof t === 'string' && t.trim()));
   const publish = raw.publish && !publishSettingsError(raw.publish) ? raw.publish : undefined;
-  return { version: 1, ...(raw.home && pages.has(raw.home) ? { home: raw.home } : {}), titles, ...(publish ? { publish } : {}) };
+  const lang = typeof raw.lang === 'string' && LANG.test(raw.lang) ? raw.lang : 'en';
+  return { version: 1, ...(raw.home && pages.has(raw.home) ? { home: raw.home } : {}), titles, ...(publish ? { publish } : {}), lang };
 }
 
 // written whole (FolderStore.write): a process reading it meanwhile never gets it half written, and so never
-// saves its next change over settings it couldn't read
+// saves its next change over settings it couldn't read. The default language isn't written.
 function writeSite(dir: string, s: SiteSettings) {
-  new FolderStore(dir).write(SITE_FILE, `${JSON.stringify(s, null, 2)}\n`);
+  const { lang, ...rest } = s;
+  new FolderStore(dir).write(SITE_FILE, `${JSON.stringify(lang === 'en' ? rest : { ...rest, lang }, null, 2)}\n`);
+}
+
+/** Set the site's language (BCP 47: "es", "pt-BR"); "" goes back to English. Every page's <html lang> follows it. */
+export function setLang(dir: string, lang: string) {
+  const l = lang.trim() || 'en';
+  if (!LANG.test(l)) throw new Error(`"${lang}" is not a language tag: two or three lowercase letters, then subtags if any, such as es, pt-BR or sr-Latn`);
+  const s = readSite(dir);
+  if (s.lang === l) return;
+  writeSite(dir, { ...s, lang: l });
 }
 
 /** Make a page the site's home (null: no home page, the site's address shows the manager). */
@@ -212,14 +234,23 @@ export function setPublish(dir: string, p: PublishSettings | null) {
   writeSite(dir, s);
 }
 
-/** A page's title: set by hand, else the text of its first <h1>, else its name. */
+/** A page's title: set by hand, else the text of its first <h1>, else its name (derivedTitle). */
 export function pageTitle(dir: string, page: string, settings = readSite(dir)): string {
-  if (settings.titles[page]) return settings.titles[page];
+  return settings.titles[page] || derivedTitle(dir, page);
+}
+
+/**
+ * A page's title from its own boxes: the text of the first <h1> in tree order, else the page's name. Boxes that
+ * show a shared block are skipped: a banner shared by every page would give them all its heading.
+ * (When shared blocks get slots, docs/plans/site-sharing-2.md phase 2, a slot this page fills can count again.)
+ */
+export function derivedTitle(dir: string, page: string): string {
   const ws = new Workspace(join(dir, page));
+  const l = ws.load();
   const order: string[] = [];
-  walk(ws.load().root, (n) => n.type === 'leaf' && order.push(n.id));
+  walk(l.root, (n) => n.type === 'leaf' && !n.use && order.push(n.id));
   for (const id of order) {
-    const h1 = /<h1\b[^>]*>([\s\S]*?)<\/h1>/i.exec(ws.content(id) ?? '')?.[1];
+    const h1 = /<h1\b[^>]*>([\s\S]*?)<\/h1>/i.exec(ws.ownContent(id) ?? '')?.[1];
     const text = h1?.replace(/<[^>]*>/g, ' ').replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&').replace(/\s+/g, ' ').trim();
     if (text) return text.length > 120 ? `${text.slice(0, 117)}…` : text;
   }
@@ -240,7 +271,7 @@ export function siteIndex(dir: string, footer?: { href: string; text: string }, 
   const items = pages.map((p) => `<li><a href="/${p}/"><span class="title">${escHTML(pageTitle(dir, p, s))}</span>` +
     `<span class="route">/${p}/${p === s.home ? ' <b>home</b>' : ''}</span></a></li>`).join('\n    ');
   return `<!doctype html>
-<html lang="en">
+<html lang="${s.lang}">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
@@ -389,7 +420,7 @@ export const siteLink = (dir: string, page?: string): SiteLink => ({
   files: () => (existsSync(join(dir, 'assets')) ? readdirSync(join(dir, 'assets')) : []), asset: (f) => siteStore(dir).readBytes(`assets/${f}`),
   icon: () => iconLink(dir), setHead: (html, label) => setSiteHead(dir, html, label),
   // the site kit (src/kit.ts): styles and behaviours for every page, shared blocks, box types
-  dir, page, home: () => page !== undefined && readSite(dir).home === page, kit: () => kitStyles(dir) + kitLoaderTag(dir), block: (name) => kitBlock(dir, name),
+  dir, page, home: () => page !== undefined && readSite(dir).home === page, lang: () => readSite(dir).lang, kit: () => kitStyles(dir) + kitLoaderTag(dir), block: (name) => kitBlock(dir, name),
   setBlock: (name, code, author) => kitWrite(dir, 'blocks', name, code, `edit the shared block ${name}`, author), types: () => kitTypes(dir) as Registry,
 });
 

@@ -74,6 +74,7 @@
   /* the site's icon (favicon): its own file, or the one made from its name */
   .code .icon-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px; padding: 8px 10px; border-radius: 8px; background: #F2F7F9; font-size: 13px; }
   .code .icon-row img { width: 32px; height: 32px; border-radius: 6px; }
+  .code .lang-row input { font: inherit; width: 7em; padding: 3px 6px; }
   .code .icon-row .icon-say { flex: 1 1 200px; }
   .code .icon-row .icon-msg.error { flex-basis: 100%; color: #B42318; }
   .code textarea { min-height: 200px; font: 13px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace; padding: 10px 12px; border: 1px solid #9DB8C4; border-radius: 8px; resize: none; tab-size: 2; }
@@ -337,6 +338,7 @@
       <h2 id="code-h" data-t>Styles and scripts for every page</h2>
       <p data-t>This code goes in the head of every page, before the page's own: a stylesheet, a &lt;style&gt; or a &lt;script&gt;, meta tags. Colours and fonts are the theme, in the Page tab of any page. Scripts here run on every page.</p>
       <div class="icon-row"><img class="icon-preview" alt=""><span class="icon-say"></span><button type="button" data-icon="pick" data-t>Upload an icon…</button><button type="button" data-icon="reset" hidden data-t>Use the made one</button><span class="icon-msg" role="status"></span></div>
+      <div class="icon-row lang-row"><label><span data-t>Language</span> <input class="lang" spellcheck="false" size="8" maxlength="35" placeholder="en"></label><span class="icon-say" data-t>What language the pages are in, such as es, en or pt-BR: browsers, screen readers and search engines read it.</span><button type="button" data-lang="save" data-t>Save</button><span class="icon-msg" role="status"></span></div>
       <textarea spellcheck="false" aria-label="The code of every page's head"></textarea>
       <div class="acts"><span class="msg" role="status"></span><button type="button" data-code="undo" hidden></button><button type="button" data-code="close" data-t>Close</button><button type="button" class="primary" data-code="save" data-t>Save</button></div>
     </section>
@@ -462,6 +464,7 @@ async function openCode() {
   closeLinks();
   closeWork();
   showIcon();
+  showLang();
   const j = await fetch('/_tykerf/site/code').then((r) => r.json()).catch(() => ({ code: '' }));
   codeBox.value = j.code ?? '';
   showUndo(j.last);
@@ -688,6 +691,26 @@ async function showIcon(text = '') {
   iconMsg.className = 'icon-msg';
   iconMsg.textContent = text;
 }
+
+// the site's language: every page's <html lang>
+const langRow = code.querySelector('.lang-row'), langMsg = langRow.querySelector('.icon-msg');
+async function showLang(text = '') {
+  const j = await fetch('/_tykerf/site').then((r) => r.json()).catch(() => null);
+  if (j?.lang) langRow.querySelector('input').value = j.lang;
+  langMsg.className = 'icon-msg';
+  langMsg.textContent = text;
+}
+langRow.onclick = async (e) => {
+  if (!e.target.closest('[data-lang="save"]')) return;
+  try {
+    await post('/_tykerf/site/lang', { lang: langRow.querySelector('input').value });
+    showLang(t('Saved: every page says it now.'));
+  } catch (err) {
+    langMsg.className = 'icon-msg error';
+    langMsg.textContent = err.message;
+  }
+};
+langRow.querySelector('input').onkeydown = (e) => e.key === 'Enter' && langRow.querySelector('[data-lang="save"]').click();
 
 const ICON_TYPE = { svg: 'image/svg+xml', png: 'image/png', ico: 'image/x-icon' };
 iconRow.onclick = async (e) => {
