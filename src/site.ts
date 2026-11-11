@@ -14,6 +14,7 @@ import { FolderStore } from './store.js';
 import { DEFAULT_THEME, componentCode, createPage, hasTheme, readTheme, theme, themes, withFonts, withOverrides, withPresetName, withThemeValues } from './library.js';
 import { NO_SITE_HEAD, type SiteLink, Workspace } from './workspace.js';
 import { kitBlock, kitList, kitLoaderTag, kitStyles, kitTypes, kitWrite } from './kit.js';
+import { hashedName, mapPageFiles } from './assets.js';
 import type { Registry } from './types.js';
 
 /** The name of a new site's first page, which becomes its home page. */
@@ -750,17 +751,56 @@ function freeBlockName(dir: string, wish: string): string {
   }
 }
 
-/** Share a box with every page: its code becomes a shared block, and this box shows it. Returns the block's name. */
-export function shareBlock(dir: string, ws: Workspace, box: string, wish = box, author = 'user'): string {
+/**
+ * A box's code made to work on every page of the site. The page's own files it uses (assets/<file>, which
+ * under another page's address would be that page's) are copied to the site's assets/, and the code points
+ * at them there (/assets/<file>). A site file of the same name with other bytes stays as it is: the copy's
+ * name gets a hash of its bytes. Files the page doesn't have are left alone (check_page reports them).
+ * Returns the code and the files copied.
+ */
+export function siteFiles(dir: string, ws: Workspace, code: string): { code: string; files: string[] } {
+  const site = new FolderStore(dir);
+  const files: string[] = [];
+  const done = new Map<string, string | null>();
+  const out = site.lock(() => mapPageFiles(code, (file) => {
+    if (done.has(file)) return done.get(file)!;
+    const bytes = ws.store.readBytes(`assets/${file}`);
+    let to: string | null = null;
+    if (bytes) {
+      // the site's files are served by plain names (/assets/<name>), without folders
+      let name = file.replace(/[^A-Za-z0-9._-]+/g, '-').replace(/^[^A-Za-z0-9]+/, '') || 'file';
+      const there = site.readBytes(`assets/${name}`);
+      if (there && !Buffer.from(there).equals(bytes)) name = hashedName(name, bytes);
+      if (!site.exists(`assets/${name}`)) {
+        site.write(`assets/${name}`, bytes);
+        files.push(name);
+      }
+      to = `/assets/${name}`;
+    }
+    done.set(file, to);
+    return to;
+  }));
+  return { code: out, files };
+}
+
+/**
+ * Share a box with every page: its code becomes a shared block, and this box shows it. The page's own files
+ * it uses go to the site's assets/ (siteFiles). Returns the block's name and the files that moved to the site.
+ */
+export function shareBlock(dir: string, ws: Workspace, box: string, wish = box, author = 'user'): { name: string; files: string[] } {
   const l = ws.load();
   const n = find(l.root, box)?.node;
   if (n?.type !== 'leaf') throw new Error(`"${box}" is not a box`);
   if (n.use) throw new Error(`"${box}" already shows the shared block "${n.use}"`);
   const name = freeBlockName(dir, wish);
-  kitWrite(dir, 'blocks', name, ws.content(box) ?? '', `share ${box} as the shared block ${name}`, author);
+  const { code, files } = siteFiles(dir, ws, ws.content(box) ?? '');
+  kitWrite(dir, 'blocks', name, code, `share ${box} as the shared block ${name}`, author);
   ws.save(M.setLeaf(l, box, { use: name }), `share ${box} with every page as ${name}`, author);
-  return name;
+  return { name, files };
 }
+
+/** The files sharing a block took to the site, for a reply: "" or "; its file went to the site's assets/, for every page: logo.png". */
+export const movedFiles = (files: string[]) => (files.length ? `; ${files.length === 1 ? 'its file' : 'its files'} went to the site's assets/, for every page: ${files.join(', ')}` : '');
 
 /** Make a box show a shared block of the site (its own code stays, for when it's unlinked). */
 export function linkBlock(dir: string, ws: Workspace, box: string, name: string, author = 'user') {
@@ -807,11 +847,11 @@ export function identicalBoxes(dir: string): { box: string; pages: string[] }[] 
 }
 
 /** Share a box that is the same on several pages: one shared block from it, linked on each of those pages. */
-export function shareIdentical(dir: string, box: string, author = 'user'): { name: string; pages: string[] } {
+export function shareIdentical(dir: string, box: string, author = 'user'): { name: string; pages: string[]; files: string[] } {
   const group = identicalBoxes(dir).find((g) => g.box === box);
   if (!group) throw new Error(`no box "${box}" is the same on several pages`);
   const [first, ...rest] = group.pages;
-  const name = shareBlock(dir, pageWorkspace(dir, first), box, box, author);
+  const { name, files } = shareBlock(dir, pageWorkspace(dir, first), box, box, author);
   for (const p of rest) linkBlock(dir, pageWorkspace(dir, p), box, name, author);
-  return { name, pages: group.pages };
+  return { name, pages: group.pages, files };
 }

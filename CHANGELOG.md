@@ -6,6 +6,10 @@
 
 # Changelog
 
+## Unreleased
+
+- **Shared blocks keep their pictures on every page.** Sharing a box that used its page's files (`assets/logo.png`) made a block that looked for them under each page's own address, so the logo showed on one page and was broken on the others. Sharing now copies those files to the site's `assets/` and points the block at them (`/assets/logo.png`); a different file already there under the same name stays, and the copy gets a name of its own. The reply of **Share**, of `share_block` and of the manager's **Share nav** names the files. A shared block saved by hand with a page's file gets a warning in the kit editor and in `set_kit_file`, and `check_page` lists it (a new leftover, `shared-file`).
+
 ## 0.3.0 (2026-11-01): tasks, the handbook and the site kit
 
 - **The site kit.** What every page of a site shares besides the theme, in the site's `kit/` folder, from the site manager (below *Styles & scripts*): styles for every page; behaviours, small scripts an element turns on with `data-use`; **shared blocks**, so the navigation and the footer are one thing for the whole site (the kit offers to share the boxes that are already the same on several pages; *Make this page's own copy* when one page should differ; the current page's link is marked); box types for every page; and the site's own tags, in **Size & look**. Kaity changes it when asked for the whole site; exports and Publish include it. New MCP tools: `list_kit`, `get_kit_file`, `set_kit_file`, `share_block`, `link_block`, `unlink_block`.

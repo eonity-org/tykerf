@@ -7,9 +7,10 @@ import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { leftovers, say } from '../src/check.js';
 import { exportFiles } from '../src/export.js';
-import { KIT_LOADER, kitError, kitList, kitRead, kitStyles, kitTags, kitWrite, lastKitChange, markCurrentPage, undoKit } from '../src/kit.js';
+import { KIT_LOADER, kitError, kitWarning, kitList, kitRead, kitStyles, kitTags, kitWrite, lastKitChange, markCurrentPage, undoKit } from '../src/kit.js';
 import { parseSlice, serializeSlice } from '../src/notation.js';
 import { blockUsers, identicalBoxes, linkBlock, newSitePage, pageWorkspace, shareBlock, shareIdentical, unlinkBlock } from '../src/site.js';
+import { contentHash, pageFileRefs } from '../src/assets.js';
 import * as M from '../src/moves.js';
 
 const site = () => {
@@ -87,7 +88,7 @@ describe('shared blocks', () => {
     const dir = site();
     const home = pageWorkspace(dir, 'home'), about = pageWorkspace(dir, 'about');
     const before = about.ownContent('footer');
-    expect(shareBlock(dir, home, 'nav')).toBe('nav');
+    expect(shareBlock(dir, home, 'nav')).toEqual({ name: 'nav', files: [] });
     linkBlock(dir, about, 'nav', 'nav');
     expect(blockUsers(dir, 'nav')).toEqual({ about: ['nav'], home: ['nav'] });
     home.setContent('nav', '<nav><a href="/home/">Home</a> <a href="/about/">About</a></nav>', 'user');
@@ -114,7 +115,7 @@ describe('shared blocks', () => {
     const dir = site();
     expect(identicalBoxes(dir).map((g) => g.box)).toEqual(expect.arrayContaining(['nav', 'footer']));
     const r = shareIdentical(dir, 'footer');
-    expect(r).toEqual({ name: 'footer', pages: ['about', 'home'] });
+    expect(r).toEqual({ name: 'footer', pages: ['about', 'home'], files: [] });
     expect(identicalBoxes(dir).map((g) => g.box)).not.toContain('footer');
     // a new page's box of the same name shows the shared block
     expect(newSitePage(dir, 'news', 'blank', 'studio').load().root.type).toBe('op');
@@ -122,6 +123,53 @@ describe('shared blocks', () => {
     newSitePage(dir, 'shop', 'catalogue', 'studio');
     expect(pageWorkspace(dir, 'shop').sharedBlock('footer')).toBe('footer');
     expect(pageWorkspace(dir, 'shop').history()).toEqual([]); // a new page starts with nothing to undo
+  });
+
+  it('take the page\'s own files they use to the site, so every page shows them', () => {
+    const dir = site();
+    const home = pageWorkspace(dir, 'home'), about = pageWorkspace(dir, 'about');
+    const logo = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 1]);
+    home.store.write('assets/logo.png', logo);
+    home.setContent('nav', '<nav><img src="assets/logo.png" srcset="./assets/logo.png 2x" alt="Logo"> <a href="/about/">About</a></nav>\n<style>nav { background: url("assets/logo.png?v=1") }</style>', 'user');
+    expect(shareBlock(dir, home, 'nav')).toEqual({ name: 'nav', files: ['logo.png'] });
+    expect(new Uint8Array(readFileSync(join(dir, 'assets', 'logo.png')))).toEqual(logo);
+    const block = kitRead(dir, 'blocks', 'nav')!;
+    expect(block).toContain('src="/assets/logo.png" srcset="/assets/logo.png 2x"');
+    expect(block).toContain('url("/assets/logo.png?v=1")');
+    expect(pageFileRefs(block)).toEqual([]);
+    expect(home.ownContent('nav')).toContain('src="assets/logo.png"'); // the box's own code waits as it was
+    linkBlock(dir, about, 'nav', 'nav');
+    for (const p of ['home', 'about']) {
+      const ws = pageWorkspace(dir, p);
+      expect(ws.page()).toContain('<img src="/assets/logo.png"');
+      expect(leftovers(ws).filter((l) => l.box === 'nav' && ['missing', 'shared-file'].includes(l.kind))).toEqual([]);
+    }
+    // the same file again: nothing to copy; another file of the same name: the site's stays, the copy gets a hashed name
+    home.setContent('cta', '<p><img src="assets/logo.png" alt=""></p>', 'user');
+    expect(shareBlock(dir, home, 'cta')).toEqual({ name: 'cta', files: [] });
+    expect(kitRead(dir, 'blocks', 'cta')).toContain('src="/assets/logo.png"');
+    const other = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 2]);
+    about.store.write('assets/logo.png', other);
+    about.setContent('footer', '<footer><img src="assets/logo.png" alt=""></footer>', 'user');
+    const hashed = `logo-${contentHash(other)}.png`;
+    expect(shareBlock(dir, about, 'footer')).toEqual({ name: 'footer', files: [hashed] });
+    expect(kitRead(dir, 'blocks', 'footer')).toContain(`src="/assets/${hashed}"`);
+    expect(new Uint8Array(readFileSync(join(dir, 'assets', 'logo.png')))).toEqual(logo);
+    expect(new Uint8Array(readFileSync(join(dir, 'assets', hashed)))).toEqual(other);
+  });
+
+  it('report a shared block that uses a page\'s own file, and warn when one is saved that way', () => {
+    const dir = site();
+    shareBlock(dir, pageWorkspace(dir, 'home'), 'nav');
+    linkBlock(dir, pageWorkspace(dir, 'about'), 'nav', 'nav');
+    kitWrite(dir, 'blocks', 'nav', '<nav><img src="assets/x.png" alt=""></nav>'); // written by hand: saved
+    expect(kitWarning('blocks', 'nav', kitRead(dir, 'blocks', 'nav')!)).toMatch(/assets\/x\.png is a page's file.*write \/assets\/x\.png/);
+    expect(kitWarning('blocks', 'nav', '<nav><img src="/assets/x.png" alt=""></nav>')).toBeNull();
+    expect(kitWarning('styles', 'base', 'a { background: url(assets/x.png) }')).toBeNull();
+    for (const p of ['home', 'about']) {
+      expect(leftovers(pageWorkspace(dir, p)).filter((l) => l.kind === 'shared-file').map(say))
+        .toEqual(['nav: the shared block nav uses assets/x.png, a page\'s file; shared blocks use /assets/x.png (the site\'s)']);
+    }
   });
 
   it('report a box whose shared block is gone', () => {
@@ -155,10 +203,14 @@ describe('the kit tools', () => {
     const whole = await openTools(home, '', dir);
     expect((await whole.call('list_kit', {})).text).toMatch(/^styles: none/);
     expect((await whole.call('set_kit_file', { kind: 'styles', name: 'base', text: '.btn{}' })).text).toMatch(/reaches every page of the site \(2\)/);
-    expect((await whole.call('share_block', { id: 'nav' })).text).toBe('ok: "nav" is now the shared block "nav"');
+    home.store.write('assets/logo.png', new Uint8Array([1, 2, 3]));
+    home.setContent('nav', '<nav><img src="assets/logo.png" alt="Logo"></nav>', 'user');
+    expect((await whole.call('share_block', { id: 'nav' })).text).toBe('ok: "nav" is now the shared block "nav"; its file went to the site\'s assets/, for every page: logo.png');
     expect((await whole.call('list_kit', {})).text).toMatch(/blocks: nav \(on home\)/);
     await whole.call('open_page', { name: 'about' });
     expect((await whole.call('link_block', { id: 'nav', name: 'nav' })).text).toBe('ok: "nav" shows the shared block "nav"');
+    expect((await whole.call('set_kit_file', { kind: 'blocks', name: 'nav', text: '<nav><img src="assets/logo.png" alt=""></nav>' })).text).toMatch(/\nwarning: nav: assets\/logo\.png is a page's file/);
+    expect((await whole.call('check_page', {})).text).toContain('nav: the shared block nav uses assets/logo.png, a page\'s file; shared blocks use /assets/logo.png (the site\'s)');
     expect((await whole.call('set_kit_file', { kind: 'blocks', name: 'nav', text: '<nav>one</nav>' })).text).toMatch(/the pages that show it: about, home/);
     await whole.close();
     expect(lastKitChange(dir)?.author).toBe('ai');

@@ -19,14 +19,14 @@ import { basename, dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { HOME_PAGE, type PublishSettings, addSitePage, pageMoves, emptyTrash, lastSiteHeadChange, newPageLike, newSitePage, pageLinks, pageNameError, pageTitle, pageWorkspace, readSite, duplicatePage, removePage, renamePage, setHome, setPublish, setSiteIcon, siteIcon, setSiteCode, setSiteHead, setTitle, shareTheme, siteCode, siteHead, siteIndex, siteKind, siteLink, siteMap, siteOf, sitePages, trashedPages, undoSiteHead, blockUsers, identicalBoxes, shareIdentical } from '../site.js';
 import { FolderStore, MemoryStore } from '../store.js';
-import { KIT_LOADER, type KitKind, kitList, kitRead, kitWrite, lastKitChange, undoKit } from '../kit.js';
+import { KIT_LOADER, type KitKind, kitList, kitRead, kitWarning, kitWrite, lastKitChange, undoKit } from '../kit.js';
 import { DEFAULT_THEME, EMPTY_LAYOUT, createPage, hasTheme, pageLayouts, libraryAsset, theme, themes } from '../library.js';
 import { Workspace } from '../workspace.js';
 import { AI, type Runner, SITE_CHAT } from './ai.js';
 import { kaityRuns } from './kaity-log.js';
 import { type DesignZip, designContext, designNote, readDesignZip } from './design-zip.js';
 import { createAuth, loginPage } from './auth.js';
-import { ASSET_TYPES } from '../assets.js';
+import { ASSET_TYPES, pageFileRefs } from '../assets.js';
 import { type PageHost, body, createPageHost, json } from './page.js';
 import { runnerFromEnv } from './runners/index.js';
 
@@ -512,12 +512,19 @@ async function serveGlobal(req: IncomingMessage, res: ServerResponse, p: string,
     if (req.method === 'POST') {
       const a = await body(req);
       let result: unknown = null;
-      if (p === '/_tykerf/site/kit/file') kitWrite(dir, a.kind as KitKind, String(a.name ?? 'tags'), typeof a.text === 'string' ? a.text : null);
+      let warning: string | null = null, pageFiles: string[] = [];
+      if (p === '/_tykerf/site/kit/file') {
+        const text = typeof a.text === 'string' ? a.text : null;
+        kitWrite(dir, a.kind as KitKind, String(a.name ?? 'tags'), text);
+        // saved, but it may not work everywhere: a shared block with a page's own file shows it on that page only
+        warning = text === null ? null : kitWarning(a.kind as KitKind, String(a.name ?? 'tags'), text);
+        if (warning) pageFiles = pageFileRefs(text!).map((f) => `assets/${f}`);
+      }
       else if (p === '/_tykerf/site/kit/undo') result = undoKit(dir);
       else if (p === '/_tykerf/site/kit/share') result = shareIdentical(dir, String(a.box ?? ''));
       else return res.writeHead(404).end('not found'), true;
       refreshAll();
-      return json(res, 200, { ok: true, result, last: lastKitChange(dir) }), true;
+      return json(res, 200, { ok: true, result, last: lastKitChange(dir), warning, pageFiles }), true;
     }
   }
   // the site's own files (the shared theme's fonts), at /assets/ like an export has them

@@ -189,7 +189,7 @@ export function createPageHost(ws: Workspace, opts: { name: string; site?: () =>
 
   const LETTER = { row: 'V', column: 'H' } as const;
 
-  type Handler = (a: any) => string | null; // applies the change, returns a label for the reply
+  type Handler = (a: any) => string | { name: string; files: string[] } | null; // applies the change, returns a label (or what it made) for the reply
   const OPS: Record<string, Handler> = {
     /** Fill a box with a ready-made component (its code, images and, if needed, the theme variables). */
     component: (a: { id: string; name: string }) => {
@@ -250,7 +250,7 @@ export function createPageHost(ws: Workspace, opts: { name: string; site?: () =>
       ws.save(a.on ? M.tag(ws.load(), a.id, a.tag) : M.untag(ws.load(), a.id, a.tag), `${a.id}: ${a.on ? '' : 'no '}#${a.tag}`, 'user');
       return a.id;
     },
-    /** Share a box with every page of the site: its code becomes a shared block, which this box shows. */
+    /** Share a box with every page of the site: its code becomes a shared block, which this box shows. Returns its name and the files that went to the site. */
     share: (a: { id: string; name?: string }) => {
       if (!ws.site?.dir) throw new Error('only a page of a site can share a block');
       return shareBlock(ws.site.dir, ws, a.id, a.name || a.id);

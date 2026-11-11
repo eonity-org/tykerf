@@ -826,7 +826,10 @@ async function act(what, id, data = {}) {
     case 'share-do': {
       const name = $('.work .share-name')?.value.trim() || id;
       per(id).sheet = null;
-      const r = await op({ op: 'share', id, name }, (b) => t('{id} is now the shared block {b}. Other pages show it with Use a shared block…', { id, b }));
+      // the page's own files it uses went to the site's assets/, so the block shows them on every page
+      const r = await op({ op: 'share', id, name }, (s) => s.files.length
+        ? t('{id} is now the shared block {b}, and its files went to the site, for every page: {files}. Other pages show it with Use a shared block…', { id, b: s.name, files: s.files.join(', ') })
+        : t('{id} is now the shared block {b}. Other pages show it with Use a shared block…', { id, b: s.name }));
       if (r) loadKit();
       return;
     }

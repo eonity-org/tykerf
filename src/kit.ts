@@ -12,6 +12,7 @@
 // Every change keeps the file's previous version in .tykerf/kit.jsonl, for the manager's Undo.
 
 import { FolderStore } from './store.js';
+import { pageFileRefs } from './assets.js';
 import { parseType } from './types.js';
 
 export type KitKind = 'styles' | 'scripts' | 'blocks' | 'types' | 'tags';
@@ -78,6 +79,17 @@ export function kitError(kind: KitKind, name: string, text: string): string | nu
     }
   }
   return null;
+}
+
+/**
+ * What may not work in a kit file that can still be saved, or null. A shared block that uses a page's own
+ * file (assets/<file>) shows it only on the page that has it: on every page it should be the site's (/assets/<file>).
+ */
+export function kitWarning(kind: KitKind, name: string, text: string): string | null {
+  if (kind !== 'blocks') return null;
+  const files = pageFileRefs(text);
+  if (!files.length) return null;
+  return `${name}: ${files.map((f) => `assets/${f}`).join(', ')} ${files.length === 1 ? 'is a page\'s file' : 'are a page\'s files'}, so ${files.length === 1 ? 'it shows' : 'they show'} only on that page; a shared block uses the site's files: put ${files.length === 1 ? 'it' : 'them'} in the site's assets/ and write ${files.map((f) => `/assets/${f}`).join(', ')}`;
 }
 
 /** Create, replace (text) or remove (null) a kit file, keeping the previous version for undo. */

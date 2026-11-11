@@ -64,6 +64,7 @@
   .kitsec .acts { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
   .kitsec .acts .msg { flex: 1 1 220px; font-size: 13px; }
   .kitsec .msg.error { color: #B42318; }
+  .kitsec .msg.warning { color: #B54708; }
   .kitsec button { font: inherit; font-size: 13px; padding: 5px 11px; border: 1px solid #C6D7DE; border-radius: 6px; background: #fff; color: #10303F; cursor: pointer; }
   .kitsec button.primary { background: #0A5475; border-color: #0A5475; color: #fff; font-weight: 600; }
   .kitsec button.danger { color: #B42318; }
@@ -517,7 +518,9 @@ async function openKit() {
   suggest.replaceChildren(el('p', { textContent: t('These boxes are the same on several pages. Share one, and a change to it reaches them all:') }),
     ...j.identical.slice(0, 6).map((g) => {
       const b = el('button', { type: 'button', textContent: t('Share {box}', { box: g.box }) });
-      b.onclick = () => kitDo('/_tykerf/site/kit/share', { box: g.box }, (r) => t('{box} is now a shared block on {pages}.', { box: g.box, pages: r.result.pages.join(', ') }));
+      b.onclick = () => kitDo('/_tykerf/site/kit/share', { box: g.box }, (r) => r.result.files.length
+        ? t('{box} is now a shared block on {pages}. Its files went to the site, for every page: {files}.', { box: g.box, pages: r.result.pages.join(', '), files: r.result.files.join(', ') })
+        : t('{box} is now a shared block on {pages}.', { box: g.box, pages: r.result.pages.join(', ') }));
       return el('p', {}, el('span', { textContent: t('{box} on {pages} ', { box: g.box, pages: g.pages.join(', ') }) }), b);
     }));
 }
@@ -560,11 +563,15 @@ kitSec.onclick = async (e) => {
   const name = kitOpen.kind === 'tags' ? 'tags' : kName.value.trim();
   kMsg.className = 'msg';
   try {
-    await post('/_tykerf/site/kit/file', { kind: kitOpen.kind, name, text: a === 'remove' ? null : kText.value });
+    const r = await post('/_tykerf/site/kit/file', { kind: kitOpen.kind, name, text: a === 'remove' ? null : kText.value });
     kEditor.hidden = a === 'remove';
     kitOpen = a === 'remove' ? null : { ...kitOpen, name, isNew: false };
     kName.disabled = true;
-    kMsg.textContent = a === 'remove' ? '' : t('Saved: every page that uses it shows it now.');
+    // saved, but a shared block that uses a page's own file (assets/…) shows it only on that page
+    if (r.warning) kMsg.className = 'msg warning';
+    kMsg.textContent = a === 'remove' ? '' : r.warning
+      ? t('Saved, but it uses a page\'s own file, which only that page has: {files}. Put the file in the site\'s assets/ and write /assets/<file>.', { files: r.pageFiles.join(', ') })
+      : t('Saved: every page that uses it shows it now.');
     await openKit();
   } catch (err) {
     kMsg.className = 'msg error';

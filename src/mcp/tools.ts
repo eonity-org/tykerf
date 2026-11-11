@@ -16,8 +16,8 @@ import { inScope, scopeViolation } from '../scope.js';
 import { cost, optimize } from '../shape.js';
 import { leftovers, missingFiles, say } from '../check.js';
 import { closeTask, sayTask, tasks } from '../tasks.js';
-import { type KitKind, kitList, kitRead, kitTags, kitWrite } from '../kit.js';
-import { HOME_PAGE, blockUsers, linkBlock, newSitePage, pageWorkspace, removePage, renamePage, shareBlock, siteHead, siteKind, unlinkBlock, unsafeSVG, siteOf, sitePages, usePage } from '../site.js';
+import { type KitKind, kitList, kitRead, kitTags, kitWarning, kitWrite } from '../kit.js';
+import { HOME_PAGE, blockUsers, linkBlock, newSitePage, pageWorkspace, removePage, renamePage, shareBlock, movedFiles, siteHead, siteKind, unlinkBlock, unsafeSVG, siteOf, sitePages, usePage } from '../site.js';
 import { DEFAULT_THEME, components, createPage, hasTheme, pageLayouts, readOverrides, readTheme, setTheme, themeTarget, themes, useComponent, useLayout } from '../library.js';
 import { FolderStore, MemoryStore } from '../store.js';
 import { Workspace } from '../workspace.js';
@@ -649,16 +649,19 @@ export function createTykerfServer(start: Workspace | null, opts: TykerfServerOp
     }, guard(({ kind, name, text }: { kind: KitKind; name?: string; text: string | null }) => {
       const site = siteOnly();
       kitWrite(site, kind, name ?? 'tags', text, undefined, 'ai');
-      return `ok: kit/${kind === 'tags' ? 'tags.json' : `${kind}/${name}`} ${text === null ? 'removed' : 'saved'}; it reaches ${reach(site, kind, name ?? 'tags')}`;
+      const warning = text === null ? null : kitWarning(kind, name ?? 'tags', text);
+      return `ok: kit/${kind === 'tags' ? 'tags.json' : `${kind}/${name}`} ${text === null ? 'removed' : 'saved'}; it reaches ${reach(site, kind, name ?? 'tags')}${warning ? `\nwarning: ${warning}` : ''}`;
     }));
     server.registerTool('share_block', {
       title: 'Share a box with every page', annotations: CHANGE,
-      description: 'Make a box of the open page a shared block of the site: its code becomes kit/blocks/<name>.html and the box shows it. Other pages show it with link_block.',
+      description: 'Make a box of the open page a shared block of the site: its code becomes kit/blocks/<name>.html and the box shows it. Other pages show it with link_block. ' +
+        'The page\'s own files it uses (assets/<file>) are copied to the site\'s assets/ and the block points at them there (/assets/<file>), so they show on every page; the reply lists them.',
       inputSchema: { id: id.describe('box (leaf) reference'), name: z.string().optional().describe('the shared block\'s name (default: the box\'s)') },
     }, guard(({ id: ref, name }: { id: string; name?: string }) => {
       const site = siteOnly();
       const box = resolveRef(ws.load(), ref);
-      return `ok: "${box}" is now the shared block "${shareBlock(site, ws, box, name ?? box, 'ai')}"`;
+      const r = shareBlock(site, ws, box, name ?? box, 'ai');
+      return `ok: "${box}" is now the shared block "${r.name}"${movedFiles(r.files)}`;
     }));
     server.registerTool('link_block', {
       title: 'Show a shared block in a box', annotations: CHANGE,

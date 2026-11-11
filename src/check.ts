@@ -5,13 +5,17 @@
 
 import { find, isOp, walk } from './model.js';
 import { linkedPage } from './site.js';
+import { pageFileRefs } from './assets.js';
 import { componentCode, components } from './library.js';
 import type { Workspace } from './workspace.js';
 
 export interface Leftover {
   box: string;
-  kind: 'text' | 'picture' | 'link' | 'missing' | 'block';
-  /** What is left: the placeholder text, the picture's file, the address of a file that isn't there, or the link's address and words. */
+  kind: 'text' | 'picture' | 'link' | 'missing' | 'block' | 'shared-file';
+  /**
+   * What is left: the placeholder text, the picture's file, the address of a file that isn't there, the link's
+   * address and words, or (shared-file) the shared block's name and the page's file it uses ("nav logo.png").
+   */
   detail: string;
   /** For a link: why it has no target. */
   why?: 'nowhere' | 'section' | 'page';
@@ -27,6 +31,11 @@ export function say(l: Leftover): string {
   if (l.kind === 'text') return `${l.box}: placeholder text "${l.detail}"`;
   if (l.kind === 'picture') return `${l.box}: a placeholder picture (${l.detail})`;
   if (l.kind === 'missing') return `${l.box}: ${l.detail} is not one of the page's files, so it shows broken`;
+  if (l.kind === 'shared-file') {
+    const [name, ...file] = l.detail.split(' ');
+    const f = file.join(' ');
+    return `${l.box}: the shared block ${name} uses assets/${f}, a page's file; shared blocks use /assets/${f} (the site's)`;
+  }
   if (l.kind === 'block') return `${l.box}: it shows the shared block "${l.detail}", which the site's kit doesn't have (kit/blocks/${l.detail}.html), so it shows its own code`;
   const [href, ...words] = l.detail.split(' ');
   const label = words.join(' ') || href;
@@ -114,7 +123,10 @@ export function leftovers(ws: Workspace, opts: { within?: string | null } = {}):
   const layout = ws.load();
   for (const box of boxes) {
     const use = ws.sharedBlock(box, layout);
-    if (use && ws.site?.block && ws.site.block(use) === null) add({ box, kind: 'block', detail: use });
+    const block = use && ws.site?.block ? ws.site.block(use) : null;
+    if (use && ws.site?.block && block === null) add({ box, kind: 'block', detail: use });
+    // a shared block shows on pages at other addresses: a page's own file (assets/…) is there only on one of them
+    if (use && block) for (const f of pageFileRefs(block)) add({ box, kind: 'shared-file', detail: `${use} ${f}` });
     const html = ws.content(box) ?? '';
     for (const s of texts(html)) if (known.has(s)) add({ box, kind: 'text', detail: s });
     for (const [img] of html.matchAll(/<img\b[^>]*>/gi)) {

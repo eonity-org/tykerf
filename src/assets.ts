@@ -28,13 +28,53 @@ export function imageType(b: Uint8Array): 'png' | 'jpg' | 'gif' | 'webp' | 'avif
   return null;
 }
 
+/** A short hash of a file's bytes, for names that change only when the content does. */
+export const contentHash = (bytes: Uint8Array) => createHash('sha1').update(bytes).digest('hex').slice(0, 12);
+
+/** A file's name with a hash of its bytes before the extension (logo.png → logo-<hash>.png): two different files of one name. */
+export function hashedName(file: string, bytes: Uint8Array): string {
+  const dot = file.lastIndexOf('.');
+  return dot > 0 ? `${file.slice(0, dot)}-${contentHash(bytes)}${file.slice(dot)}` : `${file}-${contentHash(bytes)}`;
+}
+
+// ---- the page's own files in some code: assets/<file> (the site's are /assets/<file>) ----
+
+const PAGE_FILE = /^(?:\.\/)?assets\/([^?#]+)([?#].*)?$/;
+
+/**
+ * Change the addresses of the page's own files in some code (assets/<file> or ./assets/<file>, in src, href,
+ * poster, srcset entries and CSS url()): `to` gets the file's name and returns its new address, or null to leave it.
+ */
+export function mapPageFiles(code: string, to: (file: string) => string | null): string {
+  const one = (ref: string) => {
+    const m = PAGE_FILE.exec(ref.trim());
+    if (!m) return ref;
+    let file = m[1];
+    try { file = decodeURIComponent(file); } catch {}
+    const next = to(file);
+    return next === null ? ref : next + (m[2] ?? '');
+  };
+  return code
+    .replace(/(\b(?:src|href|poster)\s*=\s*)(["'])(.*?)\2/gi, (_, at: string, q: string, v: string) => `${at}${q}${one(v)}${q}`)
+    .replace(/(\bsrcset\s*=\s*)(["'])(.*?)\2/gi, (_, at: string, q: string, v: string) =>
+      `${at}${q}${v.split(',').map((c) => c.replace(/^(\s*)(\S+)/, (__, sp: string, u: string) => sp + one(u))).join(',')}${q}`)
+    .replace(/(url\(\s*)(["']?)([^"')]+)\2(\s*\))/gi, (_, at: string, q: string, v: string, end: string) => `${at}${q}${one(v)}${q}${end}`);
+}
+
+/** The page's own files some code uses (assets/<file>), by name. */
+export function pageFileRefs(code: string): string[] {
+  const out = new Set<string>();
+  mapPageFiles(code, (f) => (out.add(f), null));
+  return [...out];
+}
+
 /** Keep an image in the page's assets/; returns its path as boxes refer to it ("assets/img-<hash>.<ext>"). */
 export function saveImage(ws: Workspace, bytes: Uint8Array): string {
   if (!bytes.length) throw new Error('the image is empty');
   if (bytes.length > MAX_IMAGE_BYTES) throw new Error(`the image is larger than ${MAX_IMAGE_BYTES / 1024 / 1024} MB`);
   const ext = imageType(bytes);
   if (!ext) throw new Error('only PNG, JPEG, GIF, WebP and AVIF images can be added');
-  const path = `assets/img-${createHash('sha1').update(bytes).digest('hex').slice(0, 12)}.${ext}`;
+  const path = `assets/img-${contentHash(bytes)}.${ext}`;
   if (!ws.store.exists(path)) ws.store.write(path, bytes);
   return path;
 }
