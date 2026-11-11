@@ -18,6 +18,7 @@ import { FolderStore } from './store.js';
 import { KIT_LOADER, kitCSS, kitFonts, kitList, kitRead, kitStylesInline } from './kit.js';
 import { Workspace } from './workspace.js';
 import { type ZipFile, zip } from './zip.js';
+import { FINDING_KINDS, type SiteFindingKind, checkSite, findingCounts } from './check-site.js';
 
 export interface ExportOptions {
   /** The site's styles (kit/styles) in each page's head instead of one linked kit/site.css. */
@@ -40,6 +41,8 @@ export interface ExportReport {
   remote: { page: string; url: string }[];
   /** The site's own fonts (kit/fonts.json) with no licence noted: publishing a font needs the right to. */
   unlicensed?: string[];
+  /** What the site's check found (check-site.ts), by kind: { alt: 3, orphan: 1 }. */
+  check?: Partial<Record<SiteFindingKind, number>>;
 }
 
 export interface Export {
@@ -148,6 +151,7 @@ export function exportFiles(dir: string, opts: ExportOptions = {}): Export {
     for (const f of site.list('assets')) files.push({ path: `assets/${f}`, bytes: site.readBytes(`assets/${f}`)! });
     files.push(...kitFiles(dir, opts));
     report.unlicensed = Object.entries(kitFonts(dir)).filter(([, f]) => !f.licence?.trim()).map(([family]) => family);
+    report.check = findingCounts(checkSite(dir));
     // the site's front door opens its home page (or its first), and pages/ lists them all
     const front = settings.home ?? pages[0];
     const to = `./${front}/${opts.files ? 'index.html' : ''}`;
@@ -200,6 +204,8 @@ export function exportZip(dir: string, opts: ExportOptions = {}): { bytes: Uint8
 export function describeReport(r: ExportReport): string {
   const lines = [`${r.pages.length} page${r.pages.length === 1 ? '' : 's'}, ${r.files} files, ${(r.bytes / 1024).toFixed(0)} KB`];
   if (r.broken.length) lines.push(`${r.broken.length} link${r.broken.length === 1 ? '' : 's'} to pages that don't exist: ${r.broken.map((b) => `${b.page} → ${b.href}`).join(', ')}`);
+  const checked = Object.entries(r.check ?? {});
+  if (checked.length) lines.push(`the site's check: ${FINDING_KINDS.filter(([k]) => r.check![k]).map(([k, h]) => `${r.check![k]} ${h}`).join(', ')} (check_site, or Check the site in the site manager)`);
   if (r.unlicensed?.length) lines.push(`fonts without a licence noted: ${r.unlicensed.join(', ')} (kit/fonts.json); make sure the site may publish them`);
   if (r.remote.length) {
     const hosts = [...new Set(r.remote.map((x) => { try { return new URL(x.url, 'https://x').host; } catch { return x.url; } }))];

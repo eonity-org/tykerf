@@ -13,6 +13,7 @@ import { leftovers } from '../check.js';
 import { handbookMarkdown, handbookPage } from '../handbook.js';
 import { kitClasses, kitList, kitTags } from '../kit.js';
 import { blockUsers, linkBlock, shareBlock, unlinkBlock } from '../site.js';
+import { addFile } from '../files.js';
 import { addTask, clearDone, closeTask, removeTask, reopenTask, sayTask, tasks } from '../tasks.js';
 import { pathOf } from '../refs.js';
 import { renderParts } from '../render.js';
@@ -26,7 +27,7 @@ export const json = (res: ServerResponse, code: number, body: unknown) => {
   res.end(JSON.stringify(body));
 };
 
-const MAX_BODY = 25 * 1024 * 1024; // an image upload (15 MB) as base64, with room to spare
+const MAX_BODY = 36 * 1024 * 1024; // a file upload (25 MB, files.ts) as base64, with room to spare
 
 export async function body(req: IncomingMessage): Promise<any> {
   let s = '';
@@ -557,6 +558,12 @@ export function createPageHost(ws: Workspace, opts: { name: string; site?: () =>
     if (p === '/_tykerf/assets/clean') {
       const r = trashUnusedAssets(ws);
       if (r.files) changed();
+      return json(res, 200, { ok: true, result: r });
+    }
+    // Add files…: one file the person chose, into the page's assets/ (checked by files.ts, a step undo takes back)
+    if (p === '/_tykerf/files') {
+      const r = addFile({ page: ws }, { bytes: new Uint8Array(Buffer.from(String(a.data ?? ''), 'base64')), name: String(a.name ?? 'file'), type: a.type ? String(a.type) : null, local: true }, { from: `upload ${String(a.name ?? '')}`, author: 'user' });
+      changed();
       return json(res, 200, { ok: true, result: r });
     }
     if (p === '/_tykerf/asset/fetch') return json(res, 200, { ok: true, path: saveImage(ws, await fetchImage(String(a.url ?? ''))) });

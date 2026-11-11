@@ -64,6 +64,8 @@ It starts with what acts on the whole site:
 | **Site kit & head code** | The site's icon and language, the code every page gets in its head (see below), and [the site kit](#the-site-kit) |
 | **Links between pages** | Broken links first, then the pages nothing links to (see below) |
 | **Kaity's work** | Everything Kaity did and is doing in the site, on any page or the whole site (see below) |
+| **Media** | Every file of the site and of its pages, who uses each, and the unused ones (see below) |
+| **Check the site** | What to fix before publishing, every page at once; its count shows on the button (see below) |
 | **Publish** | The site, live on GitHub Pages, Cloudflare Pages or Netlify ([publishing](publishing.md)) |
 
 ### The pages
@@ -105,6 +107,21 @@ Links between pages are written from the site root: `/about/`, `/about/#team`. T
 - **links to pages that don't exist**, each opening the page on the box that holds it (its Text tab), so you can fix it;
 - **pages no other page links to:** visitors reach them only from the list of pages or a search engine;
 - **what each page links to.**
+
+### Media
+
+**Media** shows every file: the site's own (in its `assets/` folder, written `/assets/<file>` on any page) and each page's (in the page's `assets/`, written `assets/<file>` on that page), as a grid with a picture of each image, its kind and size, and who uses it: a page's box or head, or the site's head or kit. *Show* narrows it to the site's files, one page's, or the unused ones; the line above says how many there are and their size.
+
+- **Add files…** brings pictures, fonts, PDFs, stylesheets and scripts into the site (or into the page shown): each is checked by its content, up to 25 MB, and a file already there with the same content isn't added twice.
+- **Move to the site** makes a page's file the site's: every page that has the same file uses the site's instead, and their own copies go. Do it for a picture several pages use.
+- **Use the site's files where pages have copies** does that for every page file the site already has.
+- **Remove** (on a file nothing uses) and **Move the N unused files to the trash** take files out; each is a step **Undo** takes back, and the files wait in the site's or the page's trash meanwhile. A file only an undo step still names isn't counted as unused.
+
+What is shared uses the site's files: sharing a box moves the page's files it uses to the site, a picture Kaity draws for the whole site or for a shared block is the site's, and copying a page (*Like this page*, *Duplicate*, Kaity's `new_page` with a copy) takes only the files that page has of its own, never one the site already has.
+
+### Check the site
+
+**Check the site** looks at every page at once and lists what to fix before publishing, each item linking to its page and box: links to pages the site doesn't have, files that aren't there, shared blocks using one page's file, pictures without a text alternative (`alt`), page titles that are missing, too long or the same as another page's, pages no other page links to, a page's own copy of a shared block that equals the block (it could follow the block), fonts without a licence noted, files loaded from other servers, and a site whose language was never set. Each says how to fix it. Its count shows on the button; **Check again** looks once more. An export, Publish and Kaity (`check_site`) report the same.
 
 ### Head code
 

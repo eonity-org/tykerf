@@ -20,6 +20,7 @@ import { find } from './model.js';
 import { parseSlice } from './notation.js';
 import type { Store } from './store.js';
 import type { Workspace } from './workspace.js';
+import { mapPageFiles } from './assets.js';
 
 const DIR = join(dirname(fileURLToPath(import.meta.url)), '..', 'library');
 const NAME = /^[a-z0-9][a-z0-9-]*$/;
@@ -256,6 +257,17 @@ export function useComponent(ws: Workspace, id: string, name: string, author = '
   if (find(ws.load().root, id)?.node.type !== 'leaf') throw new Error(`"${id}" is not a box`);
   ws.group(`use component ${name} in ${id}`, author, () => {
     if (!hasTheme(ws.siteHead() + ws.head())) ws.setHead(withFonts(ws, themeVariables() + ws.head()), author);
+    // in a box that shows a shared block, the component's pictures are the site's (every page shows them)
+    if (ws.site && ws.sharedBlock(id)) {
+      const site = ws.site;
+      const shared = mapPageFiles(code, (f) => {
+        const src = join(DIR, 'assets', f);
+        if (!existsSync(src)) return null;
+        site.putFile(f, new Uint8Array(readFileSync(src)));
+        return `/assets/${f}`;
+      });
+      return ws.setContent(id, shared, author);
+    }
     copyAssets(ws, code);
     ws.setContent(id, code, author);
   });

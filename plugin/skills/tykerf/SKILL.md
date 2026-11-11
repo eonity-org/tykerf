@@ -28,11 +28,12 @@ Never edit `layout.slice`, `boxes/` or `head.html` with file tools or shell comm
    - Part of a box's code: `edit_content`, not the whole box.
    - Colours, fonts and spacing for the whole page: `set_theme` or `use_theme`. In a site whose pages each have their own theme (`get_theme` says so), `share_theme` makes one page's theme every page's: do that instead of applying a preset page by page.
    - Narrow screens: `add_rule` (flip a row into a column, hide a box), not a different base layout.
-   - Pictures: draw an SVG or place one the person attached with `add_picture`. You can't download pictures; never make up a file name.
+   - Pictures and files: draw an SVG or place one the person attached with `add_picture`; bring a picture, font or PDF from an address or a file on the person's computer with `add_file` (`add_files` for several), to the page or the site (what every page uses). Write the address the reply gives; never make up a file name.
+   - Long code you have in a file (a generated post): `set_content` reading that file (its file argument) instead of pasting it.
    - Links to a section of the page: the block's element is `#sw-<name>` (the block "faq" is `#sw-faq`), not `#faq`.
 5. **Ask before replacing a page.** `use_layout` and `use_page` replace a whole existing page. Undo brings it back, but say what will happen and ask first.
 6. **Look at it.** `screenshot` at 1440 and 375 px wide, and fix what looks wrong: spacing, alignment, contrast, text that spills out. A picture over 2000 px tall is cut, and the reply says where to continue (from: 2000): look at the rest before you call the page done.
-7. **Finish.** `check_page` lists placeholder text and pictures left from layouts and components, and links that go nowhere: fix them, or tell the person what is still needed from them.
+7. **Finish.** `check_page` lists placeholder text and pictures left from layouts and components, and links that go nowhere: fix them, or tell the person what is still needed from them. On a site, `check_site` checks every page at once before publishing.
 
 ## When you answer
 

@@ -142,6 +142,10 @@ export class Site implements SiteLike {
     return kitFonts(this.dir);
   }
 
+  putFile(file: string, bytes: Uint8Array) {
+    if (!this.store.exists(`assets/${file}`)) this.store.write(`assets/${file}`, bytes);
+  }
+
   block(name: string): string | null {
     return kitBlock(this.dir, name);
   }
@@ -190,5 +194,6 @@ export { HOME_PAGE, PAGE_NAME, siteKind, sitePages, pageNameError, newSitePage, 
 export { type SiteSettings, LANG, langTag, type PublishSettings, publishSettingsError, readSite, setLang, setHome, setTitle, setPublish, pageTitle, derivedTitle } from './settings.js';
 export { unsafeSVG, madeIcon, siteIcon, iconLink, setSiteIcon } from './icon.js';
 export { siteHead, setSiteHead, lastSiteHeadChange, siteCode, setSiteCode, headStyles, migrateHeadStyles, undoSiteHead, shareTheme, pagesWithOwnTheme } from './head.js';
+export { type MediaFile, siteMedia, removeMediaFile, moveToSite, moveSiteDuplicates, pruneMedia, siteFileRefs } from './media.js';
 export { SiteHistory, type SiteStep, type SiteEntry, type SiteChangeKind } from './history.js';
 export { blockUsers, siteFiles, shareBlock, movedFiles, linkBlock, unlinkBlock, identicalBoxes, shareIdentical } from './blocks.js';

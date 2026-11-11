@@ -13,12 +13,12 @@
 // Every write goes through the site's one FolderStore (siteStore): its lock is reentrant within a store, so a
 // group can hold it while the changes inside take it again.
 
-import { randomUUID } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import { resolve } from 'node:path';
 import { FolderStore } from '../store.js';
 import { trimSteps } from '../history-trim.js';
 
-export type SiteChangeKind = 'head' | 'kit' | 'settings';
+export type SiteChangeKind = 'head' | 'kit' | 'settings' | 'file';
 
 /** A change to one file of the site. */
 export interface SiteFileEntry {
@@ -32,6 +32,10 @@ export interface SiteFileEntry {
   path: string;
   /** Its text before the change; null when it didn't exist. */
   prev: string | null;
+  /** A file added to the site's assets/ (kind file): a hash of its bytes, kept in .tykerf/trash/<hash> while it is undone. */
+  hash?: string;
+  /** A file taken out of the site's assets/ (kind file): its bytes wait in .tykerf/trash/<hash>, and undo puts it back. */
+  removed?: true;
 }
 export interface SiteGroupEntry {
   kind: 'group';
@@ -128,6 +132,45 @@ export class SiteHistory {
     });
   }
 
+  /**
+   * Add a file to the site's assets/ as a step (files.ts chose the name and checked the bytes): undo removes it,
+   * keeping its bytes in .tykerf/trash/<hash> for redo. Returns the step's id, or null when it was there already.
+   */
+  addFile(path: string, bytes: Uint8Array, label: string, author = 'user', hash = createHash('sha1').update(bytes).digest('hex')): string | null {
+    return this.store.lock(() => {
+      if (this.store.exists(path)) return null;
+      const id = randomUUID();
+      this.log({ kind: 'file', label, author, at: new Date().toISOString(), id, path, prev: null, hash });
+      this.store.write(path, bytes);
+      return id;
+    });
+  }
+
+  /** Take a file out of the site's assets/ as a step (its bytes in .tykerf/trash/<hash>; undo puts it back). */
+  removeFile(path: string, label: string, author = 'user'): string | null {
+    return this.store.lock(() => {
+      const bytes = this.store.readBytes(path);
+      if (!bytes) return null;
+      const hash = createHash('sha1').update(bytes).digest('hex');
+      const id = randomUUID();
+      this.log({ kind: 'file', label, author, at: new Date().toISOString(), id, path, prev: null, hash, removed: true });
+      this.trash(path, hash);
+      return id;
+    });
+  }
+
+  private trash(path: string, hash: string) {
+    const bytes = this.store.readBytes(path);
+    if (bytes && !this.store.exists(`.tykerf/trash/${hash}`)) this.store.write(`.tykerf/trash/${hash}`, bytes);
+    this.store.remove(path);
+  }
+
+  private untrash(path: string, hash: string) {
+    const bytes = this.store.readBytes(`.tykerf/trash/${hash}`);
+    if (!bytes) throw new Error(`the file ${path} can't be brought back: its copy is gone`);
+    this.store.write(path, bytes);
+  }
+
   /** Record a new step. A new change makes the undone steps unreachable, so redo starts over. */
   private log(e: SiteEntry) {
     this.migrate();
@@ -209,6 +252,13 @@ export class SiteHistory {
       this.store.append(REDO, JSON.stringify({ group: e } satisfies SiteRedo) + '\n');
       return e.label;
     }
+    if (e.kind === 'file') {
+      // a file's bytes aren't text: they wait in .tykerf/trash/<hash> (an added file goes, a removed one comes back)
+      if (e.removed) this.untrash(e.path, e.hash!);
+      else this.trash(e.path, e.hash!);
+      this.store.append(REDO, JSON.stringify({ entry: e, next: null } satisfies SiteRedo) + '\n');
+      return e.label;
+    }
     this.store.append(REDO, JSON.stringify({ entry: e, next: this.store.read(e.path) } satisfies SiteRedo) + '\n');
     if (e.prev === null) this.store.remove(e.path);
     else this.store.write(e.path, e.prev);
@@ -235,7 +285,10 @@ export class SiteHistory {
       this.store.append(HISTORY, JSON.stringify(r.group) + '\n');
       return r.group.label;
     }
-    if (r.next === null) this.store.remove(r.entry.path);
+    if (r.entry.kind === 'file') {
+      if (r.entry.removed) this.trash(r.entry.path, r.entry.hash!);
+      else this.untrash(r.entry.path, r.entry.hash!);
+    } else if (r.next === null) this.store.remove(r.entry.path);
     else this.store.write(r.entry.path, r.next);
     // back on the history as it was (not through log(), which would drop the rest of the redo list)
     this.store.append(HISTORY, JSON.stringify(r.entry) + '\n');

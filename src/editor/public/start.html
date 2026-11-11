@@ -64,6 +64,9 @@
   .kitsec .acts { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
   .kitsec .acts .msg { flex: 1 1 220px; font-size: 13px; }
   .kitsec .msg.error { color: #B42318; }
+  .code .site-files { display: flex; flex-wrap: wrap; gap: 6px 10px; align-items: center; margin: 8px 0; font-size: 13px; }
+  .code .site-files ul { flex-basis: 100%; margin: 0; padding-left: 18px; }
+  .code .site-files li.error { color: #B42318; }
   .kitsec .font-form { display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: end; width: 100%; margin-top: 6px; }
   .kitsec .font-form label { display: grid; gap: 2px; font-size: 12px; }
   .kitsec .font-form .msg.error { color: #B42318; flex-basis: 100%; }
@@ -182,7 +185,25 @@
   .now a, .now button.link { color: #0A5475; font-weight: 600; }
   .now button.link { border: 0; padding: 0; background: none; text-decoration: underline; font-size: 13px; }
   .now code { font: 12px ui-monospace, SFMono-Regular, Menlo, monospace; }
-  .pages .links-btn, .pages .work-btn { width: 100%; padding: 7px 12px; }
+  .pages .links-btn, .pages .work-btn, .pages .media-btn { width: 100%; padding: 7px 12px; }
+  .pages .media-btn[aria-expanded=true], .pages .check-btn[aria-expanded=true] { background: #E6F0F4; border-color: #2A7699; }
+  .pages .check-btn { width: 100%; padding: 7px 12px; }
+  .check-btn .badge { display: inline-block; min-width: 18px; padding: 0 6px; border-radius: 9px; background: #B42318; color: #fff; font-size: 11px; line-height: 18px; }
+  .check-btn .badge[hidden] { display: none; }
+  .check h3 { margin: 16px 0 6px; font-size: 14px; }
+  .check ul { margin: 0; padding-left: 18px; display: grid; gap: 4px; font-size: 13px; }
+  .check .fix { opacity: .75; }
+  .media .media-acts { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 0 0 12px; }
+  .media .msg.error { color: #B42318; }
+  .media .grid { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; }
+  .media .grid li { display: grid; gap: 4px; padding: 8px; border: 1px solid #D5E0E5; border-radius: 8px; font-size: 12px; min-width: 0; }
+  .media .grid li.unused { border-style: dashed; }
+  .media .thumb { height: 90px; display: grid; place-items: center; background: #F2F7F9; border-radius: 6px; overflow: hidden; font-weight: 600; text-transform: uppercase; color: #4A6470; }
+  .media .thumb img { max-width: 100%; max-height: 100%; object-fit: contain; }
+  .media .name { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; overflow-wrap: anywhere; }
+  .media .use { opacity: .75; }
+  .media .grid li .row { display: flex; gap: 6px; flex-wrap: wrap; }
+  .media .grid li button { font-size: 12px; padding: 2px 8px; }
   .pages .work-btn[aria-expanded=true] { background: #E6F0F4; border-color: #2A7699; }
   .now .all-work { margin-top: 6px; }
   /* everything Kaity did and is doing in the site, on any page or the whole site: the runs going on first */
@@ -324,6 +345,8 @@
       <button type="button" class="styles-btn" aria-expanded="false" aria-controls="site-code" data-t>Site kit & head code</button>
       <button type="button" class="links-btn" aria-expanded="false" aria-controls="site-links" data-t>Links between pages</button>
       <button type="button" class="work-btn" aria-expanded="false" aria-controls="site-work" data-t>Kaity's work</button>
+      <button type="button" class="media-btn" aria-expanded="false" aria-controls="site-media" data-t>Media</button>
+      <button type="button" class="check-btn" aria-expanded="false" aria-controls="site-check"><span data-t>Check the site</span> <span class="badge" hidden></span></button>
       <button type="button" class="publish-btn" aria-expanded="false" aria-controls="site-publish" data-t>Publish</button>
     </div>
     <div class="now" hidden role="status"><h3><span class="kslot-now"></span><span data-t>Kaity is working</span></h3><ul></ul><button type="button" class="link all-work" data-t>All of Kaity's work</button></div>
@@ -356,6 +379,7 @@
       <h2 id="code-h" data-t>Head code</h2>
       <p data-t>What every page gets in its head that isn't a style: meta tags, scripts, a stylesheet link. Styles for every page go in the site kit below; colours and fonts are the theme, in the Page tab of any page.</p>
       <p class="head-styles" hidden><span></span> <button type="button" data-code="migrate"></button></p>
+      <div class="site-files"><button type="button" data-code="add-files" data-t>Add files…</button><input type="file" multiple hidden><span class="hint" data-t>Pictures, fonts, PDFs, stylesheets and scripts for every page, in the site's assets/ folder, written /assets/&lt;file&gt;.</span><ul class="added"></ul></div>
       <div class="icon-row"><img class="icon-preview" alt=""><span class="icon-say"></span><button type="button" data-icon="pick" data-t>Upload an icon…</button><button type="button" data-icon="reset" hidden data-t>Use the made one</button><span class="icon-msg" role="status"></span></div>
       <div class="icon-row lang-row"><label><span data-t>Language</span> <input class="lang" spellcheck="false" size="8" maxlength="35" placeholder="en"></label><span class="icon-say" data-t>What language the pages are in, such as es, en or pt-BR: browsers, screen readers and search engines read it.</span><button type="button" data-lang="save" data-t>Save</button><span class="icon-msg" role="status"></span></div>
       <textarea spellcheck="false" aria-label="The code of every page's head"></textarea>
@@ -372,6 +396,19 @@
         <div class="acts"><button type="button" class="danger" data-kit="remove" data-t>Remove</button><span class="msg" role="status"></span><button type="button" data-kit="cancel" data-t>Close</button><button type="button" class="primary" data-kit="save" data-t>Save</button></div>
       </div>
       <div class="acts"><span class="msg kmsg" role="status"></span></div>
+    </section>
+    <section class="check" id="site-check" hidden aria-labelledby="check-h">
+      <h2 id="check-h" data-t>Check the site</h2>
+      <p class="summary"></p>
+      <div class="body"></div>
+      <div class="acts"><button type="button" data-check="again" data-t>Check again</button><button type="button" data-check="close" data-t>Close</button></div>
+    </section>
+    <section class="media" id="site-media" hidden aria-labelledby="media-h">
+      <h2 id="media-h" data-t>Media</h2>
+      <p class="summary"></p>
+      <div class="media-acts"><label><span class="sr" data-t>Show</span><select class="media-filter"></select></label><button type="button" data-media="upload" data-t>Add files…</button><input type="file" multiple hidden><button type="button" data-media="dedupe" hidden></button><button type="button" data-media="prune" class="danger" hidden></button><span class="msg" role="status"></span></div>
+      <ul class="grid"></ul>
+      <div class="acts"><button type="button" data-media="close" data-t>Close</button></div>
     </section>
     <section class="links" id="site-links" hidden aria-labelledby="links-h">
       <h2 id="links-h" data-t>Links between pages</h2>
@@ -425,6 +462,8 @@ async function openNew(stepwise) {
   closePublish();
   closeLinks();
   closeWork();
+  closeMedia();
+  closeCheck();
   newBox.hidden = false;
   idle.hidden = true;
   add.setAttribute('aria-expanded', 'true');
@@ -471,6 +510,28 @@ if (site.signin) try { localStorage.setItem('tykerf.admin', 'true'); } catch {}
 const code = document.querySelector('.code'), codeBox = code.querySelector('textarea'), codeMsg = code.querySelector('.msg');
 const stylesBtn = document.querySelector('.styles-btn');
 const headStylesLine = code.querySelector('.head-styles');
+// Add files…: each file goes to the site's assets/, checked; the list says what to write for it
+code.querySelector('.site-files input').onchange = async (e) => {
+  const list = code.querySelector('.site-files .added');
+  for (const file of [...e.target.files]) {
+    const li = el('li', { textContent: t('{name}: sending…', { name: file.name }) });
+    list.append(li);
+    try {
+      const data = await new Promise((ok, fail) => {
+        const r = new FileReader();
+        r.onload = () => ok(String(r.result).slice(String(r.result).indexOf(',') + 1));
+        r.onerror = () => fail(r.error);
+        r.readAsDataURL(file);
+      });
+      const { result } = await post('/_tykerf/site/files', { name: file.name, type: file.type || null, data });
+      li.textContent = result.deduped ? t('{name}: already there, as {address}', { name: file.name, address: result.address }) : t('{name}: added, write {address}', { name: file.name, address: result.address });
+    } catch (err) {
+      li.className = 'error';
+      li.textContent = `${file.name}: ${err.message}`;
+    }
+  }
+  e.target.value = '';
+};
 
 /** An older site's head code with <style> blocks: the offer to move them to the kit (never done on its own). */
 function showHeadStyles(n) {
@@ -486,6 +547,8 @@ async function openCode() {
   closePublish();
   closeLinks();
   closeWork();
+  closeMedia();
+  closeCheck();
   showIcon();
   showLang();
   const j = await fetch('/_tykerf/site/code').then((r) => r.json()).catch(() => ({ code: '' }));
@@ -503,7 +566,7 @@ function closeCode() {
   code.hidden = true;
   kitSec.hidden = true;
   stylesBtn.setAttribute('aria-expanded', 'false');
-  if (newBox.hidden && kaity.hidden && publish.hidden && links.hidden && work.hidden && pages.length) idle.hidden = false;
+  if (newBox.hidden && kaity.hidden && publish.hidden && links.hidden && work.hidden && media.hidden && checkSec.hidden && pages.length) idle.hidden = false;
 }
 
 // ---------- the site kit (src/kit.ts): what every page shares besides the theme ----------
@@ -708,6 +771,8 @@ function openKaity() {
   closePublish();
   closeLinks();
   closeWork();
+  closeMedia();
+  closeCheck();
   kaity.hidden = false;
   idle.hidden = true;
   kaityBtn.setAttribute('aria-expanded', 'true');
@@ -718,7 +783,7 @@ function openKaity() {
 function closeKaity() {
   kaity.hidden = true;
   kaityBtn.setAttribute('aria-expanded', 'false');
-  if (newBox.hidden && code.hidden && publish.hidden && links.hidden && work.hidden && pages.length) idle.hidden = false;
+  if (newBox.hidden && code.hidden && publish.hidden && links.hidden && work.hidden && media.hidden && checkSec.hidden && pages.length) idle.hidden = false;
 }
 
 kaityBtn.onclick = () => (kaity.hidden ? openKaity() : closeKaity());
@@ -821,6 +886,7 @@ code.onclick = async (e) => {
       await post('/_tykerf/site/code', { code: codeBox.value });
       codeMsg.textContent = t('Saved: every page uses it now. Undo is at the top, with the site\'s other changes.');
     }
+    if (a === 'add-files') return code.querySelector('.site-files input').click();
     if (a === 'migrate') {
       const r = await post('/_tykerf/site/kit/migrate-head', {});
       await openCode(); // the code without them, and the kit with kit/styles/head.css
@@ -853,6 +919,8 @@ async function openPublish() {
   closeKaity();
   closeLinks();
   closeWork();
+  closeMedia();
+  closeCheck();
   const j = await fetch('/_tykerf/site/publish').then((r) => r.json()).catch(() => ({}));
   // (the address field isn't named url: the page chooser on this screen has one)
   for (const [k, v] of Object.entries(j.settings ?? {})) {
@@ -876,7 +944,7 @@ async function openPublish() {
 function closePublish() {
   publish.hidden = true;
   publishBtn.setAttribute('aria-expanded', 'false');
-  if (newBox.hidden && code.hidden && kaity.hidden && links.hidden && work.hidden && pages.length) idle.hidden = false;
+  if (newBox.hidden && code.hidden && kaity.hidden && links.hidden && work.hidden && media.hidden && checkSec.hidden && pages.length) idle.hidden = false;
 }
 
 const saveWhere = () => {
@@ -906,6 +974,7 @@ publish.onclick = async (e) => {
         r.report.broken.length ? t('{n} links point at pages that don\'t exist.', { n: r.report.broken.length }) : '',
         r.report.remote.length ? t('{n} images, fonts or files still load from other servers.', { n: r.report.remote.length }) : '',
         r.report.unlicensed?.length ? t('Fonts without a licence noted: {fonts}. Make sure the site may publish them.', { fonts: r.report.unlicensed.join(', ') }) : '',
+        Object.keys(r.report.check ?? {}).length ? t('The site\'s check found {n} things to look at (Check the site).', { n: Object.values(r.report.check).reduce((a, b) => a + b, 0) }) : '',
       ].filter(Boolean).join(' ');
       pubMsg.textContent = `${r.commit
         ? t('Published: {added} new, {changed} changed and {removed} removed files. The host puts it live in a minute or two.', { added: r.added, changed: r.changed, removed: r.removed })
@@ -931,6 +1000,8 @@ async function openLinks() {
   closeKaity();
   closePublish();
   closeWork();
+  closeMedia();
+  closeCheck();
   links.hidden = false;
   idle.hidden = true;
   linksBtn.setAttribute('aria-expanded', 'true');
@@ -960,11 +1031,160 @@ async function openLinks() {
 function closeLinks() {
   links.hidden = true;
   linksBtn.setAttribute('aria-expanded', 'false');
-  if (newBox.hidden && code.hidden && kaity.hidden && publish.hidden && work.hidden && pages.length) idle.hidden = false;
+  if (newBox.hidden && code.hidden && kaity.hidden && publish.hidden && work.hidden && media.hidden && checkSec.hidden && pages.length) idle.hidden = false;
 }
 
 linksBtn.onclick = () => (links.hidden ? openLinks() : closeLinks());
 links.onclick = (e) => e.target.closest('[data-links="close"]') && closeLinks();
+
+// ---------- Check the site: what to fix before publishing, every page at once (check-site.ts) ----------
+
+const checkSec = document.querySelector('.check'), checkBtn = document.querySelector('.check-btn');
+
+/** The findings, and their count on the button. */
+async function loadCheck() {
+  const j = await fetch('/_tykerf/site/check').then((r) => r.json()).catch(() => null);
+  if (!j?.ok) return null;
+  const badge = checkBtn.querySelector('.badge');
+  badge.hidden = !j.findings.length;
+  badge.textContent = String(j.findings.length);
+  return j;
+}
+
+async function openCheck() {
+  if (!newBox.hidden) closeNew();
+  closeCode();
+  closeKaity();
+  closePublish();
+  closeLinks();
+  closeWork();
+  closeMedia();
+  checkSec.hidden = false;
+  idle.hidden = true;
+  checkBtn.setAttribute('aria-expanded', 'true');
+  checkSec.querySelector('.summary').textContent = t('Checking every page…');
+  const j = await loadCheck();
+  if (!j) return;
+  checkSec.querySelector('.summary').textContent = j.findings.length ? t('{n} things to look at before you publish.', { n: j.findings.length }) : t('Nothing to fix: every page is ready.');
+  // by kind, each opening its page on the box it is about
+  const parts = [];
+  for (const [kind, heading] of j.kinds) {
+    const of = j.findings.filter((f) => f.kind === kind);
+    if (!of.length) continue;
+    parts.push(el('h3', { textContent: `${t(heading.charAt(0).toUpperCase() + heading.slice(1))} (${of.length})` }), el('ul', {}, ...of.map((f) => el('li', {},
+      ...(f.page ? [el('a', { href: at(f.page, f.box ?? null, 'text'), textContent: f.box ? `${f.page} · ${f.box}` : f.page }), ': '] : []),
+      el('span', { textContent: f.detail }), ...(f.fix ? [el('span', { className: 'fix', textContent: ` (${f.fix})` })] : [])))));
+  }
+  checkSec.querySelector('.body').replaceChildren(...parts);
+}
+
+function closeCheck() {
+  checkSec.hidden = true;
+  checkBtn.setAttribute('aria-expanded', 'false');
+  if (newBox.hidden && code.hidden && kaity.hidden && publish.hidden && links.hidden && work.hidden && media.hidden && pages.length) idle.hidden = false;
+}
+
+checkBtn.onclick = () => (checkSec.hidden ? openCheck() : closeCheck());
+checkSec.onclick = (e) => {
+  const a = e.target.closest('[data-check]')?.dataset.check;
+  if (a === 'close') closeCheck();
+  if (a === 'again') openCheck();
+};
+
+// ---------- Media: the site's files and every page's, who uses each, and the unused ones ----------
+
+const media = document.querySelector('.media'), mediaBtn = document.querySelector('.media-btn');
+const mediaFilter = media.querySelector('.media-filter'), mediaMsg = media.querySelector('.media-acts .msg');
+let mediaFiles = [];
+const kb = (n) => (n >= 1024 * 1024 ? `${(n / 1024 / 1024).toFixed(1)} MB` : `${Math.max(1, Math.round(n / 1024))} KB`);
+const unusedFile = (f) => !f.used.length && !f.held;
+
+async function openMedia(keepMsg = false) {
+  if (!newBox.hidden) closeNew();
+  closeCode();
+  closeKaity();
+  closePublish();
+  closeLinks();
+  closeWork();
+  closeCheck();
+  media.hidden = false;
+  idle.hidden = true;
+  mediaBtn.setAttribute('aria-expanded', 'true');
+  if (!keepMsg) mediaMsg.textContent = '';
+  mediaFiles = (await fetch('/_tykerf/site/media').then((r) => r.json()).catch(() => ({}))).files ?? [];
+  // show: everything, the site's, a page's, the unused
+  const want = mediaFilter.value || 'all';
+  const wheres = [...new Set(mediaFiles.map((f) => f.where))].filter((w) => w !== 'site').sort();
+  mediaFilter.replaceChildren(...[['all', t('All files')], ['site', t('The site\'s files')], ...wheres.map((w) => [`page:${w}`, t('Page {page}', { page: w })]), ['unused', t('Unused')]]
+    .map(([v, l]) => el('option', { value: v, textContent: l, selected: v === want })));
+  renderMedia();
+}
+
+function renderMedia() {
+  const want = mediaFilter.value || 'all';
+  const shown = mediaFiles.filter((f) => want === 'all' || (want === 'site' ? f.where === 'site' : want === 'unused' ? unusedFile(f) : f.where === want.slice(5)));
+  const unused = mediaFiles.filter(unusedFile);
+  media.querySelector('.summary').textContent = t('{n} files, {size}; {u} unused ({usize}).', { n: mediaFiles.length, size: kb(mediaFiles.reduce((n, f) => n + f.bytes, 0)), u: unused.length, usize: kb(unused.reduce((n, f) => n + f.bytes, 0)) });
+  const prune = media.querySelector('[data-media="prune"]');
+  prune.hidden = !unused.length;
+  prune.textContent = t('Move the {n} unused files to the trash', { n: unused.length });
+  const dedupe = media.querySelector('[data-media="dedupe"]');
+  dedupe.hidden = !mediaFiles.some((f) => f.where !== 'site');
+  dedupe.textContent = t('Use the site\'s files where pages have copies');
+  media.querySelector('.grid').replaceChildren(...shown.map((f) => {
+    const address = f.where === 'site' ? `/assets/${f.file}` : `/${f.where}/assets/${f.file}`;
+    const thumb = el('div', { className: 'thumb' }, f.kind === 'image' ? el('img', { src: address, alt: '', loading: 'lazy' }) : el('span', { textContent: f.file.split('.').pop() }));
+    const use = f.used.length ? t('used by {where}', { where: [...new Set(f.used.map((u) => (u.page ? `${u.page}/${u.box}` : t('the site\'s {part}', { part: u.box }))))].join(', ') }) : f.held ? t('unused (an undo step holds it)') : t('unused');
+    const acts = el('div', { className: 'row' });
+    if (f.where !== 'site') acts.append(Object.assign(el('button', { type: 'button', textContent: t('Move to the site') }), { onclick: () => mediaDo('move', { page: f.where, file: f.file }, (r) => t('{file} is the site\'s now, /assets/{to}, on {pages}.', { file: f.file, to: r.result.file, pages: r.result.pages.join(', ') })) }));
+    if (!f.used.length) acts.append(Object.assign(el('button', { type: 'button', className: 'danger', textContent: t('Remove') }), { onclick: () => mediaDo('remove', { where: f.where, file: f.file }, () => t('{file} is in the trash; Undo brings it back.', { file: f.file })) }));
+    const li = el('li', { className: unusedFile(f) ? 'unused' : '' }, thumb, el('span', { className: 'name', textContent: f.where === 'site' ? `/assets/${f.file}` : `${f.where}: assets/${f.file}` }), el('span', { textContent: `${f.kind} · ${kb(f.bytes)}` }), el('span', { className: 'use', textContent: use }), acts);
+    li.dataset.file = `${f.where}/${f.file}`;
+    return li;
+  }));
+}
+
+async function mediaDo(what, data, say) {
+  mediaMsg.className = 'msg';
+  try {
+    const r = await post(`/_tykerf/site/media/${what}`, data);
+    mediaMsg.textContent = say(r);
+    await openMedia(true);
+  } catch (err) {
+    mediaMsg.className = 'msg error';
+    mediaMsg.textContent = err.message;
+  }
+}
+
+function closeMedia() {
+  media.hidden = true;
+  mediaBtn.setAttribute('aria-expanded', 'false');
+  if (newBox.hidden && code.hidden && kaity.hidden && publish.hidden && links.hidden && work.hidden && checkSec.hidden && pages.length) idle.hidden = false;
+}
+
+mediaBtn.onclick = () => (media.hidden ? openMedia() : closeMedia());
+mediaFilter.onchange = renderMedia;
+media.onclick = (e) => {
+  const a = e.target.closest('[data-media]')?.dataset.media;
+  if (a === 'close') closeMedia();
+  if (a === 'upload') media.querySelector('.media-acts input[type=file]').click();
+  if (a === 'prune') mediaDo('prune', {}, (r) => t('{n} unused files moved to the trash ({size}); Undo brings them back one by one.', { n: r.result.files, size: kb(r.result.bytes) }));
+  if (a === 'dedupe') mediaDo('dedupe', {}, (r) => (r.result ? t('{n} page files were copies of the site\'s: those pages use the site\'s now.', { n: r.result }) : t('No page has a copy of one of the site\'s files.')));
+};
+// Add files…: to the site, or to the page shown
+media.querySelector('.media-acts input[type=file]').onchange = async (e) => {
+  const where = mediaFilter.value.startsWith('page:') ? mediaFilter.value.slice(5) : 'site';
+  for (const file of [...e.target.files]) {
+    const data = await new Promise((ok, fail) => {
+      const r = new FileReader();
+      r.onload = () => ok(String(r.result).slice(String(r.result).indexOf(',') + 1));
+      r.onerror = () => fail(r.error);
+      r.readAsDataURL(file);
+    });
+    await mediaDo('upload', { where, name: file.name, type: file.type || null, data }, (r) => (r.result.deduped ? t('{name}: already there, as {address}', { name: file.name, address: r.result.address }) : t('{name}: added, write {address}', { name: file.name, address: r.result.address })));
+  }
+  e.target.value = '';
+};
 
 // ---------- Kaity's work: every run on any page or on the whole site, the ones going on first ----------
 
@@ -1026,6 +1246,8 @@ function openWork() {
   closeKaity();
   closePublish();
   closeLinks();
+  closeMedia();
+  closeCheck();
   work.hidden = false;
   idle.hidden = true;
   workBtn.setAttribute('aria-expanded', 'true');
@@ -1035,7 +1257,7 @@ function openWork() {
 function closeWork() {
   work.hidden = true;
   workBtn.setAttribute('aria-expanded', 'false');
-  if (newBox.hidden && code.hidden && kaity.hidden && publish.hidden && links.hidden && pages.length) idle.hidden = false;
+  if (newBox.hidden && code.hidden && kaity.hidden && publish.hidden && links.hidden && media.hidden && checkSec.hidden && pages.length) idle.hidden = false;
 }
 
 workBtn.onclick = () => (work.hidden ? openWork() : closeWork());
@@ -1347,6 +1569,7 @@ renderNow();
 render();
 refreshTrash();
 loadSiteHistory();
+loadCheck(); // its count on the button
 // ?kit=blocks/<name> (the editor's "Open in the site kit"): the kit opens, with that file in its editor
 {
   const want = /^(styles|scripts|blocks|types|tags)\/([a-z0-9][a-z0-9-]*)$/.exec(new URLSearchParams(location.search).get('kit') ?? '');

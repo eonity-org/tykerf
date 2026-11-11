@@ -13,6 +13,8 @@ import { Workspace } from '../workspace.js';
 import { kitList, kitRead, kitWrite } from '../kit.js';
 import { readSite, writeSite, setHome, pageTitle } from './settings.js';
 import { SiteHistory } from './history.js';
+import { copyPageFiles, fileHash, siteFilesByHash } from './media.js';
+import { mapPageFiles } from '../assets.js';
 import { iconLink } from './icon.js';
 import { SITE_HEAD, siteHead, startSiteTheme } from './head.js';
 import { pageWorkspace } from './index.js';
@@ -246,15 +248,18 @@ export function newPageLike(dir: string, name: string, from: string): Workspace 
       extra[main] = componentCode('text');
     }
   }
-  const boxes: Record<string, string> = { ...ownCode(src, l), ...extra };
   const ws = pageWorkspace(dir, name);
+  // the page's own files the copy uses, not those the site has (the same bytes): those it takes from the site
+  const { code } = copyPageFiles(src, ws, { ...ownCode(src, l), ...extra, [HEAD_KEY]: src.head() }, dir);
+  const { [HEAD_KEY]: head, ...boxes } = code;
   ws.create(l, boxes);
-  if (src.head()) ws.store.write('head.html', src.head());
+  if (head) ws.store.write('head.html', head);
   for (const f of src.store.list('types')) ws.store.write(`types/${f}`, src.store.readBytes(`types/${f}`)!);
-  const used = Object.values(boxes).join('\n') + src.head();
-  for (const f of src.assets()) if (used.includes(`assets/${f}`)) ws.store.write(`assets/${f}`, src.store.readBytes(`assets/${f}`)!);
   return ws;
 }
+
+/** The head's place among the code copyPageFiles goes through (no box can have this name). */
+const HEAD_KEY = ' head';
 
 /**
  * The code a copy of a page takes for each box and overlay of a layout: the box's own. A box that shows a
@@ -278,14 +283,16 @@ function ownCode(src: Workspace, l: Layout): Record<string, string> {
  * Kaity's scope, know the page by). The page keeps its own head unless `theme`: then the other page's
  * head (its theme and fonts) comes too.
  */
-export function usePage(ws: Workspace, dir: string, from: string, opts: { theme?: boolean; author?: string } = {}) {
+export function usePage(ws: Workspace, dir: string, from: string, opts: { theme?: boolean; author?: string } = {}): { copied: string[]; site: string[] } {
   const author = opts.author ?? 'user';
   const pages = sitePages(dir);
   if (!pages.includes(from)) throw new Error(`there is no page "${from}" in the site (pages: ${pages.join(', ') || 'none'})`);
   if (ws.store instanceof FolderStore && ws.dir === join(dir, from)) throw new Error(`this is the page "${from}" itself`);
   const src = pageWorkspace(dir, from);
   const next = src.load();
-  const code = ownCode(src, next);
+  // the page's own files it uses are copied, but not those the site has (the same bytes): it takes the site's
+  const files = copyPageFiles(src, ws, { ...ownCode(src, next), ...(opts.theme ? { [HEAD_KEY]: src.head() } : {}) }, dir);
+  const { [HEAD_KEY]: head, ...code } = files.code;
   ws.group(`use page ${from}`, author, () => {
     // types first, so the blocks that use them are checked against them
     for (const f of src.store.list('types')) if (!ws.store.exists(`types/${f}`)) ws.store.write(`types/${f}`, src.store.readBytes(`types/${f}`)!);
@@ -295,10 +302,9 @@ export function usePage(ws: Workspace, dir: string, from: string, opts: { theme?
     ws.save(next, `use page ${from}`, author);
     // the box's own code: on a box that shows a shared block, the block stays the site's
     for (const [id, html] of Object.entries(code)) ws.setContent(id, html, author, { own: true });
-    if (opts.theme) ws.setHead(src.head(), author);
-    const used = Object.values(code).join('\n') + (opts.theme ? src.head() : '');
-    for (const f of src.assets()) if (used.includes(`assets/${f}`) && !ws.store.exists(`assets/${f}`)) ws.store.write(`assets/${f}`, src.store.readBytes(`assets/${f}`)!);
+    if (opts.theme) ws.setHead(head ?? '', author);
   });
+  return { copied: files.copied, site: files.site };
 }
 
 // ---------- links between pages, renames and removals ----------
@@ -446,6 +452,24 @@ export function duplicatePage(dir: string, from: string, to?: string): string {
   if (err) throw new Error(err);
   const LEFT = new Set(['.history.jsonl', '.tykerf', 'out', '.DS_Store', '.scope']);
   cpSync(join(dir, from), join(dir, name), { recursive: true, filter: (src) => !LEFT.has(basename(src)) });
+  // the copy's files the site already has (the same bytes) are the site's: its code points there, and they go
+  const copy = new Workspace(join(dir, name));
+  const site = siteFilesByHash(dir);
+  const theirs = new Map<string, string>();
+  for (const f of copy.assets()) {
+    const h = fileHash(copy.store, `assets/${f}`);
+    if (h && site.has(h)) theirs.set(f, `/assets/${site.get(h)}`);
+  }
+  if (theirs.size) {
+    for (const id of copy.boxIds()) {
+      const own = copy.ownContent(id);
+      const next = own === null ? own : mapPageFiles(own, (f) => theirs.get(f) ?? null);
+      if (next !== own) copy.setContent(id, next, 'user', { own: true });
+    }
+    if (copy.head()) copy.setHead(mapPageFiles(copy.head(), (f) => theirs.get(f) ?? null), 'user');
+    for (const f of theirs.keys()) copy.store.remove(`assets/${f}`);
+    copy.store.remove('.history.jsonl'); // a copy starts with nothing to undo
+  }
   const s = readSite(dir);
   if (from in s.titles) {
     s.titles[name] = `${s.titles[from]} (copy)`;

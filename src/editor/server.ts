@@ -17,7 +17,7 @@ import { type IncomingMessage, type ServerResponse, createServer } from 'node:ht
 import { isIP } from 'node:net';
 import { basename, dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { HOME_PAGE, type PublishSettings, addSitePage, pageMoves, emptyTrash, lastSiteHeadChange, newPageLike, newSitePage, pageLinks, pageNameError, pageTitle, pageWorkspace, readSite, setLang, duplicatePage, removePage, renamePage, setHome, setPublish, setSiteIcon, siteIcon, setSiteCode, setSiteHead, setTitle, shareTheme, siteCode, siteHead, siteIndex, siteKind, siteMap, siteOf, sitePages, trashedPages, Site, headStyles, migrateHeadStyles, blockUsers, identicalBoxes, shareIdentical } from '../site.js';
+import { HOME_PAGE, type PublishSettings, addSitePage, pageMoves, emptyTrash, lastSiteHeadChange, newPageLike, newSitePage, pageLinks, pageNameError, pageTitle, pageWorkspace, readSite, setLang, duplicatePage, removePage, renamePage, setHome, setPublish, setSiteIcon, siteIcon, setSiteCode, setSiteHead, setTitle, shareTheme, siteCode, siteHead, siteIndex, siteKind, siteMap, siteOf, sitePages, trashedPages, Site, siteMedia, removeMediaFile, moveToSite, moveSiteDuplicates, pruneMedia, headStyles, migrateHeadStyles, blockUsers, identicalBoxes, shareIdentical } from '../site.js';
 import { FolderStore, MemoryStore } from '../store.js';
 import { KIT_LOADER, type KitKind, kitCSS, kitFonts, kitList, kitRead, kitWarning, kitWrite, lastKitChange } from '../kit.js';
 import { DEFAULT_THEME, EMPTY_LAYOUT, createPage, hasTheme, pageLayouts, libraryAsset, theme, themes } from '../library.js';
@@ -469,6 +469,40 @@ async function serveGlobal(req: IncomingMessage, res: ServerResponse, p: string,
     } finally {
       publishing = false;
     }
+  }
+  // the whole site's check (check-site.ts): what to fix before publishing
+  if (req.method === 'GET' && p === '/_tykerf/site/check') {
+    const { checkSite, FINDING_KINDS } = await import('../check-site.js');
+    return json(res, 200, { ok: true, findings: checkSite(dir), kinds: FINDING_KINDS }), true;
+  }
+  // Media: every file of the site and its pages, who uses each, and what to do with them (site/media.ts)
+  if (req.method === 'GET' && p === '/_tykerf/site/media') return json(res, 200, { ok: true, files: siteMedia(dir) }), true;
+  if (req.method === 'POST' && p.startsWith('/_tykerf/site/media/')) {
+    const a = await body(req);
+    if (siteAI.running()) return json(res, 409, { ok: false, error: 'Kaity is working on the whole site; wait for her to finish' }), true;
+    const what = p.slice('/_tykerf/site/media/'.length);
+    let result: unknown;
+    if (what === 'remove') result = removeMediaFile(dir, String(a.where ?? ''), String(a.file ?? ''));
+    else if (what === 'move') result = moveToSite(dir, String(a.page ?? ''), String(a.file ?? ''));
+    else if (what === 'prune') result = pruneMedia(dir);
+    else if (what === 'dedupe') result = moveSiteDuplicates(dir);
+    else if (what === 'upload') {
+      // one file the person chose, into the site's assets/ or a page's (files.ts; a step of that history)
+      const { addFile } = await import('../files.js');
+      const where = String(a.where ?? 'site');
+      if (where !== 'site' && !sitePages(dir).includes(where)) return json(res, 422, { ok: false, error: `there is no page "${where}" in the site` }), true;
+      result = addFile(where === 'site' ? { site: dir } : { page: pageWorkspace(dir, where) }, { bytes: new Uint8Array(Buffer.from(String(a.data ?? ''), 'base64')), name: String(a.name ?? 'file'), type: a.type ? String(a.type) : null, local: true }, { from: `upload ${String(a.name ?? '')}`, author: 'user' });
+    } else return res.writeHead(404).end('not found'), true;
+    refreshAll();
+    return json(res, 200, { ok: true, result: result ?? null }), true;
+  }
+  // Add files… in the manager: one file the person chose, into the site's assets/ (files.ts; a site step)
+  if (req.method === 'POST' && p === '/_tykerf/site/files') {
+    const a = await body(req);
+    const { addFile } = await import('../files.js');
+    const r = addFile({ site: dir }, { bytes: new Uint8Array(Buffer.from(String(a.data ?? ''), 'base64')), name: String(a.name ?? 'file'), type: a.type ? String(a.type) : null, local: true }, { from: `upload ${String(a.name ?? '')}`, author: 'user' });
+    refreshAll();
+    return json(res, 200, { ok: true, result: r }), true;
   }
   // the site's one history: its head, its kit and its settings (site/history.ts)
   if (req.method === 'GET' && p === '/_tykerf/site/history') {

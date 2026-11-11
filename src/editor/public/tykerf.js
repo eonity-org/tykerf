@@ -1289,6 +1289,8 @@ async function renderPage(body) {
       <div class="savebar"><span class="status"></span><button data-page="revert">${t('Revert')}</button><button data-page="save" class="primary">${t('Save head')}</button></div>
     </section>
     <p class="hint">${t('Saving reloads the page, because the head can only change with a reload. Undo reverts it.')}</p>
+    <section class="size-sec add-files"><p class="size-head">${t('Files')} <span class="muted">${t('(pictures, fonts, PDFs, stylesheets and scripts for this page, in its assets/ folder)')}</span></p>
+      <div class="row start"><button data-page="add-files">${t('Add files…')}</button><input type="file" multiple hidden></div><ul class="added"></ul></section>
     <section class="size-sec unused-files" hidden></section>`;
   // files the page no longer uses (earlier crops, pictures of removed boxes): offered for clean-up only when there are some
   api('/assets/unused').then(({ files, bytes }) => {
@@ -1302,6 +1304,9 @@ async function renderPage(body) {
       <div class="row end"><button data-page="clean-files">${t('Move them to the trash')}</button></div>
       <p class="hint">${t('They go to the .trash folder of the page; nothing is deleted.')}</p>`;
   }, () => {});
+  // Add files…: each file goes to the page's assets/, checked; the list says what to write for it
+  const picker = $('.add-files input[type=file]', body);
+  picker.onchange = () => uploadFiles([...picker.files], (f) => api('/files', f), $('.add-files .added', body));
   const titleInput = $('.page-title', body);
   if (titleInput) titleInput.onkeydown = (e) => e.key === 'Enter' && $('[data-page="title"]', body).click();
   const ta = $('.head-code', body);
@@ -1399,9 +1404,34 @@ async function renderPage(body) {
       p.head = null;
       renderPage(body);
     }
+    if (a === 'add-files') $('.add-files input[type=file]', body).click();
     if (a === 'clean-files')
       api('/assets/clean', {}).then(({ result }) => (toast(result.files === 1 ? t('One unused file moved to {trash}.', { trash: result.trash }) : t('{n} unused files moved to {trash}.', { n: result.files, trash: result.trash })), renderPage(body)), (err) => toast(err.message, true));
   };
+}
+
+/** Send files one by one (as base64: at most 25 MB each) and list the address each got, or why it was refused. */
+async function uploadFiles(files, send, list) {
+  for (const file of files) {
+    const li = document.createElement('li');
+    li.textContent = t('{name}: sending…', { name: file.name });
+    list.append(li);
+    try {
+      const data = await new Promise((ok, fail) => {
+        const r = new FileReader();
+        r.onload = () => ok(String(r.result).slice(String(r.result).indexOf(',') + 1));
+        r.onerror = () => fail(r.error);
+        r.readAsDataURL(file);
+      });
+      const { result } = await send({ name: file.name, type: file.type || null, data });
+      li.innerHTML = result.deduped
+        ? t('{name}: already there, as <code>{address}</code>', { name: esc(file.name), address: esc(result.address) })
+        : t('{name}: added, write <code>{address}</code>', { name: esc(file.name), address: esc(result.address) });
+    } catch (err) {
+      li.className = 'error';
+      li.textContent = `${file.name}: ${err.message}`;
+    }
+  }
 }
 
 /** The export's address: the whole site (or lone page), or one page of the site. */
@@ -1881,6 +1911,7 @@ async function exportPrompt(page) {
   popover(r.left, r.bottom + 6, `<p><b>${whole ? t('Export the site') : page ? t('Export this page') : t('Export the page')}</b></p>
     <p class="hint">${page ? t('The page {page} ({kb} KB) as plain files in a .zip, with the site\'s theme and fonts. Its links to other pages of the site lead nowhere until those pages are next to it. TYKERF, its history and the conversations with Kaity stay out.', { page: esc(page), kb }) : whole ? t('Every page of the site, {n} in all ({kb} KB), as plain files in a .zip: links between pages and images keep working wherever you put them. TYKERF, its history and the conversations with Kaity stay out.', { n: report.pages.length, kb }) : t('This page ({kb} KB) as plain files in a .zip. TYKERF, its history and the conversations with Kaity stay out.', { kb })}</p>
     ${report.broken.length ? `<div class="report${page ? '' : ' bad'}"><b>${page ? t('Links to other pages') : t('Links to pages that don\'t exist')}</b>${report.broken.map((b) => `<div>${esc(b.page)} → <code>${esc(b.href)}</code></div>`).join('')}</div>` : ''}
+    ${Object.keys(report.check ?? {}).length ? `<div class="report"><b>${t('The site\'s check')}</b><div>${t('{n} things to look at before publishing: see Check the site in the site manager.', { n: Object.values(report.check).reduce((a, b) => a + b, 0) })}</div></div>` : ''}
     ${report.unlicensed?.length ? `<div class="report"><b>${t('Fonts without a licence noted')}</b><div>${t('{fonts}: make sure the site may publish them (the site kit\'s Fonts).', { fonts: esc(report.unlicensed.join(', ')) })}</div></div>` : ''}
     ${report.remote.length ? `<div class="report"><b>${t('Still loaded from other servers')}</b><div>${t('{n} images, fonts or files from {hosts}. Copy the ones you may use into the page before publishing.', { n: report.remote.length, hosts: esc(hosts.join(', ')) })}</div></div>` : ''}
     <div class="choices">

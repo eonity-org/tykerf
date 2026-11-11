@@ -5,7 +5,7 @@ import { spawnSync } from 'node:child_process';
 import { describe, expect, it } from 'vitest';
 import { leftovers, say } from '../src/check.js';
 import { kitRead, kitWrite, lastKitChange } from '../src/kit.js';
-import { headStyles, migrateHeadStyles, Site, blockUsers, duplicatePage, freePageName, linkBlock, shareBlock, unlinkBlock, iconLink, madeIcon, setSiteIcon, siteIcon, lastSiteHeadChange, linkedPage, newPageLike, newSitePage, pageLinks, pageNameError, pageWorkspace, removePage, renamePage, setSiteHead, emptyTrash, langTag, pageTitle, readSite, setHome, setLang, siteIndex, setSiteCode, setTitle, shareTheme, siteCode, siteHead, siteKind, siteOf, sitePages, trashedPages, undoSiteHead, usePage } from '../src/site.js';
+import { headStyles, migrateHeadStyles, moveSiteDuplicates, moveToSite, pruneMedia, removeMediaFile, siteMedia, Site, blockUsers, duplicatePage, freePageName, linkBlock, shareBlock, unlinkBlock, iconLink, madeIcon, setSiteIcon, siteIcon, lastSiteHeadChange, linkedPage, newPageLike, newSitePage, pageLinks, pageNameError, pageWorkspace, removePage, renamePage, setSiteHead, emptyTrash, langTag, pageTitle, readSite, setHome, setLang, siteIndex, setSiteCode, setTitle, shareTheme, siteCode, siteHead, siteKind, siteOf, sitePages, trashedPages, undoSiteHead, usePage } from '../src/site.js';
 import { NO_SITE_HEAD, Workspace } from '../src/workspace.js';
 import * as M from '../src/moves.js';
 import { componentCode, createPage, readOverrides, readTheme, themes } from '../src/library.js';
@@ -199,6 +199,49 @@ describe('sites', () => {
     unlinkBlock(pageWorkspace(dir, 'like'), 'nav');
     expect(pageWorkspace(dir, 'like').ownContent('nav')?.trim()).toBe('<nav>shared, third version</nav>');
     expect(kitRead(dir, 'blocks', 'nav')).toBe('<nav>shared, third version</nav>');
+  });
+
+  it('copy a page with only its own files, taking the site\'s where the site has the same bytes', async () => {
+    const dir = tmp();
+    const home = newSitePage(dir, 'home', 'launch', 'studio');
+    const { mkdirSync: mk, writeFileSync: wr } = await import('node:fs');
+    mk(join(dir, 'assets'), { recursive: true });
+    wr(join(dir, 'assets', 'logo.png'), 'LOGO');
+    home.store.write('assets/hero.jpg', new TextEncoder().encode('HERO'));
+    home.store.write('assets/badge.png', new TextEncoder().encode('LOGO')); // the site's logo, under the page's name
+    home.store.write('assets/unused.png', new TextEncoder().encode('NOT USED'));
+    kitWrite(dir, 'blocks', 'nav', '<nav><img src="/assets/logo.png" alt="Bakery"></nav>');
+    home.setContent('hero', '<img src="assets/hero.jpg" alt=""><img src="assets/badge.png" alt="">', 'user');
+
+    const { openTools } = await import('../src/editor/tools-client.js');
+    const run = await openTools(home, '', dir);
+    newSitePage(dir, 'about', 'blank', 'studio');
+    await run.call('open_page', { name: 'about' });
+    expect((await run.call('new_page', { name: 'copy', copy: 'home' })).text).toMatch(/^ok: new page "copy", a copy of "home"; 1 of its files the site already has, so it uses those \(not copied\)/);
+    const copy = pageWorkspace(dir, 'copy');
+    // its hero's own picture; not the site's logo, nor the badge equal to it, nor the file nothing uses
+    expect(copy.assets()).toContain('hero.jpg');
+    for (const f of ['logo.png', 'badge.png', 'unused.png']) expect(copy.assets(), f).not.toContain(f);
+    expect(copy.content('hero')?.trim()).toBe('<img src="assets/hero.jpg" alt=""><img src="/assets/logo.png" alt="">');
+    // a page made like it, and a duplicate, the same
+    expect(newPageLike(dir, 'like', 'home').assets()).not.toContain('hero.jpg'); // its middle section is new: hero isn't copied
+    duplicatePage(dir, 'home', 'twin');
+    const twin = pageWorkspace(dir, 'twin');
+    expect(twin.assets()).toEqual(expect.arrayContaining(['hero.jpg', 'unused.png'])); // a duplicate keeps what the page has,
+    expect(twin.assets()).not.toContain('badge.png'); // but not a file the site has
+    expect(twin.content('hero')).toContain('<img src="/assets/logo.png" alt="">');
+    expect(twin.history()).toEqual([]);
+
+    // a picture Kaity draws on a run over the site is the site's
+    expect((await run.call('add_picture', { name: 'wave', svg: '<svg viewBox="0 0 2 1"><rect width="2" height="1"/></svg>' })).text)
+      .toBe('saved /assets/wave.svg, one of the site\'s files: use it as <img src="/assets/wave.svg" alt="…"> on any page');
+    expect(existsSync(join(dir, 'assets', 'wave.svg'))).toBe(true);
+    await run.close();
+    // and on a page's run, for a box that shows a shared block
+    const page = await openTools(pageWorkspace(dir, 'home'), '');
+    expect((await page.call('add_picture', { name: 'dot', svg: '<svg viewBox="0 0 1 1"><circle r="1"/></svg>', for: 'nav' })).text).toMatch(/^saved \/assets\/dot\.svg, one of the site's files/);
+    expect((await page.call('add_picture', { name: 'dot', svg: '<svg viewBox="0 0 1 1"><circle r="1"/></svg>' })).text).toMatch(/^saved assets\/dot\.svg:/);
+    await page.close();
   });
 
   it('make a new page like another: its header, footer and theme, one section between', () => {
@@ -647,6 +690,77 @@ describe("the site's one history", () => {
     site.redo();
     expect(readSite(dir).titles).toEqual({ team: 'About us' });
   });
+});
+
+describe("the site's media", () => {
+  it('lists every file with who uses it, and removes, moves and prunes them as steps undo takes back', async () => {
+    const dir = tmp();
+    const home = newSitePage(dir, 'home', 'blank', 'studio');
+    const about = newSitePage(dir, 'about', 'blank', 'studio');
+    const { mkdirSync: mk, writeFileSync: wr } = await import('node:fs');
+    mk(join(dir, 'assets'), { recursive: true });
+    wr(join(dir, 'assets', 'logo.png'), 'LOGO');
+    wr(join(dir, 'assets', 'old.png'), 'OLD');
+    kitWrite(dir, 'blocks', 'nav', '<nav><img src="/assets/logo.png" alt=""></nav>');
+    for (const ws of [home, about]) ws.store.write('assets/photo.jpg', new TextEncoder().encode('PHOTO'));
+    home.store.write('assets/copy-of-logo.png', new TextEncoder().encode('LOGO'));
+    home.store.write('assets/stray.png', new TextEncoder().encode('STRAY'));
+    home.setContent('text', '<img src="assets/photo.jpg" alt=""><img src="assets/copy-of-logo.png" alt="">', 'user');
+    about.setContent('text', '<img src="assets/photo.jpg" alt="">', 'user');
+
+    const media = siteMedia(dir);
+    const find = (where: string, file: string) => media.find((f) => f.where === where && f.file === file)!;
+    expect(find('site', 'logo.png').used).toEqual([{ page: null, box: 'kit' }]);
+    expect(find('site', 'old.png')).toMatchObject({ used: [], held: false, kind: 'image', bytes: 3 });
+    expect(find('home', 'photo.jpg').used).toEqual([{ page: 'home', box: 'text' }]);
+    expect(find('home', 'stray.png').used).toEqual([]);
+    expect(siteMedia(dir)).toBe(media); // nothing changed: the same listing
+
+    // the page copies of a site file use the site's; a page file on two pages moves to the site for both
+    expect(moveSiteDuplicates(dir)).toBe(1);
+    expect(pageWorkspace(dir, 'home').content('text')).toContain('src="/assets/logo.png"');
+    expect(existsSync(join(dir, 'home', 'assets', 'copy-of-logo.png'))).toBe(false);
+    expect(moveToSite(dir, 'home', 'photo.jpg')).toEqual({ file: 'photo.jpg', pages: ['about', 'home'] });
+    for (const p of ['home', 'about']) expect(pageWorkspace(dir, p).content('text')).toContain('src="/assets/photo.jpg"');
+    expect(existsSync(join(dir, 'about', 'assets', 'photo.jpg'))).toBe(false);
+    // what nothing uses goes to the trash, each a step undo takes back
+    expect(pruneMedia(dir)).toEqual({ files: 2, bytes: 8 }); // old.png, stray.png
+    expect(existsSync(join(dir, 'assets', 'old.png')) || existsSync(join(dir, 'home', 'assets', 'stray.png'))).toBe(false);
+    expect(pageWorkspace(dir, 'home').undo()).toBe('remove the file assets/stray.png');
+    expect(existsSync(join(dir, 'home', 'assets', 'stray.png'))).toBe(true);
+    expect(new Site(dir).undo()).toBe('remove the file /assets/old.png');
+    expect(readFileSync(join(dir, 'assets', 'old.png'), 'utf8')).toBe('OLD');
+    expect(() => removeMediaFile(dir, 'home', 'nope.png')).toThrow(/has no file "nope\.png"/);
+
+    // Kaity's list and removal, on a run over the site
+    const { openTools } = await import('../src/editor/tools-client.js');
+    const run = await openTools(pageWorkspace(dir, 'home'), '', dir);
+    // (the two files just brought back are named by the redo list: an undo step holds them)
+    expect((await run.call('list_files', { unused: true })).text).toBe('no unused files');
+    const all = (await run.call('list_files', {})).text;
+    expect(all).toMatch(/^\d+ files, \d+ KB\n/);
+    expect(all).toContain('/assets/old.png  image, 1 KB  unused (an undo step holds it)');
+    expect(all).toContain('/assets/photo.jpg  image, 1 KB  used by about/text, home/text');
+    expect((await run.call('remove_file', { where: 'site', file: 'logo.png' })).text).toMatch(/refused: logo\.png is used by the site's kit, home\/text/);
+    expect((await run.call('remove_file', { where: 'site', file: 'old.png' })).text).toBe('ok: /assets/old.png is in the trash (undo brings it back)');
+    await run.close();
+  });
+
+  it('lists the files of a 50-page site in under a second', () => {
+    const dir = tmp();
+    for (let i = 0; i < 50; i++) {
+      const ws = newSitePage(dir, `page-${i}`, 'launch', 'studio');
+      ws.store.write('assets/own.jpg', new TextEncoder().encode(`OWN ${i}`));
+      ws.setContent('hero', '<img src="assets/own.jpg" alt="">', 'user');
+    }
+    const t0 = performance.now();
+    const files = siteMedia(dir);
+    expect(performance.now() - t0).toBeLessThan(1000);
+    expect(files.filter((f) => f.file === 'own.jpg')).toHaveLength(50);
+    const t1 = performance.now();
+    siteMedia(dir);
+    expect(performance.now() - t1).toBeLessThan(200); // nothing changed: the listing is kept
+  }, 60_000);
 });
 
 describe("the site's head code", () => {

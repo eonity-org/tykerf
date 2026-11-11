@@ -60,6 +60,7 @@ export/
 The export reports these:
 
 - **Links to pages that don't exist**, for example after a page was removed or renamed outside TYKERF. Fix them in the Text tab, where link fields list the site's pages.
+- **The site's check**: how many things **Check the site** finds (links, files, pictures without alt text, titles…), before you publish; the site manager lists them, each with its page.
 - **Fonts without a licence noted**: the site's own fonts (the kit's *Fonts*) whose licence field is empty. Publishing a font needs the right to; note its licence once you know it.
 - **Images, fonts or files that still load from other servers:** a file a [copy of a website](importing.md) couldn't download, or an address you typed. The export works while those servers answer, but you usually may not republish someone else's images or fonts. Copy each image you're allowed to use into the page (the image tool's *Copy into the page*), and replace the rest.
 

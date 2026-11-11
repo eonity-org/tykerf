@@ -120,14 +120,14 @@ Restart the client after editing the config. The tools, by what they do:
 |---|---|
 | Read the page | `get_layout` (the tree as an outline), `get_content`, `get_types`, `resolve` (what a name or path points to) |
 | Change the tree | `split`, `add_leaf`, `wrap`, `unwrap`, `flip`, `swap`, `move`, `remove`, `rename`, `set_ratios`, `set_op`, `set_leaf`, `set_variant`, `tag`, `untag`, `add_rule`, `remove_rule`, `attach_overlay`, `detach_overlay`, `normalize` |
-| Change a box | `set_content`, `edit_content` (one exact piece of the code), `add_picture` (an SVG it draws, or an attached picture) |
+| Change a box | `set_content`, `edit_content` (one exact piece of the code), `add_picture` (an SVG it draws, or an attached picture), `add_file`, `add_files` (pictures, fonts, PDFs from an address, an attached picture, or with Claude Desktop and the plugin a file on your computer, to the page or the site) |
 | Library and theme | `list_layouts`, `use_layout`, `list_components`, `use_component`, `use_page`, `list_themes`, `use_theme`, `get_theme`, `set_theme` |
-| Pages of a site | `list_pages`, `open_page`, `new_page`, `rename_page`, `remove_page`, `set_title` (a page's title), `set_site` (the site's language), `share_theme` (one page's theme for every page), `set_slot` (a shared block's slot, for one page) |
+| Pages of a site | `list_pages`, `open_page`, `new_page`, `rename_page`, `remove_page`, `set_title` (a page's title), `set_site` (the site's language), `share_theme` (one page's theme for every page), `set_slot` (a shared block's slot, for one page), `list_files`, `remove_file` (the site's files and every page's) |
 | The site kit | `list_kit`, `get_kit_file`, `set_kit_file` (styles, behaviours, tags), `share_block`, `link_block`, `unlink_block` (shared blocks such as the navigation and the footer) |
 | Tasks left on the page | `list_tasks`, `close_task` (with a reply for the person) |
 | Open a folder (the plugin only) | `open_folder` (a page, a site or an empty folder; without a path, the default folder). Only the plugin starts with no folder open and offers it |
 | Stay inside one block | `focus`, `unfocus` |
-| Check the result | `screenshot`, `evaluate` (layout checks at several widths), `check_page` (what is left unfinished), `estimate`, `optimize` |
+| Check the result | `screenshot`, `evaluate` (layout checks at several widths), `check_page` (what is left unfinished), `estimate`, `optimize`, `check_site` (the whole site, on a run over the site) |
 | History | `undo`, `redo`, `render` |
 
 `screenshot` and `evaluate` need Chromium (`npx playwright install chromium`).

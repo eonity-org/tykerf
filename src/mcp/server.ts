@@ -22,7 +22,7 @@ if (process.argv.includes('--lazy')) {
   if (process.env.TYKERF_DOTENV !== 'off' && existsSync('.env')) process.loadEnvFile('.env');
   const given = [flag('--dir'), process.env.TYKERF_DIR].map((v) => v?.trim()).find((v) => v && !v.startsWith('${'));
   const defaultDir = folderPath(given ?? '~/TYKERF');
-  await createTykerfServer(null, { scope: flag('--scope') ?? null, folders: { defaultDir } }).connect(new StdioServerTransport());
+  await createTykerfServer(null, { scope: flag('--scope') ?? null, folders: { defaultDir }, localFiles: true }).connect(new StdioServerTransport());
 } else {
   // a folder pasted into a setting (Claude Desktop's "Page folder") easily brings a space at either end
   const dir = resolve((flag('--dir') ?? process.env.TYKERF_DIR ?? '.').trim());
@@ -31,5 +31,5 @@ if (process.argv.includes('--lazy')) {
   const ws = new Workspace(dir, { site: siteOf(dir) });
   // --scope: the block of one editor AI run (see tools.ts)
   // the folder may be a site, or a page of one: the client can then list, open and make its pages
-  await createTykerfServer(ws, { scope: flag('--scope') ?? null, home: dir }).connect(new StdioServerTransport());
+  await createTykerfServer(ws, { scope: flag('--scope') ?? null, home: dir, localFiles: true }).connect(new StdioServerTransport());
 }

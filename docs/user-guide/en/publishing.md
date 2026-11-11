@@ -43,7 +43,7 @@ Click **Publish**. TYKERF says how many files are new, changed and removed, with
 - **One publish is one commit.** The repository's history is the list of your publishes; to take one back, revert its commit on GitHub.
 - **Only what changed is sent**, and only files TYKERF published before are ever replaced or removed (it keeps their list in `.tykerf-published.json`). A `CNAME`, a README or your own files in the repository stay.
 - **It waits while Kaity is working**, so half a change never goes live.
-- The same checks as an export: links to pages that don't exist, and files still loaded from other servers.
+- The same checks as an export: links to pages that don't exist, files still loaded from other servers, fonts without a licence noted, and how many things the site's check found (**Check the site** in the site manager lists them).
 
 ### What a published site holds
 

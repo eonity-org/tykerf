@@ -14,6 +14,7 @@
 //   out/index.html   rendered page
 //   .tykerf/           editor state (AI conversations, attached images, the removed-code buffer)
 
+import { createHash } from 'node:crypto';
 import { basename, dirname, join, resolve } from 'node:path';
 import { type Layout, find, walk } from './model.js';
 import { blockSlots, fillSlots, markCurrentPage, slotContents, slotValues, unfillSlots, withSlotValues } from './kit.js';
@@ -33,7 +34,10 @@ type HistoryEntry =
   | { kind: 'group'; label: string; author: string; at: string; count: number } // the previous `count` entries are one step
   // a shared block changed from this page: the change is a step of the site's history (its id is `step`),
   // which the page's undo takes back while it is still the site's last
-  | { kind: 'site'; label: string; author: string; at: string; id: string; block: string; step: string };
+  | { kind: 'site'; label: string; author: string; at: string; id: string; block: string; step: string }
+  // a file added to assets/ (files.ts): undo removes it, keeping its bytes in .tykerf/trash/<hash> for redo
+  | { kind: 'file'; label: string; author: string; at: string; file: string; from: string; size: number; hash: string; removed?: true };
+  // (removed: the step took the file away, keeping its bytes in .tykerf/trash/<hash>; undo puts it back)
 
 /** An undone step, kept so redo can bring it back: the entry plus the state undo replaced. */
 type RedoEntry =
@@ -41,7 +45,8 @@ type RedoEntry =
   | { entry: HistoryEntry; content: string | null } // box code steps: the code before undo
   | { entry: HistoryEntry; head: string | null } // head.html steps: head.html before undo
   | { group: Extract<HistoryEntry, { kind: 'group' }> } // marks the inner steps below it as one
-  | { entry: HistoryEntry; site: 'undone' | 'gone' }; // a shared block's change: undone in the site's history, or gone from it already
+  | { entry: HistoryEntry; site: 'undone' | 'gone' } // a shared block's change: undone in the site's history, or gone from it already
+  | { entry: HistoryEntry; file: true }; // an added file, removed by undo (its bytes in .tykerf/trash/<hash>)
 
 /**
  * What undo or redo would do, without doing it: the layout it would restore, the box it would change, whether it
@@ -121,6 +126,8 @@ export interface SiteLike {
   kitCSS(): string;
   /** The fonts the site registers (kit/fonts.json): its fonts block declares them, so a page doesn't. */
   fonts(): FontRegistry;
+  /** Put a file in the site's assets/ when it has none of that name (a library picture a shared block uses). */
+  putFile(file: string, bytes: Uint8Array): void;
   /** A shared block's code (kit/blocks/<name>.html), or null. */
   block(name: string): string | null;
   /**
@@ -404,6 +411,7 @@ export class Workspace {
     if (e.kind === 'content') return { label: e.label, author: e.author, box: e.id };
     if (e.kind === 'site') return { label: e.label, author: e.author, box: e.id, head: false, site: true, block: e.block };
     if (e.kind === 'head') return { label: e.label, author: e.author, head: true };
+    if (e.kind === 'file') return { label: e.label, author: e.author };
     return { label: e.label, author: e.author, layout: parseSlice(e.slice), box: e.kind === 'rename' ? e.to : undefined };
   }
 
@@ -450,7 +458,12 @@ export class Workspace {
       this.pushRedo({ group: e });
       return e.label;
     }
-    if (e.kind === 'site') {
+    if (e.kind === 'file') {
+      // an added file goes (its bytes wait in .tykerf/trash/ for redo); a removed one comes back from there
+      if (e.removed) this.restoreAsset(e.file, e.hash);
+      else this.trashAsset(e.file, e.hash);
+      this.pushRedo({ entry: e, file: true });
+    } else if (e.kind === 'site') {
       // the shared block goes back on every page: the site's step is undone (checked in undo())
       const there = !!this.site?.undoAts().includes(e.step);
       if (there) this.site!.undo();
@@ -509,11 +522,14 @@ export class Workspace {
       return r.group.label;
     }
     const e = r.entry;
-    if ('site' in r) {
+    if ('file' in r && e.kind === 'file') {
+      if (e.removed) this.trashAsset(e.file, e.hash);
+      else this.restoreAsset(e.file, e.hash);
+    } else if ('site' in r) {
       if (r.site === 'undone') this.site!.redo(); // checked in redo()
     } else if ('content' in r) this.writeBox((e as { id: string }).id, r.content);
     else if ('head' in r) this.writeHead(r.head);
-    else {
+    else if ('slice' in r) {
       this.store.write(SLICE, r.slice);
       if (e.kind === 'rename') this.moveBox(e.from, e.to);
     }
@@ -749,6 +765,44 @@ export class Workspace {
     this.checkGuards({ kind: 'content', id, layout });
     this.log({ kind: 'content', label: `set_content ${id}${html === null ? ' (removed)' : ` (${html.length} chars)`}`, author, at: new Date().toISOString(), id, prev });
     this.writeBox(id, html);
+  }
+
+  /**
+   * Add a file to the page's assets/ as a step of its history (files.ts chose the name and checked the bytes):
+   * undo removes it. Nothing is written when the file is there already.
+   */
+  addAsset(file: string, bytes: Uint8Array, from: string, author: string = 'ai', hash = createHash('sha1').update(bytes).digest('hex')) {
+    this.transaction(() => {
+      if (this.store.exists(`assets/${file}`)) return;
+      this.log({ kind: 'file', label: `add the file assets/${file}`, author, at: new Date().toISOString(), file, from, size: bytes.length, hash });
+      this.store.write(`assets/${file}`, bytes);
+    });
+  }
+
+  /**
+   * Take a file out of the page's assets/ as a step of its history: its bytes wait in .tykerf/trash/<hash>, and
+   * undo puts it back. Nothing happens when the page has no such file.
+   */
+  removeAsset(file: string, author: string = 'user', label = `remove the file assets/${file}`) {
+    this.transaction(() => {
+      const bytes = this.store.readBytes(`assets/${file}`);
+      if (!bytes) return;
+      const hash = createHash('sha1').update(bytes).digest('hex');
+      this.log({ kind: 'file', label, author, at: new Date().toISOString(), file, from: '', size: bytes.length, hash, removed: true });
+      this.trashAsset(file, hash);
+    });
+  }
+
+  private trashAsset(file: string, hash: string) {
+    const bytes = this.store.readBytes(`assets/${file}`);
+    if (bytes && !this.store.exists(`.tykerf/trash/${hash}`)) this.store.write(`.tykerf/trash/${hash}`, bytes);
+    this.store.remove(`assets/${file}`);
+  }
+
+  private restoreAsset(file: string, hash: string) {
+    const bytes = this.store.readBytes(`.tykerf/trash/${hash}`);
+    if (!bytes) throw new Error(`the file ${file} can't be brought back: its copy is gone`);
+    this.store.write(`assets/${file}`, bytes);
   }
 
   /** Page-level <head> additions (head.html), e.g. fonts and section styles from an import. */

@@ -514,6 +514,22 @@ describe('a new site', () => {
     kitWrite(site, 'styles', 'note', null);
   });
 
+  it('shows the site\'s files in Media, with who uses them, and removes an unused one', async () => {
+    const { mkdirSync } = await import('node:fs');
+    mkdirSync(join(site, 'assets'), { recursive: true });
+    writeFileSync(join(site, 'assets', 'leftover.png'), 'nothing uses me');
+    await page.goto(`${url}_tykerf/site/`);
+    await page.locator('.pages .media-btn').click();
+    const card = page.locator('.media li[data-file="site/leftover.png"]');
+    expect(await card.locator('.use').textContent()).toBe('unused');
+    await page.locator('.media .media-filter').selectOption('unused');
+    expect(await page.locator('.media .grid li').count()).toBeGreaterThan(0);
+    await card.locator('button.danger').click();
+    await page.locator('.media .msg', { hasText: 'leftover.png is in the trash' }).waitFor();
+    expect(existsSync(join(site, 'assets', 'leftover.png'))).toBe(false);
+    expect(await page.locator('.media .summary').textContent()).toMatch(/^\d+ files, .*; \d+ unused/);
+  });
+
   it('adds a font of the site from the kit, with its file, weight and licence', async () => {
     const { mkdirSync } = await import('node:fs');
     mkdirSync(join(site, 'assets'), { recursive: true });

@@ -31,7 +31,7 @@ A place to manage a site: rename pages, sections where pages live, links, multim
 
 ## Still to do
 1. **Sections:** folders of pages (`/blog/post-1/`), with `/blog/` opening its first page, at most 3 deep; routing by the longest matching prefix; `items` in `site.json` for order and nesting.
-2. **Media:** the site's `assets/` as a grid, upload and delete, with the pages that use each file.
+2. ~~**Media:** the site's `assets/` as a grid, upload and delete, with the pages that use each file.~~ Done: **Media** in the manager (`site/media.ts`), with every page's files too, moving files to the site and pruning the unused ones.
 3. **A navigation menu filled from the site:** `<nav data-tykerf-menu></nav>` filled at render time, with `aria-current`, and a "Site menu" component.
 4. **Reorder pages** in the manager (needs the order in `site.json`).
 

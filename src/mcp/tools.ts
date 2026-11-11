@@ -3,7 +3,7 @@
 // editor's API runners (editor/tools-client.ts, in-process) both use it, so every AI gets the same
 // tools, the same scope checks and the same history.
 
-import { existsSync, mkdirSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, statSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { basename, dirname, join, resolve } from 'node:path';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
@@ -17,10 +17,13 @@ import { cost, optimize } from '../shape.js';
 import { leftovers, missingFiles, say } from '../check.js';
 import { closeTask, sayTask, tasks } from '../tasks.js';
 import { type KitKind, blockSlots, kitClasses, kitFonts, kitList, kitRead, kitTags, kitWarning, kitWrite } from '../kit.js';
+import { removeMediaFile, siteMedia } from '../site.js';
 import { HOME_PAGE, blockUsers, linkBlock, newSitePage, pageTitle, pagesWithOwnTheme, pageWorkspace, readSite, setLang, setTitle, shareTheme, removePage, renamePage, shareBlock, movedFiles, siteHead, siteKind, unlinkBlock, unsafeSVG, siteOf, sitePages, usePage } from '../site.js';
 import { DEFAULT_THEME, components, createPage, fontWarning, hasTheme, pageLayouts, readOverrides, readTheme, setTheme, themeTarget, themes, useComponent, useLayout } from '../library.js';
 import { FolderStore, MemoryStore } from '../store.js';
 import { Workspace } from '../workspace.js';
+import { addFile, readSource } from '../files.js';
+import { checkSite, sayFindings } from '../check-site.js';
 
 const text = (s: string, isError = false) => ({ content: [{ type: 'text' as const, text: s }], isError });
 
@@ -109,6 +112,12 @@ export interface TykerfServerOptions {
    * this way with no folder open (`ws` null), since Cowork can't ask for one on install.
    */
   folders?: { defaultDir: string };
+  /**
+   * The tools may read files from paths on this computer (add_file, set_content's file): the stdio server and the
+   * Claude plugin run on the person's own computer. The editor's in-process AI runs don't (addresses and attached
+   * files only), since a request may come from a hosted TYKERF later (SECURITY.md).
+   */
+  localFiles?: boolean;
 }
 
 /** The tools that answer with no folder open: they need no page. */
@@ -559,14 +568,93 @@ export function createTykerfServer(start: Workspace | null, opts: TykerfServerOp
   }, guard(({ width }: { width: number }) => JSON.stringify(cost(ws.load(), width))) as never);
 
   /** A warning after a box's code changed, when it uses files the page doesn't have (made-up picture names). */
+  // the files added in the last minute, by name, with the address they were given: a reply that names one
+  // under the other address (the page's for the site's) says which to write, instead of the generic warning
+  const added = new Map<string, { address: string; at: number }>();
   function noFiles(html: string): string {
-    const miss = missingFiles(ws, html);
-    if (!miss.length) return '';
+    const now = Date.now();
+    const recent = (ref: string) => { const a = added.get(ref.replace(/^\.?\/?assets\//, '')); return a && now - a.at < 60_000 ? a : null; };
+    const all = missingFiles(ws, html);
+    const moved = all.filter((ref) => recent(ref)).map((ref) => `${ref} was added as ${recent(ref)!.address}: write that`);
+    const miss = all.filter((ref) => !recent(ref));
+    if (!miss.length) return moved.length ? `\nwarning: ${moved.join('; ')}` : '';
     const have = ws.assets().filter((f) => !/\.(woff2?|ttf|otf)$/i.test(f));
     return `\nwarning: ${miss.join(', ')} ${miss.length === 1 ? 'is' : 'are'} not among the page's files, so ${miss.length === 1 ? 'it shows' : 'they show'} broken. ` +
       `The page's files: ${have.length ? have.map((f) => `assets/${f}`).join(', ') : 'none'}. You can't download files: draw the picture as SVG with add_picture, ` +
       'place a picture the user attached with add_picture, or say what picture is needed so the user adds it (the picture tool in the Text tab). Never guess a file name.';
   }
+
+  /** Code from a file on this computer (set_content's file, edit_content's new_file): UTF-8, up to 2 MB. */
+  function readCode(path: string): { text: string; path: string; size: number } {
+    if (!opts.localFiles) throw new Error('a path on this computer can\'t be read here: give the code itself');
+    const abs = folderPath(path);
+    let size: number;
+    try {
+      const st = statSync(abs);
+      if (!st.isFile()) throw new Error('not a file');
+      size = st.size;
+    } catch {
+      throw new Error(`${abs} is not a file this computer has`);
+    }
+    if (size > 2 * 1024 * 1024) throw new Error(`${abs} is larger than 2 MB`);
+    return { text: readFileSync(abs, 'utf8'), path: abs, size };
+  }
+
+  /** A file to add: an http(s) address, a file the person attached (its name), or (localFiles) a path on this computer. */
+  async function sourceOf(from: string) {
+    const m = /^(?:attached:)?([0-9a-f]{40}\.(?:png|jpe?g|gif|webp))$/.exec(from.trim());
+    if (m) {
+      const bytes = ws.store.readBytes(`.tykerf/images/${m[1]}`);
+      if (!bytes) throw new Error(`no attached file "${m[1]}": use the file name the request gives`);
+      return { bytes, name: m[1], type: null, local: false };
+    }
+    return readSource(from, { localFiles: !!opts.localFiles });
+  }
+
+  /** Add one file to the open page or the site; the reply line says the address to write. */
+  async function addOne(item: { from: string; to?: 'page' | 'site'; name?: string }): Promise<string> {
+    const siteRun = !!(home || folders) && !runScope;
+    const to = item.to ?? (siteRun ? 'site' : 'page');
+    const src = await sourceOf(item.from);
+    let r;
+    if (to === 'site') {
+      const site = ws.site?.dir ?? siteDir();
+      if (!site) throw new Error('this page is not part of a site: add the file to the page (to: "page")');
+      r = addFile({ site }, src, { name: item.name, from: item.from, author: 'ai' });
+    } else {
+      if (!ws.store.exists('layout.slice')) throw new Error('no page is open: open_page opens one, or add the file to the site (to: "site")');
+      r = addFile({ page: ws }, src, { name: item.name, from: item.from, author: 'ai' });
+    }
+    added.set(r.file, { address: r.address, at: Date.now() });
+    return `${r.deduped ? 'already there' : 'added'}: ${r.address} (${r.kind}, ${Math.max(1, Math.round(r.bytes / 1024))} KB)${r.deduped ? ', the same bytes' : ''}; write it as ${r.kind === 'css' ? `<link rel="stylesheet" href="${r.address}">` : r.kind === 'js' ? `<script src="${r.address}"></script>` : r.kind === 'font' ? `url("${r.address}") in @font-face (the site's fonts: kit/fonts.json)` : r.kind === 'pdf' ? `<a href="${r.address}">` : `<img src="${r.address}" alt="…">`}`;
+  }
+
+  const fileItem = {
+    from: z.string().describe(`an http(s) address${opts.localFiles ? ', a path on this computer' : ''}, or the name of a file the user attached`),
+    to: z.enum(['page', 'site']).optional().describe('the page\'s files (assets/<file>) or the site\'s, for every page (/assets/<file>); default: the site on a run over the site, else the page'),
+    name: z.string().optional().describe('the file name to keep it under (default: its own); a name taken by another file gets a hash'),
+  };
+  server.registerTool('add_file', {
+    title: 'Add a file', annotations: { readOnlyHint: false, destructiveHint: false, openWorldHint: true },
+    description: 'Bring a web file into the page\'s or the site\'s files: an image (PNG, JPEG, GIF, WebP, AVIF, SVG), a font (WOFF2, WOFF, TTF, OTF), a PDF' + (opts.localFiles ? ', or from this computer a stylesheet or a script' : '') + '. ' +
+      `From an http(s) address${opts.localFiles ? ' or a path on this computer' : ''}, or a file the user attached. It is checked by its bytes, at most 25 MB; a file with the same bytes already there is used as it is. The reply says the address to write. Undo removes it.`,
+    inputSchema: fileItem,
+  }, guard(async (item: { from: string; to?: 'page' | 'site'; name?: string }) => `ok: ${await addOne(item)}`) as never);
+  server.registerTool('add_files', {
+    title: 'Add several files', annotations: { readOnlyHint: false, destructiveHint: false, openWorldHint: true },
+    description: 'add_file for up to 50 files at once: one line each in the reply, an error on its own line without stopping the others.',
+    inputSchema: { items: z.array(z.object(fileItem)).min(1).max(50) },
+  }, guard(async ({ items }: { items: { from: string; to?: 'page' | 'site'; name?: string }[] }) => {
+    const lines: string[] = [];
+    for (const item of items) {
+      try {
+        lines.push(`ok: ${await addOne(item)}`);
+      } catch (e) {
+        lines.push(`error: ${item.from}: ${(e as Error).message}`);
+      }
+    }
+    return lines.join('\n');
+  }) as never);
 
   server.registerTool('add_picture', {
     title: 'Add a picture', annotations: CHANGE,
@@ -576,8 +664,9 @@ export function createTykerfServer(start: Workspace | null, opts: TykerfServerOp
       name: z.string().regex(/^[a-z0-9][a-z0-9-]{0,59}$/).describe('file name without extension: lowercase letters, digits and dashes (e.g. marienplatz)'),
       svg: z.string().optional().describe('the SVG code, from <svg> to </svg>: no scripts, no event attributes, no external files'),
       attached: z.string().optional().describe('the file name of a picture the user attached (e.g. 3f2a….png)'),
+      for: z.string().optional().describe('the box it goes in, when it shows a shared block: the picture is then the site\'s (/assets/<file>), for every page'),
     },
-  }, guard(({ name, svg, attached }: { name: string; svg?: string; attached?: string }) => {
+  }, guard(({ name, svg, attached, for: box }: { name: string; svg?: string; attached?: string; for?: string }) => {
     if (!svg === !attached) throw new Error('give either svg (a picture you draw) or attached (a picture the user attached)');
     let bytes: Uint8Array, ext: string;
     if (svg !== undefined) {
@@ -594,6 +683,14 @@ export function createTykerfServer(start: Workspace | null, opts: TykerfServerOp
       bytes = found;
       ext = m![1];
     }
+    // what is shared uses the site's files: on a run over the site, or for a box that shows a shared block
+    const siteRun = !!(home || folders) && !runScope;
+    const linked = box !== undefined && ws.store.exists('layout.slice') && !!ws.sharedBlock(resolveRef(ws.load(), box));
+    const site = siteRun || linked ? (ws.site?.dir ?? siteDir()) : null;
+    if (site) {
+      const r = addFile({ site }, { bytes, name: `${name}.${ext}`, type: null, local: false }, { from: 'add_picture', author: 'ai' });
+      return `saved ${r.address}, one of the site's files: use it as <img src="${r.address}" alt="…"> on any page`;
+    }
     // a name already taken keeps its file (boxes may use it): this one gets a number
     let file = `${name}.${ext}`;
     for (let i = 2; ws.store.exists(`assets/${file}`); i++) file = `${name}-${i}.${ext}`;
@@ -603,9 +700,15 @@ export function createTykerfServer(start: Workspace | null, opts: TykerfServerOp
 
   server.registerTool('set_content', {
     title: 'Replace a box\'s code', annotations: REPLACE,
-    description: 'Set the HTML content of a leaf or overlay (null removes it, showing a placeholder).',
-    inputSchema: { id: id.describe('box (leaf) reference or overlay id'), html: z.string().nullable() },
-  }, guard(({ id: ref, html }: { id: string; html: string | null }) => ws.transaction(() => {
+    description: 'Set the HTML content of a leaf or overlay (null removes it, showing a placeholder).' + (opts.localFiles ? ' Long code can come from a file on this computer instead (file: its path), so it needn\'t pass through you.' : ''),
+    inputSchema: {
+      id: id.describe('box (leaf) reference or overlay id'), html: z.string().nullable().optional(),
+      ...(opts.localFiles ? { file: z.string().optional().describe('a path on this computer to read the code from (UTF-8, up to 2 MB), instead of html') } : {}),
+    },
+  }, guard(({ id: ref, html: given, file }: { id: string; html?: string | null; file?: string }) => ws.transaction(() => {
+    if ((given !== undefined) === (file !== undefined)) throw new Error('give either html or file');
+    const read = file !== undefined ? readCode(file) : null;
+    const html = read ? read.text : given!;
     const l = ws.load();
     const target = boxRef(l, ref);
     const ov = l.overlays.find((o) => o.id === target);
@@ -615,15 +718,21 @@ export function createTykerfServer(start: Workspace | null, opts: TykerfServerOp
     const split = html === null ? null : ws.sharedEdit(target, html, l);
     if (html !== null && (!split || split.block !== null)) assertMayChangeShared(l, target);
     ws.setContent(target, html);
-    return `ok: content of "${target}" ${html === null ? 'removed' : 'set'}${split ? sharedSaid(l, target, split) : ''}${noFiles(html ?? '')}`;
+    return `ok: content of "${target}" ${html === null ? 'removed' : 'set'}${read ? ` from ${read.path} (${read.size} bytes)` : ''}${split ? sharedSaid(l, target, split) : ''}${noFiles(html ?? '')}`;
   })) as never);
 
   server.registerTool('edit_content', {
     title: 'Edit part of a box\'s code', annotations: CHANGE,
     description: 'Change part of a box\'s code: replace the exact text `old` (as get_content shows it, including spaces) with `new`. ' +
       '`old` must appear exactly once, unless all is true (then every occurrence changes). Prefer it to set_content for small changes: only the changed text is sent.',
-    inputSchema: { id: id.describe('box (leaf) reference or overlay id'), old: z.string().min(1), new: z.string(), all: z.boolean().optional() },
-  }, guard(({ id: ref, old, new: next, all }: { id: string; old: string; new: string; all?: boolean }) => ws.transaction(() => {
+    inputSchema: {
+      id: id.describe('box (leaf) reference or overlay id'), old: z.string().min(1), new: z.string().optional(), all: z.boolean().optional(),
+      ...(opts.localFiles ? { new_file: z.string().optional().describe('a path on this computer to read the new text from (UTF-8, up to 2 MB), instead of new') } : {}),
+    },
+  }, guard(({ id: ref, old, new: given, new_file: file, all }: { id: string; old: string; new?: string; new_file?: string; all?: boolean }) => ws.transaction(() => {
+    if ((given !== undefined) === (file !== undefined)) throw new Error('give either new or new_file');
+    const read = file !== undefined ? readCode(file) : null;
+    const next = read ? read.text : given!;
     const l = ws.load();
     const target = boxRef(l, ref);
     const ov = l.overlays.find((o) => o.id === target);
@@ -639,7 +748,7 @@ export function createTykerfServer(start: Workspace | null, opts: TykerfServerOp
     const split = ws.sharedEdit(target, html, l);
     if (!split || split.block !== null) assertMayChangeShared(l, target);
     ws.setContent(target, html);
-    return `ok: ${all ? n : 1} change${(all ? n : 1) === 1 ? '' : 's'} in "${target}"${split ? sharedSaid(l, target, split) : ''}${noFiles(html)}`;
+    return `ok: ${all ? n : 1} change${(all ? n : 1) === 1 ? '' : 's'} in "${target}"${read ? ` (the new text from ${read.path}, ${read.size} bytes)` : ''}${split ? sharedSaid(l, target, split) : ''}${noFiles(html)}`;
   })) as never);
 
   server.registerTool('set_slot', {
@@ -832,6 +941,37 @@ export function createTykerfServer(start: Workspace | null, opts: TykerfServerOp
       return `ok: the site has one theme now, "${page}"'s, and every page uses it; ${changed.length === 1 ? 'this page gave up its own' : `these pages gave up their own: ${changed.join(', ')}`} (each can undo it). Copies of websites keep their own look.`;
     }));
 
+    // the whole site's check (check-site.ts): what to fix before publishing, every page at once
+    server.registerTool('check_site', {
+      title: 'Check the whole site', annotations: READ,
+      description: 'What the whole site should fix before it is published, counts first, then by kind, each with the tool that fixes it: links to pages it doesn\'t have, files that aren\'t there, shared blocks using a page\'s file, pictures without alt text, titles (missing, too long, the same as another page\'s), pages nothing links to, copies of a shared block, fonts without a licence, files from other servers, the language.',
+    }, guard(() => sayFindings(checkSite(siteOnly()))));
+
+    // the site's files and every page's (site/media.ts): who uses each, and the unused ones
+    server.registerTool('list_files', {
+      title: 'List the site\'s files', annotations: READ,
+      description: 'Every file of the site (/assets/<file>) and of its pages (assets/<file> on that page): kind, size, and where it is used (page and box, or the site\'s head or kit). unused: only the files nothing uses (an undo step may still hold some).',
+      inputSchema: { unused: z.boolean().optional() },
+    }, guard(({ unused }: { unused?: boolean }) => {
+      const files = siteMedia(siteOnly()).filter((f) => !unused || (!f.used.length && !f.held));
+      if (!files.length) return unused ? 'no unused files' : 'no files';
+      const kb = (n: number) => `${Math.max(1, Math.round(n / 1024))} KB`;
+      const total = files.reduce((n, f) => n + f.bytes, 0);
+      return [`${files.length} files, ${kb(total)}`, ...files.map((f) => `${f.where === 'site' ? `/assets/${f.file}` : `${f.where}: assets/${f.file}`}  ${f.kind}, ${kb(f.bytes)}  ${f.used.length ? `used by ${[...new Set(f.used.map((u) => (u.page ? `${u.page}/${u.box}` : `the site's ${u.box}`)))].join(', ')}` : f.held ? 'unused (an undo step holds it)' : 'unused'}`)].join('\n');
+    }));
+    server.registerTool('remove_file', {
+      title: 'Remove a file', annotations: REPLACE,
+      description: 'Take a file out of the site (where: "site") or a page (where: its name): it waits in .tykerf/trash/, and undo puts it back. Only files nothing uses (list_files unused).',
+      inputSchema: { where: z.string(), file: z.string() },
+    }, guard(({ where, file }: { where: string; file: string }) => {
+      const site = siteOnly();
+      const f = siteMedia(site).find((x) => x.where === where && x.file === file);
+      if (!f) throw new Error(`there is no file "${file}" in ${where === 'site' ? 'the site' : `the page ${where}`} (list_files lists them)`);
+      if (f.used.length) throw new Error(`refused: ${file} is used by ${[...new Set(f.used.map((u) => (u.page ? `${u.page}/${u.box}` : `the site's ${u.box}`)))].join(', ')}; change those first`);
+      removeMediaFile(site, where, file, 'ai');
+      return `ok: ${where === 'site' ? `/assets/${file}` : `${where}'s assets/${file}`} is in the trash (undo brings it back)`;
+    }));
+
     // the whole site's settings (site.json): only the fields in SITE_SETTINGS, each with its own check
     const SITE_SETTINGS: Record<string, (site: string, value: string) => void> = { lang: (site, v) => setLang(site, v, 'ai') };
     server.registerTool('set_site', {
@@ -892,8 +1032,9 @@ export function createTykerfServer(start: Workspace | null, opts: TykerfServerOp
       const shared = hasTheme(siteHead(site));
       ws = newSitePage(site, name, layout ?? 'blank', themeName ?? DEFAULT_THEME, { shared: linkShared !== false });
       if (copy) {
-        usePage(ws, site, copy, { theme: !shared, author: 'ai' });
-        return `ok: new page "${name}", a copy of "${copy}"; it is open now. Rewrite its text for this page.\n\n${outline(ws.load())}`;
+        const files = usePage(ws, site, copy, { theme: !shared, author: 'ai' });
+        const theirs = files.site.length ? `; ${files.site.length} of its files the site already has, so it uses those (not copied)` : '';
+        return `ok: new page "${name}", a copy of "${copy}"${theirs}; it is open now. Rewrite its text for this page.\n\n${outline(ws.load())}`;
       }
       const look = shared ? 'it uses the theme the site\'s pages share' : `with the ${themeName ?? DEFAULT_THEME} theme`;
       return `ok: new page "${name}" from the ${layout ?? 'blank'} layout, ${look}${sharedSay(linkedBoxes(ws))}; it is open now. Rewrite every box's placeholder text for this page.\n\n${outline(ws.load())}`;
