@@ -11,13 +11,13 @@ import * as M from '../moves.js';
 import { serializeSlice } from '../notation.js';
 import { leftovers } from '../check.js';
 import { handbookMarkdown, handbookPage } from '../handbook.js';
-import { kitClasses, kitList, kitTags } from '../kit.js';
+import { kitClasses, kitFonts, kitList, kitTags } from '../kit.js';
 import { blockUsers, linkBlock, shareBlock, unlinkBlock } from '../site.js';
 import { addFile } from '../files.js';
 import { addTask, clearDone, closeTask, removeTask, reopenTask, sayTask, tasks } from '../tasks.js';
 import { pathOf } from '../refs.js';
 import { renderParts } from '../render.js';
-import { checkPath } from '../store.js';
+import { FolderStore, checkPath } from '../store.js';
 import { components, copyBehaviours, hasTheme, libraryBehaviours, pageLayouts, readOverrides, themeVariables, useComponent, withFonts, withOverrides } from '../library.js';
 import { NO_SITE_HEAD, type Workspace, joinStyle, splitStyle } from '../workspace.js';
 import { AI, type Runner } from './ai.js';
@@ -194,6 +194,9 @@ export function createPageHost(ws: Workspace, opts: { name: string; site?: () =>
   }
 
   const LETTER = { row: 'V', column: 'H' } as const;
+
+  /** The site's folder, when a box shows a shared block: its pictures are the site's, not this page's. */
+  const sharedFor = (box: unknown): string | null => (typeof box === 'string' && ws.site && ws.store.exists('layout.slice') && ws.sharedBlock(box) ? ws.site.dir : null);
 
   type Handler = (a: any) => string | { name: string; files: string[] } | null; // applies the change, returns a label (or what it made) for the reply
   const OPS: Record<string, Handler> = {
@@ -477,7 +480,7 @@ export function createPageHost(ws: Workspace, opts: { name: string; site?: () =>
     if (req.method === 'GET' && p === '/_tykerf/assets') return json(res, 200, { images: pageImages(ws) });
     if (req.method === 'GET' && p === '/_tykerf/asset/origin') return json(res, 200, { origin: imageOrigin(ws, url.searchParams.get('src') ?? '') });
     // a refresh re-renders the body only: the site's language comes along for <html lang>
-    if (req.method === 'GET' && p === '/_tykerf/page') return json(res, 200, { ...renderParts(ws.load(), ws.contents()), lang: ws.site?.lang() ?? 'en' });
+    if (req.method === 'GET' && p === '/_tykerf/page') return json(res, 200, { ...(() => { const l = ws.load(); return renderParts(l, ws.shownContents(l)); })(), lang: ws.site?.lang() ?? 'en' });
     if (req.method === 'GET' && p === '/_tykerf/box') {
       const id = url.searchParams.get('id') ?? '';
       const l = ws.load();
@@ -507,7 +510,7 @@ export function createPageHost(ws: Workspace, opts: { name: string; site?: () =>
     if (req.method === 'GET' && p === '/_tykerf/kit') {
       const dir = ws.site?.dir;
       const blocks = dir ? kitList(dir).blocks : [];
-      return json(res, 200, dir ? { site: true, blocks, tags: kitTags(dir), classes: kitClasses(dir), scripts: kitList(dir).scripts, behaviours: libraryBehaviours().map((b) => b.name), users: Object.fromEntries(blocks.map((b) => [b, Object.keys(blockUsers(dir, b))])) } : { site: false, blocks: [], tags: {}, classes: [], users: {} });
+      return json(res, 200, dir ? { site: true, blocks, tags: kitTags(dir), classes: kitClasses(dir), scripts: kitList(dir).scripts, fonts: Object.keys(kitFonts(dir)), behaviours: libraryBehaviours().map((b) => b.name), users: Object.fromEntries(blocks.map((b) => [b, Object.keys(blockUsers(dir, b))])) } : { site: false, blocks: [], tags: {}, classes: [], users: {} });
     }
     if (req.method === 'GET' && p === '/_tykerf/tasks') return json(res, 200, { tasks: tasks(ws), text: tasks(ws, { open: true }).map(sayTask).join('\n') });
     if (req.method === 'GET' && p === '/_tykerf/events') {
@@ -552,8 +555,12 @@ export function createPageHost(ws: Workspace, opts: { name: string; site?: () =>
     // an image for the page (the image tool): checked, named by its content, saved in assets/
     // (with `from`: it was cropped, turned or scaled from another image of the page, remembered so it can be undone)
     if (p === '/_tykerf/asset') {
-      const path = saveImage(ws, new Uint8Array(Buffer.from(String(a.data ?? ''), 'base64')));
-      if (a.from) recordEdit(ws, path, a.from);
+      const bytes = new Uint8Array(Buffer.from(String(a.data ?? ''), 'base64'));
+      // for a box that shows a shared block, the picture is the site's: every page shows it (/assets/…)
+      const site = sharedFor(a.box);
+      if (site) return json(res, 200, { ok: true, path: `/${saveImage(new FolderStore(site), bytes)}` });
+      const path = saveImage(ws, bytes);
+      if (a.from && !String(a.from.from ?? '').startsWith('/')) recordEdit(ws, path, a.from);
       return json(res, 200, { ok: true, path });
     }
     // unused files go to .trash/ (nothing is deleted)
@@ -568,7 +575,11 @@ export function createPageHost(ws: Workspace, opts: { name: string; site?: () =>
       changed();
       return json(res, 200, { ok: true, result: r });
     }
-    if (p === '/_tykerf/asset/fetch') return json(res, 200, { ok: true, path: saveImage(ws, await fetchImage(String(a.url ?? ''))) });
+    if (p === '/_tykerf/asset/fetch') {
+      const site = sharedFor(a.box);
+      const bytes = await fetchImage(String(a.url ?? ''));
+      return json(res, 200, { ok: true, path: site ? `/${saveImage(new FolderStore(site), bytes)}` : saveImage(ws, bytes) });
+    }
     // this page's own values over the site's theme (only those that differ; {} goes back to the site theme)
     if (p === '/_tykerf/head/override') {
       const values = Object.fromEntries(Object.entries((a.values ?? {}) as Record<string, unknown>).map(([k, v]) => [k, String(v)]));

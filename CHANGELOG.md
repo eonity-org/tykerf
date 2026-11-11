@@ -8,6 +8,11 @@
 
 ## Unreleased
 
+- **A picture added to a shared block from a page is the site's.** The image tool saved it in that page's files, so the navigation showed it on that page only; it goes to the site's files now (`/assets/…`), for every page.
+- **The current page stays marked after an edit.** Re-rendering the page in the editor dropped the mark on the shared navigation's link to the page (`aria-current`) until the page was reloaded.
+- **Files kept for Undo don't pile up.** The copies of added or removed files that Undo and Redo need are deleted once no step can bring them back.
+- **The site's own fonts** are offered in the Page tab's font fields.
+
 - **Behaviours from the library.** TYKERF ships six: a contact form that says thank you (and sends to your form service), an accordion, tabs, a carousel, a reveal on scroll and the current year. The contact form, the FAQ and the footer use them; using one brings its behaviour into the site kit, and the kit says which are the library's (with **Update from the library** when it has another version). Writing `data-use="tabs"` in a box's code brings that one too; the Code tab points at one when a box's own script does the same. Kaity sees them in `list_components`.
 - **Behaviours are checked.** + New starts one from a template; saving one without a default export, or with a mistake in its code, is refused; and one that fails on a page is said in the editor (*A behaviour failed on this page*).
 

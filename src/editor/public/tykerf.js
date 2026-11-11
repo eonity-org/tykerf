@@ -55,7 +55,7 @@ const S = {
   showPins: store.get('pins', true),
   taskAt: null, // in task mode, what the pointer is on: { el, block }
   taskTarget: null, // the element whose task is being written
-  kit: { site: false, blocks: [], tags: {}, classes: [], scripts: [], behaviours: [], users: {} }, // the site kit: shared blocks (and the pages that show them), the site's own tags, its class styles
+  kit: { site: false, blocks: [], tags: {}, classes: [], scripts: [], behaviours: [], fonts: [], users: {} }, // (fonts: the site's own, kit/fonts.json) // the site kit: shared blocks (and the pages that show them), the site's own tags, its class styles
 };
 const per = (id) => {
   if (!S.per.has(id)) S.per.set(id, {});
@@ -1278,7 +1278,7 @@ async function renderPage(body) {
            ${THEME_GROUPS.map(([title, test]) => {
              const group = vars.filter(([n]) => test(n));
              return group.length ? `<p class="theme-group">${title()}</p><div class="theme">${group.map(field).join('')}</div>` : '';
-           }).join('')}<datalist id="tykerf-fonts">${FONT_STACKS.map((f) => `<option value="${esc(f)}">`).join('')}</datalist>
+           }).join('')}<datalist id="tykerf-fonts">${[...(S.kit.fonts ?? []).map((f) => `"${f}", system-ui, sans-serif`), ...FONT_STACKS].map((f) => `<option value="${esc(f)}">`).join('')}</datalist>
            <div class="row end">${madeFrom && drifted ? `<button data-page="reset-preset" title="${t('Put every value back to the preset (one undo step)')}">${t('Reset to {preset}', { preset: esc(t(madeFrom.label)) })}</button>` : ''}${scope === 'site' && site?.last ? `<button data-page="site-undo" title="${esc(site.last.label)}">${t('Undo the last site theme change')}</button>` : ''}${scope === 'page' && own.length ? `<button data-page="reset-own">${t('Use the site theme again')}</button>` : ''}<button data-page="theme" class="primary">${scope === 'page' ? t('Apply to this page') : t('Apply theme')}</button></div>
            ${canShare ? `<div class="row start"><button data-page="share">${t('Use this theme for every page')}</button></div><p class="hint">${t('The other pages of the site take this theme, and changing it here changes them all. Copies of websites keep their own look.')}</p>` : ''}`
         : ownLook ? '' : `<p class="muted">${t('This page has no theme yet. Components use one; adding it changes nothing else on the page.')}</p>
@@ -2718,7 +2718,7 @@ async function showPicks() {
 
 async function copyIntoPage() {
   try {
-    const { path } = await api('/asset/fetch', { url: new URL(tool.src, location.href).href });
+    const { path } = await api('/asset/fetch', { url: new URL(tool.src, location.href).href, box: tool.id });
     Object.assign(tool, { picked: path, remote: false, origin: path, derived: false });
     await loadPicture(await (await fetch(path)).blob());
     renderTool();
@@ -2741,7 +2741,8 @@ async function applyTool() {
   try {
     let src = T.picked ?? T.src, size = null;
     // an uploaded file is kept as it is, as the original of any crop made from it
-    if (T.file) src = T.origin = (await api('/asset', { data: await base64(T.file) })).path;
+    // (the box is told: in a shared block, the picture is the site's)
+    if (T.file) src = T.origin = (await api('/asset', { data: await base64(T.file), box: T.id })).path;
     if (T.bitmap) {
       const { w, h } = turnedSize();
       const whole = T.crop.x < 0.5 && T.crop.y < 0.5 && Math.abs(T.crop.w - w) < 0.5 && Math.abs(T.crop.h - h) < 0.5;
@@ -2757,7 +2758,7 @@ async function applyTool() {
         // PNG keeps its transparency; photos become JPEG (every browser can write it)
         const blob = await new Promise((ok) => c.toBlob(ok, T.type === 'image/png' ? 'image/png' : 'image/jpeg', 0.85));
         const from = T.origin && { from: T.origin, crop: T.crop, quarter: T.quarter, max: T.max };
-        src = (await api('/asset', { data: await base64(blob), ...(from ? { from } : {}) })).path;
+        src = (await api('/asset', { data: await base64(blob), box: T.id, ...(from ? { from } : {}) })).path;
       }
     }
     const box = await loadBox(T.id, true);

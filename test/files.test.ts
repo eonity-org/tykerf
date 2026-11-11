@@ -1,7 +1,7 @@
 // Web files brought into a page or the site (src/files.ts): from a path or an address, checked by their bytes,
 // named, deduplicated, undone; and the MCP tools that use them (add_file, add_files, set_content's file).
 
-import { existsSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdtempSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import { type Server, createServer } from 'node:http';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -82,6 +82,12 @@ describe('a web file', () => {
     expect(existsSync(join(dir, 'home', 'assets', 'logo-big.png'))).toBe(false);
     home.redo();
     expect(new Uint8Array(readFileSync(join(dir, 'home', 'assets', 'logo-big.png')))).toEqual(PNG);
+    // the bytes kept for redo go once nothing can redo them (a new change ends the redo list)
+    home.undo();
+    const trash = () => (existsSync(join(dir, 'home', '.tykerf', 'trash')) ? readdirSync(join(dir, 'home', '.tykerf', 'trash')) : []);
+    expect(trash()).toHaveLength(2); // this one, and the one undone earlier and never redone
+    home.setContent('text', '<p>a new change</p>', 'user');
+    expect(trash()).toEqual([]);
     // the site's files: /assets/, a step of the site's history
     const s = addFile({ site: dir }, src(PDF, 'menu.pdf'), { from: 'test' });
     expect(s.address).toBe('/assets/menu.pdf');

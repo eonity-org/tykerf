@@ -7,6 +7,7 @@
 
 import { createHash } from 'node:crypto';
 import type { Workspace } from './workspace.js';
+import type { Store } from './store.js';
 
 export const MAX_IMAGE_BYTES = 15 * 1024 * 1024;
 
@@ -68,14 +69,18 @@ export function pageFileRefs(code: string): string[] {
   return [...out];
 }
 
-/** Keep an image in the page's assets/; returns its path as boxes refer to it ("assets/img-<hash>.<ext>"). */
-export function saveImage(ws: Workspace, bytes: Uint8Array): string {
+/**
+ * Keep an image in the page's assets/ (or any folder store's: the site's, for a shared block); returns its path as
+ * the folder's boxes refer to it ("assets/img-<hash>.<ext>").
+ */
+export function saveImage(ws: Workspace | Store, bytes: Uint8Array): string {
+  const store = 'store' in ws ? ws.store : ws;
   if (!bytes.length) throw new Error('the image is empty');
   if (bytes.length > MAX_IMAGE_BYTES) throw new Error(`the image is larger than ${MAX_IMAGE_BYTES / 1024 / 1024} MB`);
   const ext = imageType(bytes);
   if (!ext) throw new Error('only PNG, JPEG, GIF, WebP and AVIF images can be added');
   const path = `assets/img-${contentHash(bytes)}.${ext}`;
-  if (!ws.store.exists(path)) ws.store.write(path, bytes);
+  if (!store.exists(path)) store.write(path, bytes);
   return path;
 }
 

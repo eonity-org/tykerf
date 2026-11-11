@@ -584,6 +584,30 @@ describe('a new site', () => {
     await expect.poll(() => page.locator('.kitsec .editor textarea').inputValue()).toBe(readFileSync(join(site, 'kit', 'blocks', 'nav.html'), 'utf8'));
   });
 
+  it('keeps a shared block whole from a page: its pictures are the site\'s, its current link marked after a refresh, the site\'s fonts offered', async () => {
+    const PNG = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 0, 0, 13, 7, 7, 7]).toString('base64');
+    const post = (path: string, data: unknown) => fetch(`${url}${path}`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(data) }).then((r) => r.json());
+    // a picture for the shared navigation is the site's; one for the page's own box stays the page's
+    const shared = await post('home/_tykerf/asset', { data: PNG, box: 'nav' });
+    expect(shared.path).toMatch(/^\/assets\/img-[0-9a-f]{12}\.png$/);
+    expect(existsSync(join(site, shared.path.slice(1)))).toBe(true);
+    const own = await post('home/_tykerf/asset', { data: PNG, box: 'hero' });
+    expect(own.path).toMatch(/^assets\/img-[0-9a-f]{12}\.png$/);
+    // the editor's refresh of the page's body marks this page's link in the shared navigation, as the page does
+    const { kitRead, kitWrite } = await import('../src/kit.js');
+    const before = kitRead(site, 'blocks', 'nav');
+    kitWrite(site, 'blocks', 'nav', '<nav><a href="/home/">Home</a> <a href="/team/">Team</a></nav>');
+    try {
+      const body = (await fetch(`${url}home/_tykerf/page`).then((r) => r.json())).body as string;
+      expect(body).toContain('<a href="/home/" aria-current="page">Home</a>');
+      expect(body).not.toContain('<a href="/team/" aria-current');
+    } finally {
+      kitWrite(site, 'blocks', 'nav', before);
+    }
+    // the site's own fonts are offered in the Page tab's font fields
+    expect((await fetch(`${url}home/_tykerf/kit`).then((r) => r.json())).fonts).toContain('Diavlo');
+  });
+
   it("follows a page renamed or removed from another process (Kaity's site run), and lists Kaity's work", async () => {
     await fetch(`${url}_tykerf/site/new`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ name: 'draft', layout: 'blank' }) });
     await page.goto(`${url}draft/`);

@@ -258,8 +258,18 @@ export class Workspace {
   /** Record a new change. A new change makes the undone steps unreachable, so redo starts over. */
   private log(entry: HistoryEntry) {
     this.store.append(HISTORY, JSON.stringify(entry) + '\n');
+    const hadRedo = this.store.exists(REDO);
     this.store.remove(REDO);
     if (!this.grouping) this.trimHistory();
+    if (hadRedo) this.sweepTrash();
+  }
+
+  /** The bytes kept in .tykerf/trash/ for undo and redo (files.ts) that no step names any more go. */
+  private sweepTrash() {
+    const kept = this.store.list('.tykerf/trash');
+    if (!kept.length) return;
+    const named = (this.store.read(HISTORY) ?? '') + (this.store.read(REDO) ?? '');
+    for (const h of kept) if (!named.includes(`"${h}"`)) this.store.remove(`.tykerf/trash/${h}`);
   }
 
   /** Keep the newest HISTORY_STEPS steps; older entries go to the archive as label, author and time only. */
@@ -268,6 +278,7 @@ export class Workspace {
     if (!cut) return;
     this.store.append(ARCHIVE, cut.archived);
     this.store.write(HISTORY, cut.kept);
+    this.sweepTrash();
   }
 
   types(): Registry {
@@ -836,12 +847,12 @@ export class Workspace {
     return this.store.list(ASSETS);
   }
 
-  /** The full page: layout + box code + the site's shared head + head.html. Every renderer (CLI, editor, MCP) goes through this. */
-  page(opts: { title?: string; head?: string; bodyEnd?: string } = {}): string {
-    // the site's icon first: a page that has its own (an imported copy) declares it later, and that one wins
-    const l = this.load();
+  /**
+   * Every box's code as this page shows it: a shared block's with this page's slots filled and its links to this
+   * page marked as the current one (aria-current). The page and the editor's refresh of its body both use it.
+   */
+  shownContents(l: Layout = this.load()): Contents {
     const c = this.contents();
-    // a site menu in a shared block shows which page this is
     const site = this.site, page = this.pageName;
     if (site && page) {
       let home: boolean | undefined; // read once, and only when a box shows a shared block
@@ -849,6 +860,15 @@ export class Workspace {
         if (n.type === 'leaf' && n.use && c[n.id] !== undefined) c[n.id] = markCurrentPage(c[n.id], page, (home ??= site.home() === page));
       });
     }
+    return c;
+  }
+
+  /** The full page: layout + box code + the site's shared head + head.html. Every renderer (CLI, editor, MCP) goes through this. */
+  page(opts: { title?: string; head?: string; bodyEnd?: string } = {}): string {
+    // the site's icon first: a page that has its own (an imported copy) declares it later, and that one wins
+    const l = this.load();
+    const c = this.shownContents(l);
+    const site = this.site;
     // each head's styles in their cascade layer (render.ts LAYERS): the site's code with the kit, a page's above it
     return toHTML(l, c, { lang: site?.lang() ?? 'en', ...opts, head: (site?.icon() ?? '') + layerStyles(this.siteHead(), 'kit') + this.kitHead() + layerStyles(this.head(), 'page') + (opts.head ?? '') });
   }

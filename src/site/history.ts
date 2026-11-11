@@ -175,6 +175,7 @@ export class SiteHistory {
   private log(e: SiteEntry) {
     this.migrate();
     this.store.append(HISTORY, JSON.stringify(e) + '\n');
+    const hadRedo = this.store.exists(REDO);
     this.store.remove(REDO);
     if (grouping.has(this.store.root)) return;
     const cut = trimSteps(lines(this.store.read(HISTORY)));
@@ -182,6 +183,15 @@ export class SiteHistory {
       this.store.append(ARCHIVE, cut.archived);
       this.store.write(HISTORY, cut.kept);
     }
+    if (cut || hadRedo) this.sweepTrash();
+  }
+
+  /** The bytes kept in .tykerf/trash/ for undo and redo that no step names any more go. */
+  private sweepTrash() {
+    const kept = this.store.list('.tykerf/trash');
+    if (!kept.length) return;
+    const named = (this.store.read(HISTORY) ?? '') + (this.store.read(REDO) ?? '');
+    for (const h of kept) if (!named.includes(`"${h}"`)) this.store.remove(`.tykerf/trash/${h}`);
   }
 
   /**
