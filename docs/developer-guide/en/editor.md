@@ -29,7 +29,7 @@ The editor always serves a site (`siteKind`): a folder of pages, or a new or emp
 | `GET /_tykerf/site` | `pages`, `sharedTheme`, `home`, `titles`, `kaity` (what she is doing now) |
 | `POST /_tykerf/site/new` | A new page: `{name, layout, theme}`, `{name, url}` (a copy), `{name, like}` (like another page) or `{name, prompt, images, zip, theme}` (the AI builds it; `zip` is a design export `{name, data}`: answers with `select`, the block to open on). A copy and an AI build answer at once and run as the page's **job** (below) |
 | `POST /_tykerf/site/rename`, `/site/remove`; `GET /site/links` | Rename a page (links follow) or move it to `.trash/`; refused while any page's AI runs. The links between pages (the manager's *Links between pages*) |
-| `GET /favicon.<ext>`; `GET`/`POST /_tykerf/site/icon` | The site's icon (`siteIcon` in `site.ts`: `favicon.svg/png/ico` at the site root, else `madeIcon`), served to visitors too; `{type, data}` (base64) sets it, `{}` goes back to the made one. Pages link to it through `SiteLink.icon()`, which `Workspace.page()` puts first in the head. TYKERF's mark is `/_tykerf/favicon.svg`: its own screens use it, and `tykerf.js` swaps a page's icon for it while editing |
+| `GET /favicon.<ext>`; `GET`/`POST /_tykerf/site/icon` | The site's icon (`siteIcon` in `site.ts`: `favicon.svg/png/ico` at the site root, else `madeIcon`), served to visitors too; `{type, data}` (base64) sets it, `{}` goes back to the made one. Pages link to it through `Site.icon()`, which `Workspace.page()` puts first in the head. TYKERF's mark is `/_tykerf/favicon.svg`: its own screens use it, and `tykerf.js` swaps a page's icon for it while editing |
 | `POST /_tykerf/site/duplicate` | `{name, to?}`: a copy of the page (`duplicatePage`: without its history, chats or `out/`), named `<name>-copy` when `to` is missing; refused while Kaity works on it |
 | `GET/POST /_tykerf/site/head`, `POST /site/head/undo`, `/site/theme/share` | The site's shared theme, its undo, and turning one page's theme into the site's |
 | `POST /_tykerf/site/home {name}`, `/site/title {name, title}` | The home page and a page's own title, in `site.json` |
@@ -52,7 +52,8 @@ The editor always serves a site (`siteKind`): a folder of pages, or a new or emp
 | `GET /kit/loader.js`, `/kit/scripts/<name>.js` | The behaviours' loader (`KIT_LOADER`) and the site's behaviours, for every page of the site (visitors too); also for a lone page of a site |
 | `GET /_tykerf/site/kit` | The manager's view: files by kind, the last change, `identicalBoxes`, and the pages that show each block |
 | `GET /_tykerf/site/kit/file?kind=&name=`; `POST /_tykerf/site/kit/file` | One kit file; create, replace or remove it (`text: null`) through `kitWrite` |
-| `POST /_tykerf/site/kit/undo`, `/_tykerf/site/kit/share` | Undo the last kit change; share a box that is the same on several pages (`shareIdentical`) |
+| `POST /_tykerf/site/kit/share` | Share a box that is the same on several pages (`shareIdentical`) |
+| `GET /_tykerf/site/history`; `POST /_tykerf/site/undo`, `/_tykerf/site/redo` | The site's one history (`SiteHistory`): its last 30 steps and what Undo and Redo would do; undo or redo its last step (409 while Kaity works on the whole site). The older `/_tykerf/site/head/undo` and `/_tykerf/site/kit/undo` do the same undo |
 
 Every kit change refreshes every open page (a watcher on the site's `kit/` folder catches changes from Kaity's MCP process and from shared blocks edited on a page); a change to the kit's styles or behaviours changes `state().head`, so open pages reload. After it re-renders the page, the client dispatches `tykerf:render` for the behaviours.
 

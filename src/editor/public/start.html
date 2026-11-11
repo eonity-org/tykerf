@@ -161,6 +161,15 @@
   .pages .who .kmark { margin: 0 0 0 6px; }
   /* what Kaity is doing now, across the site: each run opens where she works */
   .now { margin: 0 0 14px; padding: 10px 12px; border-radius: 10px; background: #E6F0F4; }
+  .site-undo { margin: 0 0 14px; font-size: 13px; }
+  .site-undo[hidden] { display: none; }
+  .site-undo .row { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; }
+  .site-undo .row button { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .site-undo .msg.error { color: #B42318; }
+  .site-undo details { margin-top: 6px; }
+  .site-undo summary { cursor: pointer; opacity: .8; }
+  .site-undo ol { margin: 6px 0 0; padding-left: 20px; display: grid; gap: 2px; }
+  .site-undo .who { opacity: .7; }
   .now[hidden] { display: none; }
   .now h3 { display: flex; align-items: center; margin: 0 0 6px; font-size: 13px; font-weight: 600; }
   .now ul { gap: 2px; }
@@ -313,6 +322,10 @@
       <button type="button" class="publish-btn" aria-expanded="false" aria-controls="site-publish" data-t>Publish</button>
     </div>
     <div class="now" hidden role="status"><h3><span class="kslot-now"></span><span data-t>Kaity is working</span></h3><ul></ul><button type="button" class="link all-work" data-t>All of Kaity's work</button></div>
+    <div class="site-undo" hidden>
+      <div class="row"><button type="button" data-site="undo" hidden></button><button type="button" data-site="redo" hidden></button><span class="msg" role="status"></span></div>
+      <details class="site-history"><summary data-t>Site history</summary><ol></ol></details>
+    </div>
     <h2 id="pages-h" data-t>Pages</h2>
     <ul class="list"></ul>
     <p class="error" role="alert" hidden></p>
@@ -340,7 +353,7 @@
       <div class="icon-row"><img class="icon-preview" alt=""><span class="icon-say"></span><button type="button" data-icon="pick" data-t>Upload an icon…</button><button type="button" data-icon="reset" hidden data-t>Use the made one</button><span class="icon-msg" role="status"></span></div>
       <div class="icon-row lang-row"><label><span data-t>Language</span> <input class="lang" spellcheck="false" size="8" maxlength="35" placeholder="en"></label><span class="icon-say" data-t>What language the pages are in, such as es, en or pt-BR: browsers, screen readers and search engines read it.</span><button type="button" data-lang="save" data-t>Save</button><span class="icon-msg" role="status"></span></div>
       <textarea spellcheck="false" aria-label="The code of every page's head"></textarea>
-      <div class="acts"><span class="msg" role="status"></span><button type="button" data-code="undo" hidden></button><button type="button" data-code="close" data-t>Close</button><button type="button" class="primary" data-code="save" data-t>Save</button></div>
+      <div class="acts"><span class="msg" role="status"></span><button type="button" data-code="close" data-t>Close</button><button type="button" class="primary" data-code="save" data-t>Save</button></div>
     </section>
     <section class="kitsec" id="site-kit" hidden aria-labelledby="kit-h">
       <h2 id="kit-h" data-t>The site kit</h2>
@@ -352,7 +365,7 @@
         <textarea spellcheck="false" aria-label="The file's code"></textarea>
         <div class="acts"><button type="button" class="danger" data-kit="remove" data-t>Remove</button><span class="msg" role="status"></span><button type="button" data-kit="cancel" data-t>Close</button><button type="button" class="primary" data-kit="save" data-t>Save</button></div>
       </div>
-      <div class="acts"><span class="msg kmsg" role="status"></span><button type="button" data-kit="undo" hidden></button></div>
+      <div class="acts"><span class="msg kmsg" role="status"></span></div>
     </section>
     <section class="links" id="site-links" hidden aria-labelledby="links-h">
       <h2 id="links-h" data-t>Links between pages</h2>
@@ -450,12 +463,7 @@ if (site.signin) try { localStorage.setItem('tykerf.admin', 'true'); } catch {}
 // ---------- styles and scripts for every page: the site head's own code ----------
 
 const code = document.querySelector('.code'), codeBox = code.querySelector('textarea'), codeMsg = code.querySelector('.msg');
-const stylesBtn = document.querySelector('.styles-btn'), undoBtn = code.querySelector('[data-code="undo"]');
-
-function showUndo(last) {
-  undoBtn.hidden = !last;
-  if (last) undoBtn.textContent = t('Undo: {label}', { label: last.label });
-}
+const stylesBtn = document.querySelector('.styles-btn');
 
 async function openCode() {
   if (!newBox.hidden) closeNew();
@@ -467,7 +475,6 @@ async function openCode() {
   showLang();
   const j = await fetch('/_tykerf/site/code').then((r) => r.json()).catch(() => ({ code: '' }));
   codeBox.value = j.code ?? '';
-  showUndo(j.last);
   codeMsg.textContent = '';
   code.hidden = false;
   idle.hidden = true;
@@ -489,7 +496,7 @@ function closeCode() {
 
 const kitSec = document.querySelector('.kitsec'), kinds = kitSec.querySelector('.kinds'), suggest = kitSec.querySelector('.suggest');
 const kEditor = kitSec.querySelector('.editor'), kName = kEditor.querySelector('input'), kText = kEditor.querySelector('textarea');
-const kMsg = kEditor.querySelector('.msg'), kitMsg = kitSec.querySelector('.kmsg'), kUndo = kitSec.querySelector('[data-kit="undo"]');
+const kMsg = kEditor.querySelector('.msg'), kitMsg = kitSec.querySelector('.kmsg');
 const KINDS = [
   ['styles', () => t('Styles'), () => t('CSS for every page, after the theme and before each page\'s own styles.'), '/* every page */\n'],
   ['scripts', () => t('Behaviours'), () => t('A module per behaviour; an element with data-use="<name>" turns it on.'), 'export default function (el) {\n  // what it does to el\n  return () => { /* undo it */ };\n}\n'],
@@ -503,8 +510,6 @@ async function openKit() {
   kitSec.hidden = false;
   const j = await fetch('/_tykerf/site/kit').then((r) => r.json()).catch(() => null);
   if (!j?.ok) return (kitSec.hidden = true);
-  kUndo.hidden = !j.last;
-  if (j.last) kUndo.textContent = t('Undo: {label}', { label: j.last.label });
   kinds.replaceChildren(...KINDS.map(([kind, label, help, ]) => {
     const files = kind === 'tags' ? (j.files.tags ? ['tags'] : []) : j.files[kind];
     return el('div', { className: 'kind', title: help() }, el('b', { textContent: label() }),
@@ -564,7 +569,6 @@ kitSec.onclick = async (e) => {
   const a = e.target.closest('[data-kit]')?.dataset.kit;
   if (!a) return;
   if (a === 'cancel') return (kEditor.hidden = true);
-  if (a === 'undo') return kitDo('/_tykerf/site/kit/undo', {}, (r) => (r.result ? t('Undone: {label}', { label: r.result }) : t('Nothing to undo.')));
   if (!kitOpen) return;
   const name = kitOpen.kind === 'tags' ? 'tags' : kName.value.trim();
   kMsg.className = 'msg';
@@ -744,16 +748,8 @@ code.onclick = async (e) => {
   codeMsg.className = 'msg';
   try {
     if (a === 'save') {
-      const j = await post('/_tykerf/site/code', { code: codeBox.value });
-      showUndo(j.last);
-      codeMsg.textContent = t('Saved: every page uses it now.');
-    }
-    if (a === 'undo') {
-      await post('/_tykerf/site/head/undo', {});
-      const j = await fetch('/_tykerf/site/code').then((r) => r.json());
-      codeBox.value = j.code ?? '';
-      showUndo(j.last);
-      codeMsg.textContent = t('Undone.');
+      await post('/_tykerf/site/code', { code: codeBox.value });
+      codeMsg.textContent = t('Saved: every page uses it now. Undo is at the top, with the site\'s other changes.');
     }
   } catch (err) {
     codeMsg.className = 'msg error';
@@ -1017,8 +1013,45 @@ async function post(path, data) {
   const r = await fetch(path, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(data) });
   const j = await r.json().catch(() => ({ ok: false, error: `HTTP ${r.status}` }));
   if (!r.ok || j.ok === false) throw new Error(j.error || `HTTP ${r.status}`);
+  // a change to the site may be a step of its history: Undo says what it would take back
+  if (path.startsWith('/_tykerf/site/')) loadSiteHistory();
   return j;
 }
+
+// ---------- the site's one history: Undo, Redo and the latest steps (its head, its kit, its settings) ----------
+
+const siteUndo = document.querySelector('.site-undo'), siteUndoMsg = siteUndo.querySelector('.msg');
+const whenOf = (at) => { try { return new Date(at).toLocaleString(); } catch { return at; } };
+
+async function loadSiteHistory() {
+  const j = await fetch('/_tykerf/site/history').then((r) => r.json()).catch(() => null);
+  if (!j?.ok) return;
+  const [u, r] = ['undo', 'redo'].map((k) => siteUndo.querySelector(`[data-site="${k}"]`));
+  u.hidden = !j.undo;
+  if (j.undo) u.textContent = t('Undo: {label}', { label: j.undo.label });
+  r.hidden = !j.redo;
+  if (j.redo) r.textContent = t('Redo: {label}', { label: j.redo.label });
+  siteUndo.hidden = !j.undo && !j.redo && !j.steps.length;
+  siteUndo.querySelector('ol').replaceChildren(...j.steps.map((s) => el('li', {},
+    el('span', { textContent: s.label }), el('span', { className: 'who', textContent: ` · ${s.author === 'ai' ? t('Kaity') : t('you')} · ${whenOf(s.at)}` }))));
+}
+
+siteUndo.onclick = async (e) => {
+  const a = e.target.closest('[data-site]')?.dataset.site;
+  if (!a) return;
+  siteUndoMsg.className = 'msg';
+  try {
+    const j = await post(`/_tykerf/site/${a}`, {});
+    siteUndoMsg.textContent = a === 'undo' ? t('Undone: {label}', { label: j.result }) : t('Redone: {label}', { label: j.result });
+    // what is open shows the site as it is now
+    if (!kitSec.hidden) openKit();
+    if (!code.hidden) openCode();
+    refresh(true);
+  } catch (err) {
+    siteUndoMsg.className = 'msg error';
+    siteUndoMsg.textContent = err.message;
+  }
+};
 
 function row(name) {
   const li = el('li');
@@ -1149,6 +1182,7 @@ function render() {
 let away = false; // the editor didn't answer (stopped or restarting): when it is back, it may be a newer TYKERF
 async function refresh(force = false) {
   if (!work.hidden) loadWork(); // her steps, live
+  loadSiteHistory(); // Kaity, or another tab, may have changed the site
   const now = await fetch('/_tykerf/site').then((r) => r.json()).catch(() => null);
   if (!now) return void (away = true);
   if (away) (away = false), checkVersion();
@@ -1236,6 +1270,7 @@ kaityNow = site.kaity ?? kaityNow;
 renderNow();
 render();
 refreshTrash();
+loadSiteHistory();
 // pages may come and go from elsewhere meanwhile (Claude Desktop, another tab)
 setInterval(() => (refresh(), refreshTrash()), 2000);
 // the editor's Site menu opens her work here (#kaity-work)

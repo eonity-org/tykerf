@@ -17,9 +17,9 @@ import { type IncomingMessage, type ServerResponse, createServer } from 'node:ht
 import { isIP } from 'node:net';
 import { basename, dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { HOME_PAGE, type PublishSettings, addSitePage, pageMoves, emptyTrash, lastSiteHeadChange, newPageLike, newSitePage, pageLinks, pageNameError, pageTitle, pageWorkspace, readSite, setLang, duplicatePage, removePage, renamePage, setHome, setPublish, setSiteIcon, siteIcon, setSiteCode, setSiteHead, setTitle, shareTheme, siteCode, siteHead, siteIndex, siteKind, siteLink, siteMap, siteOf, sitePages, trashedPages, undoSiteHead, blockUsers, identicalBoxes, shareIdentical } from '../site.js';
+import { HOME_PAGE, type PublishSettings, addSitePage, pageMoves, emptyTrash, lastSiteHeadChange, newPageLike, newSitePage, pageLinks, pageNameError, pageTitle, pageWorkspace, readSite, setLang, duplicatePage, removePage, renamePage, setHome, setPublish, setSiteIcon, siteIcon, setSiteCode, setSiteHead, setTitle, shareTheme, siteCode, siteHead, siteIndex, siteKind, siteMap, siteOf, sitePages, trashedPages, Site, blockUsers, identicalBoxes, shareIdentical } from '../site.js';
 import { FolderStore, MemoryStore } from '../store.js';
-import { KIT_LOADER, type KitKind, kitList, kitRead, kitWarning, kitWrite, lastKitChange, undoKit } from '../kit.js';
+import { KIT_LOADER, type KitKind, kitList, kitRead, kitWarning, kitWrite, lastKitChange } from '../kit.js';
 import { DEFAULT_THEME, EMPTY_LAYOUT, createPage, hasTheme, pageLayouts, libraryAsset, theme, themes } from '../library.js';
 import { Workspace } from '../workspace.js';
 import { AI, type Runner, SITE_CHAT } from './ai.js';
@@ -155,7 +155,7 @@ const hosts = new Map<string, PageHost>();
 // Kaity for the whole site, in the site manager: one conversation kept in the site folder, her steps
 // streamed to the manager; she lists, opens and makes the pages herself (MCP with the site as home)
 const siteClients = new Set<ServerResponse>();
-const siteAI = new AI(new Workspace(dir, { site: siteLink(dir) }), (event, data) => {
+const siteAI = new AI(new Workspace(dir, { site: new Site(dir) }), (event, data) => {
   for (const c of siteClients) c.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
   if ((data as { role?: string }).role === 'end') followMoves(); // in case the folder watcher missed one
 }, runner, { site: dir });
@@ -177,6 +177,11 @@ const BUILD_BRIEF = [
 
 /** Whether the site's pages share one theme (the site's head.html has it). */
 const sharedTheme = () => hasTheme(siteHead(dir));
+/** The site's last step, when it changed the head: what the Page tab's site Undo would take back (else null). */
+const headStep = () => {
+  const top = new Site(dir).history.peekUndo();
+  return top && (top.kind === 'head' || top.kinds?.includes('head')) ? top : null;
+};
 /** After a change every open page must show: the site's theme, or links rewritten in other pages. */
 const refreshAll = () => {
   for (const h of hosts.values()) h.refresh();
@@ -290,7 +295,7 @@ async function serveGlobal(req: IncomingMessage, res: ServerResponse, p: string,
     if (rest === '') {
       // theme "site": the layout with the site's shared theme, as a new page of this site would look
       const shared = th === 'site' && sharedTheme();
-      const ws = new Workspace(new MemoryStore('memory:preview'), { site: shared ? siteLink(dir) : null });
+      const ws = new Workspace(new MemoryStore('memory:preview'), { site: shared ? new Site(dir) : null });
       createPage(ws, tpl, shared ? DEFAULT_THEME : th, { ownTheme: !shared });
       res.writeHead(200, { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store', 'content-security-policy': "sandbox; script-src 'none'" });
       res.end(ws.page({ title: tpl }));
@@ -459,15 +464,30 @@ async function serveGlobal(req: IncomingMessage, res: ServerResponse, p: string,
       publishing = false;
     }
   }
+  // the site's one history: its head, its kit and its settings (site/history.ts)
+  if (req.method === 'GET' && p === '/_tykerf/site/history') {
+    const h = new Site(dir).history;
+    return json(res, 200, { ok: true, steps: h.steps(30), undo: h.peekUndo(), redo: h.peekRedo() }), true;
+  }
+  // (the head's and the kit's Undo of older managers and editors: the same one Undo)
+  if (req.method === 'POST' && ['/_tykerf/site/undo', '/_tykerf/site/redo', '/_tykerf/site/head/undo', '/_tykerf/site/kit/undo'].includes(p)) {
+    await body(req);
+    if (siteAI.running()) return json(res, 409, { ok: false, error: 'Kaity is working on the whole site; wait for her to finish' }), true;
+    const site = new Site(dir);
+    if (p === '/_tykerf/site/kit/undo' && !site.history.peekUndo()) return json(res, 200, { ok: true, result: null }), true;
+    const result = p === '/_tykerf/site/redo' ? site.redo() : site.undo();
+    refreshAll();
+    const h = site.history;
+    return json(res, 200, { ok: true, result, undo: h.peekUndo(), redo: h.peekRedo(), last: lastSiteHeadChange(dir) }), true;
+  }
   if (req.method === 'GET' && p === '/_tykerf/site/head') {
-    json(res, 200, { ok: true, html: siteHead(dir), last: lastSiteHeadChange(dir) });
+    json(res, 200, { ok: true, html: siteHead(dir), last: headStep() });
     return true;
   }
-  if (req.method === 'POST' && (p === '/_tykerf/site/head' || p === '/_tykerf/site/head/undo' || p === '/_tykerf/site/theme/share')) {
+  if (req.method === 'POST' && (p === '/_tykerf/site/head' || p === '/_tykerf/site/theme/share')) {
     const a = await body(req);
     let result: unknown = null;
     if (p === '/_tykerf/site/head') setSiteHead(dir, String(a.html ?? ''));
-    if (p === '/_tykerf/site/head/undo') result = undoSiteHead(dir);
     if (p === '/_tykerf/site/theme/share') {
       if (!sitePages(dir).includes(String(a.page))) return json(res, 422, { ok: false, error: `there is no page "${a.page}" in the site` }), true;
       result = shareTheme(dir, String(a.page));
@@ -528,7 +548,6 @@ async function serveGlobal(req: IncomingMessage, res: ServerResponse, p: string,
         warning = text === null ? null : kitWarning(a.kind as KitKind, String(a.name ?? 'tags'), text);
         if (warning) pageFiles = pageFileRefs(text!).map((f) => `assets/${f}`);
       }
-      else if (p === '/_tykerf/site/kit/undo') result = undoKit(dir);
       else if (p === '/_tykerf/site/kit/share') result = shareIdentical(dir, String(a.box ?? ''));
       else return res.writeHead(404).end('not found'), true;
       refreshAll();

@@ -392,7 +392,7 @@ export class AI {
     this.run = run;
     // the site's log of Kaity's work, for every page and the whole site (kaity-log.ts)
     const logSite = site ?? this.ws.site?.dir ?? null;
-    if (logSite) logStart(logSite, { run: run.key, page: site ? null : (this.ws.site?.page ?? null), block: site ? null : id, request: prompt.trim(), ...(this.runTasks ? { tasks: this.runTasks } : {}) });
+    if (logSite) logStart(logSite, { run: run.key, page: site ? null : (this.ws.pageName ?? null), block: site ? null : id, request: prompt.trim(), ...(this.runTasks ? { tasks: this.runTasks } : {}) });
     let answer = '', problem = '';
     // a block is locked for the editor while Kaity works on it; a run on the whole site has no block
     const unlock = site ? () => {} : this.ws.addGuard(lockBlock(() => this.follow()));
@@ -484,7 +484,7 @@ export class AI {
   /** The site's other pages, so a request for a page like one of them can start from it (use_page). */
   private otherPages(): string[] {
     const here = this.ws.store instanceof FolderStore ? basename(this.ws.dir) : null;
-    const others = (this.ws.site?.pageNames?.() ?? []).filter((p) => p !== here);
+    const others = (this.ws.site?.pageNames() ?? []).filter((p) => p !== here);
     return others.length ? [`This page is part of a site with other pages: ${others.join(', ')}. To make this page like one of them, use_page copies its blocks (theme: true also takes its look); then rewrite the text for this page.`] : [];
   }
 

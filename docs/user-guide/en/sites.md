@@ -108,17 +108,23 @@ Links between pages are written from the site root: `/about/`, `/about/#team`. T
 
 ### Styles & scripts
 
-The code every page gets in its head, before the page's own: a stylesheet, a `<style>`, a `<script>`, meta tags. Scripts here run on every page. The theme (colours and fonts) isn't in it; that stays in the Page tab. It has its own **Undo**.
+The code every page gets in its head, before the page's own: a stylesheet, a `<style>`, a `<script>`, meta tags. Scripts here run on every page. The theme (colours and fonts) isn't in it; that stays in the Page tab. **Undo**, at the top of the manager, takes a change back (see [Undo](#undo-and-the-sites-history)).
 
 Above the code is **the site's icon**, the one browser tabs and bookmarks show. TYKERF makes one from the home page's first letter on the theme's accent colour. **Upload an icon…** uses yours instead (SVG, PNG or ICO, up to 512 KB), and **Use the made one** goes back. While you edit, the editor's tabs show TYKERF's mark instead, so they're easy to find; visitors see the site's icon.
 
 Below it is **the site's language**: the language its pages are written in, as a short tag such as `es` (Spanish), `en` (English) or `pt-BR` (Brazilian Portuguese). Every page says it (`<html lang>`), and so do the list of pages and an export; browsers, screen readers and search engines read it. A site is English until you set it, and a site that starts as a copy of a website takes that page's language. Kaity can set it too, when you ask her for the whole site. One language holds for the whole site.
 
+### Undo and the site's history
+
+What the whole site shares has one history, apart from each page's: the theme and **Styles & scripts**, the site kit, and the settings (the home page, page titles, the language, where Publish sends the site). At the top of the manager, **Undo** takes back the last of those changes, whoever made it (you, or Kaity on the whole site), and says which one it is (*Undo: add kit/styles/note.css*); **Redo** brings back what you undid, until the next change. **Site history** below them lists the latest changes, who made them and when. A change Kaity makes as one request, across the kit and the settings, undoes as one step.
+
+Renaming, duplicating or removing a page isn't a step of it: a removed page waits in the trash, and a rename can be made again the other way.
+
 ## The site kit
 
 ![The site kit in the site manager, below Styles & scripts: the kit's styles and behaviours, a footer shared by all seven pages, box types and tags](../images/site-kit.png)
 
-The site kit holds what every page shares besides the theme, one small named file each, in the site's `kit/` folder. It opens below **Styles & scripts** in the site manager: each kind lists its files (click one to edit it, **+ New** to add one), and **Undo** takes back the last change.
+The site kit holds what every page shares besides the theme, one small named file each, in the site's `kit/` folder. It opens below **Styles & scripts** in the site manager: each kind lists its files (click one to edit it, **+ New** to add one). **Undo**, at the top of the manager, takes back a change, with the site's other changes.
 
 | Kind | What it is | Where it shows |
 |---|---|---|
@@ -142,7 +148,7 @@ The site kit holds what every page shares besides the theme, one small named fil
 **Shared blocks.** A navigation or a footer is the same on every page, so it should be one thing:
 - The kit lists the boxes that are already the same on several pages (*These boxes are the same on several pages…*). **Share nav** makes one shared block from it and shows it on all of those pages.
 - In the editor, **Share…** on a box does the same from one page; the dialog also offers the site's other shared blocks to show instead.
-- A box that shows a shared block has a **shared** chip in the tree and a notice above its tabs. A change to it (its text, its code, Kaity's) changes every page that shows it; the site manager's **Undo** takes that back, not the page's.
+- A box that shows a shared block has a **shared** chip in the tree and a notice above its tabs. A change to it (its text, its code, Kaity's) changes every page that shows it. **Undo** on that page takes it back from every page, and says so (*shared block nav, on 8 pages*), as long as it's still the site's last change; once something else changed the site after it, Undo says to use the site manager's **Undo**, with a link to it.
 - **Make this page's own copy** gives this page the block's code as it is now, to change on its own; the other pages keep the shared block. It's one undo step on the page.
 - Pictures and other files a shared block uses are the site's, not one page's. When you share a box that uses its page's files (a logo in `assets/`), they're copied to the site's `assets/` and the block points at them there (`/assets/logo.png`), so every page shows them; the message after sharing names them. If the site already has a different file of that name, it stays, and the copy gets a name of its own (`logo-1a2b3c….png`).
 - If you write a shared block by hand in the kit with a page's file (`assets/logo.png`), it's saved, with a warning: only that page has the file. Kaity's check lists it on every page that shows the block.
@@ -154,14 +160,14 @@ The site kit holds what every page shares besides the theme, one small named fil
 1. Make the navigation on one page (by hand, or ask Kaity), and give its box a name such as `nav`.
 2. Select the box and press **Share…**, or open the kit and press **Share nav** if the pages already have the same box. The box now shows a shared block, with a **shared** chip.
 3. On each other page, select its navigation box, press **Share…** and choose the site's `nav` to show instead of its own code. A page made later from a layout with a `nav` box shows it from the start.
-4. Change the menu on any page, in its text or code: every page shows the change. The site manager's **Undo** takes it back.
+4. Change the menu on any page, in its text or code: every page shows the change. **Undo** on that page, or in the site manager, takes it back.
 5. A page that should differ takes **Make this page's own copy**. To show where you are, style `a[aria-current]` in a kit style: the current page's link in a shared block is marked for you.
 
 Kaity changes the kit only when you ask her for the whole site in the site manager, and she says which pages a change reaches. Asked about one block, she can't change a shared block; she'll suggest making the page's own copy. Exports and Publish include the kit: its styles in each page, its behaviours as files.
 
 ## One theme for every page
 
-The first page's theme becomes the site's: it lives in the site's own `head.html` (with its fonts in the site's `assets/`), and every page uses it before its own `head.html`. Change it in the **Page** tab of any page (*Every page*); *Undo the last site theme change* sits next to it. A page can set some values for itself with *This page only*, and the Page tab always says where a page's look comes from (see [the theme](layouts.md#the-theme)). Copies of websites keep their own look.
+The first page's theme becomes the site's: it lives in the site's own `head.html` (with its fonts in the site's `assets/`), and every page uses it before its own `head.html`. Change it in the **Page** tab of any page (*Every page*); *Undo the last site theme change* sits next to it while the site's last change is the theme's. A page can set some values for itself with *This page only*, and the Page tab always says where a page's look comes from (see [the theme](layouts.md#the-theme)). Copies of websites keep their own look.
 
 Sites made before TYKERF shared themes keep a theme per page. The Page tab of one of their pages offers **Use this theme for every page**: it becomes the site's theme, and the other pages drop their own (one undo step on each).
 

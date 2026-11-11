@@ -8,6 +8,12 @@
 
 ## Unreleased
 
+- **For developers: the site is a class.** `src/site.ts` is now `src/site/` (settings, head, icon, pages, blocks, history), with `class Site`: `new Site(dir).page(name)` is a page of it, and `Workspace` takes it as `{ site }` (the `SiteLike` interface, every method required) instead of a bag of optional closures; `ws.pageName` is the page's name in its site. `src/site.js`, `siteLink`, `pageWorkspace`, `undoSiteHead`, `undoKit` and the `SiteLink` type still work, for one release.
+
+- **A page's Undo takes back a shared block changed from it.** Editing a shared navigation in place on a page and pressing Undo there did nothing: the change was only in the site manager. Undo on the page now takes it back from every page, and its tooltip says which shared block and on how many pages, while it is still the site's last change; after another change to the site, it says to undo it in the site manager, with a link.
+
+- **One Undo for the whole site.** The site's theme and *Styles & scripts*, its kit and its settings (home page, titles, language, publishing) each had their own undo, or none; the manager had two **Undo** buttons and no Redo. They are now one history, with **Undo** and **Redo** at the top of the site manager, naming the step they would take back, and a **Site history** list of the latest changes. A request Kaity makes across the kit and the settings undoes as one step. Older sites' histories are folded in on first use.
+
 - **Copies of a page keep their shared blocks shared.** *Like this page*, `use_page` and `new_page copy=` wrote the shared block's code into the new page's own box under the link, so *Make this page's own copy* later brought back the block as it was when the page was copied; `use_page` even wrote it back into the block. A copy now takes only the box's own code, and the block stays the site's.
 
 - **Kaity can give a site one theme.** A site built page by page (through Claude, or from before shared themes) ended with a theme on every page, and an agent applied presets to each in turn. On a run over the whole site, `share_theme` makes one page's theme the site's, which every page then uses (each page can undo its part), and `get_theme` says when the pages each have their own.

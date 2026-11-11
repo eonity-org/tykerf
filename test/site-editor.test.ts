@@ -10,6 +10,7 @@ import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { logEnd, logStart } from '../src/editor/kaity-log.js';
 import { readTheme, themes } from '../src/library.js';
 import { removePage, renamePage } from '../src/site.js';
+import { kitWrite } from '../src/kit.js';
 import { freePort } from './ports.js';
 
 vi.setConfig({ testTimeout: 30_000 });
@@ -400,10 +401,25 @@ describe('a new site', () => {
     await page.locator('.code textarea').fill('<style data-tykerf-theme>:root{}</style>');
     await page.locator('.code [data-code="save"]').click();
     await page.locator('.code .msg.error', { hasText: 'Page tab' }).waitFor();
-    await page.locator('.code [data-code="undo"]').click();
-    await page.locator('.code .msg', { hasText: 'Undone' }).waitFor();
-    expect(await page.locator('.code textarea').inputValue()).toBe('');
+    // the site's one Undo, at the top: it takes back the head's change and the kit's, newest first
+    const undo = page.locator('.site-undo [data-site="undo"]');
+    await expect.poll(() => undo.textContent()).toBe('Undo: edit the styles and scripts of every page');
     await page.locator('.code [data-code="close"]').click();
+    kitWrite(site, 'styles', 'note', '.t-note { color: blue }'); // a kit change after it (as Kaity's would come)
+    await page.reload();
+    await expect.poll(() => undo.textContent()).toBe('Undo: add kit/styles/note.css');
+    expect(await page.locator('.site-history li').first().textContent()).toMatch(/^add kit\/styles\/note\.css · you · /);
+    await undo.click();
+    await page.locator('.site-undo .msg', { hasText: 'Undone: add kit/styles/note.css' }).waitFor();
+    expect(existsSync(join(site, 'kit', 'styles', 'note.css'))).toBe(false);
+    await expect.poll(() => undo.textContent()).toBe('Undo: edit the styles and scripts of every page');
+    await undo.click();
+    await page.locator('.site-undo .msg', { hasText: 'Undone: edit the styles and scripts of every page' }).waitFor();
+    expect(await (await fetch(`${url}home/`)).text()).not.toContain('outline: 3px solid red');
+    // and Redo brings it back
+    await page.locator('.site-undo [data-site="redo"]').click();
+    await page.locator('.site-undo .msg', { hasText: 'Redone: edit the styles and scripts of every page' }).waitFor();
+    expect(await (await fetch(`${url}home/`)).text()).toContain('outline: 3px solid red');
 
     // a page's name shows it as it is, the pencil opens it in the editor, and a name field renames it
     const homeRow = page.locator('.pages li', { has: page.locator('.who a', { hasText: /^home$/ }) });

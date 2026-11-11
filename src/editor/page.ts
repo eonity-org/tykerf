@@ -134,8 +134,13 @@ export function createPageHost(ws: Workspace, opts: { name: string; site?: () =>
   function state() {
     const layout = ws.load();
     const codes = new Set(ws.boxIds());
-    const undo = ws.peekUndo();
-    return { name: opts.name, site: opts.site?.() ?? null, tree: panelTree(layout.root, codes), slice: serializeSlice(layout), ai: ai.running(), aiRunner: ai.runnerInfo(), buffer: bufferSummary(), canUndo: !!undo, lastChange: undo?.label ?? null, nextRedo: ws.peekRedo()?.label ?? null, head: headVersion(), build: buildFocus() };
+    const undo = ws.peekUndo(), redo = ws.peekRedo();
+    return {
+      name: opts.name, site: opts.site?.() ?? null, tree: panelTree(layout.root, codes), slice: serializeSlice(layout), ai: ai.running(), aiRunner: ai.runnerInfo(), buffer: bufferSummary(),
+      canUndo: !!undo, lastChange: undo?.label ?? null, nextRedo: redo?.label ?? null, head: headVersion(), build: buildFocus(),
+      // a step that changes a shared block: the Undo and Redo buttons say so (it changes every page that shows it)
+      undoBlock: undo?.site ? undo.block ?? null : null, redoBlock: redo?.site ? redo.block ?? null : null,
+    };
   }
 
   // ---------- operations the panel may ask for ----------
@@ -469,7 +474,7 @@ export function createPageHost(ws: Workspace, opts: { name: string; site?: () =>
     if (req.method === 'GET' && p === '/_tykerf/assets') return json(res, 200, { images: pageImages(ws) });
     if (req.method === 'GET' && p === '/_tykerf/asset/origin') return json(res, 200, { origin: imageOrigin(ws, url.searchParams.get('src') ?? '') });
     // a refresh re-renders the body only: the site's language comes along for <html lang>
-    if (req.method === 'GET' && p === '/_tykerf/page') return json(res, 200, { ...renderParts(ws.load(), ws.contents()), lang: ws.site?.lang?.() ?? 'en' });
+    if (req.method === 'GET' && p === '/_tykerf/page') return json(res, 200, { ...renderParts(ws.load(), ws.contents()), lang: ws.site?.lang() ?? 'en' });
     if (req.method === 'GET' && p === '/_tykerf/box') {
       const id = url.searchParams.get('id') ?? '';
       const l = ws.load();

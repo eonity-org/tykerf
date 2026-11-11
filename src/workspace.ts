@@ -14,7 +14,7 @@
 //   out/index.html   rendered page
 //   .tykerf/           editor state (AI conversations, attached images, the removed-code buffer)
 
-import { join } from 'node:path';
+import { basename, dirname, join, resolve } from 'node:path';
 import { type Layout, find, walk } from './model.js';
 import { markCurrentPage } from './kit.js';
 import { FolderStore, type Store } from './store.js';
@@ -22,20 +22,39 @@ import * as M from './moves.js';
 import { type Registry, contentErrors, loadTypes, newTypeErrors } from './types.js';
 import { parseSlice, serializeSlice } from './notation.js';
 import { type Contents, toHTML } from './render.js';
+import { trimSteps } from './history-trim.js';
 
 type HistoryEntry =
   | { kind?: 'layout'; label: string; author?: string; at?: string; slice: string }
   | { kind: 'rename'; label: string; author: string; at: string; slice: string; from: string; to: string }
   | { kind: 'content'; label: string; author: string; at: string; id: string; prev: string | null }
   | { kind: 'head'; label: string; author: string; at: string; prev: string | null } // head.html: page-wide fonts, theme, scripts
-  | { kind: 'group'; label: string; author: string; at: string; count: number }; // the previous `count` entries are one step
+  | { kind: 'group'; label: string; author: string; at: string; count: number } // the previous `count` entries are one step
+  // a shared block changed from this page: the change is a step of the site's history (its time is `step`),
+  // which the page's undo takes back while it is still the site's last
+  | { kind: 'site'; label: string; author: string; at: string; id: string; block: string; step: string };
 
 /** An undone step, kept so redo can bring it back: the entry plus the state undo replaced. */
 type RedoEntry =
   | { entry: HistoryEntry; slice: string } // layout and rename steps: the layout before undo
   | { entry: HistoryEntry; content: string | null } // box code steps: the code before undo
   | { entry: HistoryEntry; head: string | null } // head.html steps: head.html before undo
-  | { group: Extract<HistoryEntry, { kind: 'group' }> }; // marks the inner steps below it as one
+  | { group: Extract<HistoryEntry, { kind: 'group' }> } // marks the inner steps below it as one
+  | { entry: HistoryEntry; site: 'undone' | 'gone' }; // a shared block's change: undone in the site's history, or gone from it already
+
+/**
+ * What undo or redo would do, without doing it: the layout it would restore, the box it would change, whether it
+ * changes head.html (the whole page), and whether it changes a shared block (`site`, `block`: every page showing it).
+ */
+export interface Peek {
+  label: string;
+  author?: string;
+  layout?: Layout;
+  box?: string;
+  head?: boolean;
+  site?: boolean;
+  block?: string;
+}
 
 /** A change about to be made, as guards see it (see Workspace.addGuard). */
 export type Change =
@@ -67,46 +86,55 @@ const BOXES = 'boxes';
 const HISTORY = '.history.jsonl';
 const REDO = '.redo.jsonl';
 const ARCHIVE = '.history-archive.jsonl';
-/** Undo steps kept in the history; it is trimmed back to this once it has HISTORY_TRIM steps. */
-const HISTORY_STEPS = 200;
-const HISTORY_TRIM = 250;
 const SCOPE = '.scope';
 const HEAD = 'head.html';
 const ASSETS = 'assets';
 const OUT = 'out/index.html';
 
-/** The site a page belongs to, as far as rendering goes: the head every page of the site shares (site.ts). */
-export interface SiteLink {
+/**
+ * What a page needs of its site (src/site/index.ts: class Site implements it). A shared thing is a method here,
+ * and Site gives it; the page's own name in the site is the Workspace's (pageName).
+ */
+export interface SiteLike {
+  /** The site's folder. */
+  readonly dir: string;
+  /** The head every page shares ('' without one). */
   head(): string;
-  /** How many pages the site has: a site of one page shares its theme with that page alone. */
-  pages?(): number;
-  /** The site's page names, so links between pages can be checked (src/check.ts). */
-  pageNames?(): string[];
-  /** The site's own files (its assets/ folder, at /assets/), so a page's references to them can be checked. */
-  files?(): string[];
-  /** One of the site's own files (assets/<file>), as a page asks for it at /assets/<file>; null when there is none. */
-  asset?(file: string): Uint8Array | null;
-  /** The <link rel="icon"> every page of the site gets (its own icon, or the one made from its name). */
-  icon?(): string;
-  /** Replace the shared head (the site keeps the previous one for its own undo). */
-  setHead?(html: string, label: string): void;
-  /** This page's name in the site (for marking links to it in shared blocks). */
-  page?: string;
-  /** Whether this page is the site's home (site.json), so links to / in shared blocks are marked as it too. */
-  home?(): boolean;
+  /** The site's page names, sorted (links between pages are checked against them: src/check.ts). */
+  pageNames(): string[];
+  /** The site's home page, if it has one (site.json). */
+  home(): string | undefined;
   /** The site's language (site.json lang, BCP 47: "en", "es", "pt-BR"): every page's <html lang>. */
-  lang?(): string;
-  /** The site's folder (its kit: shared blocks, styles, tags). */
-  dir?: string;
+  lang(): string;
+  /** The site's own files (its assets/ folder, at /assets/), so a page's references to them can be checked. */
+  files(): string[];
+  /** One of the site's own files (assets/<file>), as a page asks for it at /assets/<file>; null when there is none. */
+  asset(file: string): Uint8Array | null;
+  /** The <link rel="icon"> every page of the site gets (its own icon, or the one made from its name). */
+  icon(): string;
+  /** Replace the shared head: a step of the site's history. */
+  setHead(html: string, label: string, author?: string): void;
   /** The site kit's part of every page's head: its styles and the behaviours' loader (src/kit.ts). */
-  kit?(): string;
+  kitHead(): string;
   /** A shared block's code (kit/blocks/<name>.html), or null. */
-  block?(name: string): string | null;
-  /** Change a shared block: every page that uses it changes (the site keeps the previous version for its undo). */
-  setBlock?(name: string, code: string | null, author: string): void;
+  block(name: string): string | null;
+  /**
+   * Change a shared block: every page that uses it changes. The site keeps it as a step of its history and
+   * returns the step's time (null: nothing changed), so the page's Undo can take it back too.
+   */
+  setBlock(name: string, code: string | null, author: string): string | null;
   /** The box types every page of the site has (kit/types/). */
-  types?(): Registry;
+  types(): Registry;
+  /** Undo or redo the site's last step (its history: the head, the kit, the settings); returns its label. */
+  undo(): string;
+  redo(): string;
+  /** The times of the site's steps, in the order undo (or redo) would take them. */
+  undoAts(): string[];
+  redoAts(): string[];
 }
+
+/** @deprecated the site is a SiteLike now (class Site); kept for one release. */
+export type SiteLink = SiteLike;
 
 /** A page head with this marker keeps its own look: the site's shared head is left out (imported copies). */
 export const NO_SITE_HEAD = '<meta name="tykerf-site-theme" content="off">';
@@ -114,11 +142,20 @@ export const NO_SITE_HEAD = '<meta name="tykerf-site-theme" content="off">';
 export class Workspace {
   readonly store: Store;
   /** The site this page belongs to, when it is a page of a site: its shared head comes first. */
-  readonly site?: SiteLink;
-  /** A folder path (as before) or any Store. */
-  constructor(where: string | Store, opts: { site?: SiteLink | null } = {}) {
+  readonly site?: SiteLike;
+  /** This page's name in its site (its folder's name): links to it in shared blocks are marked as the current page. */
+  readonly pageName?: string;
+  /**
+   * A folder path (as before) or any Store. With a site, the page's name is `page`, else its folder's name when
+   * the folder is in the site's (a page of the site); none for the site folder itself or a page in memory.
+   */
+  constructor(where: string | Store, opts: { site?: SiteLike | null; page?: string } = {}) {
     this.store = typeof where === 'string' ? new FolderStore(where) : where;
-    if (opts.site) this.site = opts.site;
+    if (!opts.site) return;
+    this.site = opts.site;
+    const root = this.store instanceof FolderStore ? this.store.root : null;
+    const page = opts.page ?? (root && dirname(root) === resolve(opts.site.dir) ? basename(root) : undefined);
+    if (page) this.pageName = page;
   }
 
   /** The site's shared head, as this page uses it ('' outside a site, or when the page keeps its own look). */
@@ -129,8 +166,8 @@ export class Workspace {
 
   /** The site kit's part of this page's head ('' outside a site, or when the page keeps its own look). */
   kitHead(): string {
-    if (!this.site?.kit) return '';
-    return this.head().includes(NO_SITE_HEAD) ? '' : this.site.kit();
+    if (!this.site) return '';
+    return this.head().includes(NO_SITE_HEAD) ? '' : this.site.kitHead();
   }
 
   /** The shared block a box shows instead of its own code (its use=), when the site has it. */
@@ -213,29 +250,15 @@ export class Workspace {
 
   /** Keep the newest HISTORY_STEPS steps; older entries go to the archive as label, author and time only. */
   private trimHistory() {
-    const lines = this.lines();
-    if (lines.length < HISTORY_TRIM) return; // a step is at least one line
-    // where each step starts, newest first (a group takes its marker plus the entries before it)
-    const starts: number[] = [];
-    for (let i = lines.length; i > 0 && starts.length < HISTORY_TRIM; ) {
-      const e = JSON.parse(lines[i - 1]) as HistoryEntry;
-      i -= e.kind === 'group' ? e.count + 1 : 1;
-      starts.push(i);
-    }
-    if (starts.length < HISTORY_TRIM) return;
-    const start = starts[HISTORY_STEPS - 1];
-    if (start <= 0) return;
-    const old = lines.slice(0, start).map((l) => {
-      const { label, author, at, kind } = JSON.parse(l) as HistoryEntry;
-      return JSON.stringify({ label, author, at, kind }) + '\n';
-    });
-    this.store.append(ARCHIVE, old.join(''));
-    this.store.write(HISTORY, lines.slice(start).map((l) => l + '\n').join(''));
+    const cut = trimSteps(this.lines());
+    if (!cut) return;
+    this.store.append(ARCHIVE, cut.archived);
+    this.store.write(HISTORY, cut.kept);
   }
 
   types(): Registry {
     // the site's types first: a page's own type of the same name wins
-    return { ...(this.site?.types?.() ?? {}), ...loadTypes(this.store) };
+    return { ...(this.site?.types() ?? {}), ...loadTypes(this.store) };
   }
 
   /** Throw if `next` introduces box-type violations that `prev` did not have. */
@@ -314,7 +337,7 @@ export class Workspace {
     run.forEach((e, i) => e.kind === 'group' && /^use (layout|page) /.test(e.label) && (from = i + 1));
     const out = new Set<string>();
     for (const e of run.slice(from)) {
-      if (e.kind === 'content') out.add(e.id);
+      if (e.kind === 'content' || e.kind === 'site') out.add(e.id);
       if (e.kind === 'rename' && out.delete(e.from)) out.add(e.to);
     }
     return out;
@@ -360,7 +383,7 @@ export class Workspace {
    * What undo would do, without doing it: the layout it would restore, the box it would change, and
    * whether it changes head.html (which affects the whole page).
    */
-  peekUndo(): { label: string; author?: string; layout?: Layout; box?: string; head?: boolean } | null {
+  peekUndo(): Peek | null {
     const last = this.lines().pop();
     if (!last) return null;
     const e = JSON.parse(last) as HistoryEntry;
@@ -368,18 +391,47 @@ export class Workspace {
       // the layout before the whole group, and the box it changes (if any)
       const inner = this.entries().slice(-1 - e.count, -1);
       const firstLayout = inner.find((x) => 'slice' in x) as { slice: string } | undefined;
-      const box = inner.find((x) => x.kind === 'content') as { id: string } | undefined;
+      const box = inner.find((x) => x.kind === 'content' || x.kind === 'site') as { id: string } | undefined;
       const head = inner.some((x) => x.kind === 'head') || undefined;
-      return { label: e.label, author: e.author, layout: firstLayout && parseSlice(firstLayout.slice), box: box?.id, head };
+      const site = inner.find((x) => x.kind === 'site') as { block: string } | undefined;
+      return { label: e.label, author: e.author, layout: firstLayout && parseSlice(firstLayout.slice), box: box?.id, head, ...(site ? { site: true, block: site.block } : {}) };
     }
     if (e.kind === 'content') return { label: e.label, author: e.author, box: e.id };
+    if (e.kind === 'site') return { label: e.label, author: e.author, box: e.id, head: false, site: true, block: e.block };
     if (e.kind === 'head') return { label: e.label, author: e.author, head: true };
     return { label: e.label, author: e.author, layout: parseSlice(e.slice), box: e.kind === 'rename' ? e.to : undefined };
   }
 
   /** Revert the last change (layout or content); returns its label. Redo can bring it back. */
   undo(): string {
-    return this.transaction(() => this.undoStep());
+    return this.transaction(() => {
+      const last = this.lines().pop();
+      if (last) {
+        const e = JSON.parse(last) as HistoryEntry;
+        // a shared block's changes in it, newest first: each must be the site's next step to undo
+        const inner = e.kind === 'group' ? this.entries().slice(-1 - e.count, -1).reverse() : [e];
+        this.checkSiteOrder(inner, this.site?.undoAts() ?? [], 'undo');
+      }
+      return this.undoStep();
+    });
+  }
+
+  /**
+   * Refuse to undo (or redo) a page step whose shared-block changes aren't the site's next ones, in order: other
+   * changes to the site came after them, which the site manager's Undo takes first. A change the site no longer
+   * has (undone there, or trimmed) is passed over.
+   */
+  private checkSiteOrder(entries: HistoryEntry[], ats: string[], what: 'undo' | 'redo') {
+    let at = 0;
+    for (const e of entries) {
+      if (e.kind !== 'site' || !ats.includes(e.step)) continue;
+      if (ats[at] !== e.step) {
+        throw new Error(what === 'undo'
+          ? `"${e.label}" changed the shared block ${e.block} on every page that shows it, and other changes to the site came after it: undo it in the site manager (/_tykerf/site/)`
+          : `"${e.label}" can't be redone here: the site changed since; its history is in the site manager (/_tykerf/site/)`);
+      }
+      at++;
+    }
   }
 
   private undoStep(): string {
@@ -393,7 +445,12 @@ export class Workspace {
       this.pushRedo({ group: e });
       return e.label;
     }
-    if (e.kind === 'content') {
+    if (e.kind === 'site') {
+      // the shared block goes back on every page: the site's step is undone (checked in undo())
+      const there = !!this.site?.undoAts().includes(e.step);
+      if (there) this.site!.undo();
+      this.pushRedo({ entry: e, site: there ? 'undone' : 'gone' });
+    } else if (e.kind === 'content') {
       this.pushRedo({ entry: e, content: this.content(e.id) });
       this.writeBox(e.id, e.prev);
     } else if (e.kind === 'head') {
@@ -417,7 +474,21 @@ export class Workspace {
 
   /** Bring back the last undone change; returns its label. */
   redo(): string {
-    return this.transaction(() => this.redoStep());
+    return this.transaction(() => {
+      const rows = this.redoLines();
+      const last = rows.pop();
+      if (last) {
+        const top = JSON.parse(last) as RedoEntry;
+        // the steps it redoes, in the order it does them (a group's are the `count` below it, top first)
+        const steps = 'group' in top ? rows.slice(-top.group.count).reverse().map((l) => JSON.parse(l) as RedoEntry) : [top];
+        const site = steps.filter((r) => 'site' in r && r.site === 'undone').map((r) => (r as { entry: HistoryEntry }).entry);
+        const next = this.site?.redoAts() ?? [];
+        this.checkSiteOrder(site, next, 'redo');
+        if (site.some((e) => e.kind === 'site' && !next.includes(e.step)))
+          throw new Error(`"${site[0].label}" can't be redone here: the site changed since; its history is in the site manager (/_tykerf/site/)`);
+      }
+      return this.redoStep();
+    });
   }
 
   private redoStep(): string {
@@ -432,7 +503,9 @@ export class Workspace {
       return r.group.label;
     }
     const e = r.entry;
-    if ('content' in r) this.writeBox((e as { id: string }).id, r.content);
+    if ('site' in r) {
+      if (r.site === 'undone') this.site!.redo(); // checked in redo()
+    } else if ('content' in r) this.writeBox((e as { id: string }).id, r.content);
     else if ('head' in r) this.writeHead(r.head);
     else {
       this.store.write(SLICE, r.slice);
@@ -444,7 +517,7 @@ export class Workspace {
   }
 
   /** What redo would do, without doing it: the layout it would restore and/or the box it would change. */
-  peekRedo(): { label: string; author?: string; layout?: Layout; box?: string; head?: boolean } | null {
+  peekRedo(): Peek | null {
     const lines = this.redoLines();
     const last = lines.pop();
     if (!last) return null;
@@ -452,7 +525,8 @@ export class Workspace {
     // a group redoes the `count` steps below it, top first; its result is the last of them that sets a layout
     const steps = 'group' in top ? lines.slice(-top.group.count).reverse().map((l) => JSON.parse(l) as RedoEntry) : [top];
     const layouts = steps.filter((x): x is Extract<RedoEntry, { slice: string }> => 'slice' in x);
-    const box = steps.find((x) => 'content' in x) as { entry: { id: string } } | undefined;
+    const box = steps.find((x) => 'content' in x || 'site' in x) as { entry: { id: string } } | undefined;
+    const site = steps.find((x) => 'site' in x) as { entry: { block: string } } | undefined;
     const rename = steps.find((x) => 'entry' in x && x.entry.kind === 'rename') as { entry: { to: string } } | undefined;
     const label = 'group' in top ? top.group : top.entry;
     return {
@@ -461,6 +535,7 @@ export class Workspace {
       layout: layouts.length ? parseSlice(layouts[layouts.length - 1].slice) : undefined,
       box: box?.entry.id ?? rename?.entry.to,
       head: steps.some((x) => 'head' in x) || undefined,
+      ...(site ? { site: true, block: site.entry.block } : {}),
     };
   }
 
@@ -475,9 +550,9 @@ export class Workspace {
       c[id] = css !== null ? joinStyle(html, css) : html;
     }
     // a box linked to a shared block shows the block (its own code waits, for when it's unlinked)
-    if (this.site?.block) walk(this.load().root, (n) => {
+    if (this.site) walk(this.load().root, (n) => {
       if (n.type === 'leaf' && n.use) {
-        const b = this.site!.block!(n.use);
+        const b = this.site!.block(n.use);
         if (b !== null) c[n.id] = b;
       }
     });
@@ -487,9 +562,9 @@ export class Workspace {
   /** The code of one box (reads only its own files). */
   content(id: string): string | null {
     if (!BOX_ID.test(id)) return null;
-    const use = this.site?.block ? this.sharedBlock(id) : null;
+    const use = this.site ? this.sharedBlock(id) : null;
     if (use) {
-      const b = this.site!.block!(use);
+      const b = this.site!.block(use);
       if (b !== null) return b;
     }
     return this.ownContent(id);
@@ -598,10 +673,12 @@ export class Workspace {
     // a box that shows a shared block changes the block, on every page (the site keeps its undo);
     // emptying it only empties the box's own code
     const use = node?.type === 'leaf' ? node.use : undefined;
-    if (use && !own && html !== null && this.site?.setBlock && this.site.block?.(use) != null) {
+    if (use && !own && html !== null && this.site && this.site.block(use) !== null) {
       if (this.site.block(use) === html) return;
       this.checkGuards({ kind: 'content', id, layout });
-      this.site.setBlock(use, html, author);
+      const step = this.site.setBlock(use, html, author);
+      // the page's Undo can take it back too, while it is still the site's last step
+      if (step) this.log({ kind: 'site', label: `edit the shared block ${use}`, author, at: new Date().toISOString(), id, block: use, step });
       return;
     }
     const prev = this.ownContent(id);
@@ -646,13 +723,14 @@ export class Workspace {
     const l = this.load();
     const c = this.contents();
     // a site menu in a shared block shows which page this is
-    if (this.site?.page) {
+    const site = this.site, page = this.pageName;
+    if (site && page) {
       let home: boolean | undefined; // read once, and only when a box shows a shared block
       walk(l.root, (n) => {
-        if (n.type === 'leaf' && n.use && c[n.id] !== undefined) c[n.id] = markCurrentPage(c[n.id], this.site!.page, (home ??= this.site!.home?.() ?? false));
+        if (n.type === 'leaf' && n.use && c[n.id] !== undefined) c[n.id] = markCurrentPage(c[n.id], page, (home ??= site.home() === page));
       });
     }
-    return toHTML(l, c, { lang: this.site?.lang?.() ?? 'en', ...opts, head: (this.site?.icon?.() ?? '') + this.siteHead() + this.kitHead() + this.head() + (opts.head ?? '') });
+    return toHTML(l, c, { lang: site?.lang() ?? 'en', ...opts, head: (site?.icon() ?? '') + this.siteHead() + this.kitHead() + this.head() + (opts.head ?? '') });
   }
 
   /** Write the rendered page to out/index.html; returns where it went (a file path for folders). */

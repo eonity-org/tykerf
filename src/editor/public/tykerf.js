@@ -1337,7 +1337,7 @@ async function renderPage(body) {
     }
     if (a === 'reset-own') saveOwn({});
     if (a === 'reset-preset' && madeFrom) savePreset(madeFrom.values, madeFrom.name);
-    if (a === 'site-undo') siteApi('/head/undo', {}).then((j) => toast(t('Undone: {label}', { label: j.result })), (err) => toast(err.message, true));
+    if (a === 'site-undo') siteApi('/undo', {}).then((j) => toast(t('Undone: {label}', { label: j.result })), (err) => toast(err.message, true));
     if (a === 'share') siteApi('/theme/share', { page: S.site.current }).then((j) => toast(t('Every page now uses this theme ({n} pages changed).', { n: j.result.length })), (err) => toast(err.message, true));
     if (a === 'title' || a === 'title-reset') {
       e.preventDefault();
@@ -3342,13 +3342,21 @@ const renderView = () => {
   for (const b of $('.seg').children) b.setAttribute('aria-checked', b.dataset.view === S.view);
 };
 
+/** An error, with a link to the site manager when it says the step is the site's to undo there. */
+function siteToast(err) {
+  toast(err.message, true);
+  if (!err.message.includes('/_tykerf/site/')) return;
+  const a = Object.assign(document.createElement('a'), { href: '/_tykerf/site/', target: '_blank', textContent: t('Open the site manager') });
+  $('.toast').append(' ', a);
+}
+
 async function undo() {
   try {
     const r = await api('/undo', {});
     if (r.focus) pendingSelect = r.focus;
     toast(t('Undone: {change}', { change: r.undone }));
   } catch (err) {
-    toast(err.message, true);
+    siteToast(err);
   }
 }
 $('.undo').addEventListener('click', undo);
@@ -3359,7 +3367,7 @@ async function redo() {
     if (r.focus) pendingSelect = r.focus;
     toast(t('Redone: {change}', { change: r.redone }));
   } catch (err) {
-    toast(err.message, true);
+    siteToast(err);
   }
 }
 $('.redo').addEventListener('click', redo);
@@ -3457,10 +3465,16 @@ async function loadState() {
   index(st.tree);
   const u = $('.undo');
   u.disabled = !st.canUndo;
-  u.title = st.lastChange ? t('Undo: {change} (⌘Z)', { change: st.lastChange }) : t('Nothing to undo');
+  // a shared block's change reaches every page that shows it: the buttons say which block and how many pages
+  const reach = (block) => ({ block, n: S.kit.users?.[block]?.length || 1 });
+  u.title = !st.lastChange ? t('Nothing to undo')
+    : st.undoBlock ? t('Undo: {change} (shared block {block}, on {n} pages) (⌘Z)', { change: st.lastChange, ...reach(st.undoBlock) })
+    : t('Undo: {change} (⌘Z)', { change: st.lastChange });
   const rd = $('.redo');
   rd.disabled = !st.nextRedo;
-  rd.title = st.nextRedo ? t('Redo: {change} (⇧⌘Z)', { change: st.nextRedo }) : t('Nothing to redo');
+  rd.title = !st.nextRedo ? t('Nothing to redo')
+    : st.redoBlock ? t('Redo: {change} (shared block {block}, on {n} pages) (⇧⌘Z)', { change: st.nextRedo, ...reach(st.redoBlock) })
+    : t('Redo: {change} (⇧⌘Z)', { change: st.nextRedo });
 }
 
 /** Re-render the page from the tree in place (styles, markup, then box scripts run again). */

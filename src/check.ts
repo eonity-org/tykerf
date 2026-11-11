@@ -85,7 +85,7 @@ const PICTURE = /(?:^|\/)assets\/((?:placeholder|mockup)-[\w-]+\.svg)$/;
  */
 export function missingFiles(ws: Workspace, html: string): string[] {
   const own = new Set(ws.assets());
-  const site = new Set(ws.site?.files?.() ?? []);
+  const site = new Set(ws.site?.files() ?? []);
   const refs = [
     ...[...html.matchAll(/\b(?:src|href|poster)\s*=\s*(["'])(.*?)\1/gi)].map((m) => m[2]),
     ...[...html.matchAll(/\bsrcset\s*=\s*(["'])(.*?)\1/gi)].flatMap((m) => m[2].split(',').map((c) => c.trim().split(/\s+/)[0])),
@@ -121,13 +121,13 @@ export function leftovers(ws: Workspace, opts: { within?: string | null } = {}):
   const boxes = boxesIn(ws, opts.within);
   if (!boxes.length) return [];
   const ids = new Set([...ws.page().matchAll(/\bid\s*=\s*["']([^"']+)["']/gi)].map((m) => m[1]));
-  const pages = ws.site?.pageNames?.() ?? null;
+  const pages = ws.site?.pageNames() ?? null;
   const known = placeholderText();
   const out: Leftover[] = [];
   const add = (l: Leftover) => out.some((o) => leftoverKey(o) === leftoverKey(l)) || out.push(l);
   const layout = ws.load();
   // a page of a site whose title comes from its first heading, and is another page's title too (copies, a shared banner)
-  const site = ws.site?.dir, page = ws.site?.page;
+  const site = ws.site?.dir, page = ws.pageName;
   if (site && page && (!opts.within || opts.within === layout.root.id)) {
     const settings = readSite(site);
     if (!settings.titles[page]) {
@@ -138,8 +138,8 @@ export function leftovers(ws: Workspace, opts: { within?: string | null } = {}):
   }
   for (const box of boxes) {
     const use = ws.sharedBlock(box, layout);
-    const block = use && ws.site?.block ? ws.site.block(use) : null;
-    if (use && ws.site?.block && block === null) add({ box, kind: 'block', detail: use });
+    const block = use && ws.site ? ws.site.block(use) : null;
+    if (use && ws.site && block === null) add({ box, kind: 'block', detail: use });
     // a shared block shows on pages at other addresses: a page's own file (assets/…) is there only on one of them
     if (use && block) for (const f of pageFileRefs(block)) add({ box, kind: 'shared-file', detail: `${use} ${f}` });
     const html = ws.content(box) ?? '';

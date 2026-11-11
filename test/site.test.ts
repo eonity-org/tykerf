@@ -5,7 +5,7 @@ import { spawnSync } from 'node:child_process';
 import { describe, expect, it } from 'vitest';
 import { leftovers, say } from '../src/check.js';
 import { kitRead, kitWrite, lastKitChange } from '../src/kit.js';
-import { duplicatePage, freePageName, linkBlock, shareBlock, unlinkBlock, iconLink, madeIcon, setSiteIcon, siteIcon, lastSiteHeadChange, linkedPage, newPageLike, newSitePage, pageLinks, pageNameError, pageWorkspace, removePage, renamePage, setSiteHead, emptyTrash, langTag, pageTitle, readSite, setHome, setLang, siteIndex, setSiteCode, setTitle, shareTheme, siteCode, siteHead, siteKind, siteOf, sitePages, trashedPages, undoSiteHead, usePage } from '../src/site.js';
+import { Site, duplicatePage, freePageName, linkBlock, shareBlock, unlinkBlock, iconLink, madeIcon, setSiteIcon, siteIcon, lastSiteHeadChange, linkedPage, newPageLike, newSitePage, pageLinks, pageNameError, pageWorkspace, removePage, renamePage, setSiteHead, emptyTrash, langTag, pageTitle, readSite, setHome, setLang, siteIndex, setSiteCode, setTitle, shareTheme, siteCode, siteHead, siteKind, siteOf, sitePages, trashedPages, undoSiteHead, usePage } from '../src/site.js';
 import { NO_SITE_HEAD, Workspace } from '../src/workspace.js';
 import * as M from '../src/moves.js';
 import { createPage, readOverrides, readTheme, themes } from '../src/library.js';
@@ -500,6 +500,115 @@ describe("a page's title", () => {
       'about: "About us" (from its first heading)', 'news: "Latest news" (from its first heading)', 'plain (open): "Plain" (set by hand)',
     ]);
     await site_.close();
+  });
+});
+
+describe("the site's one history", () => {
+  it('undoes changes to the head, the kit and the settings in the order they came, and redoes them', () => {
+    const dir = tmp();
+    newSitePage(dir, 'home', 'blank', 'studio');
+    newSitePage(dir, 'about', 'blank', 'studio');
+    const site = new Site(dir);
+    expect(site.steps().map((s) => s.label)).toEqual(['make home the home page', 'site theme studio']);
+    setSiteCode(dir, '<style>.a{}</style>');
+    kitWrite(dir, 'styles', 'base', 'h2 { color: red }', undefined, 'ai');
+    setTitle(dir, 'about', 'About us');
+    setLang(dir, 'es');
+    expect(site.steps(4).map((s) => [s.kind, s.label, s.author])).toEqual([
+      ['settings', "the site's language: es", 'user'], ['settings', 'title of about: About us', 'user'],
+      ['kit', 'add kit/styles/base.css', 'ai'], ['head', 'edit the styles and scripts of every page', 'user'],
+    ]);
+    expect(site.undo()).toBe("the site's language: es");
+    expect(readSite(dir).lang).toBe('en');
+    expect(site.undo()).toBe('title of about: About us');
+    expect(readSite(dir).titles).toEqual({});
+    expect(site.undo()).toBe('add kit/styles/base.css');
+    expect(existsSync(join(dir, 'kit', 'styles', 'base.css'))).toBe(false);
+    expect(site.undo()).toBe('edit the styles and scripts of every page');
+    expect(siteCode(dir)).toBe('');
+    expect(site.history.peekRedo()).toMatchObject({ label: 'edit the styles and scripts of every page', kind: 'head' });
+    expect(site.redo()).toBe('edit the styles and scripts of every page');
+    expect(site.redo()).toBe('add kit/styles/base.css');
+    expect(kitRead(dir, 'styles', 'base')).toBe('h2 { color: red }');
+    // a new change ends what there was to redo
+    setHome(dir, 'about');
+    expect(site.history.peekRedo()).toBeNull();
+    expect(() => site.redo()).toThrow(/no change to the site to redo/);
+    // the old names undo the same one history
+    expect(undoSiteHead(dir)).toBe('make about the home page');
+    expect(readSite(dir).home).toBe('home');
+  });
+
+  it('makes several changes one step with a group, undone whole, and rolled back whole when it fails', () => {
+    const dir = tmp();
+    newSitePage(dir, 'home', 'blank', 'studio');
+    const site = new Site(dir);
+    const before = site.steps().length;
+    site.group('dress the site', 'ai', () => {
+      kitWrite(dir, 'styles', 'base', 'h2 { color: red }', undefined, 'ai');
+      setTitle(dir, 'home', 'Welcome', 'ai');
+      setSiteCode(dir, '<style>.b{}</style>');
+    });
+    expect(site.steps()).toHaveLength(before + 1);
+    expect(site.history.peekUndo()).toMatchObject({ label: 'dress the site', kind: 'group', author: 'ai', kinds: ['kit', 'settings', 'head'] });
+    expect(site.undo()).toBe('dress the site');
+    expect([existsSync(join(dir, 'kit', 'styles', 'base.css')), readSite(dir).titles, siteCode(dir)]).toEqual([false, {}, '']);
+    expect(site.redo()).toBe('dress the site');
+    expect([kitRead(dir, 'styles', 'base'), readSite(dir).titles.home, siteCode(dir)]).toEqual(['h2 { color: red }', 'Welcome', '<style>.b{}</style>']);
+
+    expect(() => site.group('half done', 'ai', () => {
+      kitWrite(dir, 'styles', 'other', '.x{}');
+      setLang(dir, 'fr');
+      setTitle(dir, 'nowhere', 'x'); // throws: no such page
+    })).toThrow(/no page "nowhere"/);
+    expect(existsSync(join(dir, 'kit', 'styles', 'other.css'))).toBe(false);
+    expect(readSite(dir).lang).toBe('en');
+    expect(site.history.peekUndo()?.label).toBe('dress the site');
+    expect(site.history.peekRedo()).toBeNull();
+  });
+
+  it('folds the two histories of older sites into one, in time order, once', () => {
+    const dir = tmp();
+    newSitePage(dir, 'home', 'blank', 'studio');
+    // an older site: the head's history and the kit's, apart; no site.jsonl yet
+    const store = new Site(dir).store;
+    store.remove('.tykerf/site.jsonl');
+    store.write('kit/styles/base.css', 'h2 { color: blue }');
+    store.write('.tykerf/site-head.jsonl', [
+      { label: 'site theme studio', at: '2026-01-01T10:00:00.000Z', prev: null },
+      { label: 'edit the site theme', at: '2026-01-01T10:02:00.000Z', prev: '<style>old</style>' },
+    ].map((e) => JSON.stringify(e) + '\n').join(''));
+    store.write('.tykerf/kit.jsonl', [
+      { path: 'kit/styles/base.css', prev: null, label: 'add kit/styles/base.css', author: 'ai', at: '2026-01-01T10:01:00.000Z' },
+      { path: 'kit/styles/base.css', prev: 'h2 { color: red }', label: 'edit kit/styles/base.css', author: 'user', at: '2026-01-01T10:03:00.000Z' },
+    ].map((e) => JSON.stringify(e) + '\n').join(''));
+    const site = new Site(dir);
+    expect(site.steps().map((s) => [s.kind, s.label, s.author])).toEqual([
+      ['kit', 'edit kit/styles/base.css', 'user'], ['head', 'edit the site theme', 'user'],
+      ['kit', 'add kit/styles/base.css', 'ai'], ['head', 'site theme studio', 'user'],
+    ]);
+    expect(existsSync(join(dir, '.tykerf', 'site-head.jsonl')) || existsSync(join(dir, '.tykerf', 'kit.jsonl'))).toBe(false);
+    expect(site.undo()).toBe('edit kit/styles/base.css');
+    expect(kitRead(dir, 'styles', 'base')).toBe('h2 { color: red }');
+    expect(site.undo()).toBe('edit the site theme');
+    expect(siteHead(dir)).toBe('<style>old</style>');
+  });
+
+  it('keeps undo of the settings right after a page is renamed', () => {
+    const dir = tmp();
+    newSitePage(dir, 'home', 'blank', 'studio');
+    newSitePage(dir, 'about', 'blank', 'studio');
+    setTitle(dir, 'about', 'About us');
+    setHome(dir, 'about');
+    renamePage(dir, 'about', 'team'); // follows in the settings, as no step of its own
+    expect(readSite(dir)).toMatchObject({ home: 'team', titles: { team: 'About us' } });
+    const site = new Site(dir);
+    expect(site.undo()).toBe('make about the home page');
+    expect(readSite(dir)).toMatchObject({ home: 'home', titles: { team: 'About us' } });
+    expect(site.undo()).toBe('title of about: About us');
+    expect(readSite(dir).titles).toEqual({});
+    site.redo();
+    expect(readSite(dir).titles).toEqual({ team: 'About us' });
   });
 });
 

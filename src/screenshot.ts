@@ -74,7 +74,7 @@ export function pageFiles(ws: Workspace): PageFiles {
     base,
     read: (path) => {
       if (path.startsWith(`${base}assets/`)) return ws.store.readBytes(path.slice(base.length));
-      if (path.startsWith('/assets/')) return ws.site?.asset?.(path.slice('/assets/'.length)) ?? null;
+      if (path.startsWith('/assets/')) return ws.site?.asset(path.slice('/assets/'.length)) ?? null;
       return null;
     },
   };

@@ -36,12 +36,12 @@ How every tool behaves:
 - **References.** Node arguments are resolved through `resolveRef` (name, path or position), so the history logs real names.
 - **Moves** (`moveTool`) run `load → move → commit` inside `ws.transaction()`. `commit` refuses the change when `scopeViolation` finds anything outside the scope changed. The reply lists only the outline lines that changed.
 - **Annotations.** Each tool has a title for people and hints for clients: read-only, a change, or a change that replaces something whole (`use_layout`, `use_page`, `use_component`, `use_theme`, `set_content`, `remove`, `unwrap`, `normalize`, removing a rule or an overlay). `screenshot` and `evaluate` are read-only but marked as reaching the open world: Chromium renders the page, and its code may load files from other servers.
-- **Screenshots and checks see the page's files.** `openPage` (`src/screenshot.ts`) opens the page at a stand-in address, `http://tykerf.page`, and answers every request there from `pageFiles(ws)`, as the editor serves them: a lone page at `/` with its `assets/`; a page of a site at `/page/`, below the site's own files at `/assets/` (`SiteLink.asset`). Its pictures and fonts load, so a screenshot shows them and `evaluate` measures them. A picture over 2000 px tall is cut; the reply says which part it shows (`0–2000 px of 9071`) and the `from` that shows the rest, so a long page or block is seen in pieces. A page opened on `about:blank` resolves none of them; other servers' addresses still go to the network.
+- **Screenshots and checks see the page's files.** `openPage` (`src/screenshot.ts`) opens the page at a stand-in address, `http://tykerf.page`, and answers every request there from `pageFiles(ws)`, as the editor serves them: a lone page at `/` with its `assets/`; a page of a site at `/page/`, below the site's own files at `/assets/` (`Site.asset`). Its pictures and fonts load, so a screenshot shows them and `evaluate` measures them. A picture over 2000 px tall is cut; the reply says which part it shows (`0–2000 px of 9071`) and the `from` that shows the rest, so a long page or block is seen in pieces. A page opened on `about:blank` resolves none of them; other servers' addresses still go to the network.
 - **Links to a section** use the block's own element, `#sw-<name>`: the instructions say so, and `check_page` names it when a link uses the bare name (`#faq`).
 - **Errors** come back as tool errors with the layout unchanged.
 - **Vocabulary.** The model only ever sees *row*, *column*, *wheel* and *periphery* (`KIND_WORD`), never H/V: a model once read `H` as "horizontal row".
 - **The theme.** `set_theme` changes existing theme variables only, each value checked by kind, and only when the scope is the whole page. It refuses a theme shared by the whole site, because one page's AI may not restyle every page.
-- **Undo and redo** under a scope refuse steps that would change something outside it.
+- **Undo and redo** under a scope refuse steps that would change something outside it: a change to the page head, or to a shared block (a page history step of kind `site`), unless the scope is the page root.
 
 ### The scope
 
@@ -63,7 +63,7 @@ The `AI` class keeps, per block:
 - **Sample text:** every text piece of two words or more from `library/components/` (single words such as *Privacy* can stay), less the interface words in `KEEP` (*Read more*, *See all →*…) and plain figures.
 - **Placeholder pictures:** `assets/placeholder-*.svg` and `assets/mockup-*.svg`.
 - **A title another page has** (`title`, on the page's top block, only when the whole page is checked): a page of a site with no title set by hand whose title from its first heading (`derivedTitle`) is another page's title too: copies, or pages under one shared banner. It says to use `set_title`.
-- **Links without a target:** `#` or empty; `#id` with no such id on the rendered page (a block's own element is `#sw-<name>`); `/page/` when the site has no such page (`SiteLink.pageNames`).
+- **Links without a target:** `#` or empty; `#id` with no such id on the rendered page (a block's own element is `#sw-<name>`); `/page/` when the site has no such page (`Site.pageNames`).
 - **Shared blocks with a page's file** (`shared-file`): a box showing a shared block whose code uses `assets/<file>`, which only one page has; shared blocks use the site's `/assets/<file>`. `share_block` avoids it by copying the files to the site (`siteFiles`); a block written by hand can still have it.
 
 `AI.ask` keeps the page's leftovers when a request starts (`leftoverKey`) and compares at the end, so only what that request added is reported, less what the person kept (`.tykerf/kept.json`):

@@ -9,10 +9,10 @@
 //   kit/tags.json            the site's own tags: { "<tag>": { "label": "…", "description": "…" } },
 //                            styled in kit/styles as .t-<tag>
 //
-// Every change keeps the file's previous version in .tykerf/kit.jsonl, for the manager's Undo.
+// Every change is a step of the site's history (site/history.ts), with the head's and the settings'.
 
-import { FolderStore } from './store.js';
 import { pageFileRefs } from './assets.js';
+import { SiteHistory, siteStore } from './site/history.js';
 import { parseType } from './types.js';
 
 export type KitKind = 'styles' | 'scripts' | 'blocks' | 'types' | 'tags';
@@ -22,12 +22,11 @@ export const KIT_KINDS: KitKind[] = ['styles', 'scripts', 'blocks', 'types', 'ta
 export const KIT_NAME = /^[a-z0-9][a-z0-9-]{0,40}$/;
 const EXT: Record<KitKind, string> = { styles: '.css', scripts: '.js', blocks: '.html', types: '.json', tags: '.json' };
 const MAX = 400_000;
-const HISTORY = '.tykerf/kit.jsonl';
 
 /** Tags the library's theme already gives every page; the site's own tags can't take these names. */
 const LIBRARY_TAGS = new Set(['tone-alt', 'tone-soft', 'tone-dark', 'dense', 'reverse', 'priority']);
 
-const store = (dir: string) => new FolderStore(dir);
+const store = (dir: string) => siteStore(dir);
 
 /** Where a kit file lives in the site folder. */
 export function kitPath(kind: KitKind, name: string): string {
@@ -92,43 +91,36 @@ export function kitWarning(kind: KitKind, name: string, text: string): string | 
   return `${name}: ${files.map((f) => `assets/${f}`).join(', ')} ${files.length === 1 ? 'is a page\'s file' : 'are a page\'s files'}, so ${files.length === 1 ? 'it shows' : 'they show'} only on that page; a shared block uses the site's files: put ${files.length === 1 ? 'it' : 'them'} in the site's assets/ and write ${files.map((f) => `/assets/${f}`).join(', ')}`;
 }
 
-/** Create, replace (text) or remove (null) a kit file, keeping the previous version for undo. */
-export function kitWrite(dir: string, kind: KitKind, name: string, text: string | null, label?: string, author = 'user') {
+/**
+ * Create, replace (text) or remove (null) a kit file: one step of the site's history. Returns the step's
+ * time, or null when the file didn't change.
+ */
+export function kitWrite(dir: string, kind: KitKind, name: string, text: string | null, label?: string, author = 'user'): string | null {
   const path = kitPath(kind, name);
   if (text !== null) {
     const err = kitError(kind, name, text);
     if (err) throw new Error(err);
   }
   const s = store(dir);
-  s.lock(() => {
-    const prev = s.read(path);
-    if (prev === text) return;
-    s.append(HISTORY, JSON.stringify({ path, prev, label: label ?? `${text === null ? 'remove' : prev === null ? 'add' : 'edit'} kit/${path.slice(4)}`, author, at: new Date().toISOString() }) + '\n');
-    if (text === null) s.remove(path);
-    else s.write(path, text);
-  });
-}
-
-/** The last change to the kit, or null. */
-export function lastKitChange(dir: string): { label: string; at: string; author?: string } | null {
-  const lines = (store(dir).read(HISTORY) ?? '').trim().split('\n').filter(Boolean);
-  if (!lines.length) return null;
-  const { label, at, author } = JSON.parse(lines.at(-1)!);
-  return { label, at, author };
-}
-
-/** Undo the last kit change; its label, or null when there's nothing to undo. */
-export function undoKit(dir: string): string | null {
-  const s = store(dir);
   return s.lock(() => {
-    const lines = (s.read(HISTORY) ?? '').trim().split('\n').filter(Boolean);
-    if (!lines.length) return null;
-    const e = JSON.parse(lines.pop()!) as { path: string; prev: string | null; label: string };
-    if (e.prev === null) s.remove(e.path);
-    else s.write(e.path, e.prev);
-    s.write(HISTORY, lines.length ? `${lines.join('\n')}\n` : '');
-    return e.label;
+    const prev = s.read(path);
+    return new SiteHistory(dir).change('kit', path, text, label ?? `${text === null ? 'remove' : prev === null ? 'add' : 'edit'} kit/${path.slice(4)}`, author);
   });
+}
+
+/** The last change to the kit (in the site's history), or null. */
+export function lastKitChange(dir: string): { label: string; at: string; author?: string } | null {
+  const e = new SiteHistory(dir).last('kit');
+  return e && { label: e.label, at: e.at, author: e.author };
+}
+
+/**
+ * Undo the site's last step; its label, or null when there's nothing to undo.
+ * @deprecated the site has one history now: use new Site(dir).undo(). Kept for one release.
+ */
+export function undoKit(dir: string): string | null {
+  const h = new SiteHistory(dir);
+  return h.peekUndo() ? h.undo() : null;
 }
 
 /** The site's own tags, from kit/tags.json ({} when there are none or the file is broken). */

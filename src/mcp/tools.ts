@@ -353,7 +353,7 @@ export function createTykerfServer(start: Workspace | null, opts: TykerfServerOp
       'The page keeps its own theme unless theme is true. Only when the scope is the whole page. One undo step; undo brings the page back.',
     inputSchema: { page: z.string().describe('the other page\'s name'), theme: z.boolean().optional().describe('also take that page\'s theme and fonts') },
   }, guard(({ page, theme: withTheme }: { page: string; theme?: boolean }) => ws.transaction(() => {
-    if (!(ws.store instanceof FolderStore) || !ws.site?.pageNames) throw new Error('this page is not part of a site, so there is no other page to copy');
+    if (!(ws.store instanceof FolderStore) || !ws.site) throw new Error('this page is not part of a site, so there is no other page to copy');
     const l = ws.load();
     const sc = scope(l);
     if (sc && sc !== l.root.id) throw new Error(`refused: copying a page replaces the whole page, and the scope is "${sc}". Ask the user to select the page block ("${l.root.id}").`);
@@ -573,6 +573,7 @@ export function createTykerfServer(start: Workspace | null, opts: TykerfServerOp
       const sc = scope();
       const peek = ws.peekUndo();
       if (sc && peek?.head && sc !== ws.load().root.id) throw new Error(`refused: undoing "${peek.label}" would change the page head (theme), which is outside the scope "${sc}"`);
+      if (sc && peek?.site && sc !== ws.load().root.id) throw new Error(`refused: undoing "${peek.label}" would change the shared block ${peek.block} on every page that shows it, which is outside the scope "${sc}"`);
       if (sc && peek) {
         const cur = ws.load();
         if (peek.layout) {
@@ -589,6 +590,7 @@ export function createTykerfServer(start: Workspace | null, opts: TykerfServerOp
       const sc = scope();
       const peek = ws.peekRedo();
       if (sc && peek?.head && sc !== ws.load().root.id) throw new Error(`refused: redoing "${peek.label}" would change the page head (theme), which is outside the scope "${sc}"`);
+      if (sc && peek?.site && sc !== ws.load().root.id) throw new Error(`refused: redoing "${peek.label}" would change the shared block ${peek.block} on every page that shows it, which is outside the scope "${sc}"`);
       if (sc && peek) {
         const cur = ws.load();
         if (peek.layout) {
@@ -629,14 +631,14 @@ export function createTykerfServer(start: Workspace | null, opts: TykerfServerOp
   }, guard(({ page, title }: { page?: string; title: string }) => {
     const site = ws.site?.dir ?? siteDir();
     if (!site) throw new Error('this page is not part of a site; its title is the <title> in its head');
-    const open = ws.site?.page ?? openPage(site);
+    const open = ws.pageName ?? openPage(site);
     const name = page ?? open;
     if (!name) throw new Error('no page is open: say which page (list_pages lists them)');
     const l = ws.load();
     const sc = scope(l);
     if (sc && sc !== l.root.id) throw new Error(`refused: the title is the whole page's, and the scope is "${sc}". Ask the user to select the page block ("${l.root.id}") to change it.`);
     if (runScope && name !== open) throw new Error(`refused: this run works on the page "${open}"`);
-    setTitle(site, name, title);
+    setTitle(site, name, title, 'ai');
     return readSite(site).titles[name] ? `ok: "${name}" is titled "${pageTitle(site, name)}"` : `ok: "${name}" is titled by its first heading again: "${pageTitle(site, name)}"`;
   }));
 
@@ -727,7 +729,7 @@ export function createTykerfServer(start: Workspace | null, opts: TykerfServerOp
     }));
 
     // the whole site's settings (site.json): only the fields in SITE_SETTINGS, each with its own check
-    const SITE_SETTINGS: Record<string, (site: string, value: string) => void> = { lang: setLang };
+    const SITE_SETTINGS: Record<string, (site: string, value: string) => void> = { lang: (site, v) => setLang(site, v, 'ai') };
     server.registerTool('set_site', {
       title: 'Change the site\'s settings', annotations: REPLACE,
       description: 'Settings of the whole site; give only what changes. lang: the language its pages are written in, as a BCP 47 tag ("es", "en", "pt-BR"): ' +

@@ -6,7 +6,7 @@ import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { AI, type RunEvents, type RunRequest, type Runner, SITE_CHAT } from '../src/editor/ai.js';
 import { kaityRuns, logEnd, logStart } from '../src/editor/kaity-log.js';
-import { newSitePage, siteLink } from '../src/site.js';
+import { Site, newSitePage } from '../src/site.js';
 import { Workspace } from '../src/workspace.js';
 
 const tmp = () => mkdtempSync(join(tmpdir(), 'tykerf-kaity-log-'));
@@ -57,7 +57,7 @@ describe("Kaity's log", () => {
     // stopped, then a run on the whole site
     page.ask('hero', 'Try again');
     page.cancel();
-    const whole = new AI(new Workspace(site, { site: siteLink(site) }), () => {}, runner, { site });
+    const whole = new AI(new Workspace(site, { site: new Site(site) }), () => {}, runner, { site });
     whole.ask(SITE_CHAT, 'Link every page');
     runs[2].on.error('the model is busy');
     runs[2].on.end();

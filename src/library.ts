@@ -277,7 +277,7 @@ export function themeValueError(name: string, value: string): string | null {
 export function themeTarget(ws: Workspace): 'page' | 'site' | 'override' | null {
   if (hasTheme(ws.head())) return 'page';
   if (!hasTheme(ws.siteHead())) return null;
-  return ws.site?.setHead && ws.site.pages?.() === 1 ? 'site' : 'override';
+  return ws.site && ws.site.pageNames().length === 1 ? 'site' : 'override';
 }
 
 /** setTheme for a page on the site's shared theme: the site's theme, or the page's own values over it. */
@@ -290,7 +290,7 @@ function setSharedTheme(ws: Workspace, values: Record<string, string>, author: s
   const label = (changed: Record<string, { to: string }>) => `theme: ${Object.entries(changed).map(([n, c]) => `${n} ${c.to}`).join(', ')}`;
   if (where === 'site') {
     const { head: next, changed } = withThemeValues(ws.siteHead(), values);
-    if (Object.keys(changed).length) ws.site!.setHead!(next, label(changed));
+    if (Object.keys(changed).length) ws.site!.setHead(next, label(changed));
     return changed;
   }
   const own = readOverrides(ws.head());
