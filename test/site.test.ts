@@ -4,8 +4,10 @@ import { join } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { describe, expect, it } from 'vitest';
 import { leftovers, say } from '../src/check.js';
-import { freePageName, linkBlock, shareBlock, iconLink, madeIcon, setSiteIcon, siteIcon, lastSiteHeadChange, linkedPage, newPageLike, newSitePage, pageLinks, pageNameError, pageWorkspace, removePage, renamePage, setSiteHead, emptyTrash, langTag, pageTitle, readSite, setHome, setLang, siteIndex, setSiteCode, setTitle, shareTheme, siteCode, siteHead, siteKind, siteOf, sitePages, trashedPages, undoSiteHead, usePage } from '../src/site.js';
+import { kitRead, kitWrite, lastKitChange } from '../src/kit.js';
+import { duplicatePage, freePageName, linkBlock, shareBlock, unlinkBlock, iconLink, madeIcon, setSiteIcon, siteIcon, lastSiteHeadChange, linkedPage, newPageLike, newSitePage, pageLinks, pageNameError, pageWorkspace, removePage, renamePage, setSiteHead, emptyTrash, langTag, pageTitle, readSite, setHome, setLang, siteIndex, setSiteCode, setTitle, shareTheme, siteCode, siteHead, siteKind, siteOf, sitePages, trashedPages, undoSiteHead, usePage } from '../src/site.js';
 import { NO_SITE_HEAD, Workspace } from '../src/workspace.js';
+import * as M from '../src/moves.js';
 import { createPage, readOverrides, readTheme, themes } from '../src/library.js';
 
 const tmp = () => mkdtempSync(join(tmpdir(), 'tykerf-site-'));
@@ -120,6 +122,46 @@ describe('sites', () => {
     expect((await site.call('share_theme', { page: 'paris' })).text).toMatch(/no page "paris"/);
     expect((await site.call('share_theme', { page: 'shop' })).text).toMatch(/^ok: the site has one theme now, "shop"'s/);
     await site.close();
+  });
+
+  it('copy a page with its shared blocks as links, never as copies of the blocks\' code', async () => {
+    const dir = tmp();
+    const home = newSitePage(dir, 'home', 'launch', 'studio');
+    const mine = home.ownContent('nav')!;
+    shareBlock(dir, home, 'nav');
+    kitWrite(dir, 'blocks', 'nav', '<nav>shared, second version</nav>');
+    // a page that shows the block with no code of its own
+    const about = newSitePage(dir, 'about', 'blank', 'studio');
+    about.save(M.setLeaf(about.load(), 'text', { use: 'nav' }), 'link', 'user');
+    expect(about.ownContent('text')).not.toBeNull();
+    about.store.remove('boxes/text.html');
+
+    const { openTools } = await import('../src/editor/tools-client.js');
+    const run = await openTools(home, '', dir);
+    expect((await run.call('new_page', { name: 'copied', copy: 'home' })).text).toMatch(/^ok: new page "copied", a copy of "home"/);
+    await run.close();
+    const used = newSitePage(dir, 'used', 'blank', 'studio');
+    usePage(used, dir, 'home');
+    newPageLike(dir, 'like', 'home');
+    duplicatePage(dir, 'home', 'twin');
+    newPageLike(dir, 'like-about', 'about');
+    const kitStep = lastKitChange(dir)!.at;
+
+    for (const p of ['copied', 'used', 'like', 'twin']) {
+      const ws = pageWorkspace(dir, p);
+      expect(ws.sharedBlock('nav'), p).toBe('nav');
+      expect(ws.ownContent('nav'), p).toBe(mine); // the source's own file, not the block as it was
+    }
+    expect(pageWorkspace(dir, 'like-about').sharedBlock('text')).toBe('nav');
+    expect(existsSync(join(dir, 'like-about', 'boxes', 'text.html'))).toBe(false);
+    expect(lastKitChange(dir)!.at).toBe(kitStep); // copying wrote nothing into the block
+
+    // a later change to the shared block shows on every copy, and unlinking takes it as it is now
+    kitWrite(dir, 'blocks', 'nav', '<nav>shared, third version</nav>');
+    for (const p of ['copied', 'used', 'like', 'twin']) expect(pageWorkspace(dir, p).page(), p).toContain('shared, third version');
+    unlinkBlock(pageWorkspace(dir, 'like'), 'nav');
+    expect(pageWorkspace(dir, 'like').ownContent('nav')?.trim()).toBe('<nav>shared, third version</nav>');
+    expect(kitRead(dir, 'blocks', 'nav')).toBe('<nav>shared, third version</nav>');
   });
 
   it('make a new page like another: its header, footer and theme, one section between', () => {

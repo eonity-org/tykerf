@@ -8,6 +8,8 @@
 
 ## Unreleased
 
+- **Copies of a page keep their shared blocks shared.** *Like this page*, `use_page` and `new_page copy=` wrote the shared block's code into the new page's own box under the link, so *Make this page's own copy* later brought back the block as it was when the page was copied; `use_page` even wrote it back into the block. A copy now takes only the box's own code, and the block stays the site's.
+
 - **Kaity can give a site one theme.** A site built page by page (through Claude, or from before shared themes) ended with a theme on every page, and an agent applied presets to each in turn. On a run over the whole site, `share_theme` makes one page's theme the site's, which every page then uses (each page can undo its part), and `get_theme` says when the pages each have their own.
 
 - **A site says what language it is in.** Every page said `<html lang="en">`, so a Spanish site told browsers, screen readers and search engines it was English. The site's language is now in `site.json` (`lang`, English when it isn't set), set from the site manager (*Styles & scripts*, next to the icon) or by Kaity (`set_site`), and every page, the list of pages and an export follow it. A copy of a website that starts a site gives it the page's language.

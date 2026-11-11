@@ -577,12 +577,15 @@ export class Workspace {
     return next;
   }
 
-  /** Set (or with null remove) the code of a box. Logged and undoable like layout moves. */
-  setContent(id: string, html: string | null, author: string = 'ai') {
-    this.transaction(() => this.setContentNow(id, html, author));
+  /**
+   * Set (or with null remove) the code of a box. Logged and undoable like layout moves. On a box that shows a
+   * shared block it changes the block, unless `own`: then the box's own code (kept for when it's unlinked).
+   */
+  setContent(id: string, html: string | null, author: string = 'ai', opts: { own?: boolean } = {}) {
+    this.transaction(() => this.setContentNow(id, html, author, !!opts.own));
   }
 
-  private setContentNow(id: string, html: string | null, author: string) {
+  private setContentNow(id: string, html: string | null, author: string, own = false) {
     if (!BOX_ID.test(id)) throw new Error(`bad box id "${id}"`);
     const layout = this.load();
     const node = find(layout.root, id)?.node;
@@ -595,7 +598,7 @@ export class Workspace {
     // a box that shows a shared block changes the block, on every page (the site keeps its undo);
     // emptying it only empties the box's own code
     const use = node?.type === 'leaf' ? node.use : undefined;
-    if (use && html !== null && this.site?.setBlock && this.site.block?.(use) != null) {
+    if (use && !own && html !== null && this.site?.setBlock && this.site.block?.(use) != null) {
       if (this.site.block(use) === html) return;
       this.checkGuards({ kind: 'content', id, layout });
       this.site.setBlock(use, html, author);

@@ -558,13 +558,7 @@ export function newPageLike(dir: string, name: string, from: string): Workspace 
       extra[main] = componentCode('text');
     }
   }
-  const boxes: Record<string, string> = { ...extra };
-  const ids = new Set<string>(l.overlays.map((o) => o.id));
-  walk(l.root, (n) => n.type === 'leaf' && ids.add(n.id));
-  for (const id of ids) if (!(id in boxes)) {
-    const html = src.content(id);
-    if (html !== null) boxes[id] = html;
-  }
+  const boxes: Record<string, string> = { ...ownCode(src, l), ...extra };
   const ws = pageWorkspace(dir, name);
   ws.create(l, boxes);
   if (src.head()) ws.store.write('head.html', src.head());
@@ -572,6 +566,22 @@ export function newPageLike(dir: string, name: string, from: string): Workspace 
   const used = Object.values(boxes).join('\n') + src.head();
   for (const f of src.assets()) if (used.includes(`assets/${f}`)) ws.store.write(`assets/${f}`, src.store.readBytes(`assets/${f}`)!);
   return ws;
+}
+
+/**
+ * The code a copy of a page takes for each box and overlay of a layout: the box's own. A box that shows a
+ * shared block keeps showing it (its use= comes along with the layout), so it takes only its own file, if it
+ * has one, never the block's code: a copy of that would be the block as it was, which unlinking would bring back.
+ */
+function ownCode(src: Workspace, l: Layout): Record<string, string> {
+  const out: Record<string, string> = {};
+  const ids = new Set<string>(l.overlays.map((o) => o.id));
+  walk(l.root, (n) => n.type === 'leaf' && ids.add(n.id));
+  for (const id of ids) {
+    const html = src.ownContent(id);
+    if (html !== null) out[id] = html;
+  }
+  return out;
 }
 
 /**
@@ -587,7 +597,7 @@ export function usePage(ws: Workspace, dir: string, from: string, opts: { theme?
   if (ws.store instanceof FolderStore && ws.dir === join(dir, from)) throw new Error(`this is the page "${from}" itself`);
   const src = pageWorkspace(dir, from);
   const next = src.load();
-  const code = src.contents();
+  const code = ownCode(src, next);
   ws.group(`use page ${from}`, author, () => {
     // types first, so the blocks that use them are checked against them
     for (const f of src.store.list('types')) if (!ws.store.exists(`types/${f}`)) ws.store.write(`types/${f}`, src.store.readBytes(`types/${f}`)!);
@@ -595,7 +605,8 @@ export function usePage(ws: Workspace, dir: string, from: string, opts: { theme?
     const top = ws.load().root.id;
     if (isOp(next.root) && top !== next.root.id && !find(next.root, top)) Object.assign(next.root, { id: top, named: true });
     ws.save(next, `use page ${from}`, author);
-    for (const [id, html] of Object.entries(code)) ws.setContent(id, html, author);
+    // the box's own code: on a box that shows a shared block, the block stays the site's
+    for (const [id, html] of Object.entries(code)) ws.setContent(id, html, author, { own: true });
     if (opts.theme) ws.setHead(src.head(), author);
     const used = Object.values(code).join('\n') + (opts.theme ? src.head() : '');
     for (const f of src.assets()) if (used.includes(`assets/${f}`) && !ws.store.exists(`assets/${f}`)) ws.store.write(`assets/${f}`, src.store.readBytes(`assets/${f}`)!);
