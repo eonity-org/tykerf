@@ -877,7 +877,7 @@ async function renderSheet() {
       : [...(/row|column/.test(n.arrangement) ? [['inside', t('New box inside')]] : []), ['beside', t('New box beside')], ['below', t('New box below')]];
     c.innerHTML = `<p>${n.kind === 'box' ? t('Paste from the buffer:') : t('Paste from the buffer into {id}:', { id: `<b>${esc(id)}</b>` })}</p>
       <ul class="buffer">${S.buffer.map((b) => `<li>
-        <div class="buf-head"><b>${esc(b.from)}</b><span class="muted">${b.boxes > 1 ? `${t('{n} boxes', { n: b.boxes })} · ` : ''}${new Date(b.at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+        <div class="buf-head"><b>${esc(b.from)}</b><span class="muted">${b.shared ? `${t('shared block {name}', { name: esc(b.shared) })} · ` : ''}${b.boxes > 1 ? `${t('{n} boxes', { n: b.boxes })} · ` : ''}${new Date(b.at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
           <button class="link" data-act="drop" data-i="${b.i}" title="${t('Forget this item')}">${t('forget')}</button></div>
         <div class="buf-preview">${esc(b.preview || t('(no text)'))}</div>
         <div class="row">${hows.map(([h, l]) => `<button data-act="paste-do" data-i="${b.i}" data-how="${h}">${l}</button>`).join('')}</div></li>`).join('')}</ul>

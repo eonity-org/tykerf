@@ -177,14 +177,17 @@ export function createPageHost(ws: Workspace, opts: { name: string; site?: () =>
   };
 
   // The buffer: code of removed blocks, newest first, ready to paste somewhere else.
-  interface BufferItem { from: string; boxes: string[]; html: string; css: string; at: string }
+  // (use: the removed box showed this shared block, and pasting it shows the block again; own: its own code, its slots)
+  interface BufferItem { from: string; boxes: string[]; html: string; css: string; at: string; use?: string; own?: string }
   const BUFFER = '.tykerf/buffer.json';
   const readBuffer = (): BufferItem[] => JSON.parse(store.read(BUFFER) ?? '[]');
   const writeBuffer = (b: BufferItem[]) => {
     store.write(BUFFER, JSON.stringify(b.slice(0, 20), null, 1));
   };
   const textOf = (html: string) => html.replace(/<(script|style)[\s\S]*?<\/\1>/gi, ' ').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
-  const bufferSummary = () => readBuffer().map((b, i) => ({ i, from: b.from, boxes: b.boxes.length, preview: textOf(b.html).slice(0, 90), at: b.at }));
+  const bufferSummary = () => readBuffer().map((b, i) => ({ i, from: b.from, boxes: b.boxes.length, preview: textOf(b.html).slice(0, 90), at: b.at, ...(b.use ? { shared: b.use } : {}) }));
+  /** The shared block a buffer item still shows when pasted, or null (no site, or the kit no longer has it). */
+  const pastedBlock = (item: BufferItem) => (item.use && ws.site && ws.site.block(item.use) !== null ? item.use : null);
 
   /** A name for a new box that is not in the tree and has no leftover code file. */
   function newBoxName(l: Layout, wanted?: string): string {
@@ -344,7 +347,10 @@ export function createPageHost(ws: Workspace, opts: { name: string; site?: () =>
       const l = ws.load();
       const next = M.remove(l, a.id);
       const code = codeOf(l, a.id);
-      if (code.boxes.length) writeBuffer([{ from: a.id, ...code, at: new Date().toISOString() }, ...readBuffer()]);
+      // a box that shows a shared block is remembered as that block (and its own slots), not a copy of its code
+      const n = find(l.root, a.id)?.node;
+      const shared = n?.type === 'leaf' && n.use ? { use: n.use, own: ws.ownContent(a.id) ?? '' } : {};
+      if (code.boxes.length) writeBuffer([{ from: a.id, ...code, ...shared, at: new Date().toISOString() }, ...readBuffer()]);
       ws.save(next, `remove ${a.id} (code to the buffer)`, 'user');
       return a.id;
     },
@@ -353,9 +359,12 @@ export function createPageHost(ws: Workspace, opts: { name: string; site?: () =>
       const item = readBuffer()[a.i];
       if (!item) throw new Error('nothing in the buffer at that place');
       const l = ws.load();
+      const block = pastedBlock(item);
       if (a.how === 'into') {
         if (!isLeaf(l, a.id)) throw new Error('paste into works on a box; choose a new box instead');
-        append(a.id, item);
+        // a shared block pasted into a box: the box shows it (its own code waits underneath, as with Use a shared block)
+        if (block) ws.save(M.setLeaf(l, a.id, { use: block }), `paste the shared block ${block} into ${a.id}`, 'user');
+        else append(a.id, item);
         return a.id;
       }
       const name = newBoxName(l, item.boxes.length === 1 ? item.boxes[0] : item.from);
@@ -366,7 +375,11 @@ export function createPageHost(ws: Workspace, opts: { name: string; site?: () =>
           if (!n || !isOp(n) || (n.kind !== 'H' && n.kind !== 'V')) throw new Error('paste inside works on rows and columns');
           ws.save(M.addLeaf(l, a.id, n.children.length, name), label, 'user');
         } else ws.save(M.insertNext(l, a.id, a.how === 'beside' ? 'V' : 'H', name), label, 'user');
-        ws.setContent(name, joinStyle(item.html, item.css), 'user');
+        if (block) {
+          // still the shared block: a change to it reaches this box too; its slots as they were
+          ws.save(M.setLeaf(ws.load(), name, { use: block }), label, 'user');
+          if (item.own) ws.setContent(name, item.own, 'user', { own: true });
+        } else ws.setContent(name, joinStyle(item.html, item.css), 'user');
       });
       return name;
     },

@@ -608,6 +608,25 @@ describe('a new site', () => {
     expect((await fetch(`${url}home/_tykerf/kit`).then((r) => r.json())).fonts).toContain('Diavlo');
   });
 
+  it('pastes a removed shared block as the shared block, not a copy of its code', async () => {
+    const op = (data: unknown) => fetch(`${url}home/_tykerf/op`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(data) }).then((r) => r.json());
+    const slice = () => readFileSync(join(site, 'home', 'layout.slice'), 'utf8');
+    expect(slice()).toMatch(/footer\[[^\]]*use=footer/);
+    expect((await op({ op: 'remove', id: 'footer' })).ok).toBe(true);
+    const state = await fetch(`${url}home/_tykerf/state`).then((r) => r.json());
+    expect(state.buffer[0]).toMatchObject({ from: 'footer', shared: 'footer' });
+    // as a new box: it shows the shared block, so a change to the footer reaches it too
+    const pasted = (await op({ op: 'paste', i: 0, id: 'hero', how: 'below' })).result;
+    expect(slice()).toMatch(new RegExp(`${pasted}\\[[^\\]]*use=footer`));
+    // into another box: that box shows it (its own code waits underneath)
+    expect((await op({ op: 'paste', i: 0, id: 'logos', how: 'into' })).ok).toBe(true);
+    expect(slice()).toMatch(/logos\[[^\]]*use=footer/);
+    // the page as it was, for the tests that follow
+    for (let i = 0; i < 3; i++) await fetch(`${url}home/_tykerf/undo`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}' });
+    expect(slice()).toMatch(/footer\[[^\]]*use=footer/);
+    expect(slice()).not.toMatch(/logos\[[^\]]*use=/);
+  });
+
   it("follows a page renamed or removed from another process (Kaity's site run), and lists Kaity's work", async () => {
     await fetch(`${url}_tykerf/site/new`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ name: 'draft', layout: 'blank' }) });
     await page.goto(`${url}draft/`);

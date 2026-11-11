@@ -8,6 +8,8 @@
 
 ## Unreleased
 
+- **Pasting a shared block keeps it shared.** A removed navigation or footer, pasted elsewhere, became a copy of its code that no later change reached. It is the shared block now (pasted into a box, the box shows it); **Make this page's own copy** gives a copy when one is wanted.
+
 - **A picture added to a shared block from a page is the site's.** The image tool saved it in that page's files, so the navigation showed it on that page only; it goes to the site's files now (`/assets/…`), for every page.
 - **The current page stays marked after an edit.** Re-rendering the page in the editor dropped the mark on the shared navigation's link to the page (`aria-current`) until the page was reloaded.
 - **Files kept for Undo don't pile up.** The copies of added or removed files that Undo and Redo need are deleted once no step can bring them back.
