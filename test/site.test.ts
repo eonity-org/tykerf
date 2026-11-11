@@ -92,6 +92,36 @@ describe('sites', () => {
     expect(() => shareTheme(dir, 'copy')).toThrow(/no theme of its own/);
   });
 
+  it('let Kaity make one page\'s theme the site\'s (share_theme), when every page has its own', async () => {
+    const dir = tmp();
+    for (const [n, th] of [['home', 'studio'], ['about', 'ivory']]) createPage(new Workspace(join(dir, n)), 'blank', th);
+    const { openTools } = await import('../src/editor/tools-client.js');
+    // a page's run reads its theme and hears that the pages share none
+    const page = await openTools(pageWorkspace(dir, 'about'), '');
+    expect((await page.call('get_theme', {})).text).toMatch(/^\(each page of this site has a theme of its own \(about, home\); they share none, so set_theme here changes this page only\. share_theme, on a run over the whole site, makes one page's theme every page's: ask for the whole site to use it\)\n--/);
+    expect((await page.call('share_theme', { page: 'home' })).text).toMatch(/not found|unknown tool|error/i); // only on a run over the site
+    await page.close();
+
+    const site = await openTools(pageWorkspace(dir, 'home'), '', dir);
+    expect((await site.call('get_theme', {})).text).toMatch(/makes one page's theme every page's\)\n/);
+    expect((await site.call('share_theme', { page: 'home' })).text).toBe('ok: the site has one theme now, "home"\'s, and every page uses it; these pages gave up their own: about, home (each can undo it). Copies of websites keep their own look.');
+    expect(readTheme(siteHead(dir))['--color-accent']).toBe(themes().find((t) => t.name === 'studio')!.values['--color-accent']);
+    for (const p of ['home', 'about']) {
+      const ws = pageWorkspace(dir, p);
+      expect(ws.head()).not.toContain('data-tykerf-theme');
+      expect(ws.history()).toHaveLength(1);
+      expect(ws.history(1)[0]).toMatchObject({ label: "the theme is now the site's", author: 'ai' });
+    }
+    expect((await site.call('get_theme', {})).text).not.toMatch(/share none/);
+    // the site shares one now: a page without its own can't be shared; one with its own still can
+    expect((await site.call('share_theme', { page: 'about' })).text).toMatch(/refused: the site already shares one theme, and "about" has none of its own: it uses the site's\. Every page follows it already/);
+    createPage(new Workspace(join(dir, 'shop')), 'blank', 'warm');
+    expect((await site.call('share_theme', { page: 'about' })).text).toMatch(/Pages with a theme of their own: shop; share_theme one of them/);
+    expect((await site.call('share_theme', { page: 'paris' })).text).toMatch(/no page "paris"/);
+    expect((await site.call('share_theme', { page: 'shop' })).text).toMatch(/^ok: the site has one theme now, "shop"'s/);
+    await site.close();
+  });
+
   it('make a new page like another: its header, footer and theme, one section between', () => {
     const dir = tmp();
     const home = newSitePage(dir, 'home', 'launch', 'studio');

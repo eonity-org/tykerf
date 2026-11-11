@@ -26,7 +26,7 @@ Never edit `layout.slice`, `boxes/` or `head.html` with file tools or shell comm
 4. **Change it.**
    - A new section: start from a component (`list_components`, `use_component`), then rewrite its text and pictures for this page.
    - Part of a box's code: `edit_content`, not the whole box.
-   - Colours, fonts and spacing for the whole page: `set_theme` or `use_theme`.
+   - Colours, fonts and spacing for the whole page: `set_theme` or `use_theme`. In a site whose pages each have their own theme (`get_theme` says so), `share_theme` makes one page's theme every page's: do that instead of applying a preset page by page.
    - Narrow screens: `add_rule` (flip a row into a column, hide a box), not a different base layout.
    - Pictures: draw an SVG or place one the person attached with `add_picture`. You can't download pictures; never make up a file name.
    - Links to a section of the page: the block's element is `#sw-<name>` (the block "faq" is `#sw-faq`), not `#faq`.

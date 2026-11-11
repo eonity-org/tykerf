@@ -8,6 +8,8 @@
 
 ## Unreleased
 
+- **Kaity can give a site one theme.** A site built page by page (through Claude, or from before shared themes) ended with a theme on every page, and an agent applied presets to each in turn. On a run over the whole site, `share_theme` makes one page's theme the site's, which every page then uses (each page can undo its part), and `get_theme` says when the pages each have their own.
+
 - **A site says what language it is in.** Every page said `<html lang="en">`, so a Spanish site told browsers, screen readers and search engines it was English. The site's language is now in `site.json` (`lang`, English when it isn't set), set from the site manager (*Styles & scripts*, next to the icon) or by Kaity (`set_site`), and every page, the list of pages and an export follow it. A copy of a website that starts a site gives it the page's language.
 
 - **A page's title is its own.** A page without a title set by hand is titled by its first heading, and a heading in a shared block counted: under a banner that every page shows, every page got the banner's title. Shared blocks are now skipped. Kaity can set a page's title (`set_title`, also `""` to go back to the heading), `list_pages` shows each title and where it comes from, and `check_page` reports a page whose title is another page's too (a duplicated page, say). The editor's **Page** tab shows the title, *from its first heading* or *set by hand*, with a field to change it.

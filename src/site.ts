@@ -502,7 +502,7 @@ const THEME_PARTS = /<!-- TYKERF theme[^>]*-->\n?|<style[^>]*\bdata-tykerf-(?:th
  * own theme blocks are removed (each one undo step in that page). Pages that keep their own look
  * (imported copies) are left alone. Returns the pages that changed.
  */
-export function shareTheme(dir: string, from: string): string[] {
+export function shareTheme(dir: string, from: string, author = 'user'): string[] {
   const src = pageWorkspace(dir, from);
   const blocks = src.head().match(THEME_PARTS)?.filter((b) => !b.includes('data-tykerf-fonts')) ?? [];
   if (!blocks.some((b) => b.includes('data-tykerf-theme'))) throw new Error(`the page "${from}" has no theme of its own to share`);
@@ -512,10 +512,22 @@ export function shareTheme(dir: string, from: string): string[] {
     const ws = pageWorkspace(dir, page);
     const head = ws.head();
     if (head.includes(NO_SITE_HEAD) || !hasTheme(head)) continue;
-    ws.transaction(() => ws.setHead(head.replace(THEME_PARTS, ''), 'user', 'the theme is now the site\'s'));
+    ws.transaction(() => ws.setHead(head.replace(THEME_PARTS, ''), author, 'the theme is now the site\'s'));
     changed.push(page);
   }
   return changed;
+}
+
+/** The pages with a theme of their own (an older site's, or one the site doesn't share yet), not counting copies of websites. */
+export function pagesWithOwnTheme(dir: string): string[] {
+  return sitePages(dir).filter((p) => {
+    try {
+      const head = pageWorkspace(dir, p).head();
+      return hasTheme(head) && !head.includes(NO_SITE_HEAD);
+    } catch {
+      return false;
+    }
+  });
 }
 
 // ---------- a new page like an existing one ----------

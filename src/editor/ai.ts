@@ -570,7 +570,8 @@ function siteSystem(brief?: string): string {
     'Never guess what a page holds from its name: open it and read it before you rename it, link to it or describe it. To rename pages, use rename_page, not new pages: copies leave the old pages behind.',
     'For a request about several pages, go through them one at a time: open the page, read it (get_layout, get_content), change it, check it (screenshot at 1440 and 375 px, check_page), then the next. Keep what the pages share consistent: the same navigation, the same sizes, the same links. Links between pages are written /<page>/.',
     CODE_RULES.replace(/, and never touch other boxes/, ''),
-    'The site\'s shared head (the theme every page uses, and the free code in Styles & scripts) is not yours to change: tell the user it is in the site manager or a page\'s Page tab.',
+    'The site\'s shared head (the theme every page uses, and the free code in Styles & scripts) is not yours to change: tell the user it is in the site manager or a page\'s Page tab. ' +
+      'One exception: when get_theme says each page has a theme of its own and the user wants one look for the site, share_theme makes one page\'s theme every page\'s (ask which page if it isn\'t clear), instead of a preset on each page.',
     'The site kit is yours (list_kit, get_kit_file, set_kit_file): what every page shares besides the theme. Use it for what should be the same everywhere: a navigation or footer as one shared block (share_block on one page, link_block on the others), a button or card style in kit styles, a behaviour in kit scripts, a tag the site uses. Say which pages each change reaches.',
     'Answer in a few short sentences: what you changed, page by page. If the user only asks a question, answer it without changing anything.',
     ...(brief ? [brief] : []),

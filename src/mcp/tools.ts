@@ -17,7 +17,7 @@ import { cost, optimize } from '../shape.js';
 import { leftovers, missingFiles, say } from '../check.js';
 import { closeTask, sayTask, tasks } from '../tasks.js';
 import { type KitKind, kitList, kitRead, kitTags, kitWarning, kitWrite } from '../kit.js';
-import { HOME_PAGE, blockUsers, linkBlock, newSitePage, pageTitle, pageWorkspace, readSite, setLang, setTitle, removePage, renamePage, shareBlock, movedFiles, siteHead, siteKind, unlinkBlock, unsafeSVG, siteOf, sitePages, usePage } from '../site.js';
+import { HOME_PAGE, blockUsers, linkBlock, newSitePage, pageTitle, pagesWithOwnTheme, pageWorkspace, readSite, setLang, setTitle, shareTheme, removePage, renamePage, shareBlock, movedFiles, siteHead, siteKind, unlinkBlock, unsafeSVG, siteOf, sitePages, usePage } from '../site.js';
 import { DEFAULT_THEME, components, createPage, hasTheme, pageLayouts, readOverrides, readTheme, setTheme, themeTarget, themes, useComponent, useLayout } from '../library.js';
 import { FolderStore, MemoryStore } from '../store.js';
 import { Workspace } from '../workspace.js';
@@ -266,8 +266,12 @@ export function createTykerfServer(start: Workspace | null, opts: TykerfServerOp
       const own = readTheme(ws.head());
       const mine = readOverrides(ws.head());
       const vars = Object.keys(own).length ? own : { ...readTheme(ws.siteHead()), ...mine };
+      // an older site, or one built page by page: every page has its own theme, and none is shared
+      const dir = ws.site?.dir;
+      const apart = dir && Object.keys(own).length && !hasTheme(siteHead(dir)) ? pagesWithOwnTheme(dir) : [];
+      const each = apart.length > 1 ? `(each page of this site has a theme of its own (${apart.join(', ')}); they share none, so set_theme here changes this page only. share_theme, on a run over the whole site, makes one page's theme every page's${home && !runScope ? '' : ': ask for the whole site to use it'})\n` : '';
       const shared = Object.keys(own).length ? '' : `(the theme every page of the site shares${Object.keys(mine).length ? `, with this page's own values for ${Object.keys(mine).join(', ')}` : ''}; ${themeTarget(ws) === 'site' ? 'this is the site\'s only page, so set_theme changes the site theme' : 'set_theme sets this page\'s own values over it; the other pages keep theirs'})\n`;
-      return Object.keys(vars).length ? shared + Object.entries(vars).map(([n, v]) => `${n}: ${v}`).join('\n') : 'this page has no theme (the user can add one in the Page tab of the top block)';
+      return Object.keys(vars).length ? each + shared + Object.entries(vars).map(([n, v]) => `${n}: ${v}`).join('\n') : 'this page has no theme (the user can add one in the Page tab of the top block)';
     }));
 
   server.registerTool('set_theme', {
@@ -701,6 +705,25 @@ export function createTykerfServer(start: Workspace | null, opts: TykerfServerOp
       const box = resolveRef(ws.load(), ref);
       unlinkBlock(ws, box, 'ai');
       return `ok: "${box}" is this page's own copy now`;
+    }));
+
+    // one page's theme for every page: an older site, or one built page by page, ends with a theme per page
+    server.registerTool('share_theme', {
+      title: 'Make a page\'s theme the site\'s', annotations: REPLACE,
+      description: 'Make one page\'s theme (colours, fonts, spacing) the theme every page of the site shares: it becomes the site\'s, and the pages with a theme of their own give theirs up (one undo step on each). ' +
+        'Use it when get_theme says each page has its own theme, instead of applying a preset page by page. Copies of websites keep their own look.',
+      inputSchema: { page: z.string().describe('the page whose theme every page takes (list_pages)') },
+    }, guard(({ page }: { page: string }) => {
+      const site = siteOnly();
+      if (!sitePages(site).includes(page)) throw new Error(`there is no page "${page}" in the site (pages: ${sitePages(site).join(', ') || 'none yet'})`);
+      const own = pagesWithOwnTheme(site);
+      if (!own.includes(page)) {
+        const others = own.length ? `Pages with a theme of their own: ${own.join(', ')}; share_theme one of them to make it the site's.` : '';
+        if (hasTheme(siteHead(site))) throw new Error(`refused: the site already shares one theme, and "${page}" has none of its own: it uses the site's. ${others || 'Every page follows it already: change it with set_theme or use_theme.'}`);
+        throw new Error(`"${page}" has no theme of its own to share. ${others || 'No page has one: use_theme gives a page one.'}`);
+      }
+      const changed = shareTheme(site, page, 'ai');
+      return `ok: the site has one theme now, "${page}"'s, and every page uses it; ${changed.length === 1 ? 'this page gave up its own' : `these pages gave up their own: ${changed.join(', ')}`} (each can undo it). Copies of websites keep their own look.`;
     }));
 
     // the whole site's settings (site.json): only the fields in SITE_SETTINGS, each with its own check
