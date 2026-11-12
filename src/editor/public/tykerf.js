@@ -676,6 +676,8 @@ function renderWork() {
     : t('This box shows the shared block {name}: a change here changes it on every page that shows it.', { name: `<b>${esc(n.shared)}</b>` })}
     <a href="${kitHref}" target="_blank" class="kit-link">${t('Open in the site kit')}</a></span><button data-act="unlink" title="${t('This page gets its own copy of the block, which stops following the shared one')}">${t('Make this page\'s own copy')}</button></p>` : '';
 
+  const old = $('.work .tab-body');
+  const keep = p.tab === 'ai' && old?.dataset.pane === 'ai' && old.dataset.id === id ? old : null;
   w.innerHTML = `
     <div class="w-head">
       <input class="w-name" value="${esc(id)}" spellcheck="false" aria-label="${t('name')}" title="${t('Rename (Enter)')}">
@@ -686,6 +688,9 @@ function renderWork() {
     <div class="sheet" hidden></div>
     <div class="tabs" role="tablist">${tabs.map(([k, l]) => `<button role="tab" data-tab="${k}" aria-selected="${p.tab === k}">${k === 'ai' ? kaityMark(S.ai?.id === id) : ic(TAB_ICON[k])}${l()}</button>`).join('')}</div>
     <div class="tab-body"></div>`;
+  // the AI tab loads its chat before drawing it: until then the chat already shown stays, with its scroll
+  // (a refresh as Kaity ends would otherwise blank it for a moment, and lose the reader's place)
+  if (keep) $('.work .tab-body').replaceWith(keep);
   renderSheet();
   renderTab();
 }
@@ -696,6 +701,7 @@ function renderTab() {
   const body = $('.work .tab-body');
   if (!body) return;
   body.dataset.pane = p.tab;
+  body.dataset.id = id;
   body.onclick = body.oninput = body.onchange = body.onkeydown = body.onpointerover = null;
   if (p.tab === 'text') return renderText(body, id);
   if (p.tab === 'code') return renderCode(body, id);
