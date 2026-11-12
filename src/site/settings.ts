@@ -144,7 +144,7 @@ export function pageTitle(dir: string, page: string, settings = readSite(dir)): 
 /**
  * A page's title from its own boxes: the text of the first <h1> in tree order, else the page's name. Boxes that
  * show a shared block are skipped: a banner shared by every page would give them all its heading.
- * (When shared blocks get slots, docs/plans/site-sharing-2.md phase 2, a slot this page fills can count again.)
+ * (When shared blocks get slots, a slot this page fills can count again.)
  */
 export function derivedTitle(dir: string, page: string): string {
   const ws = new Workspace(pageStore(dir, page));
