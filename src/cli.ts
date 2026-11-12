@@ -36,15 +36,27 @@ switch (cmd) {
     for (const p of pages) console.log(new Workspace(p, { site: siteOf(p) }).render());
     break;
   }
+  case 'site': {
+    // site <dir> migrate-head: the <style> blocks of the site head's code go to the kit (kit/styles/head.css)
+    const { migrateHeadStyles, siteKind } = await import('./site.js');
+    if (!arg || rest[0] !== 'migrate-head' || siteKind(resolve(arg)) !== 'site') {
+      console.error('usage: site <site-dir> migrate-head');
+      process.exit(1);
+    }
+    const n = migrateHeadStyles(resolve(arg));
+    console.log(n ? `moved ${n} style ${n === 1 ? 'block' : 'blocks'} from the head code to kit/styles/head.css (the site manager's Undo takes it back)` : 'the head code has no styles to move');
+    break;
+  }
   case 'export': {
     const { describeReport, exportToFolder, exportZip } = await import('./export.js');
     const out = rest.find((r) => !r.startsWith('--'));
     if (!arg || !out) {
-      console.error('usage: export <page-or-site-dir> <out-dir | out.zip> [--zip] [--files]');
+      console.error('usage: export <page-or-site-dir> <out-dir | out.zip> [--zip] [--files] [--inline-kit]');
       process.exit(1);
     }
     // with the site's public address (TYKERF_PUBLIC_URL), the export has a sitemap.xml
-    const opts = { files: rest.includes('--files'), publicUrl: process.env.TYKERF_PUBLIC_URL?.trim() || null };
+    // --inline-kit: the site's styles in every page, instead of one kit/site.css they link
+    const opts = { files: rest.includes('--files'), inlineKit: rest.includes('--inline-kit'), publicUrl: process.env.TYKERF_PUBLIC_URL?.trim() || null };
     if (rest.includes('--zip') || out.endsWith('.zip')) {
       const { writeFileSync } = await import('node:fs');
       const to = resolve(out.endsWith('.zip') ? out : `${out}.zip`);
@@ -67,7 +79,7 @@ switch (cmd) {
   }
   case 'import': {
     const { importPage, writeWorkspace } = await import('./importer.js');
-    const { HOME_PAGE, freePageName, setHome } = await import('./site.js');
+    const { HOME_PAGE, freePageName, setHome, setLang } = await import('./site.js');
     const where = resolve(rest[0] ?? '');
     if (!arg || !rest[0]) {
       console.error('usage: import <url> <site-or-page-dir> [--structure-only] [--name <page>]');
@@ -87,6 +99,7 @@ switch (cmd) {
     const r = await importPage(arg, { structureOnly: rest.includes('--structure-only') });
     writeWorkspace(dir, r, arg);
     if (first) setHome(where, basename(dir));
+    if (first && r.lang) setLang(where, r.lang); // a new site speaks the copied page's language
     console.log(`imported ${arg} -> ${dir}`);
     console.log(`${r.stats.boxes} boxes, ${r.stats.operators} rows/columns, depth ${r.stats.depth}, ${r.stats.rules} responsive rules`);
     console.log(`${Object.keys(r.files).length} images and fonts copied into assets/` + (r.remote.length ? `; ${r.remote.length} files still load from other servers` : ''));

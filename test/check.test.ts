@@ -5,10 +5,21 @@ import { describe, expect, it } from 'vitest';
 import { leftoverKey, leftovers, say } from '../src/check.js';
 import { openTools } from '../src/editor/tools-client.js';
 import { createPage } from '../src/library.js';
-import { MemoryStore } from '../src/store.js';
+import { MemoryStore, SubStore } from '../src/store.js';
 import { Workspace } from '../src/workspace.js';
+import { Site } from '../src/site.js';
 
-const fresh = (pages?: string[]) => new Workspace(new MemoryStore('memory:new'), { site: pages ? { head: () => '', pageNames: () => pages } : null });
+/** A real site in memory, with these pages (blank) and these files in its assets/. */
+let sites = 0;
+function siteWith(pages: string[], files: string[] = []): Site {
+  const store = new MemoryStore(`memory:check-${++sites}`);
+  for (const p of pages) createPage(new Workspace(new SubStore(store, p)), 'blank');
+  for (const f of files) store.write(`assets/${f}`, '');
+  return new Site(store);
+}
+
+/** A page in memory, in a site with these pages (or in none). */
+const fresh = (pages?: string[]) => new Workspace(new MemoryStore('memory:new'), { site: pages ? siteWith(pages) : null });
 
 describe('what a page has left unfinished', () => {
   it('finds the placeholders a layout brings: sample text, pictures and links that go nowhere', () => {
@@ -53,7 +64,7 @@ describe('what a page has left unfinished', () => {
   });
 
   it('finds pictures and files the page does not have: a made-up name, a site file that is not there', () => {
-    const ws = new Workspace(new MemoryStore('memory:new'), { site: { head: () => '', pageNames: () => ['munich'], files: () => ['font.woff2'] } });
+    const ws = new Workspace(new MemoryStore('memory:new'), { site: siteWith(['munich'], ['font.woff2']) });
     ws.create('banner main H', {
       banner: '<img src="/assets/marienplatz.webp" alt=""><img src="assets/munich.jpg" alt=""><img src="https://example.org/x.jpg" alt=""><img src="data:image/png;base64,AA" alt="">',
       main: '<div style="background:url(\'assets/tiles.svg\')"></div><img srcset="assets/a.png 1x, assets/b.png 2x" alt=""><style>@font-face{src:url(/assets/font.woff2)}</style>',

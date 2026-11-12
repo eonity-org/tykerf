@@ -60,7 +60,7 @@ describe('a server with no folder open (the Claude plugin)', () => {
     expect(existsSync(join(dir, 'layout.slice'))).toBe(false);
     expect(readSite(dir).home).toBe('home');
     // the page is open, and the site's tools work on it
-    expect((await call('list_pages')).text).toMatch(/\nhome \(open\)$/);
+    expect((await call('list_pages')).text).toMatch(/\nhome \(open\): /);
   });
 
   it('opens a page or a site, and refuses a folder of other files, keeping the folder that was open', async () => {
@@ -79,7 +79,7 @@ describe('a server with no folder open (the Claude plugin)', () => {
     expect((await call('get_layout')).text).toMatch(/^page column/);
 
     expect((await call('open_folder', { path: site })).text).toBe(`ok: ${site} is open, a site of 1 page: rome. open_page opens one, new_page makes another.`);
-    expect((await call('list_pages')).text).toMatch(/^site .*\nrome\nno page is open/);
+    expect((await call('list_pages')).text).toMatch(/^site .*\nrome: "Widget Gallery" \(from its first heading\)\nno page is open/);
     expect(await call('open_page', { name: 'rome' })).toMatchObject({ error: false });
     expect((await call('open_folder', { path: join(site, 'rome') })).text).toMatch(new RegExp(`^ok: ${join(site, 'rome')} is open, a page of the site ${site}`));
   });

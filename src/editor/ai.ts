@@ -14,7 +14,8 @@ import { type ChildProcess, spawn } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { basename, dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { KIND_WORD, find, isOp } from '../model.js';
+import { KIND_WORD, type Layout, find, isOp, walk } from '../model.js';
+import { kitClasses } from '../kit.js';
 import { pathOf } from '../refs.js';
 import { type Leftover, leftoverKey, leftovers, say } from '../check.js';
 import { type TaskNow, sayTask, tasks } from '../tasks.js';
@@ -392,7 +393,7 @@ export class AI {
     this.run = run;
     // the site's log of Kaity's work, for every page and the whole site (kaity-log.ts)
     const logSite = site ?? this.ws.site?.dir ?? null;
-    if (logSite) logStart(logSite, { run: run.key, page: site ? null : (this.ws.site?.page ?? null), block: site ? null : id, request: prompt.trim(), ...(this.runTasks ? { tasks: this.runTasks } : {}) });
+    if (logSite) logStart(logSite, { run: run.key, page: site ? null : (this.ws.pageName ?? null), block: site ? null : id, request: prompt.trim(), ...(this.runTasks ? { tasks: this.runTasks } : {}) });
     let answer = '', problem = '';
     // a block is locked for the editor while Kaity works on it; a run on the whole site has no block
     const unlock = site ? () => {} : this.ws.addGuard(lockBlock(() => this.follow()));
@@ -471,8 +472,28 @@ export class AI {
       'Make the change, then look at it with screenshot (at 1440 and 375 px) and check it with evaluate; fix what looks wrong. Answer in 1-3 short sentences saying what you changed.',
       'If the user only asks a question, answer it without changing anything. If the request cannot be done inside this block, say so.',
       ...this.otherPages(),
+      ...this.sharedNote(layout, id),
+      ...this.classNote(),
       ...(brief ? [brief] : []),
     ].join('\n');
+  }
+
+  /** The site kit's class styles, which any element can take (class="k-<name>"; a whole box: the tag #k-<name>). */
+  private classNote(): string[] {
+    const dir = this.ws.site?.dir;
+    const classes = dir ? kitClasses(dir) : [];
+    return classes.length ? [`The site has styles for a class (the site kit): ${classes.map((c) => `k-${c}`).join(', ')}. Use them for what should look the same on every page: class="k-${classes[0]}" on an element, or the tag #k-${classes[0]} on a whole box, instead of writing the same CSS again.`] : [];
+  }
+
+  /** What Kaity is told about the shared blocks (get_layout marks them `use=`): the page's own rule, as for the theme. */
+  private sharedNote(layout: Layout, id: string): string[] {
+    let any = false;
+    walk(layout.root, (n) => { if (n.type === 'leaf' && n.use) any = true; });
+    if (!any) return [];
+    const slots = 'Some shared blocks have slots (get_layout: slots: …): the parts each page fills itself, such as a title. set_slot fills one for this page, from any block, and the other pages keep theirs; set_content and edit_content inside a slot do the same.';
+    return [slots, id === layout.root.id
+      ? 'Boxes marked use=<name> show a shared block of the site: a change to one changes every page that shows it (the tool\'s reply names them). Change one only when the request is about every page, and say in your answer which pages it reached.'
+      : 'Boxes marked use=<name> show a shared block of the site, which every page shows: from this block you can\'t change one. If the request needs it, say the user can select the page block for a change on every page, or make it this page\'s own copy (right-click → Make this page\'s own copy).'];
   }
 
   /** What the page has left unfinished now that it didn't have before, less what the person chose to keep. */
@@ -484,7 +505,7 @@ export class AI {
   /** The site's other pages, so a request for a page like one of them can start from it (use_page). */
   private otherPages(): string[] {
     const here = this.ws.store instanceof FolderStore ? basename(this.ws.dir) : null;
-    const others = (this.ws.site?.pageNames?.() ?? []).filter((p) => p !== here);
+    const others = (this.ws.site?.pageNames() ?? []).filter((p) => p !== here);
     return others.length ? [`This page is part of a site with other pages: ${others.join(', ')}. To make this page like one of them, use_page copies its blocks (theme: true also takes its look); then rewrite the text for this page.`] : [];
   }
 
@@ -570,8 +591,10 @@ function siteSystem(brief?: string): string {
     'Never guess what a page holds from its name: open it and read it before you rename it, link to it or describe it. To rename pages, use rename_page, not new pages: copies leave the old pages behind.',
     'For a request about several pages, go through them one at a time: open the page, read it (get_layout, get_content), change it, check it (screenshot at 1440 and 375 px, check_page), then the next. Keep what the pages share consistent: the same navigation, the same sizes, the same links. Links between pages are written /<page>/.',
     CODE_RULES.replace(/, and never touch other boxes/, ''),
-    'The site\'s shared head (the theme every page uses, and the free code in Styles & scripts) is not yours to change: tell the user it is in the site manager or a page\'s Page tab.',
-    'The site kit is yours (list_kit, get_kit_file, set_kit_file): what every page shares besides the theme. Use it for what should be the same everywhere: a navigation or footer as one shared block (share_block on one page, link_block on the others), a button or card style in kit styles, a behaviour in kit scripts, a tag the site uses. Say which pages each change reaches.',
+    'The site\'s shared head (the theme every page uses, and its head code: meta tags and scripts) is not yours to change: tell the user it is in the site manager or a page\'s Page tab. ' +
+      'One exception: when get_theme says each page has a theme of its own and the user wants one look for the site, share_theme makes one page\'s theme every page\'s (ask which page if it isn\'t clear), instead of a preset on each page.',
+    'The site kit is yours (list_kit, get_kit_file, set_kit_file): what every page shares besides the theme. Use it for what should be the same everywhere: a navigation or footer as one shared block (share_block on one page, link_block on the others), a button or card style in kit styles, a behaviour in kit scripts, a tag the site uses. Say which pages each change reaches. ' +
+      'A shared block\'s slots (get_layout: slots: …) are the parts each page fills itself, such as a page title: set_slot fills one on the open page, and the other pages keep theirs.',
     'Answer in a few short sentences: what you changed, page by page. If the user only asks a question, answer it without changing anything.',
     ...(brief ? [brief] : []),
   ].join('\n');

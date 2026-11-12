@@ -1,11 +1,15 @@
-import { existsSync, mkdirSync, mkdtempSync, readdirSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { describe, expect, it } from 'vitest';
-import { freePageName, iconLink, madeIcon, setSiteIcon, siteIcon, lastSiteHeadChange, linkedPage, newPageLike, newSitePage, pageLinks, pageNameError, pageWorkspace, removePage, renamePage, setSiteHead, emptyTrash, pageTitle, readSite, setHome, setSiteCode, setTitle, shareTheme, siteCode, siteHead, siteKind, siteOf, sitePages, trashedPages, undoSiteHead, usePage } from '../src/site.js';
+import { leftovers, say } from '../src/check.js';
+import { kitRead, kitWrite, lastKitChange } from '../src/kit.js';
+import { headStyles, migrateHeadStyles, moveSiteDuplicates, moveToSite, pruneMedia, removeMediaFile, siteMedia, Site, blockUsers, duplicatePage, freePageName, linkBlock, shareBlock, unlinkBlock, iconLink, madeIcon, setSiteIcon, siteIcon, lastSiteHeadChange, linkedPage, newPageLike, newSitePage, pageLinks, pageNameError, pageWorkspace, removePage, renamePage, setSiteHead, emptyTrash, langTag, pageTitle, readSite, setHome, setLang, siteIndex, setSiteCode, setTitle, shareTheme, siteCode, siteHead, siteKind, siteOf, sitePages, trashedPages, undoSiteHead, usePage } from '../src/site.js';
 import { NO_SITE_HEAD, Workspace } from '../src/workspace.js';
-import { createPage, readOverrides, readTheme, themes } from '../src/library.js';
+import * as M from '../src/moves.js';
+import { componentCode, createPage, readOverrides, readTheme, themes } from '../src/library.js';
+import { pageFileRefs } from '../src/assets.js';
 
 const tmp = () => mkdtempSync(join(tmpdir(), 'tykerf-site-'));
 
@@ -91,9 +95,158 @@ describe('sites', () => {
     expect(() => shareTheme(dir, 'copy')).toThrow(/no theme of its own/);
   });
 
-  it('make a new page like another: its header, footer and theme, one section between', () => {
+  it('let Kaity make one page\'s theme the site\'s (share_theme), when every page has its own', async () => {
+    const dir = tmp();
+    for (const [n, th] of [['home', 'studio'], ['about', 'ivory']]) createPage(new Workspace(join(dir, n)), 'blank', th);
+    const { openTools } = await import('../src/editor/tools-client.js');
+    // a page's run reads its theme and hears that the pages share none
+    const page = await openTools(pageWorkspace(dir, 'about'), '');
+    expect((await page.call('get_theme', {})).text).toMatch(/^\(each page of this site has a theme of its own \(about, home\); they share none, so set_theme here changes this page only\. share_theme, on a run over the whole site, makes one page's theme every page's: ask for the whole site to use it\)\n--/);
+    expect((await page.call('share_theme', { page: 'home' })).text).toMatch(/not found|unknown tool|error/i); // only on a run over the site
+    await page.close();
+
+    const site = await openTools(pageWorkspace(dir, 'home'), '', dir);
+    expect((await site.call('get_theme', {})).text).toMatch(/makes one page's theme every page's\)\n/);
+    expect((await site.call('share_theme', { page: 'home' })).text).toBe('ok: the site has one theme now, "home"\'s, and every page uses it; these pages gave up their own: about, home (each can undo it). Copies of websites keep their own look.');
+    expect(readTheme(siteHead(dir))['--color-accent']).toBe(themes().find((t) => t.name === 'studio')!.values['--color-accent']);
+    for (const p of ['home', 'about']) {
+      const ws = pageWorkspace(dir, p);
+      expect(ws.head()).not.toContain('data-tykerf-theme');
+      expect(ws.history()).toHaveLength(1);
+      expect(ws.history(1)[0]).toMatchObject({ label: "the theme is now the site's", author: 'ai' });
+    }
+    expect((await site.call('get_theme', {})).text).not.toMatch(/share none/);
+    // the site shares one now: a page without its own can't be shared; one with its own still can
+    expect((await site.call('share_theme', { page: 'about' })).text).toMatch(/refused: the site already shares one theme, and "about" has none of its own: it uses the site's\. Every page follows it already/);
+    createPage(new Workspace(join(dir, 'shop')), 'blank', 'warm');
+    expect((await site.call('share_theme', { page: 'about' })).text).toMatch(/Pages with a theme of their own: shop; share_theme one of them/);
+    expect((await site.call('share_theme', { page: 'paris' })).text).toMatch(/no page "paris"/);
+    expect((await site.call('share_theme', { page: 'shop' })).text).toMatch(/^ok: the site has one theme now, "shop"'s/);
+    await site.close();
+  });
+
+  it('start a new site with its navigation and footer shared, and link them on every new page', async () => {
     const dir = tmp();
     const home = newSitePage(dir, 'home', 'launch', 'studio');
+    // the library's navigation and footer, with their pictures at the site's assets/
+    expect(kitRead(dir, 'blocks', 'nav')).toContain(componentCode('nav').match(/class="[^"]+"/)![0]);
+    expect(kitRead(dir, 'blocks', 'footer')!.length).toBeGreaterThan(100);
+    for (const b of ['nav', 'footer']) expect(pageFileRefs(kitRead(dir, 'blocks', b)!), b).toEqual([]);
+    expect([home.sharedBlock('nav'), home.sharedBlock('footer'), home.sharedBlock('hero')]).toEqual(['nav', 'footer', null]);
+    expect(existsSync(join(dir, 'home', 'boxes', 'nav.html'))).toBe(false); // no copy of the code: the block is the code
+    expect(home.history()).toEqual([]); // a new page starts with nothing to undo
+    expect(home.contents().footer).toBe(kitRead(dir, 'blocks', 'footer'));
+    const about = newSitePage(dir, 'about', 'company', 'studio');
+    expect([about.sharedBlock('nav'), about.sharedBlock('footer')]).toEqual(['nav', 'footer']);
+    expect(blockUsers(dir, 'nav')).toEqual({ about: ['nav'], home: ['nav'] });
+    // a change reaches both
+    kitWrite(dir, 'blocks', 'footer', '<footer>© Bakery</footer>');
+    expect(pageWorkspace(dir, 'about').page()).toContain('© Bakery');
+    // shared: false gives the page copies of its own
+    const own = newSitePage(dir, 'own', 'company', 'studio', { shared: false });
+    expect([own.sharedBlock('nav'), own.sharedBlock('footer')]).toEqual([null, null]);
+    expect(own.ownContent('footer')).toBe(componentCode('footer'));
+    expect(own.page()).not.toContain('© Bakery');
+
+    // Kaity's new_page says which blocks the page shows; shared: false, none
+    const { openTools } = await import('../src/editor/tools-client.js');
+    const run = await openTools(home, '', dir);
+    expect((await run.call('new_page', { name: 'shop', layout: 'catalogue' })).text).toMatch(/^ok: new page "shop" from the catalogue layout, it uses the theme the site's pages share; it shows the site's shared blocks nav, footer, the same on every page/);
+    expect((await run.call('new_page', { name: 'shop2', layout: 'catalogue', shared: false })).text).not.toMatch(/shared block/);
+    // use_layout on a page of the site: its navigation and footer show the site's blocks, in the same undo step
+    await run.call('open_page', { name: 'own' });
+    expect((await run.call('use_layout', { name: 'launch' })).text).toMatch(/^ok: the page now follows the launch layout; nav, footer show the site's shared blocks of that name/);
+    expect([pageWorkspace(dir, 'own').sharedBlock('nav'), pageWorkspace(dir, 'own').sharedBlock('footer')]).toEqual(['nav', 'footer']);
+    expect(pageWorkspace(dir, 'own').history(1)[0].label).toBe('use layout launch');
+    await run.close();
+  });
+
+  it('copy a page with its shared blocks as links, never as copies of the blocks\' code', async () => {
+    const dir = tmp();
+    const home = newSitePage(dir, 'home', 'launch', 'studio', { shared: false }); // an older site: shared by hand below
+    const mine = home.ownContent('nav')!;
+    shareBlock(dir, home, 'nav');
+    kitWrite(dir, 'blocks', 'nav', '<nav>shared, second version</nav>');
+    // a page that shows the block with no code of its own
+    const about = newSitePage(dir, 'about', 'blank', 'studio');
+    about.save(M.setLeaf(about.load(), 'text', { use: 'nav' }), 'link', 'user');
+    expect(about.ownContent('text')).not.toBeNull();
+    about.store.remove('boxes/text.html');
+
+    const { openTools } = await import('../src/editor/tools-client.js');
+    const run = await openTools(home, '', dir);
+    expect((await run.call('new_page', { name: 'copied', copy: 'home' })).text).toMatch(/^ok: new page "copied", a copy of "home"/);
+    await run.close();
+    const used = newSitePage(dir, 'used', 'blank', 'studio');
+    usePage(used, dir, 'home');
+    newPageLike(dir, 'like', 'home');
+    duplicatePage(dir, 'home', 'twin');
+    newPageLike(dir, 'like-about', 'about');
+    const kitStep = lastKitChange(dir)!.at;
+
+    for (const p of ['copied', 'used', 'like', 'twin']) {
+      const ws = pageWorkspace(dir, p);
+      expect(ws.sharedBlock('nav'), p).toBe('nav');
+      expect(ws.ownContent('nav'), p).toBe(mine); // the source's own file, not the block as it was
+    }
+    expect(pageWorkspace(dir, 'like-about').sharedBlock('text')).toBe('nav');
+    expect(existsSync(join(dir, 'like-about', 'boxes', 'text.html'))).toBe(false);
+    expect(lastKitChange(dir)!.at).toBe(kitStep); // copying wrote nothing into the block
+
+    // a later change to the shared block shows on every copy, and unlinking takes it as it is now
+    kitWrite(dir, 'blocks', 'nav', '<nav>shared, third version</nav>');
+    for (const p of ['copied', 'used', 'like', 'twin']) expect(pageWorkspace(dir, p).page(), p).toContain('shared, third version');
+    unlinkBlock(pageWorkspace(dir, 'like'), 'nav');
+    expect(pageWorkspace(dir, 'like').ownContent('nav')?.trim()).toBe('<nav>shared, third version</nav>');
+    expect(kitRead(dir, 'blocks', 'nav')).toBe('<nav>shared, third version</nav>');
+  });
+
+  it('copy a page with only its own files, taking the site\'s where the site has the same bytes', async () => {
+    const dir = tmp();
+    const home = newSitePage(dir, 'home', 'launch', 'studio');
+    const { mkdirSync: mk, writeFileSync: wr } = await import('node:fs');
+    mk(join(dir, 'assets'), { recursive: true });
+    wr(join(dir, 'assets', 'logo.png'), 'LOGO');
+    home.store.write('assets/hero.jpg', new TextEncoder().encode('HERO'));
+    home.store.write('assets/badge.png', new TextEncoder().encode('LOGO')); // the site's logo, under the page's name
+    home.store.write('assets/unused.png', new TextEncoder().encode('NOT USED'));
+    kitWrite(dir, 'blocks', 'nav', '<nav><img src="/assets/logo.png" alt="Bakery"></nav>');
+    home.setContent('hero', '<img src="assets/hero.jpg" alt=""><img src="assets/badge.png" alt="">', 'user');
+
+    const { openTools } = await import('../src/editor/tools-client.js');
+    const run = await openTools(home, '', dir);
+    newSitePage(dir, 'about', 'blank', 'studio');
+    await run.call('open_page', { name: 'about' });
+    expect((await run.call('new_page', { name: 'copy', copy: 'home' })).text).toMatch(/^ok: new page "copy", a copy of "home"; 1 of its files the site already has, so it uses those \(not copied\)/);
+    const copy = pageWorkspace(dir, 'copy');
+    // its hero's own picture; not the site's logo, nor the badge equal to it, nor the file nothing uses
+    expect(copy.assets()).toContain('hero.jpg');
+    for (const f of ['logo.png', 'badge.png', 'unused.png']) expect(copy.assets(), f).not.toContain(f);
+    expect(copy.content('hero')?.trim()).toBe('<img src="assets/hero.jpg" alt=""><img src="/assets/logo.png" alt="">');
+    // a page made like it, and a duplicate, the same
+    expect(newPageLike(dir, 'like', 'home').assets()).not.toContain('hero.jpg'); // its middle section is new: hero isn't copied
+    duplicatePage(dir, 'home', 'twin');
+    const twin = pageWorkspace(dir, 'twin');
+    expect(twin.assets()).toEqual(expect.arrayContaining(['hero.jpg', 'unused.png'])); // a duplicate keeps what the page has,
+    expect(twin.assets()).not.toContain('badge.png'); // but not a file the site has
+    expect(twin.content('hero')).toContain('<img src="/assets/logo.png" alt="">');
+    expect(twin.history()).toEqual([]);
+
+    // a picture Kaity draws on a run over the site is the site's
+    expect((await run.call('add_picture', { name: 'wave', svg: '<svg viewBox="0 0 2 1"><rect width="2" height="1"/></svg>' })).text)
+      .toBe('saved /assets/wave.svg, one of the site\'s files: use it as <img src="/assets/wave.svg" alt="…"> on any page');
+    expect(existsSync(join(dir, 'assets', 'wave.svg'))).toBe(true);
+    await run.close();
+    // and on a page's run, for a box that shows a shared block
+    const page = await openTools(pageWorkspace(dir, 'home'), '');
+    expect((await page.call('add_picture', { name: 'dot', svg: '<svg viewBox="0 0 1 1"><circle r="1"/></svg>', for: 'nav' })).text).toMatch(/^saved \/assets\/dot\.svg, one of the site's files/);
+    expect((await page.call('add_picture', { name: 'dot', svg: '<svg viewBox="0 0 1 1"><circle r="1"/></svg>' })).text).toMatch(/^saved assets\/dot\.svg:/);
+    await page.close();
+  });
+
+  it('make a new page like another: its header, footer and theme, one section between', () => {
+    const dir = tmp();
+    const home = newSitePage(dir, 'home', 'launch', 'studio', { shared: false }); // its own navigation, with its own logo
     home.store.write('assets/logo.png', new Uint8Array([1, 2, 3]));
     home.setContent('nav', home.content('nav')!.replace('Site name', '<img src="assets/logo.png" alt="">Bakery'), 'user');
     const about = newPageLike(dir, 'about', 'home');
@@ -303,7 +456,7 @@ describe("the site's settings", () => {
   it('keep a home page and titles that follow renames and removals, and never point at a page that is gone', () => {
     const dir = mkdtempSync(join(tmpdir(), 'tykerf-settings-'));
     for (const name of ['rome', 'munich']) createPage(new Workspace(join(dir, name)), 'blank');
-    expect(readSite(dir)).toEqual({ version: 1, titles: {} });
+    expect(readSite(dir)).toEqual({ version: 1, titles: {}, lang: 'en' });
     expect(existsSync(join(dir, 'site.json'))).toBe(false); // nothing written until something is set
 
     // a title: set by hand, else the page's first heading, else its name
@@ -316,9 +469,9 @@ describe("the site's settings", () => {
 
     setHome(dir, 'munich');
     renamePage(dir, 'munich', 'muenchen');
-    expect(readSite(dir)).toEqual({ version: 1, home: 'muenchen', titles: { muenchen: 'Munich in autumn' } });
+    expect(readSite(dir)).toEqual({ version: 1, home: 'muenchen', titles: { muenchen: 'Munich in autumn' }, lang: 'en' });
     removePage(dir, 'muenchen');
-    expect(readSite(dir)).toEqual({ version: 1, titles: {} });
+    expect(readSite(dir)).toEqual({ version: 1, titles: {}, lang: 'en' });
     setTitle(dir, 'rome', '');
     expect(pageTitle(dir, 'rome')).toBe('Rome, the eternal city');
     // the site's own addresses can't be page names
@@ -326,18 +479,326 @@ describe("the site's settings", () => {
   });
 });
 
-describe("the site's styles and scripts", () => {
-  it('are the site head without its theme, which they never change', () => {
+describe("the site's language", () => {
+  it('is in site.json, checked, English by default, and every page and the list of pages say it', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'tykerf-lang-'));
+    newSitePage(dir, 'home', 'launch', 'studio');
+    expect(readSite(dir).lang).toBe('en');
+    expect(pageWorkspace(dir, 'home').page()).toMatch(/^<!doctype html>\n<html lang="en">/);
+    setLang(dir, 'es');
+    expect(readSite(dir).lang).toBe('es');
+    expect(JSON.parse(readFileSync(join(dir, 'site.json'), 'utf8')).lang).toBe('es');
+    expect(pageWorkspace(dir, 'home').page()).toMatch(/^<!doctype html>\n<html lang="es">/);
+    expect(siteIndex(dir)).toContain('<html lang="es">');
+    setLang(dir, 'pt-BR');
+    expect(readSite(dir).lang).toBe('pt-BR');
+    for (const bad of ['Spanish', 'ES', 'e', 'es_ES', 'es-', 'en"><script>']) expect(() => setLang(dir, bad), bad).toThrow(/not a language tag/);
+    expect(readSite(dir).lang).toBe('pt-BR');
+    setLang(dir, ''); // back to English, which site.json doesn't write
+    expect(readSite(dir).lang).toBe('en');
+    expect(JSON.parse(readFileSync(join(dir, 'site.json'), 'utf8'))).not.toHaveProperty('lang');
+    // a broken site.json value is English
+    writeFileSync(join(dir, 'site.json'), JSON.stringify({ version: 1, titles: {}, lang: '"><b>' }));
+    expect(readSite(dir).lang).toBe('en');
+    // as web pages write it
+    expect([langTag('ES_es'), langTag(' pt-BR '), langTag('English'), langTag('')]).toEqual(['es-es', 'pt-BR', null, null]);
+  });
+
+  it('is set by Kaity on a run over the site (set_site), and only there', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'tykerf-lang-'));
+    newSitePage(dir, 'home', 'launch', 'studio');
+    const { openTools } = await import('../src/editor/tools-client.js');
+    const site = await openTools(pageWorkspace(dir, 'home'), '', dir);
+    expect((await site.call('set_site', { lang: 'es' })).text).toBe('ok: the site\'s lang is "es"; every page follows it');
+    expect((await site.call('set_site', { lang: 'Spanish' })).text).toMatch(/not a language tag/);
+    expect((await site.call('set_site', {})).text).toMatch(/nothing to change: give lang/);
+    await site.close();
+    expect(readSite(dir).lang).toBe('es');
+    const block = await openTools(pageWorkspace(dir, 'home'), 'hero');
+    expect((await block.call('set_site', { lang: 'en' })).text).toMatch(/not found|unknown tool|error/i);
+    await block.close();
+    expect(readSite(dir).lang).toBe('es');
+  });
+});
+
+describe("a page's title", () => {
+  // three pages under one shared banner with a heading: news, about, and one without a heading of its own
+  const site = () => {
+    const dir = mkdtempSync(join(tmpdir(), 'tykerf-titles-'));
+    const own: Record<string, string> = { news: '<h1>Latest news</h1>', about: '<h1>About <em>us</em></h1>', plain: '<p>No heading here</p>' };
+    for (const [name, intro] of Object.entries(own)) new Workspace(join(dir, name)).create('banner intro H', { banner: '<header><h1>News</h1></header>', intro });
+    shareBlock(dir, pageWorkspace(dir, 'news'), 'banner');
+    for (const p of ['about', 'plain']) linkBlock(dir, pageWorkspace(dir, p), 'banner', 'banner');
+    return dir;
+  };
+
+  it("comes from the page's own first heading, never from a shared block's", () => {
+    const dir = site();
+    expect(pageTitle(dir, 'news')).toBe('Latest news');
+    expect(pageTitle(dir, 'about')).toBe('About us');
+    expect(pageTitle(dir, 'plain')).toBe('plain');
+  });
+
+  it('is reported when it is the same as another page\'s, until one is set by hand', () => {
+    const dir = site();
+    new Workspace(join(dir, 'team')).create('banner intro H', { banner: '', intro: '<h1>About us</h1>' }); // a copy of about
+    linkBlock(dir, pageWorkspace(dir, 'team'), 'banner', 'banner');
+    const titles = (p: string) => leftovers(pageWorkspace(dir, p)).filter((l) => l.kind === 'title').map(say);
+    expect(titles('team')).toEqual(['team: its title "About us" is the same as about\'s; give it a title of its own (set_title)']);
+    expect(titles('about')).toEqual(['about: its title "About us" is the same as team\'s; give it a title of its own (set_title)']);
+    expect(titles('news')).toEqual([]);
+    // only on the whole page, not in one block
+    expect(leftovers(pageWorkspace(dir, 'team'), { within: 'intro' }).filter((l) => l.kind === 'title')).toEqual([]);
+    setTitle(dir, 'team', 'Our team');
+    expect(titles('team')).toEqual([]);
+    expect(titles('about')).toEqual([]);
+  });
+
+  it('is set by Kaity with set_title, on the open page or another, and not from inside a block', async () => {
+    const dir = site();
+    const { openTools } = await import('../src/editor/tools-client.js');
+    const run = await openTools(pageWorkspace(dir, 'plain'), '');
+    expect((await run.call('set_title', { title: 'Plain and simple' })).text).toBe('ok: "plain" is titled "Plain and simple"');
+    expect((await run.call('set_title', { page: 'about', title: 'Who we are' })).text).toBe('ok: "about" is titled "Who we are"');
+    expect(readSite(dir).titles).toEqual({ plain: 'Plain and simple', about: 'Who we are' });
+    expect((await run.call('set_title', { page: 'about', title: '' })).text).toBe('ok: "about" is titled by its first heading again: "About us"');
+    expect((await run.call('set_title', { page: 'paris', title: 'x' })).text).toMatch(/no page "paris"/);
+    await run.close();
+
+    const scoped = await openTools(pageWorkspace(dir, 'plain'), 'intro');
+    expect((await scoped.call('set_title', { title: 'No' })).text).toMatch(/refused: the title is the whole page's, and the scope is "intro"/);
+    await scoped.close();
+    const root = pageWorkspace(dir, 'plain').load().root.id;
+    const whole = await openTools(pageWorkspace(dir, 'plain'), root);
+    expect((await whole.call('set_title', { title: 'Plain' })).text).toBe('ok: "plain" is titled "Plain"');
+    expect((await whole.call('set_title', { page: 'news', title: 'x' })).text).toMatch(/refused: this run works on the page "plain"/);
+    await whole.close();
+
+    // the site's list of pages says where each title comes from
+    const site_ = await openTools(pageWorkspace(dir, 'plain'), '', dir);
+    expect((await site_.call('list_pages', {})).text.split('\n').slice(1)).toEqual([
+      'about: "About us" (from its first heading)', 'news: "Latest news" (from its first heading)', 'plain (open): "Plain" (set by hand)',
+    ]);
+    await site_.close();
+  });
+});
+
+describe("the site's one history", () => {
+  it('undoes changes to the head, the kit and the settings in the order they came, and redoes them', () => {
+    const dir = tmp();
+    newSitePage(dir, 'home', 'blank', 'studio');
+    newSitePage(dir, 'about', 'blank', 'studio');
+    const site = new Site(dir);
+    expect(site.steps().map((s) => s.label)).toEqual(['share nav with every page', 'make home the home page', 'site theme studio']);
+    setSiteCode(dir, '<meta name="a" content="1">');
+    kitWrite(dir, 'styles', 'base', 'h2 { color: red }', undefined, 'ai');
+    setTitle(dir, 'about', 'About us');
+    setLang(dir, 'es');
+    expect(site.steps(4).map((s) => [s.kind, s.label, s.author])).toEqual([
+      ['settings', "the site's language: es", 'user'], ['settings', 'title of about: About us', 'user'],
+      ['kit', 'add kit/styles/base.css', 'ai'], ['head', 'edit the head code of every page', 'user'],
+    ]);
+    expect(site.undo()).toBe("the site's language: es");
+    expect(readSite(dir).lang).toBe('en');
+    expect(site.undo()).toBe('title of about: About us');
+    expect(readSite(dir).titles).toEqual({});
+    expect(site.undo()).toBe('add kit/styles/base.css');
+    expect(existsSync(join(dir, 'kit', 'styles', 'base.css'))).toBe(false);
+    expect(site.undo()).toBe('edit the head code of every page');
+    expect(siteCode(dir)).toBe('');
+    expect(site.history.peekRedo()).toMatchObject({ label: 'edit the head code of every page', kind: 'head' });
+    expect(site.redo()).toBe('edit the head code of every page');
+    expect(site.redo()).toBe('add kit/styles/base.css');
+    expect(kitRead(dir, 'styles', 'base')).toBe('h2 { color: red }');
+    // a new change ends what there was to redo
+    setHome(dir, 'about');
+    expect(site.history.peekRedo()).toBeNull();
+    expect(() => site.redo()).toThrow(/no change to the site to redo/);
+    // the old names undo the same one history
+    expect(undoSiteHead(dir)).toBe('make about the home page');
+    expect(readSite(dir).home).toBe('home');
+  });
+
+  it('makes several changes one step with a group, undone whole, and rolled back whole when it fails', () => {
+    const dir = tmp();
+    newSitePage(dir, 'home', 'blank', 'studio');
+    const site = new Site(dir);
+    const before = site.steps().length;
+    site.group('dress the site', 'ai', () => {
+      kitWrite(dir, 'styles', 'base', 'h2 { color: red }', undefined, 'ai');
+      setTitle(dir, 'home', 'Welcome', 'ai');
+      setSiteCode(dir, '<meta name="b" content="2">');
+    });
+    expect(site.steps()).toHaveLength(before + 1);
+    expect(site.history.peekUndo()).toMatchObject({ label: 'dress the site', kind: 'group', author: 'ai', kinds: ['kit', 'settings', 'head'] });
+    expect(site.undo()).toBe('dress the site');
+    expect([existsSync(join(dir, 'kit', 'styles', 'base.css')), readSite(dir).titles, siteCode(dir)]).toEqual([false, {}, '']);
+    expect(site.redo()).toBe('dress the site');
+    expect([kitRead(dir, 'styles', 'base'), readSite(dir).titles.home, siteCode(dir)]).toEqual(['h2 { color: red }', 'Welcome', '<meta name="b" content="2">']);
+
+    expect(() => site.group('half done', 'ai', () => {
+      kitWrite(dir, 'styles', 'other', '.x{}');
+      setLang(dir, 'fr');
+      setTitle(dir, 'nowhere', 'x'); // throws: no such page
+    })).toThrow(/no page "nowhere"/);
+    expect(existsSync(join(dir, 'kit', 'styles', 'other.css'))).toBe(false);
+    expect(readSite(dir).lang).toBe('en');
+    expect(site.history.peekUndo()?.label).toBe('dress the site');
+    expect(site.history.peekRedo()).toBeNull();
+  });
+
+  it('folds the two histories of older sites into one, in time order, once', () => {
+    const dir = tmp();
+    newSitePage(dir, 'home', 'blank', 'studio');
+    // an older site: the head's history and the kit's, apart; no site.jsonl yet
+    const store = new Site(dir).store;
+    store.remove('.tykerf/site.jsonl');
+    store.write('kit/styles/base.css', 'h2 { color: blue }');
+    store.write('.tykerf/site-head.jsonl', [
+      { label: 'site theme studio', at: '2026-01-01T10:00:00.000Z', prev: null },
+      { label: 'edit the site theme', at: '2026-01-01T10:02:00.000Z', prev: '<style>old</style>' },
+    ].map((e) => JSON.stringify(e) + '\n').join(''));
+    store.write('.tykerf/kit.jsonl', [
+      { path: 'kit/styles/base.css', prev: null, label: 'add kit/styles/base.css', author: 'ai', at: '2026-01-01T10:01:00.000Z' },
+      { path: 'kit/styles/base.css', prev: 'h2 { color: red }', label: 'edit kit/styles/base.css', author: 'user', at: '2026-01-01T10:03:00.000Z' },
+    ].map((e) => JSON.stringify(e) + '\n').join(''));
+    const site = new Site(dir);
+    expect(site.steps().map((s) => [s.kind, s.label, s.author])).toEqual([
+      ['kit', 'edit kit/styles/base.css', 'user'], ['head', 'edit the site theme', 'user'],
+      ['kit', 'add kit/styles/base.css', 'ai'], ['head', 'site theme studio', 'user'],
+    ]);
+    expect(existsSync(join(dir, '.tykerf', 'site-head.jsonl')) || existsSync(join(dir, '.tykerf', 'kit.jsonl'))).toBe(false);
+    expect(site.undo()).toBe('edit kit/styles/base.css');
+    expect(kitRead(dir, 'styles', 'base')).toBe('h2 { color: red }');
+    expect(site.undo()).toBe('edit the site theme');
+    expect(siteHead(dir)).toBe('<style>old</style>');
+  });
+
+  it('keeps undo of the settings right after a page is renamed', () => {
+    const dir = tmp();
+    newSitePage(dir, 'home', 'blank', 'studio');
+    newSitePage(dir, 'about', 'blank', 'studio');
+    setTitle(dir, 'about', 'About us');
+    setHome(dir, 'about');
+    renamePage(dir, 'about', 'team'); // follows in the settings, as no step of its own
+    expect(readSite(dir)).toMatchObject({ home: 'team', titles: { team: 'About us' } });
+    const site = new Site(dir);
+    expect(site.undo()).toBe('make about the home page');
+    expect(readSite(dir)).toMatchObject({ home: 'home', titles: { team: 'About us' } });
+    expect(site.undo()).toBe('title of about: About us');
+    expect(readSite(dir).titles).toEqual({});
+    site.redo();
+    expect(readSite(dir).titles).toEqual({ team: 'About us' });
+  });
+});
+
+describe("the site's media", () => {
+  it('lists every file with who uses it, and removes, moves and prunes them as steps undo takes back', async () => {
+    const dir = tmp();
+    const home = newSitePage(dir, 'home', 'blank', 'studio');
+    const about = newSitePage(dir, 'about', 'blank', 'studio');
+    const { mkdirSync: mk, writeFileSync: wr } = await import('node:fs');
+    mk(join(dir, 'assets'), { recursive: true });
+    wr(join(dir, 'assets', 'logo.png'), 'LOGO');
+    wr(join(dir, 'assets', 'old.png'), 'OLD');
+    kitWrite(dir, 'blocks', 'nav', '<nav><img src="/assets/logo.png" alt=""></nav>');
+    for (const ws of [home, about]) ws.store.write('assets/photo.jpg', new TextEncoder().encode('PHOTO'));
+    home.store.write('assets/copy-of-logo.png', new TextEncoder().encode('LOGO'));
+    home.store.write('assets/stray.png', new TextEncoder().encode('STRAY'));
+    home.setContent('text', '<img src="assets/photo.jpg" alt=""><img src="assets/copy-of-logo.png" alt="">', 'user');
+    about.setContent('text', '<img src="assets/photo.jpg" alt="">', 'user');
+
+    const media = siteMedia(dir);
+    const find = (where: string, file: string) => media.find((f) => f.where === where && f.file === file)!;
+    expect(find('site', 'logo.png').used).toEqual([{ page: null, box: 'kit' }]);
+    expect(find('site', 'old.png')).toMatchObject({ used: [], held: false, kind: 'image', bytes: 3 });
+    expect(find('home', 'photo.jpg').used).toEqual([{ page: 'home', box: 'text' }]);
+    expect(find('home', 'stray.png').used).toEqual([]);
+    expect(siteMedia(dir)).toBe(media); // nothing changed: the same listing
+
+    // the page copies of a site file use the site's; a page file on two pages moves to the site for both
+    expect(moveSiteDuplicates(dir)).toBe(1);
+    expect(pageWorkspace(dir, 'home').content('text')).toContain('src="/assets/logo.png"');
+    expect(existsSync(join(dir, 'home', 'assets', 'copy-of-logo.png'))).toBe(false);
+    expect(moveToSite(dir, 'home', 'photo.jpg')).toEqual({ file: 'photo.jpg', pages: ['about', 'home'] });
+    for (const p of ['home', 'about']) expect(pageWorkspace(dir, p).content('text')).toContain('src="/assets/photo.jpg"');
+    expect(existsSync(join(dir, 'about', 'assets', 'photo.jpg'))).toBe(false);
+    // what nothing uses goes to the trash, each a step undo takes back
+    expect(pruneMedia(dir)).toEqual({ files: 2, bytes: 8 }); // old.png, stray.png
+    expect(existsSync(join(dir, 'assets', 'old.png')) || existsSync(join(dir, 'home', 'assets', 'stray.png'))).toBe(false);
+    expect(pageWorkspace(dir, 'home').undo()).toBe('remove the file assets/stray.png');
+    expect(existsSync(join(dir, 'home', 'assets', 'stray.png'))).toBe(true);
+    expect(new Site(dir).undo()).toBe('remove the file /assets/old.png');
+    expect(readFileSync(join(dir, 'assets', 'old.png'), 'utf8')).toBe('OLD');
+    expect(() => removeMediaFile(dir, 'home', 'nope.png')).toThrow(/has no file "nope\.png"/);
+
+    // Kaity's list and removal, on a run over the site
+    const { openTools } = await import('../src/editor/tools-client.js');
+    const run = await openTools(pageWorkspace(dir, 'home'), '', dir);
+    // (the two files just brought back are named by the redo list: an undo step holds them)
+    expect((await run.call('list_files', { unused: true })).text).toBe('no unused files');
+    const all = (await run.call('list_files', {})).text;
+    expect(all).toMatch(/^\d+ files, \d+ KB\n/);
+    expect(all).toContain('/assets/old.png  image, 1 KB  unused (an undo step holds it)');
+    expect(all).toContain('/assets/photo.jpg  image, 1 KB  used by about/text, home/text');
+    expect((await run.call('remove_file', { where: 'site', file: 'logo.png' })).text).toMatch(/refused: logo\.png is used by the site's kit, home\/text/);
+    expect((await run.call('remove_file', { where: 'site', file: 'old.png' })).text).toBe('ok: /assets/old.png is in the trash (undo brings it back)');
+    await run.close();
+  });
+
+  it('lists the files of a 50-page site in under a second', () => {
+    const dir = tmp();
+    for (let i = 0; i < 50; i++) {
+      const ws = newSitePage(dir, `page-${i}`, 'launch', 'studio');
+      ws.store.write('assets/own.jpg', new TextEncoder().encode(`OWN ${i}`));
+      ws.setContent('hero', '<img src="assets/own.jpg" alt="">', 'user');
+    }
+    const t0 = performance.now();
+    const files = siteMedia(dir);
+    expect(performance.now() - t0).toBeLessThan(1000);
+    expect(files.filter((f) => f.file === 'own.jpg')).toHaveLength(50);
+    const t1 = performance.now();
+    siteMedia(dir);
+    expect(performance.now() - t1).toBeLessThan(200); // nothing changed: the listing is kept
+  }, 60_000);
+});
+
+describe("the site's head code", () => {
+  it('refuses a new style, and moves the styles an older site has to the kit, in one step undo takes back', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'tykerf-head-styles-'));
+    newSitePage(dir, 'home', 'blank', 'warm');
+    expect(() => setSiteCode(dir, '<style>.a { color: red }</style>')).toThrow(/styles for every page go in the site kit \(kit\/styles\)/);
+    setSiteCode(dir, '<link rel="stylesheet" href="/assets/extra.css">'); // a stylesheet link may stay
+    // an older site: styles in its head code, written before the rule
+    const head = siteHead(dir);
+    const old = '<meta name="theme-color" content="#123456">\n<style>.a { color: red }</style>\n<style media="print">nav { display: none }</style>';
+    setSiteHead(dir, head.replace('<link rel="stylesheet" href="/assets/extra.css">', old));
+    expect(headStyles(dir)).toHaveLength(2);
+    setSiteCode(dir, siteCode(dir) + '\n<meta name="b" content="2">'); // keeping its styles is fine
+    kitWrite(dir, 'styles', 'head', '.before { margin: 0 }');
+    const kitBefore = kitRead(dir, 'styles', 'head'), headBefore = siteHead(dir);
+
+    expect(migrateHeadStyles(dir)).toBe(2);
+    expect(siteCode(dir)).toBe('<meta name="theme-color" content="#123456">\n<meta name="b" content="2">');
+    expect(kitRead(dir, 'styles', 'head')).toBe(".before { margin: 0 }\n\n/* from the site head's code */\n.a { color: red }\n\n/* from the site head's code: <style media=\"print\"> */\n@media print {\nnav { display: none }\n}\n");
+    expect(siteHead(dir)).toContain('data-tykerf-preset="warm"'); // the theme stays
+    expect(migrateHeadStyles(dir)).toBe(0);
+    // one step back: both files as they were
+    expect(new Site(dir).undo()).toBe('move 2 styles from the head code to the kit');
+    expect([kitRead(dir, 'styles', 'head'), siteHead(dir)]).toEqual([kitBefore, headBefore]);
+  });
+
+  it('is the site head without its theme, which it never changes', () => {
     const dir = mkdtempSync(join(tmpdir(), 'tykerf-code-'));
     newSitePage(dir, 'home', 'blank', 'warm'); // the first page starts the site's shared theme
     const theme = siteHead(dir);
     expect(siteCode(dir)).toBe('');
-    setSiteCode(dir, '<style>.t-note { color: red }</style>\n<script src="/assets/menu.js" defer></script>');
-    expect(siteCode(dir)).toBe('<style>.t-note { color: red }</style>\n<script src="/assets/menu.js" defer></script>');
+    setSiteCode(dir, '<meta name="theme-color" content="#123456">\n<script src="/assets/menu.js" defer></script>');
+    expect(siteCode(dir)).toBe('<meta name="theme-color" content="#123456">\n<script src="/assets/menu.js" defer></script>');
     expect(siteHead(dir)).toContain('data-tykerf-preset="warm"');
     expect(siteHead(dir).startsWith(theme.trim())).toBe(true);
     expect(() => setSiteCode(dir, '<style data-tykerf-theme>:root{}</style>')).toThrow(/changed in the Page tab/);
-    expect(undoSiteHead(dir)).toBe('edit the styles and scripts of every page');
+    expect(undoSiteHead(dir)).toBe('edit the head code of every page');
     expect(siteCode(dir)).toBe('');
   });
 
@@ -364,6 +825,15 @@ describe("the site's styles and scripts", () => {
     setSiteIcon(dir, null);
     expect(siteIcon(dir)).toMatchObject({ file: 'favicon.svg', own: false });
     expect(sitePages(dir)).toEqual(['munich', 'rome']); // icon files aren't pages
+    // each change is a step of the site's history: undo puts the icon before it back, redo takes it again
+    const site = new Site(dir);
+    expect(site.undo()).toBe('the site\'s icon made from its name again');
+    expect(siteIcon(dir)).toMatchObject({ file: 'favicon.svg', own: true });
+    expect(site.undo()).toBe('the site\'s icon');
+    expect(siteIcon(dir)).toMatchObject({ file: 'favicon.png', own: true });
+    expect(readdirSync(dir).filter((f) => f.startsWith('favicon'))).toEqual(['favicon.png']);
+    site.redo();
+    expect(siteIcon(dir)).toMatchObject({ file: 'favicon.svg', own: true });
   });
 });
 

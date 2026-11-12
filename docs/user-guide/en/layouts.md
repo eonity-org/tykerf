@@ -27,6 +27,8 @@ npm start -- ~/tykerf-sites/my-site --layout launch --theme studio --name portfo
 
 TYKERF keeps a small set, each one clearly different. Layouts differ in **layout and density**, themes in **colour, type and air**. Any layout works with any theme.
 
+Each layout also says which of its boxes every page of a site shares: its navigation (`nav`) and its footer (`footer`; *Blank* has only the navigation). In a site, they're [shared blocks](sites.md#the-site-kit): the site's first page makes them, and every page made later from a layout shows them, unless you untick *With the site's navigation and footer (shared)*.
+
 | Layout | What it has | Density |
 |---|---|---|
 | `blank` (default) | A navigation bar and one text section | |
@@ -60,6 +62,8 @@ Kaity can use components too: ask for "a FAQ here" or "make this box a pricing t
 
 ## Use a component
 
+Some components come with a behaviour: the contact form says thank you when it is sent, the FAQ keeps one answer open at a time, and the footer's year is always the current one. In a site, using one brings its behaviour into the site kit ([the library's behaviours](sites.md#the-site-kit)).
+
 An empty box offers **Use a component** in its Text tab: navigation bar, hero (centred, split beside a picture, or with a switcher: pills that change the headline, text and figures for each audience), statement, logos, feature (beside a picture; tag it `#reverse` to swap sides), updates (news cards), story grid (a front page of stories), list (numbered links for a sidebar), text section, features, numbers, steps on a line (steps hanging from a line that fills as the section scrolls into view), testimonials, pricing, FAQ, call to action, gallery, card grid (products or services), image, contact form, footer, article, sidebar, docs menu and docs page. The component fills the box, brings its placeholder images into the page's `assets/` folder and is one undo step.
 
 Components adapt to their width, so they work full width, in a column or on a phone. The contact form only shows a thank-you note: connect it to your own service before publishing.
@@ -89,7 +93,7 @@ Every layout and component uses the same **theme**: colours, fonts, corner radiu
 - **Alternate bands**, **Cards**, **Lines** and **Soft accent** can follow the background or the accent. When they do, they are marked *auto*; pick a colour to set your own. When a preset or you set them, **make auto** makes them follow again.
 - **Head code:** everything the page adds to its `<head>` (the theme itself, fonts, page-wide styles and scripts).
 
-Saving reloads the page, because the head can only change with a reload. Undo reverts a page's own changes; the site theme has its own **Undo the last site theme change**. With `page` selected, you can ask Kaity to change the page's theme. She changes the site's shared theme only while the site has that one page (so she can style a new site's first page, from a design for example; **Undo the last site theme change** reverts it). Once there are other pages, Kaity gives the page its own values over the shared theme, like *This page only*, and the other pages keep theirs. TYKERF offers its bundled fonts and fonts installed on the visitor's device: loading fonts from another server would send every visitor's IP address to that server. Choosing a bundled font copies its file into the page. To use another web font, put its files in `assets/` and declare them in the head code.
+Saving reloads the page, because the head can only change with a reload. Undo reverts a page's own changes; the site theme has its own **Undo the last site theme change**. With `page` selected, you can ask Kaity to change the page's theme. She changes the site's shared theme only while the site has that one page (so she can style a new site's first page, from a design for example; **Undo the last site theme change** reverts it). Once there are other pages, Kaity gives the page its own values over the shared theme, like *This page only*, and the other pages keep theirs. TYKERF offers its bundled fonts and fonts installed on the visitor's device: loading fonts from another server would send every visitor's IP address to that server. Choosing a bundled font copies its file into the page. To use another font in a site, register it in the site kit's **Fonts** with its files in the site's `assets/` ([Fonts](sites.md#the-site-kit)): every page declares it, and the theme can name it. A font field naming a font that is neither bundled nor registered gets a warning (Kaity's too): visitors without it see the next font in the list.
 
 ### Bands
 

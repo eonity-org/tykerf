@@ -3,7 +3,7 @@
 // editor's API runners (editor/tools-client.ts, in-process) both use it, so every AI gets the same
 // tools, the same scope checks and the same history.
 
-import { existsSync, mkdirSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, statSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { basename, dirname, join, resolve } from 'node:path';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
@@ -16,11 +16,14 @@ import { inScope, scopeViolation } from '../scope.js';
 import { cost, optimize } from '../shape.js';
 import { leftovers, missingFiles, say } from '../check.js';
 import { closeTask, sayTask, tasks } from '../tasks.js';
-import { type KitKind, kitList, kitRead, kitTags, kitWrite } from '../kit.js';
-import { HOME_PAGE, blockUsers, linkBlock, newSitePage, pageWorkspace, removePage, renamePage, shareBlock, siteHead, siteKind, unlinkBlock, unsafeSVG, siteOf, sitePages, usePage } from '../site.js';
-import { DEFAULT_THEME, components, createPage, hasTheme, pageLayouts, readOverrides, readTheme, setTheme, themeTarget, themes, useComponent, useLayout } from '../library.js';
+import { type KitKind, blockSlots, kitClasses, kitFonts, kitLibraryScripts, kitList, kitRead, kitTags, kitWarning, kitWrite } from '../kit.js';
+import { removeMediaFile, siteMedia } from '../site.js';
+import { HOME_PAGE, blockUsers, linkBlock, newSitePage, pageTitle, pagesWithOwnTheme, pageWorkspace, readSite, setLang, setTitle, shareTheme, removePage, renamePage, shareBlock, movedFiles, siteHead, siteKind, unlinkBlock, unsafeSVG, siteOf, sitePages, usePage } from '../site.js';
+import { DEFAULT_THEME, behavioursIn, componentCode, copyBehaviours, components, createPage, fontWarning, hasTheme, libraryBehaviours, pageLayouts, readOverrides, readTheme, setTheme, themeTarget, themes, useComponent, useLayout } from '../library.js';
 import { FolderStore, MemoryStore } from '../store.js';
 import { Workspace } from '../workspace.js';
+import { addFile, readSource } from '../files.js';
+import { checkSite, sayFindings } from '../check-site.js';
 
 const text = (s: string, isError = false) => ({ content: [{ type: 'text' as const, text: s }], isError });
 
@@ -109,6 +112,12 @@ export interface TykerfServerOptions {
    * this way with no folder open (`ws` null), since Cowork can't ask for one on install.
    */
   folders?: { defaultDir: string };
+  /**
+   * The tools may read files from paths on this computer (add_file, set_content's file): the stdio server and the
+   * Claude plugin run on the person's own computer. The editor's in-process AI runs don't (addresses and attached
+   * files only), since a request may come from a hosted TYKERF later (SECURITY.md).
+   */
+  localFiles?: boolean;
 }
 
 /** The tools that answer with no folder open: they need no page. */
@@ -118,6 +127,39 @@ const FOLDERLESS = new Set(['open_folder', 'list_themes', 'list_layouts', 'list_
 export function folderPath(path: string): string {
   const p = path.trim();
   return resolve(p === '~' || p.startsWith('~/') ? join(homedir(), p.slice(1)) : p);
+}
+
+/** The boxes of a page that show a shared block, with the block: [['nav', 'nav'], …]. */
+function linkedBoxes(ws: Workspace): [string, string][] {
+  const out: [string, string][] = [];
+  walk(ws.load().root, (n) => { if (n.type === 'leaf' && n.use) out.push([n.id, n.use]); });
+  return out;
+}
+
+/** The shared blocks a page shows, for a reply: "" or "; it shows the site's shared blocks nav, footer (…)". */
+function sharedSay(linked: [string, string][]): string {
+  if (!linked.length) return '';
+  const names = linked.map(([box, use]) => (box === use ? box : `${use} (in ${box})`)).join(', ');
+  return `; it shows the site's shared ${linked.length === 1 ? 'block' : 'blocks'} ${names}, the same on every page: change them only when the request is about every page`;
+}
+
+/**
+ * After a layout replaced a page of a site: each box the layout declares shared shows the site's block of that
+ * name, or becomes it when the site has none (shareBlock). Part of the caller's undo group. Returns a reply part.
+ */
+function shareLayoutBoxes(site: string, ws: Workspace, layout: string, author: string): string {
+  const blocks = new Set(kitList(site).blocks);
+  const linked: string[] = [], made: string[] = [];
+  for (const box of pageLayouts().find((p) => p.name === layout)?.shared ?? []) {
+    const n = find(ws.load().root, box)?.node;
+    if (n?.type !== 'leaf' || n.use) continue;
+    if (blocks.has(box)) linkBlock(site, ws, box, box, author), linked.push(box);
+    else shareBlock(site, ws, box, box, author), made.push(box);
+  }
+  return [
+    linked.length ? `; ${linked.join(', ')} ${linked.length === 1 ? 'shows the site\'s shared block' : 'show the site\'s shared blocks'} of that name` : '',
+    made.length ? `; ${made.join(', ')} ${made.length === 1 ? 'is now a shared block' : 'are now shared blocks'} for every page of the site` : '',
+  ].join('');
 }
 
 /** The MCP server with every TYKERF tool, working on `start` (null: no folder open yet, see `folders`). */
@@ -189,9 +231,46 @@ export function createTykerfServer(start: Workspace | null, opts: TykerfServerOp
   }
 
   /** A box that shows a shared block changes every page that shows it: only from a run on the whole site. */
+  /**
+   * A shared block changes every page that shows it: as for the theme, only when the scope is the whole page (or
+   * there is none). Inside a smaller block the change is refused, with the ways on.
+   */
   function assertMayChangeShared(l: Layout, target: string) {
     const use = ws.sharedBlock(target, l);
-    if (use && (scope(l) || !(home || folders))) throw new Error(`refused: "${target}" shows the shared block "${use}", which other pages of the site show too. Changing it is for a request about the whole site (Kaity in the site manager); if only this page should change, ask the user to make it this page's own copy first (right-click → Make this page's own copy)`);
+    const sc = scope(l);
+    if (use && sc && sc !== l.root.id) throw new Error(`refused: "${target}" shows the shared block "${use}", which other pages of the site show too, and the scope is "${sc}". Changing it is for a request about every page: ask the user to select the page block ("${l.root.id}"); if only this page should change, ask them to make it this page's own copy first (right-click → Make this page's own copy)`);
+  }
+
+  /** After a change to a box that shows a shared block, what it reached: "" or "; shared block nav: this changes 3 pages (a, b, c)". */
+  function sharedReach(l: Layout, target: string): string {
+    const use = ws.sharedBlock(target, l);
+    if (!use || !ws.site) return '';
+    const pages = Object.keys(blockUsers(ws.site.dir, use));
+    return `; shared block ${use}: this changes ${pages.length} ${pages.length === 1 ? 'page' : 'pages'} (${pages.join(', ')}); say so in your answer`;
+  }
+
+  /** What a change to a box that shows a shared block did: its slots (this page's), the block (every page's), or both. */
+  function sharedSaid(l: Layout, target: string, split: { block: string | null; slots: Record<string, string | null> }): string {
+    const names = Object.keys(split.slots);
+    const slots = names.length ? `; this page's ${names.length === 1 ? 'slot' : 'slots'} ${names.join(', ')} of the shared block ${ws.sharedBlock(target, l)} (the other pages keep theirs)` : '';
+    return slots + (split.block !== null ? sharedReach(l, target) : names.length ? '; the shared block itself didn\'t change' : '');
+  }
+
+  /** A box's slots, for get_content: "slots: title (filled: "Qué es un CMS"), lead (fallback)". */
+  function slotsLine(box: string): string {
+    const slots = ws.slots(box);
+    if (!slots.length) return '';
+    const short = (v: string) => { const s = v.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim(); return s.length > 60 ? `${s.slice(0, 57)}…` : s; };
+    return `\n\nslots: ${slots.map((s) => `${s.name} (${s.value === null ? 'fallback' : `filled: "${short(s.value)}"`})`).join(', ')}. set_slot fills one for this page; the rest of the code is the shared block ${ws.sharedBlock(box)}, every page's.`;
+  }
+
+  /** An outline with the slots of each shared block it shows: use=banner (shared block, slots: title, lead). */
+  function withSlotNames(text: string): string {
+    if (!ws.site) return text;
+    return text.replace(/use=([a-z0-9][a-z0-9-]*) \(shared block\)/g, (all, name: string) => {
+      const slots = blockSlots(ws.site!.block(name) ?? '').map((s) => s.name);
+      return slots.length ? `use=${name} (shared block, slots: ${slots.join(', ')})` : all;
+    });
   }
 
   /** A box or overlay: an overlay id as is, anything else as a node reference. */
@@ -223,8 +302,8 @@ export function createTykerfServer(start: Workspace | null, opts: TykerfServerOp
     guard(() => {
       const l = ws.load();
       const sc = scopeInfo(l);
-      if (!sc) return describe(l);
-      return `scope: ${pathOf(l, sc.id)} (set by ${sc.author}) — you may only change this block\n\n${scopeOutline(l, sc.id)}`;
+      if (!sc) return withSlotNames(describe(l));
+      return `scope: ${pathOf(l, sc.id)} (set by ${sc.author}) — you may only change this block\n\n${withSlotNames(scopeOutline(l, sc.id))}`;
     }));
 
   server.registerTool('focus', {
@@ -266,8 +345,15 @@ export function createTykerfServer(start: Workspace | null, opts: TykerfServerOp
       const own = readTheme(ws.head());
       const mine = readOverrides(ws.head());
       const vars = Object.keys(own).length ? own : { ...readTheme(ws.siteHead()), ...mine };
+      // an older site, or one built page by page: every page has its own theme, and none is shared
+      const dir = ws.site?.dir;
+      const apart = dir && Object.keys(own).length && !hasTheme(siteHead(dir)) ? pagesWithOwnTheme(dir) : [];
+      const each = apart.length > 1 ? `(each page of this site has a theme of its own (${apart.join(', ')}); they share none, so set_theme here changes this page only. share_theme, on a run over the whole site, makes one page's theme every page's${home && !runScope ? '' : ': ask for the whole site to use it'})\n` : '';
       const shared = Object.keys(own).length ? '' : `(the theme every page of the site shares${Object.keys(mine).length ? `, with this page's own values for ${Object.keys(mine).join(', ')}` : ''}; ${themeTarget(ws) === 'site' ? 'this is the site\'s only page, so set_theme changes the site theme' : 'set_theme sets this page\'s own values over it; the other pages keep theirs'})\n`;
-      return Object.keys(vars).length ? shared + Object.entries(vars).map(([n, v]) => `${n}: ${v}`).join('\n') : 'this page has no theme (the user can add one in the Page tab of the top block)';
+      // the fonts a theme can name besides the bundled ones: the site's own (kit/fonts.json)
+      const registered = Object.keys(ws.site?.fonts() ?? {});
+      const fonts = registered.length ? `\nthe site's own fonts (kit/fonts.json), which --font-* values can name: ${registered.map((f) => `"${f}"`).join(', ')}` : '';
+      return Object.keys(vars).length ? each + shared + Object.entries(vars).map(([n, v]) => `${n}: ${v}`).join('\n') + fonts : 'this page has no theme (the user can add one in the Page tab of the top block)';
     }));
 
   server.registerTool('set_theme', {
@@ -287,7 +373,9 @@ export function createTykerfServer(start: Workspace | null, opts: TykerfServerOp
     const changed = setTheme(ws, Object.fromEntries(changes.map((c) => [themeName(c.name), c.value])), 'ai');
     const lines = Object.entries(changed).map(([n, c]) => `${n}: ${c.from} -> ${c.to}`);
     const what = where === 'site' ? 'site theme changed (this is the site\'s only page)' : where === 'override' ? 'this page\'s own theme values changed (the other pages of the site keep the shared theme)' : 'theme changed';
-    return lines.length ? `${what}:\n${lines.join('\n')}` : 'theme unchanged (the values were already set)';
+    // a font family nobody has: a warning, not a refusal (the person may have it)
+    const warnings = changes.map((c) => fontWarning(themeName(c.name), c.value, ws.site?.fonts())).filter(Boolean).map((w) => `warning: ${w}`);
+    return [lines.length ? `${what}:\n${lines.join('\n')}` : 'theme unchanged (the values were already set)', ...warnings].join('\n');
   })));
 
   server.registerTool('list_themes', { title: 'List theme presets', annotations: READ, description: 'Theme presets: a whole set of colours, fonts and spacing in one go (apply one with use_theme, then fine-tune with set_theme).' },
@@ -327,7 +415,7 @@ export function createTykerfServer(start: Workspace | null, opts: TykerfServerOp
         mkdirSync(site, { recursive: true });
         ws = newSitePage(site, HOME_PAGE, name, themeName ?? DEFAULT_THEME);
         if (!runScope) home = site;
-        return `ok: a new site in ${site}, with its home page "${HOME_PAGE}" from the ${name} layout with the ${themeName ?? DEFAULT_THEME} theme; the page is open. Rewrite every box's placeholder text for this page\n\n${outline(ws.load())}`;
+        return `ok: a new site in ${site}, with its home page "${HOME_PAGE}" from the ${name} layout with the ${themeName ?? DEFAULT_THEME} theme${sharedSay(linkedBoxes(ws))}; the page is open. Rewrite every box's placeholder text for this page\n\n${outline(ws.load())}`;
       }
       return ws.transaction(() => {
         createPage(ws, name, themeName ?? DEFAULT_THEME);
@@ -338,8 +426,12 @@ export function createTykerfServer(start: Workspace | null, opts: TykerfServerOp
       const l = ws.load();
       const sc = scope(l);
       if (sc && sc !== l.root.id) throw new Error(`refused: a layout replaces the whole page, and the scope is "${sc}". Ask the user to select the page block ("${l.root.id}").`);
-      useLayout(ws, name, 'ai');
-      return `ok: the page now follows the ${name} layout; rewrite every box's placeholder text for this page\n\n${outline(ws.load())}`;
+      // on a page of a site, the layout's navigation and footer are the site's: linked, or made shared (one step)
+      const said = ws.group(`use layout ${name}`, 'ai', () => {
+        useLayout(ws, name, 'ai');
+        return ws.site ? shareLayoutBoxes(ws.site.dir, ws, name, 'ai') : '';
+      });
+      return `ok: the page now follows the ${name} layout${said}; rewrite every box's placeholder text for this page\n\n${outline(ws.load())}`;
     });
   }));
 
@@ -349,7 +441,7 @@ export function createTykerfServer(start: Workspace | null, opts: TykerfServerOp
       'The page keeps its own theme unless theme is true. Only when the scope is the whole page. One undo step; undo brings the page back.',
     inputSchema: { page: z.string().describe('the other page\'s name'), theme: z.boolean().optional().describe('also take that page\'s theme and fonts') },
   }, guard(({ page, theme: withTheme }: { page: string; theme?: boolean }) => ws.transaction(() => {
-    if (!(ws.store instanceof FolderStore) || !ws.site?.pageNames) throw new Error('this page is not part of a site, so there is no other page to copy');
+    if (!(ws.store instanceof FolderStore) || !ws.site) throw new Error('this page is not part of a site, so there is no other page to copy');
     const l = ws.load();
     const sc = scope(l);
     if (sc && sc !== l.root.id) throw new Error(`refused: copying a page replaces the whole page, and the scope is "${sc}". Ask the user to select the page block ("${l.root.id}").`);
@@ -358,7 +450,15 @@ export function createTykerfServer(start: Workspace | null, opts: TykerfServerOp
   })));
 
   server.registerTool('list_components', { title: 'List components', annotations: READ, description: 'Ready-made sections (hero, features, FAQ, pricing, footer...) that fill a box with working code styled by the page theme, at every width. Use one with use_component, then adapt its text and images.' },
-    guard(() => components().map((c) => `${c.name}: ${c.label}. ${c.description}`).join('\n')));
+    guard(() => {
+      // a component's behaviours (data-use): using it brings them into the site's kit
+      const lines = components().map((c) => {
+        const uses = behavioursIn(componentCode(c.name));
+        return `${c.name}: ${c.label}. ${c.description}${uses.length ? ` (behaviours: ${uses.join(', ')})` : ''}`;
+      });
+      const shelf = libraryBehaviours().filter((b) => b.standalone).map((b) => `${b.name} (${b.markup})`);
+      return [...lines, '', `behaviours for your own code (data-use="<name>"; the site kit gets one when a page uses it, or set_kit_file): ${shelf.join('; ')}`].join('\n');
+    }));
 
   server.registerTool('use_component', {
     title: 'Fill a box with a component', annotations: REPLACE,
@@ -412,7 +512,7 @@ export function createTykerfServer(start: Workspace | null, opts: TykerfServerOp
     (l, a) => M.setLeaf(l, a.leaf, { role: a.role, boxType: a.type, shapes: a.shapes?.map(parseShape), minW: a.minw, maxW: a.maxw, minH: a.minh }));
   moveTool('set_variant', 'Choose a box\'s shape', CHANGE, 'Choose which shape variant a leaf uses (0-based).', { leaf: id, variant: z.number().int().min(0) },
     (l, a) => M.setVariant(l, a.leaf, a.variant));
-  moveTool('tag', 'Add a tag', CHANGE, 'Add a tag (written here with #, passed with or without it: "tone-alt" or "#tone-alt"). Tags become CSS classes t-<tag>. Band tones: #tone-alt, #tone-soft, #tone-dark; #dense packs a section tighter. Special: #priority (must be in first screen), #lock / #equal (optimizer constraints), semantic tags (#main, #section...) on operators.',
+  moveTool('tag', 'Add a tag', CHANGE, 'Add a tag (written here with #, passed with or without it: "tone-alt" or "#tone-alt"). Tags become CSS classes t-<tag>, except #k-<name>, which gives the box the class k-<name> of the site kit style for that class (list_kit: classes). Band tones: #tone-alt, #tone-soft, #tone-dark; #dense packs a section tighter. Special: #priority (must be in first screen), #lock / #equal (optimizer constraints), semantic tags (#main, #section...) on operators.',
     { id, tag: z.string() }, (l, a) => M.tag(l, a.id, a.tag.trim().replace(/^#/, '')));
   moveTool('untag', 'Remove a tag', CHANGE, 'Remove a tag.', { id, tag: z.string() }, (l, a) => M.untag(l, a.id, a.tag.trim().replace(/^#/, '')));
   moveTool('attach_overlay', 'Add an overlay', CHANGE, 'Attach an overlay (modal, badge, tooltip) floating over a target node, with z-index. anchor = where inside the target: "box" = centered over it; "top"/"bottom"/"left"/"right" = against the middle of that edge; "top-left"/"top-right"/"bottom-left"/"bottom-right" = tucked into that corner. Its HTML comes from set_content(overlay id).',
@@ -476,14 +576,93 @@ export function createTykerfServer(start: Workspace | null, opts: TykerfServerOp
   }, guard(({ width }: { width: number }) => JSON.stringify(cost(ws.load(), width))) as never);
 
   /** A warning after a box's code changed, when it uses files the page doesn't have (made-up picture names). */
+  // the files added in the last minute, by name, with the address they were given: a reply that names one
+  // under the other address (the page's for the site's) says which to write, instead of the generic warning
+  const added = new Map<string, { address: string; at: number }>();
   function noFiles(html: string): string {
-    const miss = missingFiles(ws, html);
-    if (!miss.length) return '';
+    const now = Date.now();
+    const recent = (ref: string) => { const a = added.get(ref.replace(/^\.?\/?assets\//, '')); return a && now - a.at < 60_000 ? a : null; };
+    const all = missingFiles(ws, html);
+    const moved = all.filter((ref) => recent(ref)).map((ref) => `${ref} was added as ${recent(ref)!.address}: write that`);
+    const miss = all.filter((ref) => !recent(ref));
+    if (!miss.length) return moved.length ? `\nwarning: ${moved.join('; ')}` : '';
     const have = ws.assets().filter((f) => !/\.(woff2?|ttf|otf)$/i.test(f));
     return `\nwarning: ${miss.join(', ')} ${miss.length === 1 ? 'is' : 'are'} not among the page's files, so ${miss.length === 1 ? 'it shows' : 'they show'} broken. ` +
       `The page's files: ${have.length ? have.map((f) => `assets/${f}`).join(', ') : 'none'}. You can't download files: draw the picture as SVG with add_picture, ` +
       'place a picture the user attached with add_picture, or say what picture is needed so the user adds it (the picture tool in the Text tab). Never guess a file name.';
   }
+
+  /** Code from a file on this computer (set_content's file, edit_content's new_file): UTF-8, up to 2 MB. */
+  function readCode(path: string): { text: string; path: string; size: number } {
+    if (!opts.localFiles) throw new Error('a path on this computer can\'t be read here: give the code itself');
+    const abs = folderPath(path);
+    let size: number;
+    try {
+      const st = statSync(abs);
+      if (!st.isFile()) throw new Error('not a file');
+      size = st.size;
+    } catch {
+      throw new Error(`${abs} is not a file this computer has`);
+    }
+    if (size > 2 * 1024 * 1024) throw new Error(`${abs} is larger than 2 MB`);
+    return { text: readFileSync(abs, 'utf8'), path: abs, size };
+  }
+
+  /** A file to add: an http(s) address, a file the person attached (its name), or (localFiles) a path on this computer. */
+  async function sourceOf(from: string) {
+    const m = /^(?:attached:)?([0-9a-f]{40}\.(?:png|jpe?g|gif|webp))$/.exec(from.trim());
+    if (m) {
+      const bytes = ws.store.readBytes(`.tykerf/images/${m[1]}`);
+      if (!bytes) throw new Error(`no attached file "${m[1]}": use the file name the request gives`);
+      return { bytes, name: m[1], type: null, local: false };
+    }
+    return readSource(from, { localFiles: !!opts.localFiles });
+  }
+
+  /** Add one file to the open page or the site; the reply line says the address to write. */
+  async function addOne(item: { from: string; to?: 'page' | 'site'; name?: string }): Promise<string> {
+    const siteRun = !!(home || folders) && !runScope;
+    const to = item.to ?? (siteRun ? 'site' : 'page');
+    const src = await sourceOf(item.from);
+    let r;
+    if (to === 'site') {
+      const site = ws.site?.dir ?? siteDir();
+      if (!site) throw new Error('this page is not part of a site: add the file to the page (to: "page")');
+      r = addFile({ site }, src, { name: item.name, from: item.from, author: 'ai' });
+    } else {
+      if (!ws.store.exists('layout.slice')) throw new Error('no page is open: open_page opens one, or add the file to the site (to: "site")');
+      r = addFile({ page: ws }, src, { name: item.name, from: item.from, author: 'ai' });
+    }
+    added.set(r.file, { address: r.address, at: Date.now() });
+    return `${r.deduped ? 'already there' : 'added'}: ${r.address} (${r.kind}, ${Math.max(1, Math.round(r.bytes / 1024))} KB)${r.deduped ? ', the same bytes' : ''}; write it as ${r.kind === 'css' ? `<link rel="stylesheet" href="${r.address}">` : r.kind === 'js' ? `<script src="${r.address}"></script>` : r.kind === 'font' ? `url("${r.address}") in @font-face (the site's fonts: kit/fonts.json)` : r.kind === 'pdf' ? `<a href="${r.address}">` : `<img src="${r.address}" alt="…">`}`;
+  }
+
+  const fileItem = {
+    from: z.string().describe(`an http(s) address${opts.localFiles ? ', a path on this computer' : ''}, or the name of a file the user attached`),
+    to: z.enum(['page', 'site']).optional().describe('the page\'s files (assets/<file>) or the site\'s, for every page (/assets/<file>); default: the site on a run over the site, else the page'),
+    name: z.string().optional().describe('the file name to keep it under (default: its own); a name taken by another file gets a hash'),
+  };
+  server.registerTool('add_file', {
+    title: 'Add a file', annotations: { readOnlyHint: false, destructiveHint: false, openWorldHint: true },
+    description: 'Bring a web file into the page\'s or the site\'s files: an image (PNG, JPEG, GIF, WebP, AVIF, SVG), a font (WOFF2, WOFF, TTF, OTF), a PDF' + (opts.localFiles ? ', or from this computer a stylesheet or a script' : '') + '. ' +
+      `From an http(s) address${opts.localFiles ? ' or a path on this computer' : ''}, or a file the user attached. It is checked by its bytes, at most 25 MB; a file with the same bytes already there is used as it is. The reply says the address to write. Undo removes it.`,
+    inputSchema: fileItem,
+  }, guard(async (item: { from: string; to?: 'page' | 'site'; name?: string }) => `ok: ${await addOne(item)}`) as never);
+  server.registerTool('add_files', {
+    title: 'Add several files', annotations: { readOnlyHint: false, destructiveHint: false, openWorldHint: true },
+    description: 'add_file for up to 50 files at once: one line each in the reply, an error on its own line without stopping the others.',
+    inputSchema: { items: z.array(z.object(fileItem)).min(1).max(50) },
+  }, guard(async ({ items }: { items: { from: string; to?: 'page' | 'site'; name?: string }[] }) => {
+    const lines: string[] = [];
+    for (const item of items) {
+      try {
+        lines.push(`ok: ${await addOne(item)}`);
+      } catch (e) {
+        lines.push(`error: ${item.from}: ${(e as Error).message}`);
+      }
+    }
+    return lines.join('\n');
+  }) as never);
 
   server.registerTool('add_picture', {
     title: 'Add a picture', annotations: CHANGE,
@@ -493,8 +672,9 @@ export function createTykerfServer(start: Workspace | null, opts: TykerfServerOp
       name: z.string().regex(/^[a-z0-9][a-z0-9-]{0,59}$/).describe('file name without extension: lowercase letters, digits and dashes (e.g. marienplatz)'),
       svg: z.string().optional().describe('the SVG code, from <svg> to </svg>: no scripts, no event attributes, no external files'),
       attached: z.string().optional().describe('the file name of a picture the user attached (e.g. 3f2a….png)'),
+      for: z.string().optional().describe('the box it goes in, when it shows a shared block: the picture is then the site\'s (/assets/<file>), for every page'),
     },
-  }, guard(({ name, svg, attached }: { name: string; svg?: string; attached?: string }) => {
+  }, guard(({ name, svg, attached, for: box }: { name: string; svg?: string; attached?: string; for?: string }) => {
     if (!svg === !attached) throw new Error('give either svg (a picture you draw) or attached (a picture the user attached)');
     let bytes: Uint8Array, ext: string;
     if (svg !== undefined) {
@@ -511,6 +691,14 @@ export function createTykerfServer(start: Workspace | null, opts: TykerfServerOp
       bytes = found;
       ext = m![1];
     }
+    // what is shared uses the site's files: on a run over the site, or for a box that shows a shared block
+    const siteRun = !!(home || folders) && !runScope;
+    const linked = box !== undefined && ws.store.exists('layout.slice') && !!ws.sharedBlock(resolveRef(ws.load(), box));
+    const site = siteRun || linked ? (ws.site?.dir ?? siteDir()) : null;
+    if (site) {
+      const r = addFile({ site }, { bytes, name: `${name}.${ext}`, type: null, local: false }, { from: 'add_picture', author: 'ai' });
+      return `saved ${r.address}, one of the site's files: use it as <img src="${r.address}" alt="…"> on any page`;
+    }
     // a name already taken keeps its file (boxes may use it): this one gets a number
     let file = `${name}.${ext}`;
     for (let i = 2; ws.store.exists(`assets/${file}`); i++) file = `${name}-${i}.${ext}`;
@@ -520,39 +708,73 @@ export function createTykerfServer(start: Workspace | null, opts: TykerfServerOp
 
   server.registerTool('set_content', {
     title: 'Replace a box\'s code', annotations: REPLACE,
-    description: 'Set the HTML content of a leaf or overlay (null removes it, showing a placeholder).',
-    inputSchema: { id: id.describe('box (leaf) reference or overlay id'), html: z.string().nullable() },
-  }, guard(({ id: ref, html }: { id: string; html: string | null }) => ws.transaction(() => {
+    description: 'Set the HTML content of a leaf or overlay (null removes it, showing a placeholder).' + (opts.localFiles ? ' Long code can come from a file on this computer instead (file: its path), so it needn\'t pass through you.' : ''),
+    inputSchema: {
+      id: id.describe('box (leaf) reference or overlay id'), html: z.string().nullable().optional(),
+      ...(opts.localFiles ? { file: z.string().optional().describe('a path on this computer to read the code from (UTF-8, up to 2 MB), instead of html') } : {}),
+    },
+  }, guard(({ id: ref, html: given, file }: { id: string; html?: string | null; file?: string }) => ws.transaction(() => {
+    if ((given !== undefined) === (file !== undefined)) throw new Error('give either html or file');
+    const read = file !== undefined ? readCode(file) : null;
+    const html = read ? read.text : given!;
     const l = ws.load();
     const target = boxRef(l, ref);
     const ov = l.overlays.find((o) => o.id === target);
     if (!ov && find(l.root, target)?.node.type !== 'leaf') throw new Error(`"${ref}" is not a box (leaf) or overlay`);
     assertInScope(l, ov ? ov.target : target);
-    if (html !== null) assertMayChangeShared(l, target);
+    // a box that shows a shared block: its slots are this page's, the rest is every page's
+    const split = html === null ? null : ws.sharedEdit(target, html, l);
+    if (html !== null && (!split || split.block !== null)) assertMayChangeShared(l, target);
+    const brought = html === null ? [] : copyBehaviours(ws, html, 'ai');
     ws.setContent(target, html);
-    return `ok: content of "${target}" ${html === null ? 'removed' : 'set'}${noFiles(html ?? '')}`;
+    return `ok: content of "${target}" ${html === null ? 'removed' : 'set'}${brought.length ? `; the site kit has the library's ${brought.join(', ')} behaviour now` : ''}${read ? ` from ${read.path} (${read.size} bytes)` : ''}${split ? sharedSaid(l, target, split) : ''}${noFiles(html ?? '')}`;
   })) as never);
 
   server.registerTool('edit_content', {
     title: 'Edit part of a box\'s code', annotations: CHANGE,
     description: 'Change part of a box\'s code: replace the exact text `old` (as get_content shows it, including spaces) with `new`. ' +
       '`old` must appear exactly once, unless all is true (then every occurrence changes). Prefer it to set_content for small changes: only the changed text is sent.',
-    inputSchema: { id: id.describe('box (leaf) reference or overlay id'), old: z.string().min(1), new: z.string(), all: z.boolean().optional() },
-  }, guard(({ id: ref, old, new: next, all }: { id: string; old: string; new: string; all?: boolean }) => ws.transaction(() => {
+    inputSchema: {
+      id: id.describe('box (leaf) reference or overlay id'), old: z.string().min(1), new: z.string().optional(), all: z.boolean().optional(),
+      ...(opts.localFiles ? { new_file: z.string().optional().describe('a path on this computer to read the new text from (UTF-8, up to 2 MB), instead of new') } : {}),
+    },
+  }, guard(({ id: ref, old, new: given, new_file: file, all }: { id: string; old: string; new?: string; new_file?: string; all?: boolean }) => ws.transaction(() => {
+    if ((given !== undefined) === (file !== undefined)) throw new Error('give either new or new_file');
+    const read = file !== undefined ? readCode(file) : null;
+    const next = read ? read.text : given!;
     const l = ws.load();
     const target = boxRef(l, ref);
     const ov = l.overlays.find((o) => o.id === target);
     if (!ov && find(l.root, target)?.node.type !== 'leaf') throw new Error(`"${ref}" is not a box (leaf) or overlay`);
     assertInScope(l, ov ? ov.target : target);
-    assertMayChangeShared(l, target);
     const code = ws.content(target);
     if (code === null) throw new Error(`"${target}" has no code yet; use set_content`);
     const n = code.split(old).length - 1;
     if (!n) throw new Error(`the text to replace was not found in "${target}"; call get_content and copy it exactly`);
     if (n > 1 && !all) throw new Error(`the text to replace appears ${n} times in "${target}"; include more of the code around it, or set all to change every one`);
     const html = all ? code.split(old).join(next) : code.replace(old, () => next);
+    // a box that shows a shared block: a change inside its slots is this page's, the rest every page's
+    const split = ws.sharedEdit(target, html, l);
+    if (!split || split.block !== null) assertMayChangeShared(l, target);
+    const brought = copyBehaviours(ws, html, 'ai');
     ws.setContent(target, html);
-    return `ok: ${all ? n : 1} change${(all ? n : 1) === 1 ? '' : 's'} in "${target}"${noFiles(html)}`;
+    return `ok: ${all ? n : 1} change${brought.length ? `; the site kit has the library's ${brought.join(', ')} behaviour now` : ''}${(all ? n : 1) === 1 ? '' : 's'} in "${target}"${read ? ` (the new text from ${read.path}, ${read.size} bytes)` : ''}${split ? sharedSaid(l, target, split) : ''}${noFiles(html)}`;
+  })) as never);
+
+  server.registerTool('set_slot', {
+    title: 'Fill a slot of a shared block', annotations: CHANGE,
+    description: 'A box that shows a shared block (get_layout: use=<name> (shared block, slots: …)) shows the same code on every page, except its slots: the parts each page fills itself (a title, a lead). ' +
+      'Fill one slot for this page only, with HTML (html null: back to the block\'s own text). The other pages keep theirs, and the block doesn\'t change. Allowed in the box\'s scope: a slot is the page\'s content.',
+    inputSchema: { id: id.describe('box (leaf) reference'), slot: z.string().describe('the slot\'s name (get_content lists them)'), html: z.string().nullable() },
+  }, guard(({ id: ref, slot, html }: { id: string; slot: string; html: string | null }) => ws.transaction(() => {
+    const l = ws.load();
+    const target = resolveRef(l, ref);
+    assertInScope(l, target);
+    ws.setSlots(target, { [slot]: html });
+    const use = ws.sharedBlock(target, l);
+    return html === null
+      ? `ok: the slot "${slot}" of "${target}" shows the shared block ${use}'s own text again on this page`
+      : `ok: the slot "${slot}" of "${target}" is set for this page; the other pages that show ${use} keep theirs, and the block didn't change${noFiles(html)}`;
   })) as never);
 
   server.registerTool('get_content', {
@@ -561,7 +783,8 @@ export function createTykerfServer(start: Workspace | null, opts: TykerfServerOp
     inputSchema: { id: id.describe('box (leaf) reference or overlay id').optional() },
   }, guard(({ id: ref }: { id?: string }) => {
     if (!ref) return JSON.stringify(ws.contents(), null, 2);
-    return ws.content(boxRef(ws.load(), ref)) ?? '(no content: placeholder)';
+    const box = boxRef(ws.load(), ref);
+    return (ws.content(box) ?? '(no content: placeholder)') + slotsLine(box);
   }) as never);
 
   server.registerTool('undo', { title: 'Undo', annotations: CHANGE, description: 'Revert the last change (layout or box code). Refused if it would change something outside the scope.' },
@@ -569,6 +792,7 @@ export function createTykerfServer(start: Workspace | null, opts: TykerfServerOp
       const sc = scope();
       const peek = ws.peekUndo();
       if (sc && peek?.head && sc !== ws.load().root.id) throw new Error(`refused: undoing "${peek.label}" would change the page head (theme), which is outside the scope "${sc}"`);
+      if (sc && peek?.site && sc !== ws.load().root.id) throw new Error(`refused: undoing "${peek.label}" would change the shared block ${peek.block} on every page that shows it, which is outside the scope "${sc}"`);
       if (sc && peek) {
         const cur = ws.load();
         if (peek.layout) {
@@ -585,6 +809,7 @@ export function createTykerfServer(start: Workspace | null, opts: TykerfServerOp
       const sc = scope();
       const peek = ws.peekRedo();
       if (sc && peek?.head && sc !== ws.load().root.id) throw new Error(`refused: redoing "${peek.label}" would change the page head (theme), which is outside the scope "${sc}"`);
+      if (sc && peek?.site && sc !== ws.load().root.id) throw new Error(`refused: redoing "${peek.label}" would change the shared block ${peek.block} on every page that shows it, which is outside the scope "${sc}"`);
       if (sc && peek) {
         const cur = ws.load();
         if (peek.layout) {
@@ -616,10 +841,30 @@ export function createTykerfServer(start: Workspace | null, opts: TykerfServerOp
     return site;
   };
 
+  // a page's title: on a run over the site and on a page's run alike, not from inside a smaller block
+  server.registerTool('set_title', {
+    title: 'Set a page\'s title', annotations: REPLACE,
+    description: 'Give a page of the site a title of its own: the browser tab, search results and the site\'s list of pages show it. Without one, a page is titled by its first heading (<h1>), so pages with the same heading look the same: check_page says so. ' +
+      'page: a page of the site (list_pages; default: the open page). title "" goes back to the title from its first heading. Only when the scope is the whole page (or there is none).',
+    inputSchema: { page: z.string().optional().describe('the page\'s name (default: the open page)'), title: z.string().describe('the title, up to 120 characters; "" for the one from its first heading') },
+  }, guard(({ page, title }: { page?: string; title: string }) => {
+    const site = ws.site?.dir ?? siteDir();
+    if (!site) throw new Error('this page is not part of a site; its title is the <title> in its head');
+    const open = ws.pageName ?? openPage(site);
+    const name = page ?? open;
+    if (!name) throw new Error('no page is open: say which page (list_pages lists them)');
+    const l = ws.load();
+    const sc = scope(l);
+    if (sc && sc !== l.root.id) throw new Error(`refused: the title is the whole page's, and the scope is "${sc}". Ask the user to select the page block ("${l.root.id}") to change it.`);
+    if (runScope && name !== open) throw new Error(`refused: this run works on the page "${open}"`);
+    setTitle(site, name, title, 'ai');
+    return readSite(site).titles[name] ? `ok: "${name}" is titled "${pageTitle(site, name)}"` : `ok: "${name}" is titled by its first heading again: "${pageTitle(site, name)}"`;
+  }));
+
   // a run on one block (the editor's Kaity) never sees them
   if ((home || folders) && !runScope) {
     // ---------- the site kit (src/kit.ts): what every page shares besides its theme ----------
-    const kindArg = z.enum(['styles', 'scripts', 'blocks', 'types', 'tags']);
+    const kindArg = z.enum(['styles', 'scripts', 'blocks', 'types', 'tags', 'fonts']);
     const reach = (site: string, kind: KitKind, name: string) => {
       if (kind !== 'blocks') return `every page of the site (${sitePages(site).length})`;
       const users = Object.keys(blockUsers(site, name));
@@ -628,13 +873,19 @@ export function createTykerfServer(start: Workspace | null, opts: TykerfServerOp
     server.registerTool('list_kit', {
       title: 'Read the site kit', annotations: READ,
       description: 'The site kit: what every page of the site shares besides the theme. styles: CSS in every page, after the theme and before the page\'s own. scripts: behaviours, an ES module whose default export gets each element marked data-use="<name>". ' +
+        'classes: styles for a class, kit/styles/<name>.css starting with @scope (.k-<name>): any element with class="k-<name>" on any page takes it (a whole box: the tag #k-<name>). ' +
+        'fonts: the site\'s own fonts (kit/fonts.json), declared on every page; their files are in the site\'s assets/. ' +
         'blocks: shared blocks; a box with use=<name> (see get_layout) shows kit/blocks/<name>.html on every page that links it. types: box types for every page. tags: the site\'s own tags (#name on a block, styled as .t-<name> in kit styles).',
     }, guard(() => {
       const site = siteOnly();
       const f = kitList(site);
       const tags = Object.entries(kitTags(site)).map(([t, v]) => `#${t}: ${v.label}${v.description ? ` (${v.description})` : ''}`);
       const blocks = f.blocks.map((b) => { const u = Object.keys(blockUsers(site, b)); return `${b} (on ${u.length ? u.join(', ') : 'no page'})`; });
-      return [`styles: ${f.styles.join(', ') || 'none'}`, `scripts: ${f.scripts.join(', ') || 'none'}`, `blocks: ${blocks.join(', ') || 'none'}`, `types: ${f.types.join(', ') || 'none'}`, `tags: ${tags.join('; ') || 'none'}`].join('\n');
+      const classes = kitClasses(site).map((c) => `${c} (class k-${c})`);
+      const fonts = Object.entries(kitFonts(site)).map(([f, v]) => `"${f}" (${v.files.map((x) => `${x.weight}${x.style === 'italic' ? ' italic' : ''}`).join(', ')}; licence: ${v.licence?.trim() || 'not noted'})`);
+      const fromLib = kitLibraryScripts(site);
+      const scripts = f.scripts.map((s) => (fromLib[s] === 'same' ? `${s} (the library's)` : fromLib[s] === 'changed' ? `${s} (from the library, which has another version now)` : s));
+      return [`styles: ${f.styles.join(', ') || 'none'}`, `classes: ${classes.join(', ') || 'none'}`, `scripts: ${scripts.join(', ') || 'none'}`, `blocks: ${blocks.join(', ') || 'none'}`, `types: ${f.types.join(', ') || 'none'}`, `tags: ${tags.join('; ') || 'none'}`, `fonts: ${fonts.join('; ') || 'none'}`].join('\n');
     }));
     server.registerTool('get_kit_file', {
       title: 'Read a site kit file', annotations: READ,
@@ -649,16 +900,19 @@ export function createTykerfServer(start: Workspace | null, opts: TykerfServerOp
     }, guard(({ kind, name, text }: { kind: KitKind; name?: string; text: string | null }) => {
       const site = siteOnly();
       kitWrite(site, kind, name ?? 'tags', text, undefined, 'ai');
-      return `ok: kit/${kind === 'tags' ? 'tags.json' : `${kind}/${name}`} ${text === null ? 'removed' : 'saved'}; it reaches ${reach(site, kind, name ?? 'tags')}`;
+      const warning = text === null ? null : kitWarning(kind, name ?? 'tags', text);
+      return `ok: kit/${kind === 'tags' ? 'tags.json' : `${kind}/${name}`} ${text === null ? 'removed' : 'saved'}; it reaches ${reach(site, kind, name ?? 'tags')}${warning ? `\nwarning: ${warning}` : ''}`;
     }));
     server.registerTool('share_block', {
       title: 'Share a box with every page', annotations: CHANGE,
-      description: 'Make a box of the open page a shared block of the site: its code becomes kit/blocks/<name>.html and the box shows it. Other pages show it with link_block.',
+      description: 'Make a box of the open page a shared block of the site: its code becomes kit/blocks/<name>.html and the box shows it. Other pages show it with link_block. ' +
+        'The page\'s own files it uses (assets/<file>) are copied to the site\'s assets/ and the block points at them there (/assets/<file>), so they show on every page; the reply lists them.',
       inputSchema: { id: id.describe('box (leaf) reference'), name: z.string().optional().describe('the shared block\'s name (default: the box\'s)') },
     }, guard(({ id: ref, name }: { id: string; name?: string }) => {
       const site = siteOnly();
       const box = resolveRef(ws.load(), ref);
-      return `ok: "${box}" is now the shared block "${shareBlock(site, ws, box, name ?? box, 'ai')}"`;
+      const r = shareBlock(site, ws, box, name ?? box, 'ai');
+      return `ok: "${box}" is now the shared block "${r.name}"${movedFiles(r.files)}`;
     }));
     server.registerTool('link_block', {
       title: 'Show a shared block in a box', annotations: CHANGE,
@@ -680,12 +934,85 @@ export function createTykerfServer(start: Workspace | null, opts: TykerfServerOp
       return `ok: "${box}" is this page's own copy now`;
     }));
 
-    server.registerTool('list_pages', { title: 'List the site\'s pages', annotations: READ, description: 'The pages of the site (a folder of page folders), and which one is open: the one every other tool works on.' },
+    // one page's theme for every page: an older site, or one built page by page, ends with a theme per page
+    server.registerTool('share_theme', {
+      title: 'Make a page\'s theme the site\'s', annotations: REPLACE,
+      description: 'Make one page\'s theme (colours, fonts, spacing) the theme every page of the site shares: it becomes the site\'s, and the pages with a theme of their own give theirs up (one undo step on each). ' +
+        'Use it when get_theme says each page has its own theme, instead of applying a preset page by page. Copies of websites keep their own look.',
+      inputSchema: { page: z.string().describe('the page whose theme every page takes (list_pages)') },
+    }, guard(({ page }: { page: string }) => {
+      const site = siteOnly();
+      if (!sitePages(site).includes(page)) throw new Error(`there is no page "${page}" in the site (pages: ${sitePages(site).join(', ') || 'none yet'})`);
+      const own = pagesWithOwnTheme(site);
+      if (!own.includes(page)) {
+        const others = own.length ? `Pages with a theme of their own: ${own.join(', ')}; share_theme one of them to make it the site's.` : '';
+        if (hasTheme(siteHead(site))) throw new Error(`refused: the site already shares one theme, and "${page}" has none of its own: it uses the site's. ${others || 'Every page follows it already: change it with set_theme or use_theme.'}`);
+        throw new Error(`"${page}" has no theme of its own to share. ${others || 'No page has one: use_theme gives a page one.'}`);
+      }
+      const changed = shareTheme(site, page, 'ai');
+      return `ok: the site has one theme now, "${page}"'s, and every page uses it; ${changed.length === 1 ? 'this page gave up its own' : `these pages gave up their own: ${changed.join(', ')}`} (each can undo it). Copies of websites keep their own look.`;
+    }));
+
+    // the whole site's check (check-site.ts): what to fix before publishing, every page at once
+    server.registerTool('check_site', {
+      title: 'Check the whole site', annotations: READ,
+      description: 'What the whole site should fix before it is published, counts first, then by kind, each with the tool that fixes it: links to pages it doesn\'t have, files that aren\'t there, shared blocks using a page\'s file, pictures without alt text, titles (missing, too long, the same as another page\'s), pages nothing links to, copies of a shared block, fonts without a licence, files from other servers, the language.',
+    }, guard(() => sayFindings(checkSite(siteOnly()))));
+
+    // the site's files and every page's (site/media.ts): who uses each, and the unused ones
+    server.registerTool('list_files', {
+      title: 'List the site\'s files', annotations: READ,
+      description: 'Every file of the site (/assets/<file>) and of its pages (assets/<file> on that page): kind, size, and where it is used (page and box, or the site\'s head or kit). unused: only the files nothing uses (an undo step may still hold some).',
+      inputSchema: { unused: z.boolean().optional() },
+    }, guard(({ unused }: { unused?: boolean }) => {
+      const files = siteMedia(siteOnly()).filter((f) => !unused || (!f.used.length && !f.held));
+      if (!files.length) return unused ? 'no unused files' : 'no files';
+      const kb = (n: number) => `${Math.max(1, Math.round(n / 1024))} KB`;
+      const total = files.reduce((n, f) => n + f.bytes, 0);
+      return [`${files.length} files, ${kb(total)}`, ...files.map((f) => `${f.where === 'site' ? `/assets/${f.file}` : `${f.where}: assets/${f.file}`}  ${f.kind}, ${kb(f.bytes)}  ${f.used.length ? `used by ${[...new Set(f.used.map((u) => (u.page ? `${u.page}/${u.box}` : `the site's ${u.box}`)))].join(', ')}` : f.held ? 'unused (an undo step holds it)' : 'unused'}`)].join('\n');
+    }));
+    server.registerTool('remove_file', {
+      title: 'Remove a file', annotations: REPLACE,
+      description: 'Take a file out of the site (where: "site") or a page (where: its name): it waits in .tykerf/trash/, and undo puts it back. Only files nothing uses (list_files unused).',
+      inputSchema: { where: z.string(), file: z.string() },
+    }, guard(({ where, file }: { where: string; file: string }) => {
+      const site = siteOnly();
+      const f = siteMedia(site).find((x) => x.where === where && x.file === file);
+      if (!f) throw new Error(`there is no file "${file}" in ${where === 'site' ? 'the site' : `the page ${where}`} (list_files lists them)`);
+      if (f.used.length) throw new Error(`refused: ${file} is used by ${[...new Set(f.used.map((u) => (u.page ? `${u.page}/${u.box}` : `the site's ${u.box}`)))].join(', ')}; change those first`);
+      removeMediaFile(site, where, file, 'ai');
+      return `ok: ${where === 'site' ? `/assets/${file}` : `${where}'s assets/${file}`} is in the trash (undo brings it back)`;
+    }));
+
+    // the whole site's settings (site.json): only the fields in SITE_SETTINGS, each with its own check
+    const SITE_SETTINGS: Record<string, (site: string, value: string) => void> = { lang: (site, v) => setLang(site, v, 'ai') };
+    server.registerTool('set_site', {
+      title: 'Change the site\'s settings', annotations: REPLACE,
+      description: 'Settings of the whole site; give only what changes. lang: the language its pages are written in, as a BCP 47 tag ("es", "en", "pt-BR"): ' +
+        'every page\'s <html lang>, read by browsers, screen readers and search engines. "" goes back to English. Set it when the site is not in English.',
+      inputSchema: { lang: z.string().optional().describe('BCP 47 language tag, such as es, en or pt-BR') },
+    }, guard((a: Record<string, string | undefined>) => {
+      const site = siteOnly();
+      const given = Object.entries(a).filter(([k, v]) => Object.hasOwn(SITE_SETTINGS, k) && typeof v === 'string');
+      if (!given.length) throw new Error(`nothing to change: give ${Object.keys(SITE_SETTINGS).join(' or ')}`);
+      for (const [k, v] of given) SITE_SETTINGS[k](site, v!);
+      const s = readSite(site) as unknown as Record<string, unknown>;
+      return `ok: ${given.map(([k]) => `the site's ${k} is "${s[k]}"`).join('; ')}; every page follows it`;
+    }));
+
+    server.registerTool('list_pages', { title: 'List the site\'s pages', annotations: READ, description: 'The pages of the site (a folder of page folders), which one is open (the one every other tool works on), and each page\'s title: set by hand (set_title) or from its first heading.' },
       guard(() => {
         const site = siteOnly();
         const pages = sitePages(site), open = openPage(site);
         if (!pages.length) return `the site ${site} has no pages yet: new_page makes the first one`;
-        return `site ${site}\n${pages.map((p) => `${p}${p === open ? ' (open)' : ''}`).join('\n')}${open ? '' : '\nno page is open: open_page opens one'}`;
+        const settings = readSite(site);
+        // each page's title, and where it comes from (set_title, or its first heading)
+        const title = (p: string) => {
+          if (settings.titles[p]) return `: "${settings.titles[p]}" (set by hand)`;
+          const t = pageTitle(site, p, settings);
+          return t === p ? ': no title (no heading either: its name stands in)' : `: "${t}" (from its first heading)`;
+        };
+        return `site ${site}\n${pages.map((p) => `${p}${p === open ? ' (open)' : ''}${title(p)}`).join('\n')}${open ? '' : '\nno page is open: open_page opens one'}`;
       }));
 
     server.registerTool('open_page', {
@@ -703,23 +1030,26 @@ export function createTykerfServer(start: Workspace | null, opts: TykerfServerOp
     server.registerTool('new_page', {
       title: 'Make a new page', annotations: CHANGE,
       description: 'Make a new page in the site from a page layout (see list_layouts) and open it. It gets the theme given (see list_themes), unless the site\'s pages share one theme. ' +
+        'The layout\'s navigation and footer are the site\'s shared blocks: the page shows them (the site\'s first page makes them); with shared false it gets copies of its own instead. ' +
         'Name: lowercase letters, digits and -. Links between pages are written /<name>/.',
       inputSchema: {
         name: z.string(), layout: z.string().optional().describe('layout name from list_layouts (default blank)'), theme: z.string().optional().describe(`theme preset from list_themes (default ${DEFAULT_THEME})`),
         copy: z.string().optional().describe('another page to copy instead of a layout: its blocks, code, images and (unless the pages share one) its theme'),
+        shared: z.boolean().optional().describe('show the site\'s shared navigation and footer (default true); false: copies of its own'),
       },
-    }, guard(({ name, layout, theme: themeName, copy }: { name: string; layout?: string; theme?: string; copy?: string }) => {
+    }, guard(({ name, layout, theme: themeName, copy, shared: linkShared }: { name: string; layout?: string; theme?: string; copy?: string; shared?: boolean }) => {
       const site = siteOnly();
       if (copy && !sitePages(site).includes(copy)) throw new Error(`there is no page "${copy}" to copy (pages: ${sitePages(site).join(', ') || 'none yet'})`);
       mkdirSync(site, { recursive: true });
       const shared = hasTheme(siteHead(site));
-      ws = newSitePage(site, name, layout ?? 'blank', themeName ?? DEFAULT_THEME);
+      ws = newSitePage(site, name, layout ?? 'blank', themeName ?? DEFAULT_THEME, { shared: linkShared !== false });
       if (copy) {
-        usePage(ws, site, copy, { theme: !shared, author: 'ai' });
-        return `ok: new page "${name}", a copy of "${copy}"; it is open now. Rewrite its text for this page.\n\n${outline(ws.load())}`;
+        const files = usePage(ws, site, copy, { theme: !shared, author: 'ai' });
+        const theirs = files.site.length ? `; ${files.site.length} of its files the site already has, so it uses those (not copied)` : '';
+        return `ok: new page "${name}", a copy of "${copy}"${theirs}; it is open now. Rewrite its text for this page.\n\n${outline(ws.load())}`;
       }
       const look = shared ? 'it uses the theme the site\'s pages share' : `with the ${themeName ?? DEFAULT_THEME} theme`;
-      return `ok: new page "${name}" from the ${layout ?? 'blank'} layout, ${look}; it is open now. Rewrite every box's placeholder text for this page.\n\n${outline(ws.load())}`;
+      return `ok: new page "${name}" from the ${layout ?? 'blank'} layout, ${look}${sharedSay(linkedBoxes(ws))}; it is open now. Rewrite every box's placeholder text for this page.\n\n${outline(ws.load())}`;
     }));
     server.registerTool('rename_page', {
       title: 'Rename a page', annotations: CHANGE,

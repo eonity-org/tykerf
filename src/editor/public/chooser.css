@@ -62,6 +62,7 @@
 .ch-site[hidden], .chooser [data-for][hidden], .ch-preview[hidden], .ch-panel [hidden] { display: none; }
 .ch-check { display: flex; gap: 8px; align-items: flex-start; color: var(--muted); }
 .ch-check input { margin: 2px 0 0; }
+.ch-check[hidden] { display: none; }
 .ch-advice { border: 1px solid var(--line); border-left: 3px solid var(--amber); border-radius: 8px; padding: 10px 12px; background: var(--bg-2); }
 .ch-advice p { margin: 6px 0 0; color: var(--muted); }
 .ch-panel { display: grid; place-items: center; text-align: center; border: 1px dashed var(--line); border-radius: 10px; padding: 24px; }

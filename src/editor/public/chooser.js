@@ -92,7 +92,8 @@ export async function renderChooser(root, { t, name = 'home', taken = [], like =
             <p>${t('A copy includes the site\'s text, images and design, which usually belong to someone else. Copy your own site to rebuild it; copy someone else\'s only to study or prototype, and publish it only with the owner\'s permission.')}</p></div>
         </div>
         <fieldset data-for="layout"><legend>${step(3, t('Pick a layout'))} <span class="ch-legend-explanation">${t('ready-made pages to start from (templates)')}</span></legend><div class="ch-cards">${layouts.map((p) => `
-          <button type="button" data-layout="${esc(p.name)}" aria-pressed="${p.name === st.layout}"><b>${esc(t(p.label))}</b><span>${esc(t(p.description))}</span></button>`).join('')}</div></fieldset>
+          <button type="button" data-layout="${esc(p.name)}" aria-pressed="${p.name === st.layout}"><b>${esc(t(p.label))}</b><span>${esc(t(p.description))}</span></button>`).join('')}</div>
+          <label class="ch-check ch-shared"><input type="checkbox" name="shared" checked> ${t('With the site\'s navigation and footer (shared): one for every page, so a change to them reaches every page. Without it, this page gets copies of its own.')}</label></fieldset>
         <fieldset data-for="layout idea"><legend>${step(4, t('Choose a theme'))}</legend>${themeChoice}</fieldset>
         <p class="ch-error" role="alert" hidden></p>
         <p class="ch-status" role="status" hidden></p>
@@ -122,6 +123,9 @@ export async function renderChooser(root, { t, name = 'home', taken = [], like =
   const box = root.querySelector('.ch-frame');
   const error = root.querySelector('.ch-error');
   const submit = form.querySelector('[type=submit]');
+  // the layout's navigation and footer are the site's (layouts.json shared): the line is there when it has some
+  const sharedLine = () => (form.querySelector('.ch-shared').hidden = !layouts.find((p) => p.name === st.layout)?.shared?.length);
+  sharedLine();
   const status = form.querySelector('.ch-status');
   const pics = form.querySelector('.ch-pics');
   const fileInput = form.querySelector('.ch-drop input');
@@ -204,7 +208,7 @@ export async function renderChooser(root, { t, name = 'home', taken = [], like =
     const b = e.target.closest('button');
     if (!b) return;
     if (b.dataset.from) setFrom(b.dataset.from);
-    if (b.dataset.layout) (st.layout = b.dataset.layout), press('[data-layout]', 'layout', st.layout), show();
+    if (b.dataset.layout) (st.layout = b.dataset.layout), press('[data-layout]', 'layout', st.layout), sharedLine(), show();
     if (b.dataset.theme) (st.from === 'idea' ? (st.ideaTheme = b.dataset.theme) : (st.theme = b.dataset.theme)), press('[data-theme]', 'theme', theme()), show();
     if (b.dataset.width) (st.width = +b.dataset.width), press('[data-width]', 'width', st.width), fit();
     if (b.dataset.unpic) st.images.splice(+b.dataset.unpic, 1), renderPics();
@@ -240,7 +244,7 @@ export async function renderChooser(root, { t, name = 'home', taken = [], like =
         st.from === 'website' ? { name: n, url, structureOnly: form.elements.structureOnly.checked }
         : st.from === 'idea' ? { name: n, prompt, images: st.images, ...(st.zip ? { zip: st.zip } : {}), ...(sharedTheme || st.ideaTheme === 'auto' ? {} : { theme: st.ideaTheme }) }
         : st.from === 'like' ? { name: n, like }
-        : { name: n, layout: st.layout, ...(sharedTheme ? {} : { theme: st.theme }) });
+        : { name: n, layout: st.layout, shared: form.elements.shared.checked, ...(sharedTheme ? {} : { theme: st.theme }) });
     } catch (err) {
       error.hidden = false;
       error.textContent = err.message;

@@ -21,8 +21,9 @@ describe('the library', () => {
   });
 
   it('uses every component in some page layout, so each one is seen and kept working', () => {
-    // Image fills a box sized by hand (its handles): a building block for pages people compose themselves
-    const BUILDING_BLOCKS = ['image'];
+    // Image fills a box sized by hand (its handles): a building block for pages people compose themselves; the page
+    // banner is shared by every page of a site, each filling its slots: a block for sites, not for one layout
+    const BUILDING_BLOCKS = ['image', 'page-banner'];
     const used = new Set(pageLayouts().flatMap((p) => Object.values(p.boxes)));
     expect(components().map((c) => c.name).filter((c) => !used.has(c) && !BUILDING_BLOCKS.includes(c))).toEqual([]);
   });
@@ -50,6 +51,33 @@ describe('the library', () => {
       for (const [, file] of Object.values(ws.contents()).join('\n').matchAll(/assets\/([\w.-]+)/g)) expect(ws.store.exists(`assets/${file}`), `${p.name}: ${file}`).toBe(true);
       expect(ws.history()).toEqual([]); // a new page starts with nothing to undo
     }
+  });
+
+  it('ships behaviours that components ask for, each small, with a default export, and each used or standalone', async () => {
+    const { behaviourCode, behavioursIn, libraryBehaviours } = await import('../src/library.js');
+    const shelf = libraryBehaviours();
+    expect(shelf.map((b) => b.name).sort()).toEqual(['accordion', 'carousel', 'form', 'reveal', 'tabs', 'year']);
+    expect(readdirSync(join(LIBRARY, 'behaviours')).sort()).toEqual(shelf.map((b) => `${b.name}.js`).sort());
+    const asked = new Set(components().flatMap((c) => behavioursIn(componentCode(c.name))));
+    for (const name of asked) expect(shelf.map((b) => b.name), `a component asks for "${name}"`).toContain(name);
+    for (const b of shelf) {
+      const code = behaviourCode(b.name)!;
+      expect(code.length, b.name).toBeLessThanOrEqual(3 * 1024);
+      expect(code, b.name).toMatch(/^export default function \(el\) \{/m);
+      expect(code, b.name).not.toMatch(/^\s*import\b/m); // no dependencies
+      expect(asked.has(b.name) || b.standalone, `${b.name}: used by a component, or standalone`).toBe(true);
+    }
+    expect(componentCode('contact')).not.toContain('<script'); // the form's script is the library's form now
+    expect(behavioursIn(componentCode('faq'))).toEqual(['accordion']);
+  });
+
+  it('declares the boxes every page of a site shares, and each is a box of its layout', () => {
+    for (const p of pageLayouts()) {
+      expect(p.shared, p.name).toBeDefined();
+      for (const box of p.shared!) expect(Object.keys(p.boxes), `${p.name}: ${box}`).toContain(box);
+    }
+    expect(pageLayouts().find((p) => p.name === 'launch')!.shared).toEqual(['nav', 'footer']);
+    expect(pageLayouts().find((p) => p.name === 'blank')!.shared).toEqual(['nav']); // it has no footer
   });
 
   it('refuses to start a page over an existing one', () => {

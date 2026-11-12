@@ -11,13 +11,14 @@ import * as M from '../moves.js';
 import { serializeSlice } from '../notation.js';
 import { leftovers } from '../check.js';
 import { handbookMarkdown, handbookPage } from '../handbook.js';
-import { kitList, kitTags } from '../kit.js';
+import { kitClasses, kitFonts, kitList, kitTags } from '../kit.js';
 import { blockUsers, linkBlock, shareBlock, unlinkBlock } from '../site.js';
+import { addFile } from '../files.js';
 import { addTask, clearDone, closeTask, removeTask, reopenTask, sayTask, tasks } from '../tasks.js';
 import { pathOf } from '../refs.js';
 import { renderParts } from '../render.js';
-import { checkPath } from '../store.js';
-import { components, hasTheme, pageLayouts, readOverrides, themeVariables, useComponent, withFonts, withOverrides } from '../library.js';
+import { FolderStore, checkPath } from '../store.js';
+import { components, copyBehaviours, hasTheme, libraryBehaviours, pageLayouts, readOverrides, themeVariables, useComponent, withFonts, withOverrides } from '../library.js';
 import { NO_SITE_HEAD, type Workspace, joinStyle, splitStyle } from '../workspace.js';
 import { AI, type Runner } from './ai.js';
 
@@ -26,7 +27,7 @@ export const json = (res: ServerResponse, code: number, body: unknown) => {
   res.end(JSON.stringify(body));
 };
 
-const MAX_BODY = 25 * 1024 * 1024; // an image upload (15 MB) as base64, with room to spare
+const MAX_BODY = 36 * 1024 * 1024; // a file upload (25 MB, files.ts) as base64, with room to spare
 
 export async function body(req: IncomingMessage): Promise<any> {
   let s = '';
@@ -134,8 +135,13 @@ export function createPageHost(ws: Workspace, opts: { name: string; site?: () =>
   function state() {
     const layout = ws.load();
     const codes = new Set(ws.boxIds());
-    const undo = ws.peekUndo();
-    return { name: opts.name, site: opts.site?.() ?? null, tree: panelTree(layout.root, codes), slice: serializeSlice(layout), ai: ai.running(), aiRunner: ai.runnerInfo(), buffer: bufferSummary(), canUndo: !!undo, lastChange: undo?.label ?? null, nextRedo: ws.peekRedo()?.label ?? null, head: headVersion(), build: buildFocus() };
+    const undo = ws.peekUndo(), redo = ws.peekRedo();
+    return {
+      name: opts.name, site: opts.site?.() ?? null, tree: panelTree(layout.root, codes), slice: serializeSlice(layout), ai: ai.running(), aiRunner: ai.runnerInfo(), buffer: bufferSummary(),
+      canUndo: !!undo, lastChange: undo?.label ?? null, nextRedo: redo?.label ?? null, head: headVersion(), build: buildFocus(),
+      // a step that changes a shared block: the Undo and Redo buttons say so (it changes every page that shows it)
+      undoBlock: undo?.site ? undo.block ?? null : null, redoBlock: redo?.site ? redo.block ?? null : null,
+    };
   }
 
   // ---------- operations the panel may ask for ----------
@@ -171,14 +177,17 @@ export function createPageHost(ws: Workspace, opts: { name: string; site?: () =>
   };
 
   // The buffer: code of removed blocks, newest first, ready to paste somewhere else.
-  interface BufferItem { from: string; boxes: string[]; html: string; css: string; at: string }
+  // (use: the removed box showed this shared block, and pasting it shows the block again; own: its own code, its slots)
+  interface BufferItem { from: string; boxes: string[]; html: string; css: string; at: string; use?: string; own?: string }
   const BUFFER = '.tykerf/buffer.json';
   const readBuffer = (): BufferItem[] => JSON.parse(store.read(BUFFER) ?? '[]');
   const writeBuffer = (b: BufferItem[]) => {
     store.write(BUFFER, JSON.stringify(b.slice(0, 20), null, 1));
   };
   const textOf = (html: string) => html.replace(/<(script|style)[\s\S]*?<\/\1>/gi, ' ').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
-  const bufferSummary = () => readBuffer().map((b, i) => ({ i, from: b.from, boxes: b.boxes.length, preview: textOf(b.html).slice(0, 90), at: b.at }));
+  const bufferSummary = () => readBuffer().map((b, i) => ({ i, from: b.from, boxes: b.boxes.length, preview: textOf(b.html).slice(0, 90), at: b.at, ...(b.use ? { shared: b.use } : {}) }));
+  /** The shared block a buffer item still shows when pasted, or null (no site, or the kit no longer has it). */
+  const pastedBlock = (item: BufferItem) => (item.use && ws.site && ws.site.block(item.use) !== null ? item.use : null);
 
   /** A name for a new box that is not in the tree and has no leftover code file. */
   function newBoxName(l: Layout, wanted?: string): string {
@@ -189,7 +198,10 @@ export function createPageHost(ws: Workspace, opts: { name: string; site?: () =>
 
   const LETTER = { row: 'V', column: 'H' } as const;
 
-  type Handler = (a: any) => string | null; // applies the change, returns a label for the reply
+  /** The site's folder, when a box shows a shared block: its pictures are the site's, not this page's. */
+  const sharedFor = (box: unknown): string | null => (typeof box === 'string' && ws.site && ws.store.exists('layout.slice') && ws.sharedBlock(box) ? ws.site.dir : null);
+
+  type Handler = (a: any) => string | { name: string; files: string[] } | null; // applies the change, returns a label (or what it made) for the reply
   const OPS: Record<string, Handler> = {
     /** Fill a box with a ready-made component (its code, images and, if needed, the theme variables). */
     component: (a: { id: string; name: string }) => {
@@ -246,11 +258,13 @@ export function createPageHost(ws: Workspace, opts: { name: string; site?: () =>
     /** The site's own tags (kit/tags.json) on a block: on or off. One step. */
     tag: (a: { id: string; tag: string; on: boolean }) => {
       const dir = ws.site?.dir;
-      if (!dir || !(a.tag in kitTags(dir))) throw new Error(`"${a.tag}" is not one of the site's tags`);
+      // the site's own tags, and its class styles (k-<name>)
+      const isClass = a.tag.startsWith('k-') && !!dir && kitClasses(dir).includes(a.tag.slice(2));
+      if (!dir || (!(a.tag in kitTags(dir)) && !isClass)) throw new Error(`"${a.tag}" is not one of the site's tags or class styles`);
       ws.save(a.on ? M.tag(ws.load(), a.id, a.tag) : M.untag(ws.load(), a.id, a.tag), `${a.id}: ${a.on ? '' : 'no '}#${a.tag}`, 'user');
       return a.id;
     },
-    /** Share a box with every page of the site: its code becomes a shared block, which this box shows. */
+    /** Share a box with every page of the site: its code becomes a shared block, which this box shows. Returns its name and the files that went to the site. */
     share: (a: { id: string; name?: string }) => {
       if (!ws.site?.dir) throw new Error('only a page of a site can share a block');
       return shareBlock(ws.site.dir, ws, a.id, a.name || a.id);
@@ -333,7 +347,10 @@ export function createPageHost(ws: Workspace, opts: { name: string; site?: () =>
       const l = ws.load();
       const next = M.remove(l, a.id);
       const code = codeOf(l, a.id);
-      if (code.boxes.length) writeBuffer([{ from: a.id, ...code, at: new Date().toISOString() }, ...readBuffer()]);
+      // a box that shows a shared block is remembered as that block (and its own slots), not a copy of its code
+      const n = find(l.root, a.id)?.node;
+      const shared = n?.type === 'leaf' && n.use ? { use: n.use, own: ws.ownContent(a.id) ?? '' } : {};
+      if (code.boxes.length) writeBuffer([{ from: a.id, ...code, ...shared, at: new Date().toISOString() }, ...readBuffer()]);
       ws.save(next, `remove ${a.id} (code to the buffer)`, 'user');
       return a.id;
     },
@@ -342,9 +359,12 @@ export function createPageHost(ws: Workspace, opts: { name: string; site?: () =>
       const item = readBuffer()[a.i];
       if (!item) throw new Error('nothing in the buffer at that place');
       const l = ws.load();
+      const block = pastedBlock(item);
       if (a.how === 'into') {
         if (!isLeaf(l, a.id)) throw new Error('paste into works on a box; choose a new box instead');
-        append(a.id, item);
+        // a shared block pasted into a box: the box shows it (its own code waits underneath, as with Use a shared block)
+        if (block) ws.save(M.setLeaf(l, a.id, { use: block }), `paste the shared block ${block} into ${a.id}`, 'user');
+        else append(a.id, item);
         return a.id;
       }
       const name = newBoxName(l, item.boxes.length === 1 ? item.boxes[0] : item.from);
@@ -355,7 +375,11 @@ export function createPageHost(ws: Workspace, opts: { name: string; site?: () =>
           if (!n || !isOp(n) || (n.kind !== 'H' && n.kind !== 'V')) throw new Error('paste inside works on rows and columns');
           ws.save(M.addLeaf(l, a.id, n.children.length, name), label, 'user');
         } else ws.save(M.insertNext(l, a.id, a.how === 'beside' ? 'V' : 'H', name), label, 'user');
-        ws.setContent(name, joinStyle(item.html, item.css), 'user');
+        if (block) {
+          // still the shared block: a change to it reaches this box too; its slots as they were
+          ws.save(M.setLeaf(ws.load(), name, { use: block }), label, 'user');
+          if (item.own) ws.setContent(name, item.own, 'user', { own: true });
+        } else ws.setContent(name, joinStyle(item.html, item.css), 'user');
       });
       return name;
     },
@@ -468,7 +492,8 @@ export function createPageHost(ws: Workspace, opts: { name: string; site?: () =>
     if (req.method === 'GET' && p === '/_tykerf/job') return json(res, 200, { job: publicJob() });
     if (req.method === 'GET' && p === '/_tykerf/assets') return json(res, 200, { images: pageImages(ws) });
     if (req.method === 'GET' && p === '/_tykerf/asset/origin') return json(res, 200, { origin: imageOrigin(ws, url.searchParams.get('src') ?? '') });
-    if (req.method === 'GET' && p === '/_tykerf/page') return json(res, 200, renderParts(ws.load(), ws.contents()));
+    // a refresh re-renders the body only: the site's language comes along for <html lang>
+    if (req.method === 'GET' && p === '/_tykerf/page') return json(res, 200, { ...(() => { const l = ws.load(); return renderParts(l, ws.shownContents(l)); })(), lang: ws.site?.lang() ?? 'en' });
     if (req.method === 'GET' && p === '/_tykerf/box') {
       const id = url.searchParams.get('id') ?? '';
       const l = ws.load();
@@ -476,7 +501,8 @@ export function createPageHost(ws: Workspace, opts: { name: string; site?: () =>
       const inside = find(l.root, id) ? codeOf(l, id).boxes.length : 0;
       const use = ws.sharedBlock(id, l);
       const shared = use && ws.site?.dir ? { name: use, pages: Object.keys(blockUsers(ws.site.dir, use)) } : null;
-      return json(res, 200, { id, ...parts, path: pathOf(l, id), previous: find(l.root, id) ? previousBox(l, id) : null, boxesWithCode: inside, shared });
+      // the shared block's slots: what this page fills in, each with the block's fallback
+      return json(res, 200, { id, ...parts, path: pathOf(l, id), previous: find(l.root, id) ? previousBox(l, id) : null, boxesWithCode: inside, shared, slots: ws.slots(id) });
     }
     if (req.method === 'GET' && p.startsWith('/_tykerf/image/')) {
       const name = p.slice('/_tykerf/image/'.length);
@@ -497,7 +523,7 @@ export function createPageHost(ws: Workspace, opts: { name: string; site?: () =>
     if (req.method === 'GET' && p === '/_tykerf/kit') {
       const dir = ws.site?.dir;
       const blocks = dir ? kitList(dir).blocks : [];
-      return json(res, 200, dir ? { site: true, blocks, tags: kitTags(dir), users: Object.fromEntries(blocks.map((b) => [b, Object.keys(blockUsers(dir, b))])) } : { site: false, blocks: [], tags: {}, users: {} });
+      return json(res, 200, dir ? { site: true, blocks, tags: kitTags(dir), classes: kitClasses(dir), scripts: kitList(dir).scripts, fonts: Object.keys(kitFonts(dir)), behaviours: libraryBehaviours().map((b) => b.name), users: Object.fromEntries(blocks.map((b) => [b, Object.keys(blockUsers(dir, b))])) } : { site: false, blocks: [], tags: {}, classes: [], users: {} });
     }
     if (req.method === 'GET' && p === '/_tykerf/tasks') return json(res, 200, { tasks: tasks(ws), text: tasks(ws, { open: true }).map(sayTask).join('\n') });
     if (req.method === 'GET' && p === '/_tykerf/events') {
@@ -516,6 +542,13 @@ export function createPageHost(ws: Workspace, opts: { name: string; site?: () =>
       changed();
       return json(res, 200, { ok: true, result });
     }
+    // the slots of a shared block, filled for this page only (its box's own file)
+    if (p === '/_tykerf/slots') {
+      const values = Object.fromEntries(Object.entries((a.values ?? {}) as Record<string, unknown>).map(([k, v]) => [k, typeof v === 'string' && v.trim() ? v : null]));
+      ws.setSlots(String(a.id ?? ''), values, 'user');
+      changed();
+      return json(res, 200, { ok: true });
+    }
     if (p === '/_tykerf/box') {
       const err = ws.transaction(() => {
         const l = ws.load();
@@ -523,6 +556,8 @@ export function createPageHost(ws: Workspace, opts: { name: string; site?: () =>
         // Content-only saves keep the style as it is, and vice versa.
         const cur = ws.parts(a.id) ?? { html: '', css: '' };
         const parts = typeof a.full === 'string' ? splitStyle(a.full) : { html: a.html ?? cur.html, css: a.css ?? cur.css };
+        // a library behaviour the code asks for (data-use) comes into the site's kit
+        copyBehaviours(ws, parts.html, 'user');
         ws.setContent(a.id, joinStyle(parts.html, parts.css), 'user');
         return null;
       });
@@ -533,8 +568,12 @@ export function createPageHost(ws: Workspace, opts: { name: string; site?: () =>
     // an image for the page (the image tool): checked, named by its content, saved in assets/
     // (with `from`: it was cropped, turned or scaled from another image of the page, remembered so it can be undone)
     if (p === '/_tykerf/asset') {
-      const path = saveImage(ws, new Uint8Array(Buffer.from(String(a.data ?? ''), 'base64')));
-      if (a.from) recordEdit(ws, path, a.from);
+      const bytes = new Uint8Array(Buffer.from(String(a.data ?? ''), 'base64'));
+      // for a box that shows a shared block, the picture is the site's: every page shows it (/assets/…)
+      const site = sharedFor(a.box);
+      if (site) return json(res, 200, { ok: true, path: `/${saveImage(new FolderStore(site), bytes)}` });
+      const path = saveImage(ws, bytes);
+      if (a.from && !String(a.from.from ?? '').startsWith('/')) recordEdit(ws, path, a.from);
       return json(res, 200, { ok: true, path });
     }
     // unused files go to .trash/ (nothing is deleted)
@@ -543,7 +582,17 @@ export function createPageHost(ws: Workspace, opts: { name: string; site?: () =>
       if (r.files) changed();
       return json(res, 200, { ok: true, result: r });
     }
-    if (p === '/_tykerf/asset/fetch') return json(res, 200, { ok: true, path: saveImage(ws, await fetchImage(String(a.url ?? ''))) });
+    // Add files…: one file the person chose, into the page's assets/ (checked by files.ts, a step undo takes back)
+    if (p === '/_tykerf/files') {
+      const r = addFile({ page: ws }, { bytes: new Uint8Array(Buffer.from(String(a.data ?? ''), 'base64')), name: String(a.name ?? 'file'), type: a.type ? String(a.type) : null, local: true }, { from: `upload ${String(a.name ?? '')}`, author: 'user' });
+      changed();
+      return json(res, 200, { ok: true, result: r });
+    }
+    if (p === '/_tykerf/asset/fetch') {
+      const site = sharedFor(a.box);
+      const bytes = await fetchImage(String(a.url ?? ''));
+      return json(res, 200, { ok: true, path: site ? `/${saveImage(new FolderStore(site), bytes)}` : saveImage(ws, bytes) });
+    }
     // this page's own values over the site's theme (only those that differ; {} goes back to the site theme)
     if (p === '/_tykerf/head/override') {
       const values = Object.fromEntries(Object.entries((a.values ?? {}) as Record<string, unknown>).map(([k, v]) => [k, String(v)]));

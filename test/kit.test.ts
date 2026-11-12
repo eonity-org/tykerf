@@ -7,15 +7,17 @@ import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { leftovers, say } from '../src/check.js';
 import { exportFiles } from '../src/export.js';
-import { KIT_LOADER, kitError, kitList, kitRead, kitStyles, kitTags, kitWrite, lastKitChange, markCurrentPage, undoKit } from '../src/kit.js';
+import { KIT_LOADER, kitLibraryScripts, kitFonts, kitClasses, kitCSS, kitStylesHash, blockSlots, fillSlots, slotValues, unfillSlots, withSlotValues, kitError, kitWarning, kitList, kitRead, kitStyles, kitTags, kitWrite, lastKitChange, markCurrentPage, undoKit } from '../src/kit.js';
 import { parseSlice, serializeSlice } from '../src/notation.js';
-import { blockUsers, identicalBoxes, linkBlock, newSitePage, pageWorkspace, shareBlock, shareIdentical, unlinkBlock } from '../src/site.js';
+import { Site, blockUsers, identicalBoxes, linkBlock, newSitePage, pageWorkspace, shareBlock, shareIdentical, unlinkBlock } from '../src/site.js';
+import { contentHash, pageFileRefs } from '../src/assets.js';
 import * as M from '../src/moves.js';
 
+// a site made the way older ones were: each page with its own navigation and footer (shared: false), to share them here
 const site = () => {
   const dir = mkdtempSync(join(tmpdir(), 'tykerf-kit-'));
-  newSitePage(dir, 'home', 'launch', 'studio');
-  newSitePage(dir, 'about', 'company', 'studio');
+  newSitePage(dir, 'home', 'launch', 'studio', { shared: false });
+  newSitePage(dir, 'about', 'company', 'studio', { shared: false });
   return dir;
 };
 
@@ -45,13 +47,30 @@ describe('kit files', () => {
     const dir = site();
     kitWrite(dir, 'styles', 'b-buttons', '.btn { padding: 1px }');
     kitWrite(dir, 'styles', 'a-base', 'body { margin: 0 }');
-    expect(kitStyles(dir).indexOf('a-base')).toBeLessThan(kitStyles(dir).indexOf('b-buttons')); // in file-name order
+    expect(kitCSS(dir).indexOf('a-base')).toBeLessThan(kitCSS(dir).indexOf('b-buttons')); // in file-name order
+    // one linked stylesheet, whose address changes with its content
+    const hash = kitStylesHash(dir);
+    expect(hash).toMatch(/^[0-9a-f]{12}$/);
+    expect(kitStyles(dir)).toBe(`<link rel="stylesheet" href="/kit/site.css?v=${hash}" data-tykerf-kit>\n`);
+    expect(kitStylesHash(dir)).toBe(hash); // the same while the files are
+    kitWrite(dir, 'styles', 'a-base', 'body { margin: 1px }');
+    expect(kitStylesHash(dir)).not.toBe(hash);
+    expect(kitCSS(dir)).toBe('@layer kit {\n/* kit/styles/a-base.css */\nbody { margin: 1px }\n/* kit/styles/b-buttons.css */\n.btn { padding: 1px }\n}\n');
     const ws = pageWorkspace(dir, 'home');
     ws.setHead('<style id="mine">.x{}</style>\n' + ws.head(), 'user');
     const html = ws.page();
     expect(html.indexOf('data-tykerf-theme')).toBeLessThan(html.indexOf('data-tykerf-kit'));
     expect(html.indexOf('data-tykerf-kit')).toBeLessThan(html.indexOf('id="mine"'));
-    expect(html).not.toContain('/kit/loader.js');
+    expect(html).toContain(`<link rel="stylesheet" href="/kit/site.css?v=${kitStylesHash(dir)}" data-tykerf-kit>`);
+    expect(html).not.toContain('.btn { padding: 1px }'); // linked, not in the page
+    // the editor's page version follows the kit (it hashes the head, link included)
+    const before = ws.page();
+    kitWrite(dir, 'styles', 'b-buttons', '.btn { padding: 2px }');
+    expect(pageWorkspace(dir, 'home').page()).not.toBe(before);
+    // (the launch layout's FAQ and footer brought the library's accordion and year: the loader is there)
+    expect(html).toContain('<script type="module" src="/kit/loader.js"></script>');
+    const plain = mkdtempSync(join(tmpdir(), 'tykerf-kit-plain-'));
+    expect(newSitePage(plain, 'home', 'blank', 'studio').page()).not.toContain('/kit/loader.js'); // no behaviour, no loader
     kitWrite(dir, 'scripts', 'reveal', 'export default (el) => el.classList.add("shown");');
     expect(pageWorkspace(dir, 'home').page()).toContain('<script type="module" src="/kit/loader.js"></script>');
     // the site head's theme is never written with the kit in it
@@ -68,9 +87,131 @@ describe('kit files', () => {
     expect(paths).toContain('kit/scripts/reveal.js');
     const home = new TextDecoder().decode(files.find((f) => f.path === 'home/index.html')!.bytes);
     expect(home).toContain('src="../kit/loader.js"');
-    expect(home).toContain('.btn { padding: 1px }');
+    // one stylesheet for the site, linked relatively from each page
+    expect(paths.filter((p) => p.endsWith('.css'))).toEqual(['kit/site.css']);
+    expect(new TextDecoder().decode(files.find((f) => f.path === 'kit/site.css')!.bytes)).toContain('.btn { padding: 1px }');
+    expect(home).toMatch(/<link rel="stylesheet" href="\.\.\/kit\/site\.css\?v=[0-9a-f]{12}" data-tykerf-kit>/);
+    expect(home).not.toContain('.btn { padding: 1px }');
     expect(report.broken).toEqual([]);
     expect(new TextDecoder().decode(files.find((f) => f.path === 'kit/loader.js')!.bytes)).toBe(KIT_LOADER);
+    // inlined, for a host where one more request matters: no stylesheet file
+    const inline = exportFiles(dir, { inlineKit: true });
+    expect(inline.files.map((f) => f.path)).not.toContain('kit/site.css');
+    const inlined = new TextDecoder().decode(inline.files.find((f) => f.path === 'home/index.html')!.bytes);
+    expect(inlined).toContain('<style data-tykerf-kit>\n@layer kit {\n/* kit/styles/base.css */\n.btn { padding: 1px }');
+    expect(inlined).not.toContain('kit/site.css');
+  });
+});
+
+describe("the site's fonts", () => {
+  it('are declared in the site head from kit/fonts.json, need their files, and a theme naming an unknown one is warned', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'tykerf-fonts-'));
+    newSitePage(dir, 'home', 'blank', 'studio');
+    const registry = { Diavlo: { files: [{ file: 'diavlo.woff2', weight: '400', style: 'normal' }, { file: 'diavlo-bold.woff2', weight: '700', style: 'normal' }], display: 'swap', licence: 'free for web use' } };
+    expect(kitError('fonts', 'fonts', '{"Diavlo": {"files": [{"file": "diavlo.woff2", "weight": "bold", "style": "normal"}]}}')).toMatch(/the weight of diavlo\.woff2 is "400"/);
+    expect(kitError('fonts', 'fonts', '{"Bad<Name>": {"files": []}}')).toMatch(/can't be a font's name/);
+    expect(() => kitWrite(dir, 'fonts', 'fonts', JSON.stringify(registry))).toThrow(/assets\/diavlo\.woff2, assets\/diavlo-bold\.woff2 are not in the site's assets\//);
+    const { mkdirSync, writeFileSync } = await import('node:fs');
+    mkdirSync(join(dir, 'assets'), { recursive: true });
+    for (const f of ['diavlo.woff2', 'diavlo-bold.woff2']) writeFileSync(join(dir, 'assets', f), 'x');
+    kitWrite(dir, 'fonts', 'fonts', JSON.stringify(registry));
+    expect(kitList(dir).fonts).toBe(true);
+    const head = readFileSync(join(dir, 'head.html'), 'utf8');
+    expect(head).toContain('@font-face { font-family: "Diavlo"; src: url("/assets/diavlo.woff2") format("woff2"); font-weight: 400; font-style: normal; font-display: swap; }');
+    expect(head).toContain('font-weight: 700');
+    expect(head).toMatch(/font-family: "Instrument Sans"|@font-face \{ font-family: "[A-Z]/); // the theme's bundled fonts stay
+    // one step of the site's history takes both back
+    expect(new Site(dir).history.peekUndo()?.kind).toBe('group');
+    new Site(dir).undo();
+    expect(readFileSync(join(dir, 'head.html'), 'utf8')).not.toContain('Diavlo');
+    new Site(dir).redo();
+
+    // a theme naming a font nobody has gets a warning, not a refusal; a registered or bundled one doesn't
+    const { fontWarning } = await import('../src/library.js');
+    expect(fontWarning('--font-heading', '"Comic Neue", sans-serif')).toMatch(/--font-heading: "Comic Neue" is not a bundled or registered font; register it in the kit's Fonts \(kit\/fonts\.json\)/);
+    expect(fontWarning('--font-heading', '"Diavlo", Georgia, serif', kitFonts(dir))).toBeNull();
+    expect(fontWarning('--font-body', '"Inter", system-ui, sans-serif')).toBeNull();
+    const { openTools } = await import('../src/editor/tools-client.js');
+    const home = pageWorkspace(dir, 'home');
+    const run = await openTools(home, home.load().root.id);
+    expect((await run.call('set_theme', { changes: [{ name: '--font-heading', value: '"Comic Neue", serif' }] })).text).toMatch(/\nwarning: --font-heading: "Comic Neue" is not a bundled or registered font/);
+    expect((await run.call('get_theme', {})).text).toContain('the site\'s own fonts (kit/fonts.json), which --font-* values can name: "Diavlo"');
+    await run.close();
+    const site = await openTools(pageWorkspace(dir, 'home'), '', dir);
+    expect((await site.call('list_kit', {})).text).toContain('fonts: "Diavlo" (400, 700; licence: free for web use)');
+    await site.close();
+  });
+});
+
+describe("the library's behaviours", () => {
+  it('come into the kit when a page uses a component that asks for one, and say when the library has another version', async () => {
+    const { behaviourCode, useComponent } = await import('../src/library.js');
+    const dir = mkdtempSync(join(tmpdir(), 'tykerf-behaviours-'));
+    newSitePage(dir, 'home', 'launch', 'studio'); // its FAQ asks for accordion, its footer for year
+    expect(kitRead(dir, 'scripts', 'accordion')).toBe(behaviourCode('accordion'));
+    expect(kitRead(dir, 'scripts', 'year')).toBe(behaviourCode('year'));
+    expect(new Site(dir).steps().map((s) => s.label)).toContain('add behaviour accordion from the library');
+    const home = pageWorkspace(dir, 'home');
+    useComponent(home, 'cta', 'contact', 'user');
+    expect(kitRead(dir, 'scripts', 'form')).toBe(behaviourCode('form'));
+    expect(home.page()).toContain('<script type="module" src="/kit/loader.js"></script>');
+    // outside a site nothing is copied: the code works as plain HTML
+    const { Workspace } = await import('../src/workspace.js');
+    const { MemoryStore } = await import('../src/store.js');
+    const { createPage } = await import('../src/library.js');
+    const lone = new Workspace(new MemoryStore('memory:lone'));
+    createPage(lone, 'blank');
+    useComponent(lone, 'text', 'faq', 'user');
+    expect(lone.content('text')).toContain('data-use="accordion"');
+
+    // Kaity writing data-use brings the library's too; list_kit says which are the library's, and when they differ
+    const { openTools } = await import('../src/editor/tools-client.js');
+    const run = await openTools(pageWorkspace(dir, 'home'), '', dir);
+    expect((await run.call('set_content', { id: 'logos', html: '<div data-use="tabs"><div role="tablist"></div></div>' })).text).toMatch(/; the site kit has the library's tabs behaviour now/);
+    kitWrite(dir, 'scripts', 'year', 'export default function (el) { el.textContent = "1999"; }');
+    expect((await run.call('list_kit', {})).text).toMatch(/^styles: none\nclasses: none\nscripts: accordion \(the library's\), form \(the library's\), tabs \(the library's\), year \(from the library, which has another version now\)\n/);
+    expect((await run.call('list_components', {})).text).toMatch(/^contact: .*\(behaviours: form\)$/m);
+    await run.close();
+    expect(kitLibraryScripts(dir)).toEqual({ accordion: 'same', form: 'same', tabs: 'same', year: 'changed' });
+  });
+});
+
+describe('styles for a class', () => {
+  it('apply to any element with the class, on every page, and nowhere else; a box takes one with the tag #k-<name>', async () => {
+    const dir = site();
+    expect(kitError('styles', 'card', '@scope (.k-quote) { :scope { color: red } }')).toMatch(/card\.css: a style for a class is scoped to the class of the file's name, \.k-card, not \.k-quote/);
+    expect(kitError('styles', 'card', '/* cards */\n@scope (.k-card) { :scope { color: red } }')).toBeNull();
+    kitWrite(dir, 'styles', 'card', '/* cards */\n@scope (.k-card) {\n  :scope { color: rgb(255, 0, 0) }\n}\n');
+    kitWrite(dir, 'styles', 'base', 'p { margin: 0 }');
+    expect(kitClasses(dir)).toEqual(['card']);
+    const home = pageWorkspace(dir, 'home'), about = pageWorkspace(dir, 'about');
+    home.setContent('hero', '<p class="k-card">a card</p><p class="other">not one</p>', 'user');
+    about.setContent('cta', '<p>plain</p>', 'user');
+    about.save(M.tag(about.load(), 'cta', 'k-card'), 'card', 'user'); // a whole box takes it (its own styles would still win)
+    expect(about.page()).toMatch(/class="sw-leaf [^"]*\bk-card\b/);
+    expect(about.page()).not.toContain('t-k-card');
+
+    const { chromium } = await import('playwright');
+    const browser = await chromium.launch();
+    try {
+      const page = await browser.newPage();
+      const color = (sel: string) => page.locator(sel).first().evaluate((e) => getComputedStyle(e).color);
+      const inline = (html: string) => html.replace(/<link rel="stylesheet" href="\/kit\/site\.css[^>]*>/, `<style>${kitCSS(dir)}</style>`);
+      await page.setContent(inline(pageWorkspace(dir, 'home').page()));
+      expect(await color('[data-sw="hero"] .k-card')).toBe('rgb(255, 0, 0)');
+      expect(await color('[data-sw="hero"] .other')).not.toBe('rgb(255, 0, 0)');
+      await page.setContent(inline(pageWorkspace(dir, 'about').page()));
+      expect(await color('[data-sw="cta"]')).toBe('rgb(255, 0, 0)');
+      expect(await color('[data-sw="nav"]')).not.toBe('rgb(255, 0, 0)');
+    } finally {
+      await browser.close();
+    }
+
+    // Kaity sees them in the kit
+    const { openTools } = await import('../src/editor/tools-client.js');
+    const run = await openTools(pageWorkspace(dir, 'home'), '', dir);
+    expect((await run.call('list_kit', {})).text).toMatch(/^styles: base, card\nclasses: card \(class k-card\)\n/);
+    await run.close();
   });
 });
 
@@ -87,7 +228,7 @@ describe('shared blocks', () => {
     const dir = site();
     const home = pageWorkspace(dir, 'home'), about = pageWorkspace(dir, 'about');
     const before = about.ownContent('footer');
-    expect(shareBlock(dir, home, 'nav')).toBe('nav');
+    expect(shareBlock(dir, home, 'nav')).toEqual({ name: 'nav', files: [] });
     linkBlock(dir, about, 'nav', 'nav');
     expect(blockUsers(dir, 'nav')).toEqual({ about: ['nav'], home: ['nav'] });
     home.setContent('nav', '<nav><a href="/home/">Home</a> <a href="/about/">About</a></nav>', 'user');
@@ -97,7 +238,13 @@ describe('shared blocks', () => {
     // each page marks its own link
     expect(pageWorkspace(dir, 'about').page()).toContain('<a href="/about/" aria-current="page">About</a>');
     expect(pageWorkspace(dir, 'home').page()).toContain('<a href="/home/" aria-current="page">Home</a>');
-    expect(markCurrentPage('<a aria-current="page" href="/x/">x</a>', 'x')).toBe('<a aria-current="page" href="/x/">x</a>');
+    // the block's own marks go first; only marks of the current page (page, true, bare) do, and never in a style
+    expect(markCurrentPage('<a aria-current="page" href="/x/">x</a>', 'x')).toBe('<a href="/x/" aria-current="page">x</a>');
+    expect(markCurrentPage('<a href="/x/" aria-current="true">x</a> <a href="/y/" aria-current>y</a> <li aria-current="step">2</li>', 'y'))
+      .toBe('<a href="/x/">x</a> <a href="/y/" aria-current="page">y</a> <li aria-current="step">2</li>');
+    expect(markCurrentPage('<style>a[aria-current="page"] { font-weight: 700 }</style><a href="/">Home</a>', 'home', true))
+      .toBe('<style>a[aria-current="page"] { font-weight: 700 }</style><a href="/" aria-current="page">Home</a>');
+    expect(markCurrentPage('<a href="/">Home</a><a href="/index.html">Home</a>', 'about')).toBe('<a href="/">Home</a><a href="/index.html">Home</a>');
     // making a page's own copy: one undo step, the other page keeps the shared block
     unlinkBlock(about, 'nav');
     expect(about.sharedBlock('nav')).toBeNull();
@@ -114,7 +261,7 @@ describe('shared blocks', () => {
     const dir = site();
     expect(identicalBoxes(dir).map((g) => g.box)).toEqual(expect.arrayContaining(['nav', 'footer']));
     const r = shareIdentical(dir, 'footer');
-    expect(r).toEqual({ name: 'footer', pages: ['about', 'home'] });
+    expect(r).toEqual({ name: 'footer', pages: ['about', 'home'], files: [] });
     expect(identicalBoxes(dir).map((g) => g.box)).not.toContain('footer');
     // a new page's box of the same name shows the shared block
     expect(newSitePage(dir, 'news', 'blank', 'studio').load().root.type).toBe('op');
@@ -122,6 +269,72 @@ describe('shared blocks', () => {
     newSitePage(dir, 'shop', 'catalogue', 'studio');
     expect(pageWorkspace(dir, 'shop').sharedBlock('footer')).toBe('footer');
     expect(pageWorkspace(dir, 'shop').history()).toEqual([]); // a new page starts with nothing to undo
+  });
+
+  it('are found when each page marks its own link current, shared without the marks, and marked again on each page', () => {
+    const dir = site();
+    newSitePage(dir, 'contact', 'company', 'studio', { shared: false });
+    const nav = (here: string) => `<nav>\n  <a href="/"${here === 'home' ? ' aria-current="page"' : ''}>Home</a>\n  <a href="/about/"${here === 'about' ? ' aria-current="page"' : ''}>About</a>\n  <a href="/contact/"${here === 'contact' ? " aria-current='page'" : ''}>Contact</a>\n</nav>`;
+    for (const p of ['home', 'about', 'contact']) pageWorkspace(dir, p).setContent('nav', nav(p) + (p === 'about' ? '  \n\n' : ''), 'user');
+    // a real difference in the text still keeps a page out
+    pageWorkspace(dir, 'contact').setContent('footer', '<footer><p>Write to us</p></footer>', 'user');
+    const groups = identicalBoxes(dir);
+    expect(groups.find((g) => g.box === 'nav')).toEqual({ box: 'nav', pages: ['about', 'contact', 'home'], normalized: true });
+    expect(groups.find((g) => g.box === 'footer')).toEqual({ box: 'footer', pages: ['about', 'home'] });
+
+    expect(shareIdentical(dir, 'nav')).toMatchObject({ name: 'nav', pages: ['about', 'contact', 'home'] });
+    expect(kitRead(dir, 'blocks', 'nav')).not.toContain('aria-current');
+    const marked = (p: string) => [...pageWorkspace(dir, p).page().matchAll(/<a href="([^"]*)" aria-current="page">/g)].map((m) => m[1]);
+    expect(marked('home')).toEqual(['/']); // the site's home marks its link to /
+    expect(marked('about')).toEqual(['/about/']);
+    expect(marked('contact')).toEqual(['/contact/']);
+  });
+
+  it('take the page\'s own files they use to the site, so every page shows them', () => {
+    const dir = site();
+    const home = pageWorkspace(dir, 'home'), about = pageWorkspace(dir, 'about');
+    const logo = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 1]);
+    home.store.write('assets/logo.png', logo);
+    home.setContent('nav', '<nav><img src="assets/logo.png" srcset="./assets/logo.png 2x" alt="Logo"> <a href="/about/">About</a></nav>\n<style>nav { background: url("assets/logo.png?v=1") }</style>', 'user');
+    expect(shareBlock(dir, home, 'nav')).toEqual({ name: 'nav', files: ['logo.png'] });
+    expect(new Uint8Array(readFileSync(join(dir, 'assets', 'logo.png')))).toEqual(logo);
+    const block = kitRead(dir, 'blocks', 'nav')!;
+    expect(block).toContain('src="/assets/logo.png" srcset="/assets/logo.png 2x"');
+    expect(block).toContain('url("/assets/logo.png?v=1")');
+    expect(pageFileRefs(block)).toEqual([]);
+    expect(home.ownContent('nav')).toContain('src="assets/logo.png"'); // the box's own code waits as it was
+    linkBlock(dir, about, 'nav', 'nav');
+    for (const p of ['home', 'about']) {
+      const ws = pageWorkspace(dir, p);
+      expect(ws.page()).toContain('<img src="/assets/logo.png"');
+      expect(leftovers(ws).filter((l) => l.box === 'nav' && ['missing', 'shared-file'].includes(l.kind))).toEqual([]);
+    }
+    // the same file again: nothing to copy; another file of the same name: the site's stays, the copy gets a hashed name
+    home.setContent('cta', '<p><img src="assets/logo.png" alt=""></p>', 'user');
+    expect(shareBlock(dir, home, 'cta')).toEqual({ name: 'cta', files: [] });
+    expect(kitRead(dir, 'blocks', 'cta')).toContain('src="/assets/logo.png"');
+    const other = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 2]);
+    about.store.write('assets/logo.png', other);
+    about.setContent('footer', '<footer><img src="assets/logo.png" alt=""></footer>', 'user');
+    const hashed = `logo-${contentHash(other)}.png`;
+    expect(shareBlock(dir, about, 'footer')).toEqual({ name: 'footer', files: [hashed] });
+    expect(kitRead(dir, 'blocks', 'footer')).toContain(`src="/assets/${hashed}"`);
+    expect(new Uint8Array(readFileSync(join(dir, 'assets', 'logo.png')))).toEqual(logo);
+    expect(new Uint8Array(readFileSync(join(dir, 'assets', hashed)))).toEqual(other);
+  });
+
+  it('report a shared block that uses a page\'s own file, and warn when one is saved that way', () => {
+    const dir = site();
+    shareBlock(dir, pageWorkspace(dir, 'home'), 'nav');
+    linkBlock(dir, pageWorkspace(dir, 'about'), 'nav', 'nav');
+    kitWrite(dir, 'blocks', 'nav', '<nav><img src="assets/x.png" alt=""></nav>'); // written by hand: saved
+    expect(kitWarning('blocks', 'nav', kitRead(dir, 'blocks', 'nav')!)).toMatch(/assets\/x\.png is a page's file.*write \/assets\/x\.png/);
+    expect(kitWarning('blocks', 'nav', '<nav><img src="/assets/x.png" alt=""></nav>')).toBeNull();
+    expect(kitWarning('styles', 'base', 'a { background: url(assets/x.png) }')).toBeNull();
+    for (const p of ['home', 'about']) {
+      expect(leftovers(pageWorkspace(dir, p)).filter((l) => l.kind === 'shared-file').map(say))
+        .toEqual(['nav: the shared block nav uses assets/x.png, a page\'s file; shared blocks use /assets/x.png (the site\'s)']);
+    }
   });
 
   it('report a box whose shared block is gone', () => {
@@ -147,6 +360,84 @@ describe('site types and tags', () => {
   });
 });
 
+describe('slots', () => {
+  const block = '<style>h1{color:red}</style>\n<header><div data-slot="title"><h1>Title</h1></div><p data-slot="lead">Lead</p><a data-slot="cta" href="/x/">Go</a></header>';
+
+  it('fill a shared block from a page\'s own templates: a value, the fallback, nested markup, unknown names ignored', () => {
+    expect(blockSlots(block)).toEqual([{ name: 'title', fallback: '<h1>Title</h1>' }, { name: 'lead', fallback: 'Lead' }, { name: 'cta', fallback: 'Go' }]);
+    const own = '<template data-slot="title"><h1>Our <em>bakery</em> <span><div>nested</div></span></h1></template>\n<template data-slot="nope">x</template>';
+    expect(slotValues(own)).toEqual({ title: '<h1>Our <em>bakery</em> <span><div>nested</div></span></h1>', nope: 'x' });
+    expect(fillSlots(block, own)).toBe(block.replace('<h1>Title</h1>', '<h1>Our <em>bakery</em> <span><div>nested</div></span></h1>'));
+    expect(fillSlots(block, '')).toBe(block);
+    // a page's code back to the block, and the templates written back in name order, the rest of the file kept
+    expect(unfillSlots(fillSlots(block, own), block)).toBe(block);
+    expect(withSlotValues('<p>old copy</p>\n<template data-slot="lead">L</template>', { title: 'T', lead: null })).toBe('<p>old copy</p>\n<template data-slot="title">T</template>');
+  });
+
+  it('make two pages differ by their slots, undone like any change of the page, and kept when the page takes its own copy', () => {
+    const dir = site();
+    kitWrite(dir, 'blocks', 'banner', block);
+    const home = pageWorkspace(dir, 'home'), about = pageWorkspace(dir, 'about');
+    for (const ws of [home, about]) ws.save(M.setLeaf(ws.load(), 'cta', { use: 'banner' }), 'link', 'user');
+    home.setSlots('cta', { title: '<h1>Welcome</h1>', lead: 'Fresh bread' }, 'user');
+    expect(home.slots('cta')).toEqual([
+      { name: 'title', fallback: '<h1>Title</h1>', value: '<h1>Welcome</h1>' }, { name: 'lead', fallback: 'Lead', value: 'Fresh bread' }, { name: 'cta', fallback: 'Go', value: null },
+    ]);
+    expect(home.page()).toContain('<h1>Welcome</h1>');
+    expect(about.page()).toContain('<h1>Title</h1>');
+    expect(about.page()).not.toContain('Welcome');
+    expect(kitRead(dir, 'blocks', 'banner')).toBe(block); // the block didn't change
+    expect(() => home.setSlots('cta', { subtitle: 'x' })).toThrow(/has no slot "subtitle" \(slots: title, lead, cta\)/);
+    expect(home.undo()).toMatch(/set_content cta/);
+    expect(home.content('cta')).toBe(block);
+    expect(home.redo()).toMatch(/set_content cta/);
+
+    // editing the page's code: what is inside a slot is the page's, the rest is the block's
+    home.setContent('cta', home.content('cta')!.replace('Fresh bread', 'Rye on Sundays'), 'user');
+    expect(home.slots('cta').find((s) => s.name === 'lead')!.value).toBe('Rye on Sundays');
+    expect(kitRead(dir, 'blocks', 'banner')).toBe(block);
+    home.setContent('cta', home.content('cta')!.replace('h1{color:red}', 'h1{color:blue}'), 'user');
+    expect(kitRead(dir, 'blocks', 'banner')).toBe(block.replace('red', 'blue')); // no page's slot values in the block
+    expect(about.content('cta')).toContain('<h1>Title</h1>');
+    // a page's own copy is what it shows, slots filled
+    unlinkBlock(home, 'cta');
+    expect(home.ownContent('cta')).toContain('<h1>Welcome</h1>');
+    expect(home.ownContent('cta')).not.toContain('<template');
+
+    // a slot the block doesn't have is reported
+    about.setSlots('cta', { lead: 'About us' }, 'user');
+    kitWrite(dir, 'blocks', 'banner', block.replace(' data-slot="lead"', ''));
+    expect(leftovers(pageWorkspace(dir, 'about')).filter((l) => l.kind === 'slot').map(say))
+      .toEqual(['cta: it fills the slot "lead", which the shared block banner doesn\'t have, so the page doesn\'t show it (set_slot fills one it has)']);
+  });
+});
+
+describe("Kaity's rule on shared blocks", () => {
+  it('lets her change one when the scope is the whole page, naming the pages it reaches; refuses from a smaller block', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'tykerf-kit-rule-'));
+    newSitePage(dir, 'home', 'launch', 'studio'); // the navigation and footer are shared from the start
+    newSitePage(dir, 'about', 'company', 'studio');
+    const { openTools } = await import('../src/editor/tools-client.js');
+    const home = pageWorkspace(dir, 'home');
+    const page = await openTools(home, home.load().root.id); // the page block selected, as from the editor
+    expect((await page.call('set_content', { id: 'footer', html: '<footer>© Bakery</footer>' })).text)
+      .toBe('ok: content of "footer" set; shared block footer: this changes 2 pages (about, home); say so in your answer');
+    expect((await page.call('edit_content', { id: 'footer', old: 'Bakery', new: 'Bakery 2026' })).text).toMatch(/^ok: 1 change in "footer"; shared block footer: this changes 2 pages/);
+    await page.close();
+    expect(kitRead(dir, 'blocks', 'footer')).toBe('<footer>© Bakery 2026</footer>');
+    expect(pageWorkspace(dir, 'about').content('footer')).toBe('<footer>© Bakery 2026</footer>');
+
+    const block = await openTools(pageWorkspace(dir, 'home'), 'hero');
+    expect((await block.call('set_content', { id: 'footer', html: '<footer>x</footer>' })).text).toMatch(/refused: "footer" is outside the scope|refused/);
+    await block.close();
+    const narrow = await openTools(pageWorkspace(dir, 'home'), 'footer');
+    expect((await narrow.call('set_content', { id: 'footer', html: '<footer>x</footer>' })).text)
+      .toMatch(/refused: "footer" shows the shared block "footer", which other pages of the site show too, and the scope is "footer"\. Changing it is for a request about every page: ask the user to select the page block \("page"\)/);
+    await narrow.close();
+    expect(kitRead(dir, 'blocks', 'footer')).toBe('<footer>© Bakery 2026</footer>');
+  });
+});
+
 describe('the kit tools', () => {
   it('change the kit and link blocks on a run over the whole site, and refuse a run on one block', async () => {
     const dir = site();
@@ -155,10 +446,14 @@ describe('the kit tools', () => {
     const whole = await openTools(home, '', dir);
     expect((await whole.call('list_kit', {})).text).toMatch(/^styles: none/);
     expect((await whole.call('set_kit_file', { kind: 'styles', name: 'base', text: '.btn{}' })).text).toMatch(/reaches every page of the site \(2\)/);
-    expect((await whole.call('share_block', { id: 'nav' })).text).toBe('ok: "nav" is now the shared block "nav"');
+    home.store.write('assets/logo.png', new Uint8Array([1, 2, 3]));
+    home.setContent('nav', '<nav><img src="assets/logo.png" alt="Logo"></nav>', 'user');
+    expect((await whole.call('share_block', { id: 'nav' })).text).toBe('ok: "nav" is now the shared block "nav"; its file went to the site\'s assets/, for every page: logo.png');
     expect((await whole.call('list_kit', {})).text).toMatch(/blocks: nav \(on home\)/);
     await whole.call('open_page', { name: 'about' });
     expect((await whole.call('link_block', { id: 'nav', name: 'nav' })).text).toBe('ok: "nav" shows the shared block "nav"');
+    expect((await whole.call('set_kit_file', { kind: 'blocks', name: 'nav', text: '<nav><img src="assets/logo.png" alt=""></nav>' })).text).toMatch(/\nwarning: nav: assets\/logo\.png is a page's file/);
+    expect((await whole.call('check_page', {})).text).toContain('nav: the shared block nav uses assets/logo.png, a page\'s file; shared blocks use /assets/logo.png (the site\'s)');
     expect((await whole.call('set_kit_file', { kind: 'blocks', name: 'nav', text: '<nav>one</nav>' })).text).toMatch(/the pages that show it: about, home/);
     await whole.close();
     expect(lastKitChange(dir)?.author).toBe('ai');

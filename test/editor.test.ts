@@ -310,3 +310,32 @@ describe('the sanitizer', () => {
     ]);
   });
 });
+
+describe('editing a shared block in place', () => {
+  it("writes a slotted heading to this page's slot, and leaves the block as it is", async () => {
+    const { dirname } = await import('node:path');
+    const { kitRead, kitWrite } = await import('../src/kit.js');
+    const { componentCode } = await import('../src/library.js');
+    const { Site } = await import('../src/site.js');
+    const siteDir = dirname(ws.dir);
+    const banner = componentCode('page-banner');
+    kitWrite(siteDir, 'blocks', 'banner', banner);
+    ws.save(M.setLeaf(ws.load(), 'logos', { use: 'banner' }), 'link the banner', 'user');
+    try {
+      await page.reload();
+      await page.locator('.panel').waitFor();
+      const h = page.locator('[data-sw="logos"] h1');
+      await h.dblclick(corner);
+      await expect.poll(() => h.getAttribute('contenteditable')).toBe('true');
+      await page.keyboard.press('ControlOrMeta+a');
+      await page.keyboard.type('Our story');
+      await page.keyboard.press('Enter');
+      const home = new Site(siteDir).page('home');
+      expect(await until(() => home.slots('logos').find((s) => s.name === 'title')!.value, (v) => v === 'Our story')).toBe('Our story');
+      expect(kitRead(siteDir, 'blocks', 'banner')).toBe(banner); // the other pages keep the block's title
+      expect(ws.history(1)[0]).toMatchObject({ kind: 'content', author: 'user' });
+    } finally {
+      ws.save(M.setLeaf(ws.load(), 'logos', { use: null }), 'unlink the banner', 'user');
+    }
+  });
+});

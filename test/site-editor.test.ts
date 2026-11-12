@@ -10,6 +10,7 @@ import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { logEnd, logStart } from '../src/editor/kaity-log.js';
 import { readTheme, themes } from '../src/library.js';
 import { removePage, renamePage } from '../src/site.js';
+import { kitWrite } from '../src/kit.js';
 import { freePort } from './ports.js';
 
 vi.setConfig({ testTimeout: 30_000 });
@@ -64,8 +65,13 @@ describe('a new site', () => {
   });
 
   it('creates the first page from them; its theme becomes the theme of the whole site', async () => {
+    // the layout's navigation and footer become the site's, shared, unless the box is unticked
+    expect(await page.locator('.chooser .ch-shared input').isChecked()).toBe(true);
+    expect(await page.locator('.chooser .ch-shared').textContent()).toMatch(/With the site's navigation and footer \(shared\)/);
     await page.locator('.chooser [type=submit]').click();
     await page.waitForURL(`${url}home/`);
+    expect(existsSync(join(site, 'kit', 'blocks', 'nav.html')) && existsSync(join(site, 'kit', 'blocks', 'footer.html'))).toBe(true);
+    expect(readFileSync(join(site, 'home', 'layout.slice'), 'utf8')).toMatch(/nav\[[^\]]*use=nav/);
     expect(siteTheme()).toEqual(values('dark'));
     expect(existsSync(join(site, 'home', 'head.html'))).toBe(false);
     await page.locator('.pagesw').waitFor();
@@ -107,14 +113,22 @@ describe('a new site', () => {
     await page.locator('.newpage [type=submit]').click();
     await page.waitForURL(`${url}team/`);
     expect(readFileSync(join(site, 'team', 'layout.slice'), 'utf8')).toMatch(/nav\b.*main\b.*footer\b/s);
-    expect(readFileSync(join(site, 'team', 'boxes', 'footer.html'), 'utf8')).toBe(readFileSync(join(site, 'home', 'boxes', 'footer.html'), 'utf8'));
+    // the site's navigation and footer are shared blocks: the copy shows them too, with no code of its own
+    expect(readFileSync(join(site, 'team', 'layout.slice'), 'utf8')).toMatch(/footer\[[^\]]*use=footer/);
+    expect(existsSync(join(site, 'team', 'boxes', 'footer.html'))).toBe(false);
   });
 
   it('shares one theme: a preset in any Page tab restyles every page, with its own undo', async () => {
     await page.goto(`${url}about/`);
     await page.locator('section.panel').waitFor();
     await page.locator('.work .tabs [data-tab="page"]').click();
-    expect(await page.locator('.work .size-head').first().textContent()).toMatch(/^Site theme/);
+    expect(await page.locator('.work .size-sec:not(.title-sec) .size-head').first().textContent()).toMatch(/^Site theme/);
+    // the page's title comes first: from its first heading until one is set
+    expect(await page.locator('.work .title-sec .size-head').textContent()).toMatch(/^Title \((from its first heading|none yet: its name stands in)\)/);
+    await page.locator('.work .page-title').fill('About the studio');
+    await page.locator('.work .page-title').press('Enter');
+    await expect.poll(() => JSON.parse(readFileSync(join(site, 'site.json'), 'utf8')).titles.about).toBe('About the studio');
+    await expect.poll(() => page.locator('.work .title-sec .size-head').textContent()).toBe('Title (set by hand)');
     await page.locator('.presets [data-preset="ivory"]').click();
     await expect.poll(() => siteTheme()).toEqual(values('ivory'));
     expect(existsSync(join(site, 'home', 'head.html'))).toBe(false); // no page changed
@@ -131,7 +145,7 @@ describe('a new site', () => {
     expect(await page.locator('.theme-status').textContent()).toMatch(/^Inherited: this page uses the site theme/);
     await page.locator('.theme-scope [data-scope="page"]').click();
     // the tab draws itself again for this page only
-    await expect.poll(() => page.locator('.work .size-head').first().textContent(), { timeout: 5000 }).toMatch(/^This page's theme/);
+    await expect.poll(() => page.locator('.work .size-sec:not(.title-sec) .size-head').first().textContent(), { timeout: 5000 }).toMatch(/^This page's theme/);
     await page.locator('.theme-var .origin').first().waitFor();
     expect(await page.locator('.theme-var .origin.mine').count()).toBe(0);
     // a preset for this page only: its values that differ from the site's become the page's own
@@ -213,7 +227,8 @@ describe('a new site', () => {
     await expect.poll(() => page.url(), { timeout: 8000 }).toBe(`${url}about-us/`);
     await page.waitForLoadState();
     expect(existsSync(join(site, 'about'))).toBe(false);
-    expect(readFileSync(join(site, 'home', 'boxes', `${first}.html`), 'utf8')).toContain('href="/about-us/"');
+    // (home's first box is the site's shared navigation: the link follows there, for every page)
+    expect(await (await fetch(`${url}home/`)).text()).toContain('href="/about-us/"');
     expect((await fetch(`${url}about/`)).status).toBe(404);
     // the old address says what happened and lists the pages there are
     await page.goto(`${url}about/`);
@@ -233,7 +248,8 @@ describe('a new site', () => {
     await page.goto(`${url}about-us/`);
     await page.locator('.pagesw').click();
     await page.locator('.pop [data-pg="remove"]').click();
-    expect(await page.locator('.pop .hint').textContent()).toMatch(/One link to it from home will point nowhere/);
+    // the link is in the shared navigation, so on every page that shows it
+    expect(await page.locator('.pop .hint').textContent()).toMatch(/2 links to it from home, team will point nowhere/);
     await page.locator('.pop [data-r="ok"]').click();
     // the tab goes to the site's home, with the pages left
     await expect.poll(() => page.url(), { timeout: 8000 }).toBe(`${url}_tykerf/site/`);
@@ -242,7 +258,7 @@ describe('a new site', () => {
     const { readdirSync } = await import('node:fs');
     expect(readdirSync(join(site, '.trash'))[0]).toMatch(/^about-us-/);
     const links = await fetch(`${url}_tykerf/site/links`).then((x) => x.json());
-    expect(links.links.filter((l: any) => l.broken).map((l: any) => l.href)).toEqual(['/about-us/']);
+    expect(links.links.filter((l: any) => l.broken).map((l: any) => `${l.page} ${l.href}`)).toEqual(['home /about-us/', 'team /about-us/']);
   });
 
   it('downloads the site as a zip with a short report', async () => {
@@ -250,7 +266,7 @@ describe('a new site', () => {
     expect(r.status).toBe(200);
     expect(r.headers.get('content-type')).toBe('application/zip');
     expect(r.headers.get('content-disposition')).toMatch(/^attachment; filename="my-site-\d{4}-\d{2}-\d{2}\.zip"$/);
-    expect(JSON.parse(r.headers.get('x-tykerf-report')!)).toMatchObject({ pages: 2, broken: 1 });
+    expect(JSON.parse(r.headers.get('x-tykerf-report')!)).toMatchObject({ pages: 2, broken: 2 }); // the shared navigation's link, on both pages
     const bytes = Buffer.from(await r.arrayBuffer());
     expect(bytes.readUInt32LE(0)).toBe(0x04034b50);
     // one page of the site, its link to another page reported; never a page that isn't there
@@ -386,18 +402,33 @@ describe('a new site', () => {
     expect(await page.locator('.kitsec [data-kit="remove"]').isVisible()).toBe(false); // nothing to remove yet
     await page.locator('.kitsec [data-kit="cancel"]').click();
     expect(await page.locator('.kitsec .editor').isVisible()).toBe(false);
-    await page.locator('.code textarea').fill('<style>.t-note { outline: 3px solid red }</style>');
+    await page.locator('.code textarea').fill('<meta name="tykerf-note" content="outline: 3px solid red">');
     await page.locator('.code [data-code="save"]').click();
     await page.locator('.code .msg', { hasText: 'Saved' }).waitFor();
-    expect(await (await fetch(`${url}home/`)).text()).toContain('.t-note { outline: 3px solid red }');
+    expect(await (await fetch(`${url}home/`)).text()).toContain('<meta name="tykerf-note" content="outline: 3px solid red">');
     expect(siteTheme()).toBeTruthy(); // the theme stays
     await page.locator('.code textarea').fill('<style data-tykerf-theme>:root{}</style>');
     await page.locator('.code [data-code="save"]').click();
     await page.locator('.code .msg.error', { hasText: 'Page tab' }).waitFor();
-    await page.locator('.code [data-code="undo"]').click();
-    await page.locator('.code .msg', { hasText: 'Undone' }).waitFor();
-    expect(await page.locator('.code textarea').inputValue()).toBe('');
+    // the site's one Undo, at the top: it takes back the head's change and the kit's, newest first
+    const undo = page.locator('.site-undo [data-site="undo"]');
+    await expect.poll(() => undo.textContent()).toBe('Undo: edit the head code of every page');
     await page.locator('.code [data-code="close"]').click();
+    kitWrite(site, 'styles', 'note', '.t-note { color: blue }'); // a kit change after it (as Kaity's would come)
+    await page.reload();
+    await expect.poll(() => undo.textContent()).toBe('Undo: add kit/styles/note.css');
+    expect(await page.locator('.site-history li').first().textContent()).toMatch(/^add kit\/styles\/note\.css · you · /);
+    await undo.click();
+    await page.locator('.site-undo .msg', { hasText: 'Undone: add kit/styles/note.css' }).waitFor();
+    expect(existsSync(join(site, 'kit', 'styles', 'note.css'))).toBe(false);
+    await expect.poll(() => undo.textContent()).toBe('Undo: edit the head code of every page');
+    await undo.click();
+    await page.locator('.site-undo .msg', { hasText: 'Undone: edit the head code of every page' }).waitFor();
+    expect(await (await fetch(`${url}home/`)).text()).not.toContain('outline: 3px solid red');
+    // and Redo brings it back
+    await page.locator('.site-undo [data-site="redo"]').click();
+    await page.locator('.site-undo .msg', { hasText: 'Redone: edit the head code of every page' }).waitFor();
+    expect(await (await fetch(`${url}home/`)).text()).toContain('outline: 3px solid red');
 
     // a page's name shows it as it is, the pencil opens it in the editor, and a name field renames it
     const homeRow = page.locator('.pages li', { has: page.locator('.who a', { hasText: /^home$/ }) });
@@ -457,7 +488,9 @@ describe('a new site', () => {
     await page.locator('.links-btn').click();
     await page.locator('.links .summary', { hasText: /of them broken/ }).waitFor();
     expect(await page.locator('.links h3').first().textContent()).toBe("Links to pages that don't exist");
-    const bad = page.locator('.links ul').first().locator('li', { hasText: '/nowhere/' });
+    // the link is in the shared navigation: every page that shows it has it
+    const bad = page.locator('.links ul').first().locator('li', { hasText: `home · ${first}/nowhere/` });
+    expect(await page.locator('.links ul').first().locator('li', { hasText: '/nowhere/' }).count()).toBeGreaterThan(1);
     expect(await bad.textContent()).toBe(`home · ${first}/nowhere/no page "nowhere"`);
     expect(await page.locator('.links li', { hasText: /^home→/ }).textContent()).toMatch(/team/);
     expect(await bad.locator('a').getAttribute('href')).toBe(`/home/?block=${first}&tab=text`);
@@ -466,6 +499,132 @@ describe('a new site', () => {
     await expect.poll(() => page.locator('.tree .item.sel').getAttribute('data-id')).toBe(first);
     expect(await page.locator('.work .tabs [data-tab="text"]').getAttribute('aria-selected')).toBe('true');
     expect(page.url()).toBe(`${url}home/`);
+  });
+
+  it('serves the kit\'s styles as one stylesheet, kept for a year at the address pages link', async () => {
+    const { kitWrite } = await import('../src/kit.js');
+    kitWrite(site, 'styles', 'note', '.t-note { color: teal }');
+    const html = await (await fetch(`${url}home/`)).text();
+    const href = /<link rel="stylesheet" href="(\/kit\/site\.css\?v=[0-9a-f]{12})" data-tykerf-kit>/.exec(html)![1];
+    const css = await fetch(`${url}${href.slice(1)}`);
+    expect(css.headers.get('content-type')).toBe('text/css; charset=utf-8');
+    expect(css.headers.get('cache-control')).toBe('public, max-age=31536000, immutable');
+    expect(await css.text()).toContain('/* kit/styles/note.css */\n.t-note { color: teal }');
+    expect((await fetch(`${url}kit/site.css`)).headers.get('cache-control')).toBe('no-cache');
+    kitWrite(site, 'styles', 'note', null);
+  });
+
+  it('shows the site\'s files in Media, with who uses them, and removes an unused one', async () => {
+    const { mkdirSync } = await import('node:fs');
+    mkdirSync(join(site, 'assets'), { recursive: true });
+    writeFileSync(join(site, 'assets', 'leftover.png'), 'nothing uses me');
+    await page.goto(`${url}_tykerf/site/`);
+    await page.locator('.pages .media-btn').click();
+    const card = page.locator('.media li[data-file="site/leftover.png"]');
+    expect(await card.locator('.use').textContent()).toBe('unused');
+    await page.locator('.media .media-filter').selectOption('unused');
+    expect(await page.locator('.media .grid li').count()).toBeGreaterThan(0);
+    await card.locator('button.danger').click();
+    await page.locator('.media .msg', { hasText: 'leftover.png is in the trash' }).waitFor();
+    expect(existsSync(join(site, 'assets', 'leftover.png'))).toBe(false);
+    expect(await page.locator('.media .summary').textContent()).toMatch(/^\d+ files, .*; \d+ unused/);
+  });
+
+  it('adds a font of the site from the kit, with its file, weight and licence', async () => {
+    const { mkdirSync } = await import('node:fs');
+    mkdirSync(join(site, 'assets'), { recursive: true });
+    writeFileSync(join(site, 'assets', 'diavlo.woff2'), 'x');
+    await page.goto(`${url}_tykerf/site/`);
+    await page.locator('.pages .styles-btn').click();
+    await page.locator('.kitsec .fonts .new-font').click();
+    const form = page.locator('.kitsec .font-form');
+    await form.locator('input[name=family]').fill('Diavlo');
+    await form.locator('select[name=file]').selectOption('diavlo.woff2');
+    await form.locator('input[name=licence]').fill('free for web use');
+    await form.locator('[type=submit]').click();
+    await expect.poll(() => page.locator('.kitsec .fonts .font').first().textContent()).toBe('Diavlo (400; free for web use)');
+    expect(JSON.parse(readFileSync(join(site, 'kit', 'fonts.json'), 'utf8'))).toEqual({ Diavlo: { files: [{ file: 'diavlo.woff2', weight: '400', style: 'normal' }], display: 'swap', licence: 'free for web use' } });
+    expect(readFileSync(join(site, 'head.html'), 'utf8')).toContain('font-family: "Diavlo"; src: url("/assets/diavlo.woff2")');
+  });
+
+  it("offers to move an older site's head styles to the kit, and does it when asked", async () => {
+    const { setSiteHead, siteHead } = await import('../src/site.js');
+    setSiteHead(site, `${siteHead(site)}\n<style>.old { color: red }</style>`); // written before styles were the kit's
+    await page.goto(`${url}_tykerf/site/`);
+    await page.locator('.pages .styles-btn').click();
+    const offer = page.locator('.code .head-styles');
+    await expect.poll(() => offer.textContent()).toMatch(/The head code has a style block: styles for every page belong in the site kit\. Move it to the kit/);
+    await offer.locator('button').click();
+    await page.locator('.code .msg', { hasText: 'Moved 1 to the kit: kit/styles/head.css' }).waitFor();
+    expect(readFileSync(join(site, 'kit', 'styles', 'head.css'), 'utf8')).toContain('.old { color: red }');
+    expect(siteHead(site)).not.toContain('.old');
+    expect(await offer.isHidden()).toBe(true);
+    expect(await page.locator('.code h2').textContent()).toBe('Head code');
+  });
+
+  it('goes from a shared block to the pages that show it, and from a page to the block in the site kit', async () => {
+    const kit = await fetch(`${url}_tykerf/site/kit`).then((r) => r.json());
+    expect(kit.where?.nav, JSON.stringify(kit).slice(0, 400)).toBeDefined();
+    const where = kit.where.nav as Record<string, string[]>;
+    const [first, boxes] = Object.entries(where)[0];
+    // the manager: each page that shows the navigation opens on its box, and Edit block opens it in the kit's editor
+    await page.goto(`${url}_tykerf/site/`);
+    await page.locator('.pages .styles-btn').click();
+    const row = page.locator('.kitsec .block-row[data-block="nav"]');
+    expect(await row.locator('.users a').first().getAttribute('href')).toBe(`/${first}/?block=${boxes[0]}&tab=code`);
+    await row.locator('.edit-block').click();
+    await expect.poll(() => page.locator('.kitsec .editor input').inputValue()).toBe('nav');
+    // the editor: a box that shows it links to it in the site kit, which opens on it
+    await page.goto(`${url}${first}/?block=${boxes[0]}`);
+    const link = page.locator('.shared-explanation .kit-link');
+    expect(await link.getAttribute('href')).toBe('/_tykerf/site/?kit=blocks%2Fnav');
+    await page.goto(`${url}_tykerf/site/?kit=blocks%2Fnav`);
+    await expect.poll(() => page.locator('.kitsec .editor input').inputValue()).toBe('nav');
+    // (its code comes a moment later, once fetched)
+    await expect.poll(() => page.locator('.kitsec .editor textarea').inputValue()).toBe(readFileSync(join(site, 'kit', 'blocks', 'nav.html'), 'utf8'));
+  });
+
+  it('keeps a shared block whole from a page: its pictures are the site\'s, its current link marked after a refresh, the site\'s fonts offered', async () => {
+    const PNG = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 0, 0, 13, 7, 7, 7]).toString('base64');
+    const post = (path: string, data: unknown) => fetch(`${url}${path}`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(data) }).then((r) => r.json());
+    // a picture for the shared navigation is the site's; one for the page's own box stays the page's
+    const shared = await post('home/_tykerf/asset', { data: PNG, box: 'nav' });
+    expect(shared.path).toMatch(/^\/assets\/img-[0-9a-f]{12}\.png$/);
+    expect(existsSync(join(site, shared.path.slice(1)))).toBe(true);
+    const own = await post('home/_tykerf/asset', { data: PNG, box: 'hero' });
+    expect(own.path).toMatch(/^assets\/img-[0-9a-f]{12}\.png$/);
+    // the editor's refresh of the page's body marks this page's link in the shared navigation, as the page does
+    const { kitRead, kitWrite } = await import('../src/kit.js');
+    const before = kitRead(site, 'blocks', 'nav');
+    kitWrite(site, 'blocks', 'nav', '<nav><a href="/home/">Home</a> <a href="/team/">Team</a></nav>');
+    try {
+      const body = (await fetch(`${url}home/_tykerf/page`).then((r) => r.json())).body as string;
+      expect(body).toContain('<a href="/home/" aria-current="page">Home</a>');
+      expect(body).not.toContain('<a href="/team/" aria-current');
+    } finally {
+      kitWrite(site, 'blocks', 'nav', before);
+    }
+    // the site's own fonts are offered in the Page tab's font fields
+    expect((await fetch(`${url}home/_tykerf/kit`).then((r) => r.json())).fonts).toContain('Diavlo');
+  });
+
+  it('pastes a removed shared block as the shared block, not a copy of its code', async () => {
+    const op = (data: unknown) => fetch(`${url}home/_tykerf/op`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(data) }).then((r) => r.json());
+    const slice = () => readFileSync(join(site, 'home', 'layout.slice'), 'utf8');
+    expect(slice()).toMatch(/footer\[[^\]]*use=footer/);
+    expect((await op({ op: 'remove', id: 'footer' })).ok).toBe(true);
+    const state = await fetch(`${url}home/_tykerf/state`).then((r) => r.json());
+    expect(state.buffer[0]).toMatchObject({ from: 'footer', shared: 'footer' });
+    // as a new box: it shows the shared block, so a change to the footer reaches it too
+    const pasted = (await op({ op: 'paste', i: 0, id: 'hero', how: 'below' })).result;
+    expect(slice()).toMatch(new RegExp(`${pasted}\\[[^\\]]*use=footer`));
+    // into another box: that box shows it (its own code waits underneath)
+    expect((await op({ op: 'paste', i: 0, id: 'logos', how: 'into' })).ok).toBe(true);
+    expect(slice()).toMatch(/logos\[[^\]]*use=footer/);
+    // the page as it was, for the tests that follow
+    for (let i = 0; i < 3; i++) await fetch(`${url}home/_tykerf/undo`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}' });
+    expect(slice()).toMatch(/footer\[[^\]]*use=footer/);
+    expect(slice()).not.toMatch(/logos\[[^\]]*use=/);
   });
 
   it("follows a page renamed or removed from another process (Kaity's site run), and lists Kaity's work", async () => {

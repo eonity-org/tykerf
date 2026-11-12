@@ -20,6 +20,7 @@ import { find } from './model.js';
 import { parseSlice } from './notation.js';
 import type { Store } from './store.js';
 import type { Workspace } from './workspace.js';
+import { mapPageFiles } from './assets.js';
 
 const DIR = join(dirname(fileURLToPath(import.meta.url)), '..', 'library');
 const NAME = /^[a-z0-9][a-z0-9-]*$/;
@@ -32,6 +33,8 @@ export interface ComponentInfo {
 /** A ready-made page layout: its tree of blocks (`layout`, in the notation) and the component for each box. */
 export interface PageLayout extends ComponentInfo {
   layout: string;
+  /** The boxes every page of a site shares (its navigation, its footer): a site's page from this layout links them (site/pages.ts). */
+  shared?: string[];
   boxes: Record<string, string>; // box name -> component name
 }
 
@@ -63,6 +66,44 @@ function preset(name: string): ThemePreset {
 
 export function pageLayouts(): PageLayout[] {
   return Object.entries(json<Record<string, Omit<PageLayout, 'name'>>>('layouts.json')).map(([name, p]) => ({ name, ...p }));
+}
+
+/** A behaviour the library ships (library/behaviours/<name>.js): a component asks for it with data-use="<name>". */
+export interface LibraryBehaviour extends ComponentInfo {
+  /** The markup it expects. */
+  markup: string;
+  /** Used by no component: for people (and Kaity) to use in their own code. */
+  standalone?: boolean;
+}
+
+export function libraryBehaviours(): LibraryBehaviour[] {
+  return Object.entries(json<Record<string, Omit<LibraryBehaviour, 'name'>>>('behaviours.json')).map(([name, b]) => ({ name, ...b }));
+}
+
+/** A library behaviour's code, or null when the library has none of that name. */
+export function behaviourCode(name: string): string | null {
+  if (!NAME.test(name) || !libraryBehaviours().some((b) => b.name === name)) return null;
+  return readFileSync(join(DIR, 'behaviours', `${name}.js`), 'utf8');
+}
+
+/** The behaviours some code asks for (data-use="a b"), by name. */
+export function behavioursIn(code: string): string[] {
+  return [...new Set([...code.matchAll(/\bdata-use\s*=\s*["']([^"']*)["']/gi)].flatMap((m) => m[1].trim().split(/\s+/)).filter(Boolean))];
+}
+
+/**
+ * Give a page's site the library behaviours some code asks for, as fonts are copied: each one its kit lacks is
+ * written to kit/scripts/<name>.js (a step of the site's history). Outside a site nothing is copied: the code
+ * still works as plain HTML (a form sends, a <details> opens), only without the behaviour.
+ */
+export function copyBehaviours(ws: Workspace, code: string, author = 'user'): string[] {
+  if (!ws.site) return [];
+  const added: string[] = [];
+  for (const name of behavioursIn(code)) {
+    const lib = behaviourCode(name);
+    if (lib !== null && ws.site.useBehaviour(name, lib, author)) added.push(name);
+  }
+  return added;
 }
 
 export function componentCode(name: string): string {
@@ -122,6 +163,43 @@ export const FONTS: Record<string, { file: string; style: 'normal' | 'italic' }[
 
 const FONTS_BLOCK = /<style[^>]*\bdata-tykerf-fonts\b[^>]*>[\s\S]*?<\/style>\n?/;
 
+/** One file of a registered font: which weights and style it has. */
+export interface FontFile {
+  /** In the site's assets/ (served at /assets/<file>). */
+  file: string;
+  /** One weight ("400") or a range, for a variable font ("100 900"). */
+  weight: string;
+  style: 'normal' | 'italic';
+}
+/** A site's own font (kit/fonts.json): its files, how it shows while loading, and its licence. */
+export interface RegisteredFont {
+  files: FontFile[];
+  display?: 'auto' | 'block' | 'swap' | 'fallback' | 'optional';
+  licence?: string;
+}
+/** The fonts a site registers, by family: kit/fonts.json. */
+export type FontRegistry = Record<string, RegisteredFont>;
+
+const FONT_FORMAT: Record<string, string> = { woff2: 'woff2', woff: 'woff', ttf: 'truetype', otf: 'opentype' };
+
+/** Font families every browser has, or a system's: a theme can name them without registering them. */
+const SYSTEM_FONTS = new Set(['system-ui', 'georgia', 'arial', 'helvetica', 'helvetica neue', 'times', 'times new roman', 'courier', 'courier new', 'verdana', 'tahoma', 'trebuchet ms', 'segoe ui', '-apple-system', 'blinkmacsystemfont', 'serif', 'sans-serif', 'monospace', 'cursive', 'fantasy', 'emoji', 'math']);
+
+/**
+ * A warning for a theme's font list that names a family (in quotes) neither bundled with TYKERF, nor registered
+ * by the site, nor one every system has: visitors without it installed see the next one in the list. Null when
+ * every family is known. Not an error: a theme may name a font the person has, on purpose.
+ */
+export function fontWarning(name: string, value: string, registry: FontRegistry = {}): string | null {
+  if (!name.startsWith('--font')) return null;
+  const known = new Set([...Object.keys(FONTS), ...Object.keys(registry)].map((f) => f.toLowerCase()));
+  const unknown = [...value.matchAll(/["']([^"']+)["']/g)].map((m) => m[1].trim())
+    .filter((f) => !known.has(f.toLowerCase()) && !SYSTEM_FONTS.has(f.toLowerCase()) && !/^ui-/i.test(f));
+  if (!unknown.length) return null;
+  const list = unknown.map((f) => `"${f}"`).join(', ');
+  return `${name}: ${list} ${unknown.length === 1 ? 'is not a bundled or registered font' : 'are not bundled or registered fonts'}; register ${unknown.length === 1 ? 'it' : 'them'} in the kit's Fonts (kit/fonts.json) with ${unknown.length === 1 ? 'its' : 'their'} files in the site's assets/, or visitors without ${unknown.length === 1 ? 'it' : 'them'} see the next font in the list`;
+}
+
 // ---- a page's own values over the site's shared theme ----
 // A page of a site that shares one theme may change some of its values for itself: they go in a
 // <style data-tykerf-override> block of the page's head (after the site's head, so they win). Only the
@@ -156,15 +234,21 @@ export function themeFonts(head: string): string[] {
  * copied into the assets/ folder of the page (or of the site, for its shared head: then `base` is
  * "/assets/", where the editor and an export serve the site's files). The rest of the head stays as it is.
  */
-export function withFonts(ws: Workspace | Store, head: string, base = 'assets/'): string {
+export function withFonts(ws: Workspace | Store, head: string, base = 'assets/', registry: FontRegistry = {}): string {
   const store = 'store' in ws ? ws.store : ws;
-  const families = themeFonts(head);
+  // a family the site registers (kit/fonts.json) is the site's: a page doesn't declare it again, nor the bundled one of that name
+  const theirs = new Set(Object.keys({ ...registry, ...('store' in ws ? ws.site?.fonts() ?? {} : {}) }).map((f) => f.toLowerCase()));
+  const families = themeFonts(head).filter((f) => !theirs.has(f.toLowerCase()));
   for (const f of families) for (const { file } of FONTS[f]) {
     if (!store.exists(`assets/${file}`)) store.write(`assets/${file}`, new Uint8Array(readFileSync(join(DIR, 'fonts', file))));
   }
-  const block = families.length
-    ? `<style data-tykerf-fonts>\n${families.flatMap((f) => FONTS[f].map(({ file, style }) => `@font-face { font-family: "${f}"; src: url("${base}${file}") format("woff2"); font-weight: 100 900; font-style: ${style}; font-display: swap; }`)).join('\n')}\n</style>\n`
-    : '';
+  const faces = [
+    ...families.flatMap((f) => FONTS[f].map(({ file, style }) => `@font-face { font-family: "${f}"; src: url("${base}${file}") format("woff2"); font-weight: 100 900; font-style: ${style}; font-display: swap; }`)),
+    // every registered family, not only those the theme names: a kit style may use one
+    ...Object.entries(registry).flatMap(([f, r]) => r.files.map(({ file, weight, style }) =>
+      `@font-face { font-family: "${f}"; src: url("${base}${file}") format("${FONT_FORMAT[file.split('.').pop()!.toLowerCase()] ?? 'woff2'}"); font-weight: ${weight}; font-style: ${style}; font-display: ${r.display ?? 'swap'}; }`)),
+  ];
+  const block = faces.length ? `<style data-tykerf-fonts>\n${faces.join('\n')}\n</style>\n` : '';
   if (FONTS_BLOCK.test(head)) return head.replace(FONTS_BLOCK, block);
   return block ? block + head : head;
 }
@@ -199,6 +283,7 @@ export function useLayout(ws: Workspace, name: string, author = 'user') {
     for (const [box, c] of Object.entries(t.boxes)) {
       const code = componentCode(c);
       copyAssets(ws, code);
+      copyBehaviours(ws, code, author);
       ws.setContent(box, code, author);
     }
     if (!hasTheme(ws.siteHead() + ws.head())) ws.setHead(withFonts(ws, themeVariables() + ws.head()), author);
@@ -211,7 +296,20 @@ export function useComponent(ws: Workspace, id: string, name: string, author = '
   if (find(ws.load().root, id)?.node.type !== 'leaf') throw new Error(`"${id}" is not a box`);
   ws.group(`use component ${name} in ${id}`, author, () => {
     if (!hasTheme(ws.siteHead() + ws.head())) ws.setHead(withFonts(ws, themeVariables() + ws.head()), author);
+    // in a box that shows a shared block, the component's pictures are the site's (every page shows them)
+    if (ws.site && ws.sharedBlock(id)) {
+      const site = ws.site;
+      const shared = mapPageFiles(code, (f) => {
+        const src = join(DIR, 'assets', f);
+        if (!existsSync(src)) return null;
+        site.putFile(f, new Uint8Array(readFileSync(src)));
+        return `/assets/${f}`;
+      });
+      copyBehaviours(ws, code, author);
+      return ws.setContent(id, shared, author);
+    }
     copyAssets(ws, code);
+    copyBehaviours(ws, code, author);
     ws.setContent(id, code, author);
   });
 }
@@ -277,7 +375,7 @@ export function themeValueError(name: string, value: string): string | null {
 export function themeTarget(ws: Workspace): 'page' | 'site' | 'override' | null {
   if (hasTheme(ws.head())) return 'page';
   if (!hasTheme(ws.siteHead())) return null;
-  return ws.site?.setHead && ws.site.pages?.() === 1 ? 'site' : 'override';
+  return ws.site && ws.site.pageNames().length === 1 ? 'site' : 'override';
 }
 
 /** setTheme for a page on the site's shared theme: the site's theme, or the page's own values over it. */
@@ -290,7 +388,7 @@ function setSharedTheme(ws: Workspace, values: Record<string, string>, author: s
   const label = (changed: Record<string, { to: string }>) => `theme: ${Object.entries(changed).map(([n, c]) => `${n} ${c.to}`).join(', ')}`;
   if (where === 'site') {
     const { head: next, changed } = withThemeValues(ws.siteHead(), values);
-    if (Object.keys(changed).length) ws.site!.setHead!(next, label(changed));
+    if (Object.keys(changed).length) ws.site!.setHead(next, label(changed));
     return changed;
   }
   const own = readOverrides(ws.head());

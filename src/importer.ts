@@ -19,6 +19,7 @@ import { type Fetcher, copyFiles, filesIn, webFetcher } from './import-files.js'
 import { serializeSlice } from './notation.js';
 import { FolderStore, type Store } from './store.js';
 import { NO_SITE_HEAD, type Workspace, splitStyle } from './workspace.js';
+import { langTag } from './site.js';
 
 // ---------- what the page side returns ----------
 interface XNode {
@@ -46,6 +47,7 @@ interface Extract {
   keyframes: string[]; // @keyframes rules of the site's own stylesheets
   body: string;
   title: string;
+  lang: string; // the page's <html lang>, as it is written
   breakpoints: number[]; // "below" widths where the site's CSS changes (from its media queries), descending
 }
 
@@ -460,6 +462,7 @@ function extractPage(o: { structureOnly: boolean }): Extract {
     keyframes,
     body: `background-color:${bg};color:${bcs.color};font-family:${bcs.fontFamily};font-size:${bcs.fontSize};line-height:${bcs.lineHeight}`,
     title: document.title,
+    lang: document.documentElement.lang,
     breakpoints: breakpoints.length > 1 ? breakpoints : [1024, 768, ...breakpoints],
   };
 }
@@ -554,6 +557,8 @@ export interface ImportResult {
   files: Record<string, Uint8Array>;
   /** addresses the copy still loads from other servers */
   remote: string[];
+  /** The page's language (its <html lang>, as a site can have it: langTag), when it says one. */
+  lang?: string;
   stats: { boxes: number; operators: number; depth: number; rules: number; chars: number };
 }
 
@@ -788,7 +793,7 @@ export async function importPage(url: string, opts: ImportOptions = {}): Promise
       ? parts.map((n) => ({ id: idOf.get(n)!, width: Math.round(n.rect.w), height: Math.round(n.rect.h), ...(shots.has(n) ? { shot: shots.get(n) } : {}) }))
       : undefined;
     return {
-      url, layout, boxes, head, fonts, body: x.body, breakpoints: x.breakpoints, styles, ...(sections ? { sections } : {}), files, remote,
+      url, layout, boxes, head, fonts, body: x.body, breakpoints: x.breakpoints, styles, ...(sections ? { sections } : {}), files, remote, ...(langTag(x.lang) ? { lang: langTag(x.lang)! } : {}),
       stats: { boxes: nBoxes, operators: nOps, depth, rules: rules.length, chars },
     };
   } finally {

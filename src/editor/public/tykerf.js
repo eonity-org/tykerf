@@ -55,7 +55,7 @@ const S = {
   showPins: store.get('pins', true),
   taskAt: null, // in task mode, what the pointer is on: { el, block }
   taskTarget: null, // the element whose task is being written
-  kit: { site: false, blocks: [], tags: {}, users: {} }, // the site kit: shared blocks (and the pages that show them), the site's own tags
+  kit: { site: false, blocks: [], tags: {}, classes: [], scripts: [], behaviours: [], fonts: [], users: {} }, // (fonts: the site's own, kit/fonts.json) // the site kit: shared blocks (and the pages that show them), the site's own tags, its class styles
 };
 const per = (id) => {
   if (!S.per.has(id)) S.per.set(id, {});
@@ -666,10 +666,18 @@ function renderWork() {
     !isRoot ? `<button data-act="remove" class="danger" title="${t('Delete (code goes into the previous box) or remove (code goes to the buffer)')}">${ic('delete')}${t('Delete…')}</button>` : '',
   ].join('');
   const users = n.shared ? S.kit.users[n.shared] ?? [] : [];
-  const sharedExplanation = n.shared ? `<p class="shared-explanation">${ic('site')}<span>${users.length > 1
-    ? t('This box shows the shared block {name}, which {n} pages show: a change here changes all of them.', { name: `<b>${esc(n.shared)}</b>`, n: users.length })
-    : t('This box shows the shared block {name}: a change here changes it on every page that shows it.', { name: `<b>${esc(n.shared)}</b>` })}</span><button data-act="unlink" title="${t('This page gets its own copy of the block, which stops following the shared one')}">${t('Make this page\'s own copy')}</button></p>` : '';
+  // the pages it reaches, by name when there are a few (always on hover), linked to the block in the site kit
+  const kitHref = `/_tykerf/site/?kit=${encodeURIComponent(`blocks/${n.shared}`)}`;
+  const npages = (k) => `<a href="${kitHref}" target="_blank" class="shared-pages">${esc(t('{n} pages', { n: k }))}</a>`;
+  const sharedExplanation = n.shared ? `<p class="shared-explanation">${ic('site')}<span title="${esc(users.join(', '))}">${users.length > 1 && users.length <= 6
+    ? t('This box shows the shared block {name}, which {pages} show ({names}): a change here changes all of them.', { name: `<b>${esc(n.shared)}</b>`, pages: npages(users.length), names: esc(users.join(', ')) })
+    : users.length > 1
+    ? t('This box shows the shared block {name}, which {pages} show: a change here changes all of them.', { name: `<b>${esc(n.shared)}</b>`, pages: npages(users.length) })
+    : t('This box shows the shared block {name}: a change here changes it on every page that shows it.', { name: `<b>${esc(n.shared)}</b>` })}
+    <a href="${kitHref}" target="_blank" class="kit-link">${t('Open in the site kit')}</a></span><button data-act="unlink" title="${t('This page gets its own copy of the block, which stops following the shared one')}">${t('Make this page\'s own copy')}</button></p>` : '';
 
+  const old = $('.work .tab-body');
+  const keep = p.tab === 'ai' && old?.dataset.pane === 'ai' && old.dataset.id === id ? old : null;
   w.innerHTML = `
     <div class="w-head">
       <input class="w-name" value="${esc(id)}" spellcheck="false" aria-label="${t('name')}" title="${t('Rename (Enter)')}">
@@ -680,6 +688,9 @@ function renderWork() {
     <div class="sheet" hidden></div>
     <div class="tabs" role="tablist">${tabs.map(([k, l]) => `<button role="tab" data-tab="${k}" aria-selected="${p.tab === k}">${k === 'ai' ? kaityMark(S.ai?.id === id) : ic(TAB_ICON[k])}${l()}</button>`).join('')}</div>
     <div class="tab-body"></div>`;
+  // the AI tab loads its chat before drawing it: until then the chat already shown stays, with its scroll
+  // (a refresh as Kaity ends would otherwise blank it for a moment, and lose the reader's place)
+  if (keep) $('.work .tab-body').replaceWith(keep);
   renderSheet();
   renderTab();
 }
@@ -690,6 +701,7 @@ function renderTab() {
   const body = $('.work .tab-body');
   if (!body) return;
   body.dataset.pane = p.tab;
+  body.dataset.id = id;
   body.onclick = body.oninput = body.onchange = body.onkeydown = body.onpointerover = null;
   if (p.tab === 'text') return renderText(body, id);
   if (p.tab === 'code') return renderCode(body, id);
@@ -826,7 +838,10 @@ async function act(what, id, data = {}) {
     case 'share-do': {
       const name = $('.work .share-name')?.value.trim() || id;
       per(id).sheet = null;
-      const r = await op({ op: 'share', id, name }, (b) => t('{id} is now the shared block {b}. Other pages show it with Use a shared block…', { id, b }));
+      // the page's own files it uses went to the site's assets/, so the block shows them on every page
+      const r = await op({ op: 'share', id, name }, (s) => s.files.length
+        ? t('{id} is now the shared block {b}, and its files went to the site, for every page: {files}. Other pages show it with Use a shared block…', { id, b: s.name, files: s.files.join(', ') })
+        : t('{id} is now the shared block {b}. Other pages show it with Use a shared block…', { id, b: s.name }));
       if (r) loadKit();
       return;
     }
@@ -868,7 +883,7 @@ async function renderSheet() {
       : [...(/row|column/.test(n.arrangement) ? [['inside', t('New box inside')]] : []), ['beside', t('New box beside')], ['below', t('New box below')]];
     c.innerHTML = `<p>${n.kind === 'box' ? t('Paste from the buffer:') : t('Paste from the buffer into {id}:', { id: `<b>${esc(id)}</b>` })}</p>
       <ul class="buffer">${S.buffer.map((b) => `<li>
-        <div class="buf-head"><b>${esc(b.from)}</b><span class="muted">${b.boxes > 1 ? `${t('{n} boxes', { n: b.boxes })} · ` : ''}${new Date(b.at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+        <div class="buf-head"><b>${esc(b.from)}</b><span class="muted">${b.shared ? `${t('shared block {name}', { name: esc(b.shared) })} · ` : ''}${b.boxes > 1 ? `${t('{n} boxes', { n: b.boxes })} · ` : ''}${new Date(b.at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
           <button class="link" data-act="drop" data-i="${b.i}" title="${t('Forget this item')}">${t('forget')}</button></div>
         <div class="buf-preview">${esc(b.preview || t('(no text)'))}</div>
         <div class="row">${hows.map(([h, l]) => `<button data-act="paste-do" data-i="${b.i}" data-how="${h}">${l}</button>`).join('')}</div></li>`).join('')}</ul>
@@ -992,6 +1007,8 @@ async function renderText(body, id) {
   const box = await loadBox(id);
   if (S.sel !== id || per(id).tab !== 'text') return;
   const p = per(id);
+  // a shared block with slots: this page fills its slots; the rest of the box is the block (Code, or the site kit)
+  if (box.shared && box.slots?.length) return renderSlots(body, id, box);
   const parsed = textFields(box.html);
   if (!parsed.fields.length) {
     body.innerHTML = `<p class="muted">${box.html ? t('This box has no text to edit. Use Code, or ask Kaity.') : t('This box is empty. Write its code, or ask Kaity to fill it.')}</p>
@@ -1051,6 +1068,47 @@ async function renderText(body, id) {
       e.preventDefault();
       saveText(id, parsed);
     }
+  };
+}
+
+/** The slots of the shared block a box shows: one field each, the block's own text as its placeholder. */
+function renderSlots(body, id, box) {
+  const p = per(id);
+  const plain = (html) => html.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
+  p.slots ??= Object.fromEntries(box.slots.map((s) => [s.name, s.value ?? '']));
+  body.innerHTML = `<p class="muted">${t('This box shows the shared block {name}. Its slots are this page\'s own: fill them here, and the other pages keep theirs. Empty, a slot shows the block\'s text.', { name: `<b>${esc(box.shared.name)}</b>` })}</p>
+    <div class="fields">${box.slots.map((s) => `
+      <label class="field slot"><span>${esc(s.name)}</span>
+      <textarea rows="1" data-slot="${esc(s.name)}" placeholder="${esc(plain(s.fallback))}">${esc(p.slots[s.name] ?? '')}</textarea></label>`).join('')}</div>
+    <div class="savebar"><span class="status"></span><button data-text="revert">${t('Revert')}</button><button data-text="save" class="primary">${t('Save for this page')}</button></div>`;
+  const status = $('.status', body);
+  const mark = () => (status.textContent = box.slots.some((s) => (p.slots[s.name] ?? '') !== (s.value ?? '')) ? t('Unsaved changes') : '');
+  for (const ta of body.querySelectorAll('textarea')) autosize(ta);
+  mark();
+  body.oninput = (e) => {
+    const ta = e.target.closest('textarea[data-slot]');
+    if (!ta) return;
+    p.slots[ta.dataset.slot] = ta.value;
+    autosize(ta);
+    mark();
+  };
+  const save = async () => {
+    try {
+      await api('/slots', { id, values: p.slots });
+      p.slots = null;
+      p.box = null;
+      toast(t('Saved for this page'));
+    } catch (err) {
+      toast(err.message, true);
+    }
+  };
+  body.onclick = (e) => {
+    const a = e.target.closest('[data-text]')?.dataset.text;
+    if (a === 'revert') return (p.slots = null), renderSlots(body, id, box);
+    if (a === 'save') save();
+  };
+  body.onkeydown = (e) => {
+    if ((e.metaKey || e.ctrlKey) && e.key === 's') e.preventDefault(), save();
   };
 }
 
@@ -1153,6 +1211,8 @@ async function renderPage(body) {
   const [{ html, themeVariables, sharedTheme, ownLook, overrides = {} }, { themes, theme: base }] = await Promise.all([api('/head'), fetch('/_tykerf/library').then((r) => r.json())]);
   // a page of a site that shares one theme: the theme part edits the site's head, or this page's own values over it
   const site = sharedTheme ? await siteApi('/head') : null;
+  // the page's title in the site (site.json): set by hand, or from its first heading
+  const info = S.site ? await siteApi('').catch(() => null) : null;
   if (per(S.sel).tab !== 'page') return;
   const p = per(S.sel);
   p.head ??= html;
@@ -1201,10 +1261,19 @@ async function renderPage(body) {
     }
     return `<label class="theme-var${mine ? ' mine' : ''}"><span class="name">${esc(label(name))}</span><span class="marks">${origin}</span><input type="text" value="${esc(value)}" data-var="${esc(name)}" spellcheck="false" ${name.startsWith('--font') ? 'list="tykerf-fonts"' : ''}></label>`;
   };
+  const here = S.site?.current;
+  const ownTitle = info?.ownTitles?.[here] ?? '';
+  const shownTitle = info?.titles?.[here] ?? here;
+  const titleSec = info && here ? `<section class="size-sec title-sec">
+      <p class="size-head">${t('Title')} <span class="muted">${ownTitle ? t('(set by hand)') : shownTitle === here ? t('(none yet: its name stands in)') : t('(from its first heading)')}</span></p>
+      <div class="title-row"><input type="text" class="page-title" maxlength="120" value="${esc(ownTitle)}" placeholder="${esc(shownTitle)}" aria-label="${t('The page\'s title')}"><button data-page="title" class="primary">${t('Save')}</button></div>
+      <p class="hint">${ownTitle ? `${t('The browser tab, search results and the list of pages show it.')} <button class="link" data-page="title-reset">${t('Use its first heading again')}</button>` : t('The browser tab, search results and the list of pages show it. Without one, the page is titled by its first heading.')}</p>
+    </section>` : '';
   const heading = scope === 'site' ? t('Site theme') : scope === 'page' ? t('This page\'s theme') : t('Theme');
   const sub = scope === 'site' ? t('(colours, fonts and spacing for every page of the site)') : scope === 'page' ? t('(values set here apply to this page only; the rest comes from the site theme)') : t('(colours, fonts and spacing for the whole page)');
   body.innerHTML = `
     <a class="handbook-link" href="${API}/handbook" target="_blank" rel="noopener" title="${t('The page\'s theme and every block, with chips to copy into a request, and their tasks')}">${ic('blocks')}<span><b>${t('Handbook')}</b> ${t('the page\'s system on one page')}</span>${ic('right')}</a>
+    ${titleSec}
     <section class="size-sec">
       ${status ? `<p class="theme-status ${status.cls}">${status.text}</p>` : ''}
       <p class="size-head">${heading} <span class="muted">${sub}</span></p>
@@ -1215,7 +1284,7 @@ async function renderPage(body) {
            ${THEME_GROUPS.map(([title, test]) => {
              const group = vars.filter(([n]) => test(n));
              return group.length ? `<p class="theme-group">${title()}</p><div class="theme">${group.map(field).join('')}</div>` : '';
-           }).join('')}<datalist id="tykerf-fonts">${FONT_STACKS.map((f) => `<option value="${esc(f)}">`).join('')}</datalist>
+           }).join('')}<datalist id="tykerf-fonts">${[...(S.kit.fonts ?? []).map((f) => `"${f}", system-ui, sans-serif`), ...FONT_STACKS].map((f) => `<option value="${esc(f)}">`).join('')}</datalist>
            <div class="row end">${madeFrom && drifted ? `<button data-page="reset-preset" title="${t('Put every value back to the preset (one undo step)')}">${t('Reset to {preset}', { preset: esc(t(madeFrom.label)) })}</button>` : ''}${scope === 'site' && site?.last ? `<button data-page="site-undo" title="${esc(site.last.label)}">${t('Undo the last site theme change')}</button>` : ''}${scope === 'page' && own.length ? `<button data-page="reset-own">${t('Use the site theme again')}</button>` : ''}<button data-page="theme" class="primary">${scope === 'page' ? t('Apply to this page') : t('Apply theme')}</button></div>
            ${canShare ? `<div class="row start"><button data-page="share">${t('Use this theme for every page')}</button></div><p class="hint">${t('The other pages of the site take this theme, and changing it here changes them all. Copies of websites keep their own look.')}</p>` : ''}`
         : ownLook ? '' : `<p class="muted">${t('This page has no theme yet. Components use one; adding it changes nothing else on the page.')}</p>
@@ -1226,6 +1295,8 @@ async function renderPage(body) {
       <div class="savebar"><span class="status"></span><button data-page="revert">${t('Revert')}</button><button data-page="save" class="primary">${t('Save head')}</button></div>
     </section>
     <p class="hint">${t('Saving reloads the page, because the head can only change with a reload. Undo reverts it.')}</p>
+    <section class="size-sec add-files"><p class="size-head">${t('Files')} <span class="muted">${t('(pictures, fonts, PDFs, stylesheets and scripts for this page, in its assets/ folder)')}</span></p>
+      <div class="row start"><button data-page="add-files">${t('Add files…')}</button><input type="file" multiple hidden></div><ul class="added"></ul></section>
     <section class="size-sec unused-files" hidden></section>`;
   // files the page no longer uses (earlier crops, pictures of removed boxes): offered for clean-up only when there are some
   api('/assets/unused').then(({ files, bytes }) => {
@@ -1239,6 +1310,11 @@ async function renderPage(body) {
       <div class="row end"><button data-page="clean-files">${t('Move them to the trash')}</button></div>
       <p class="hint">${t('They go to the .trash folder of the page; nothing is deleted.')}</p>`;
   }, () => {});
+  // Add files…: each file goes to the page's assets/, checked; the list says what to write for it
+  const picker = $('.add-files input[type=file]', body);
+  picker.onchange = () => uploadFiles([...picker.files], (f) => api('/files', f), $('.add-files .added', body));
+  const titleInput = $('.page-title', body);
+  if (titleInput) titleInput.onkeydown = (e) => e.key === 'Enter' && $('[data-page="title"]', body).click();
   const ta = $('.head-code', body);
   const saved = $('.savebar .status', body);
   const mark = () => (saved.textContent = p.head !== html ? t('Unsaved changes') : '');
@@ -1321,26 +1397,56 @@ async function renderPage(body) {
     }
     if (a === 'reset-own') saveOwn({});
     if (a === 'reset-preset' && madeFrom) savePreset(madeFrom.values, madeFrom.name);
-    if (a === 'site-undo') siteApi('/head/undo', {}).then((j) => toast(t('Undone: {label}', { label: j.result })), (err) => toast(err.message, true));
+    if (a === 'site-undo') siteApi('/undo', {}).then((j) => toast(t('Undone: {label}', { label: j.result })), (err) => toast(err.message, true));
     if (a === 'share') siteApi('/theme/share', { page: S.site.current }).then((j) => toast(t('Every page now uses this theme ({n} pages changed).', { n: j.result.length })), (err) => toast(err.message, true));
+    if (a === 'title' || a === 'title-reset') {
+      e.preventDefault();
+      const title = a === 'title' ? $('.page-title', body).value : '';
+      siteApi('/title', { name: here, title }).then(() => (toast(title.trim() ? t('Title saved') : t('The page is titled by its first heading again')), renderPage(body)), (err) => toast(err.message, true));
+    }
     if (a === 'add-theme') save(themeVariables + html);
     if (a === 'save') save(p.head);
     if (a === 'revert') {
       p.head = null;
       renderPage(body);
     }
+    if (a === 'add-files') $('.add-files input[type=file]', body).click();
     if (a === 'clean-files')
       api('/assets/clean', {}).then(({ result }) => (toast(result.files === 1 ? t('One unused file moved to {trash}.', { trash: result.trash }) : t('{n} unused files moved to {trash}.', { n: result.files, trash: result.trash })), renderPage(body)), (err) => toast(err.message, true));
   };
+}
+
+/** Send files one by one (as base64: at most 25 MB each) and list the address each got, or why it was refused. */
+async function uploadFiles(files, send, list) {
+  for (const file of files) {
+    const li = document.createElement('li');
+    li.textContent = t('{name}: sending…', { name: file.name });
+    list.append(li);
+    try {
+      const data = await new Promise((ok, fail) => {
+        const r = new FileReader();
+        r.onload = () => ok(String(r.result).slice(String(r.result).indexOf(',') + 1));
+        r.onerror = () => fail(r.error);
+        r.readAsDataURL(file);
+      });
+      const { result } = await send({ name: file.name, type: file.type || null, data });
+      li.innerHTML = result.deduped
+        ? t('{name}: already there, as <code>{address}</code>', { name: esc(file.name), address: esc(result.address) })
+        : t('{name}: added, write <code>{address}</code>', { name: esc(file.name), address: esc(result.address) });
+    } catch (err) {
+      li.className = 'error';
+      li.textContent = `${file.name}: ${err.message}`;
+    }
+  }
 }
 
 /** The export's address: the whole site (or lone page), or one page of the site. */
 const exportURL = (path, q) => `/_tykerf/${path}${(q = new URLSearchParams(q)).size ? `?${q}` : ''}`;
 
 /** Download the page (or the whole site, or one page of it) as a .zip of plain files, and say what the export found. */
-async function exportZip(files, page) {
+async function exportZip(files, page, inlineKit = false) {
   try {
-    const r = await fetch(exportURL('export.zip', { ...(files && { links: 'files' }), ...(page && { page }) }));
+    const r = await fetch(exportURL('export.zip', { ...(files && { links: 'files' }), ...(page && { page }), ...(inlineKit && { kit: 'inline' }) }));
     if (!r.ok) throw new Error((await r.json().catch(() => null))?.error || `HTTP ${r.status}`);
     const name = /filename="([^"]+)"/.exec(r.headers.get('content-disposition') ?? '')?.[1] ?? 'export.zip';
     const report = JSON.parse(r.headers.get('x-tykerf-report') ?? '{}');
@@ -1364,6 +1470,20 @@ async function exportZip(files, page) {
 const CODE_TABS = [['html', () => t('Content')], ['css', () => t('Style')], ['full', () => t('Full code')]];
 const joinCode = (html, css) => (css.trim() ? `<style>\n${css.replace(/\s+$/, '')}\n</style>\n${html}` : html);
 
+// what a box's own <script> seems to do, by its words, and the library behaviour that does it
+const BEHAVIOUR_WORDS = { accordion: /accordion|<details|\bdetails\b/i, tabs: /\btabs?\b|tablist/i, carousel: /carousel|slider|slides/i, reveal: /reveal|IntersectionObserver/i, year: /getFullYear/i, form: /\bsubmit\b/i };
+
+/** A hint for a box whose own script does what a behaviour does: write data-use instead (HTML), or nothing. */
+function behaviourHint(html) {
+  if (!S.kit.site || !/<script\b/i.test(html ?? '')) return '';
+  const script = (html.match(/<script\b[\s\S]*?<\/script>/gi) ?? []).join('\n');
+  const name = Object.keys(BEHAVIOUR_WORDS).find((n) => (S.kit.behaviours ?? []).includes(n) && BEHAVIOUR_WORDS[n].test(script));
+  if (!name) return '';
+  return (S.kit.scripts ?? []).includes(name)
+    ? t('The site kit has a {name} behaviour: {code} on the element, instead of a script of its own.', { name: `<b>${esc(name)}</b>`, code: `<code>data-use="${esc(name)}"</code>` })
+    : t('The library has a {name} behaviour: write {code} on the element instead of a script of its own, and the site kit gets it when you save.', { name: `<b>${esc(name)}</b>`, code: `<code>data-use="${esc(name)}"</code>` });
+}
+
 async function renderCode(body, id) {
   body.innerHTML = `<p class="muted">${t('Loading…')}</p>`;
   const box = await loadBox(id);
@@ -1375,6 +1495,8 @@ async function renderCode(body, id) {
   body.innerHTML = `
     <div class="subtabs">${CODE_TABS.map(([k, l]) => `<button data-code="${k}" aria-selected="${p.codeTab === k}">${l()}</button>`).join('')}
       <span class="hint">${p.codeTab === 'css' ? t('Scoped to this box: plain selectors are safe') : p.codeTab === 'html' ? t('Markup, text and scripts') : t('Style and content together')}</span></div>
+    ${behaviourHint(p.code.html) ? `<p class="hint behaviour-hint">${behaviourHint(p.code.html)}</p>` : ''}
+    ${S.kit.classes?.length ? `<p class="hint class-styles">${t('The site\'s class styles: give an element one with {classes}.', { classes: S.kit.classes.map((c) => `<code>class="k-${esc(c)}"</code>`).join(', ') })}</p>` : ''}
     <textarea class="code" spellcheck="false" wrap="off">${esc(value())}</textarea>
     <div class="savebar"><span class="status"></span><button data-c="revert">${t('Revert')}</button><button data-c="save" class="primary" title="⌘S">${t('Save code')}</button></div>`;
   const ta = $('textarea.code', body);
@@ -1450,6 +1572,7 @@ function renderSize(body, id) {
       ${choice('tone', '', !tone, t('None'), t('The page\'s background'))}${choice('tone', 'alt', tone === 'alt', t('Alternate'), t('A shade of the background, to set a section apart'))}${choice('tone', 'soft', tone === 'soft', t('Soft'), t('A soft wash of the accent'))}${choice('tone', 'dark', tone === 'dark', t('Dark'), t('The dark band: its text turns light. Once or twice a page, for a footer or a strong section'))}</div></div>
     <div class="look-row"><span class="look-label">${t('Density')}</span><div class="choice-seg" role="radiogroup" aria-label="${t('Density')}">
       ${choice('dense', 'no', !dense, t('Normal'), t('The space the theme gives'))}${choice('dense', 'yes', dense, t('Dense'), t('Less space around it and smaller titles, whatever the theme'))}</div></div>
+    ${S.kit.classes?.length ? `<div class="look-row"><span class="look-label" title="${t('The site kit\'s styles for a class (kit/styles, scoped to .k-<name>): on, the block takes the class')}">${t('Class styles')}</span><div class="tag-row">${S.kit.classes.map((c) => `<button data-sitetag="k-${esc(c)}" aria-pressed="${tags.includes(`k-${c}`)}" title="class=&quot;k-${esc(c)}&quot;">${esc(c)}</button>`).join('')}</div></div>` : ''}
     ${Object.keys(S.kit.tags).length ? `<div class="look-row"><span class="look-label">${t('Site tags')}</span><div class="tag-row">${Object.entries(S.kit.tags).map(([tg, v]) => `<button data-sitetag="${esc(tg)}" aria-pressed="${tags.includes(tg)}" title="${esc(v.description ?? v.label)}">${esc(v.label)}</button>`).join('')}</div></div>` : ''}
   </section>`;
   html += lookHtml;
@@ -1809,16 +1932,20 @@ async function exportPrompt(page) {
   popover(r.left, r.bottom + 6, `<p><b>${whole ? t('Export the site') : page ? t('Export this page') : t('Export the page')}</b></p>
     <p class="hint">${page ? t('The page {page} ({kb} KB) as plain files in a .zip, with the site\'s theme and fonts. Its links to other pages of the site lead nowhere until those pages are next to it. TYKERF, its history and the conversations with Kaity stay out.', { page: esc(page), kb }) : whole ? t('Every page of the site, {n} in all ({kb} KB), as plain files in a .zip: links between pages and images keep working wherever you put them. TYKERF, its history and the conversations with Kaity stay out.', { n: report.pages.length, kb }) : t('This page ({kb} KB) as plain files in a .zip. TYKERF, its history and the conversations with Kaity stay out.', { kb })}</p>
     ${report.broken.length ? `<div class="report${page ? '' : ' bad'}"><b>${page ? t('Links to other pages') : t('Links to pages that don\'t exist')}</b>${report.broken.map((b) => `<div>${esc(b.page)} → <code>${esc(b.href)}</code></div>`).join('')}</div>` : ''}
+    ${Object.keys(report.check ?? {}).length ? `<div class="report"><b>${t('The site\'s check')}</b><div>${t('{n} things to look at before publishing: see Check the site in the site manager.', { n: Object.values(report.check).reduce((a, b) => a + b, 0) })}</div></div>` : ''}
+    ${report.unlicensed?.length ? `<div class="report"><b>${t('Fonts without a licence noted')}</b><div>${t('{fonts}: make sure the site may publish them (the site kit\'s Fonts).', { fonts: esc(report.unlicensed.join(', ')) })}</div></div>` : ''}
     ${report.remote.length ? `<div class="report"><b>${t('Still loaded from other servers')}</b><div>${t('{n} images, fonts or files from {hosts}. Copy the ones you may use into the page before publishing.', { n: report.remote.length, hosts: esc(hosts.join(', ')) })}</div></div>` : ''}
     <div class="choices">
       <button data-x="web" class="choice"><b>${ic('download')}${t('For a web server')}</b><span>${t('Links end in a folder (../about/), as web hosts serve them.')}</span></button>
       <button data-x="files" class="choice"><b>${ic('download')}${t('To open from disk')}</b><span>${t('Links end in index.html, so you can double-click the files without a web server.')}</span></button>
-    </div>`);
+    </div>
+    ${S.site ? `<label class="check inline-kit"><input type="checkbox" name="inlineKit"> ${t('Inline the site\'s styles in every page')}</label><p class="hint">${t('Instead of one stylesheet every page links (kit/site.css): for hosts where one more request matters.')}</p>` : ''}`);
   pop.onclick = (e) => {
     const x = e.target.closest('[data-x]')?.dataset.x;
     if (!x) return;
+    const inline = !!pop.querySelector('input[name=inlineKit]')?.checked;
     closePop();
-    exportZip(x === 'files', page);
+    exportZip(x === 'files', page, inline);
   };
 }
 
@@ -2597,7 +2724,7 @@ async function showPicks() {
 
 async function copyIntoPage() {
   try {
-    const { path } = await api('/asset/fetch', { url: new URL(tool.src, location.href).href });
+    const { path } = await api('/asset/fetch', { url: new URL(tool.src, location.href).href, box: tool.id });
     Object.assign(tool, { picked: path, remote: false, origin: path, derived: false });
     await loadPicture(await (await fetch(path)).blob());
     renderTool();
@@ -2620,7 +2747,8 @@ async function applyTool() {
   try {
     let src = T.picked ?? T.src, size = null;
     // an uploaded file is kept as it is, as the original of any crop made from it
-    if (T.file) src = T.origin = (await api('/asset', { data: await base64(T.file) })).path;
+    // (the box is told: in a shared block, the picture is the site's)
+    if (T.file) src = T.origin = (await api('/asset', { data: await base64(T.file), box: T.id })).path;
     if (T.bitmap) {
       const { w, h } = turnedSize();
       const whole = T.crop.x < 0.5 && T.crop.y < 0.5 && Math.abs(T.crop.w - w) < 0.5 && Math.abs(T.crop.h - h) < 0.5;
@@ -2636,7 +2764,7 @@ async function applyTool() {
         // PNG keeps its transparency; photos become JPEG (every browser can write it)
         const blob = await new Promise((ok) => c.toBlob(ok, T.type === 'image/png' ? 'image/png' : 'image/jpeg', 0.85));
         const from = T.origin && { from: T.origin, crop: T.crop, quarter: T.quarter, max: T.max };
-        src = (await api('/asset', { data: await base64(blob), ...(from ? { from } : {}) })).path;
+        src = (await api('/asset', { data: await base64(blob), box: T.id, ...(from ? { from } : {}) })).path;
       }
     }
     const box = await loadBox(T.id, true);
@@ -3321,13 +3449,21 @@ const renderView = () => {
   for (const b of $('.seg').children) b.setAttribute('aria-checked', b.dataset.view === S.view);
 };
 
+/** An error, with a link to the site manager when it says the step is the site's to undo there. */
+function siteToast(err) {
+  toast(err.message, true);
+  if (!err.message.includes('/_tykerf/site/')) return;
+  const a = Object.assign(document.createElement('a'), { href: '/_tykerf/site/', target: '_blank', textContent: t('Open the site manager') });
+  $('.toast').append(' ', a);
+}
+
 async function undo() {
   try {
     const r = await api('/undo', {});
     if (r.focus) pendingSelect = r.focus;
     toast(t('Undone: {change}', { change: r.undone }));
   } catch (err) {
-    toast(err.message, true);
+    siteToast(err);
   }
 }
 $('.undo').addEventListener('click', undo);
@@ -3338,7 +3474,7 @@ async function redo() {
     if (r.focus) pendingSelect = r.focus;
     toast(t('Redone: {change}', { change: r.redone }));
   } catch (err) {
-    toast(err.message, true);
+    siteToast(err);
   }
 }
 $('.redo').addEventListener('click', redo);
@@ -3436,16 +3572,23 @@ async function loadState() {
   index(st.tree);
   const u = $('.undo');
   u.disabled = !st.canUndo;
-  u.title = st.lastChange ? t('Undo: {change} (⌘Z)', { change: st.lastChange }) : t('Nothing to undo');
+  // a shared block's change reaches every page that shows it: the buttons say which block and how many pages
+  const reach = (block) => ({ block, n: S.kit.users?.[block]?.length || 1 });
+  u.title = !st.lastChange ? t('Nothing to undo')
+    : st.undoBlock ? t('Undo: {change} (shared block {block}, on {n} pages) (⌘Z)', { change: st.lastChange, ...reach(st.undoBlock) })
+    : t('Undo: {change} (⌘Z)', { change: st.lastChange });
   const rd = $('.redo');
   rd.disabled = !st.nextRedo;
-  rd.title = st.nextRedo ? t('Redo: {change} (⇧⌘Z)', { change: st.nextRedo }) : t('Nothing to redo');
+  rd.title = !st.nextRedo ? t('Nothing to redo')
+    : st.redoBlock ? t('Redo: {change} (shared block {block}, on {n} pages) (⇧⌘Z)', { change: st.nextRedo, ...reach(st.redoBlock) })
+    : t('Redo: {change} (⇧⌘Z)', { change: st.nextRedo });
 }
 
 /** Re-render the page from the tree in place (styles, markup, then box scripts run again). */
 async function reloadPage() {
-  const { css, body } = await api('/page');
+  const { css, body, lang } = await api('/page');
   document.getElementById('sw--style').textContent = css;
+  if (lang) document.documentElement.lang = lang; // the site's language may have changed
   const pg = page();
   pg.innerHTML = body;
   for (const old of pg.querySelectorAll('script')) {
@@ -3479,6 +3622,17 @@ async function refresh() {
     redraw();
   } else select(keep);
 }
+
+// a site kit behaviour that failed on this page (the loader says so, kit.ts KIT_LOADER): one notice per behaviour
+const failedBehaviours = new Set();
+const behaviourFailed = (detail) => {
+  const name = detail?.name;
+  if (!name || failedBehaviours.has(name)) return;
+  failedBehaviours.add(name);
+  toast(t('A behaviour failed on this page: {name} (the browser\'s console says why; it is in the site kit, kit/scripts/{name}.js).', { name }), true);
+};
+addEventListener('tykerf:behaviour-error', (e) => behaviourFailed(e.detail));
+for (const d of window.tykerfBehaviourErrors ?? []) behaviourFailed(d); // the ones that failed before the editor started
 
 const events = new EventSource(`${API}/events`);
 events.addEventListener('open', () => checkVersion()); // back after a restart: maybe a newer TYKERF

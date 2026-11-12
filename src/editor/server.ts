@@ -17,16 +17,16 @@ import { type IncomingMessage, type ServerResponse, createServer } from 'node:ht
 import { isIP } from 'node:net';
 import { basename, dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { HOME_PAGE, type PublishSettings, addSitePage, pageMoves, emptyTrash, lastSiteHeadChange, newPageLike, newSitePage, pageLinks, pageNameError, pageTitle, pageWorkspace, readSite, duplicatePage, removePage, renamePage, setHome, setPublish, setSiteIcon, siteIcon, setSiteCode, setSiteHead, setTitle, shareTheme, siteCode, siteHead, siteIndex, siteKind, siteLink, siteMap, siteOf, sitePages, trashedPages, undoSiteHead, blockUsers, identicalBoxes, shareIdentical } from '../site.js';
+import { HOME_PAGE, type PublishSettings, addSitePage, pageMoves, emptyTrash, lastSiteHeadChange, newPageLike, newSitePage, pageLinks, pageNameError, pageTitle, pageWorkspace, readSite, setLang, duplicatePage, removePage, renamePage, setHome, setPublish, setSiteIcon, siteIcon, setSiteCode, setSiteHead, setTitle, shareTheme, siteCode, siteHead, siteIndex, siteKind, siteMap, siteOf, sitePages, trashedPages, Site, siteMedia, removeMediaFile, moveToSite, moveSiteDuplicates, pruneMedia, headStyles, migrateHeadStyles, blockUsers, identicalBoxes, shareIdentical } from '../site.js';
 import { FolderStore, MemoryStore } from '../store.js';
-import { KIT_LOADER, type KitKind, kitList, kitRead, kitWrite, lastKitChange, undoKit } from '../kit.js';
+import { KIT_LOADER, type KitKind, kitCSS, kitFonts, kitLibraryScripts, kitList, kitRead, kitWarning, kitWrite, lastKitChange } from '../kit.js';
 import { DEFAULT_THEME, EMPTY_LAYOUT, createPage, hasTheme, pageLayouts, libraryAsset, theme, themes } from '../library.js';
 import { Workspace } from '../workspace.js';
 import { AI, type Runner, SITE_CHAT } from './ai.js';
 import { kaityRuns } from './kaity-log.js';
 import { type DesignZip, designContext, designNote, readDesignZip } from './design-zip.js';
 import { createAuth, loginPage } from './auth.js';
-import { ASSET_TYPES } from '../assets.js';
+import { ASSET_TYPES, pageFileRefs } from '../assets.js';
 import { type PageHost, body, createPageHost, json } from './page.js';
 import { runnerFromEnv } from './runners/index.js';
 
@@ -155,7 +155,7 @@ const hosts = new Map<string, PageHost>();
 // Kaity for the whole site, in the site manager: one conversation kept in the site folder, her steps
 // streamed to the manager; she lists, opens and makes the pages herself (MCP with the site as home)
 const siteClients = new Set<ServerResponse>();
-const siteAI = new AI(new Workspace(dir, { site: siteLink(dir) }), (event, data) => {
+const siteAI = new AI(new Workspace(dir, { site: new Site(dir) }), (event, data) => {
   for (const c of siteClients) c.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
   if ((data as { role?: string }).role === 'end') followMoves(); // in case the folder watcher missed one
 }, runner, { site: dir });
@@ -177,6 +177,11 @@ const BUILD_BRIEF = [
 
 /** Whether the site's pages share one theme (the site's head.html has it). */
 const sharedTheme = () => hasTheme(siteHead(dir));
+/** The site's last step, when it changed the head: what the Page tab's site Undo would take back (else null). */
+const headStep = () => {
+  const top = new Site(dir).history.peekUndo();
+  return top && (top.kind === 'head' || top.kinds?.includes('head')) ? top : null;
+};
 /** After a change every open page must show: the site's theme, or links rewritten in other pages. */
 const refreshAll = () => {
   for (const h of hosts.values()) h.refresh();
@@ -290,7 +295,7 @@ async function serveGlobal(req: IncomingMessage, res: ServerResponse, p: string,
     if (rest === '') {
       // theme "site": the layout with the site's shared theme, as a new page of this site would look
       const shared = th === 'site' && sharedTheme();
-      const ws = new Workspace(new MemoryStore('memory:preview'), { site: shared ? siteLink(dir) : null });
+      const ws = new Workspace(new MemoryStore('memory:preview'), { site: shared ? new Site(dir) : null });
       createPage(ws, tpl, shared ? DEFAULT_THEME : th, { ownTheme: !shared });
       res.writeHead(200, { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store', 'content-security-policy': "sandbox; script-src 'none'" });
       res.end(ws.page({ title: tpl }));
@@ -305,7 +310,7 @@ async function serveGlobal(req: IncomingMessage, res: ServerResponse, p: string,
   }
   if (req.method === 'GET' && p === '/_tykerf/site') {
     const pages = sitePages(dir), settings = readSite(dir);
-    json(res, 200, { pages, sharedTheme: sharedTheme(), home: settings.home ?? null, titles: Object.fromEntries(pages.map((pg) => [pg, pageTitle(dir, pg, settings)])), ownTitles: settings.titles, signin: auth.on, kaity: kaityNow() });
+    json(res, 200, { pages, sharedTheme: sharedTheme(), home: settings.home ?? null, titles: Object.fromEntries(pages.map((pg) => [pg, pageTitle(dir, pg, settings)])), ownTitles: settings.titles, lang: settings.lang, signin: auth.on, kaity: kaityNow() });
     return true;
   }
   // a copy of a page, next to it
@@ -322,11 +327,16 @@ async function serveGlobal(req: IncomingMessage, res: ServerResponse, p: string,
       return json(res, 422, { ok: false, error: (e as Error).message }), true;
     }
   }
-  // the site's settings: its home page, and a page's title set by hand
-  if (req.method === 'POST' && (p === '/_tykerf/site/home' || p === '/_tykerf/site/title')) {
+  // the site's settings: its home page, a page's title set by hand, the site's language
+  if (req.method === 'POST' && (p === '/_tykerf/site/home' || p === '/_tykerf/site/title' || p === '/_tykerf/site/lang')) {
     const a = await body(req);
-    if (p === '/_tykerf/site/home') setHome(dir, a.name ? String(a.name) : null);
-    else setTitle(dir, String(a.name ?? ''), String(a.title ?? ''));
+    try {
+      if (p === '/_tykerf/site/home') setHome(dir, a.name ? String(a.name) : null);
+      else if (p === '/_tykerf/site/lang') setLang(dir, String(a.lang ?? ''));
+      else setTitle(dir, String(a.name ?? ''), String(a.title ?? ''));
+    } catch (e) {
+      return json(res, 422, { ok: false, error: (e as Error).message }), true;
+    }
     for (const h of hosts.values()) h.refresh();
     return json(res, 200, { ok: true }), true;
   }
@@ -340,7 +350,8 @@ async function serveGlobal(req: IncomingMessage, res: ServerResponse, p: string,
       if (err) throw new Error(err);
       const { importPage, importURL, writeWorkspace } = await import('../importer.js');
       const from = importURL(String(a.url));
-      newSitePage(dir, name, 'blank');
+      const first = !sitePages(dir).length; // a new site takes the copy's language
+      newSitePage(dir, name, 'blank', DEFAULT_THEME, { shared: false }); // the copy replaces it: nothing to share
       const host = hostOf(name)!;
       const stop = new AbortController();
       host.job.start('copy', { site: new URL(from).host, stop: () => stop.abort() });
@@ -354,6 +365,8 @@ async function serveGlobal(req: IncomingMessage, res: ServerResponse, p: string,
           const store = new FolderStore(join(dir, name));
           for (const f of store.list('boxes')) store.remove(`boxes/${f}`);
           for (const f of ['layout.slice', 'head.html', '.history.jsonl', '.redo.jsonl']) store.remove(f);
+          // the language first: writing the copy reloads the page
+          if (first && r.lang) setLang(dir, r.lang);
           writeWorkspace(join(dir, name), r, from);
           host.job.end('done');
         } catch (e) {
@@ -394,20 +407,25 @@ async function serveGlobal(req: IncomingMessage, res: ServerResponse, p: string,
       const themeBrief = shared ? 'The page uses the theme the site\'s pages share: keep it unless the request asks for other colours or fonts.'
         : chosen ? `The user chose the ${chosen} theme: keep it unless the request asks for other colours or fonts.`
         : 'The user left the theme to you: pick the preset that fits the request best (list_themes, use_theme), or give the theme the design\'s own colours and fonts (set_theme), before you write the sections.';
+      // the site's navigation and footer: shared blocks, the same on every page (use_layout links or makes them)
+      const blocks = kitList(dir).blocks.filter((b) => b === 'nav' || b === 'footer');
+      const sharedBrief = blocks.length
+        ? `This site's pages share ${blocks.join(' and ')} as shared blocks: the layout you use shows them on this page. Don't rewrite them for this page; change them only if the request is about every page, and say so.`
+        : 'The layout\'s navigation and footer become the site\'s shared blocks, which every later page shows: write them for the whole site, not only this page.';
       newSitePage(dir, name, EMPTY_LAYOUT, chosen ?? DEFAULT_THEME);
       const host = hostOf(name)!;
       const root = pageWorkspace(dir, name).load().root.id;
       const asked = String(a.prompt ?? '').trim() || (design ? 'Make this page from the attached design.' : 'Make this page look like the attached picture.');
       const prompt = design ? `${asked}\n\n${designNote(design.name, design.zip)}` : asked;
       host.job.start('ai', { select: root, stop: () => host.ai.cancel() });
-      host.ai.ask(root, prompt, undefined, images, `${BUILD_BRIEF}\n${themeBrief}`, design ? designContext(design.name, design.zip) : undefined);
+      host.ai.ask(root, prompt, undefined, images, `${BUILD_BRIEF}\n${themeBrief}\n${sharedBrief}`, design ? designContext(design.name, design.zip) : undefined);
       refreshAll();
       json(res, 200, { ok: true, url: `/${name}/`, select: root });
       return true;
     }
     // "Like this page": its header, footer and theme, with an empty section between
     if (a.like) newPageLike(dir, name, String(a.like));
-    else newSitePage(dir, name, String(a.layout ?? 'blank'), String(a.theme ?? DEFAULT_THEME));
+    else newSitePage(dir, name, String(a.layout ?? 'blank'), String(a.theme ?? DEFAULT_THEME), { shared: a.shared !== false });
     refreshAll(); // the other pages' lists of pages
     json(res, 200, { ok: true, url: `/${name}/` });
     return true;
@@ -416,7 +434,8 @@ async function serveGlobal(req: IncomingMessage, res: ServerResponse, p: string,
   // whether this process still runs the code on disk (see codeStamp)
   if (req.method === 'GET' && p === '/_tykerf/version') return json(res, 200, { ok: true, outdated: codeStamp() !== STARTED_CODE, page: pageStamp() }), true;
   // the code every page gets from the site head (styles, scripts), apart from the theme
-  if (req.method === 'GET' && p === '/_tykerf/site/code') return json(res, 200, { ok: true, code: siteCode(dir), last: lastSiteHeadChange(dir) }), true;
+  // (styles: how many <style> blocks it still has, which the manager offers to move to the kit)
+  if (req.method === 'GET' && p === '/_tykerf/site/code') return json(res, 200, { ok: true, code: siteCode(dir), styles: headStyles(dir).length, last: lastSiteHeadChange(dir) }), true;
   if (req.method === 'POST' && p === '/_tykerf/site/code') {
     setSiteCode(dir, String((await body(req)).code ?? ''));
     refreshAll();
@@ -451,15 +470,64 @@ async function serveGlobal(req: IncomingMessage, res: ServerResponse, p: string,
       publishing = false;
     }
   }
+  // the whole site's check (check-site.ts): what to fix before publishing
+  if (req.method === 'GET' && p === '/_tykerf/site/check') {
+    const { checkSite, FINDING_KINDS } = await import('../check-site.js');
+    return json(res, 200, { ok: true, findings: checkSite(dir), kinds: FINDING_KINDS }), true;
+  }
+  // Media: every file of the site and its pages, who uses each, and what to do with them (site/media.ts)
+  if (req.method === 'GET' && p === '/_tykerf/site/media') return json(res, 200, { ok: true, files: siteMedia(dir) }), true;
+  if (req.method === 'POST' && p.startsWith('/_tykerf/site/media/')) {
+    const a = await body(req);
+    if (siteAI.running()) return json(res, 409, { ok: false, error: 'Kaity is working on the whole site; wait for her to finish' }), true;
+    const what = p.slice('/_tykerf/site/media/'.length);
+    let result: unknown;
+    if (what === 'remove') result = removeMediaFile(dir, String(a.where ?? ''), String(a.file ?? ''));
+    else if (what === 'move') result = moveToSite(dir, String(a.page ?? ''), String(a.file ?? ''));
+    else if (what === 'prune') result = pruneMedia(dir);
+    else if (what === 'dedupe') result = moveSiteDuplicates(dir);
+    else if (what === 'upload') {
+      // one file the person chose, into the site's assets/ or a page's (files.ts; a step of that history)
+      const { addFile } = await import('../files.js');
+      const where = String(a.where ?? 'site');
+      if (where !== 'site' && !sitePages(dir).includes(where)) return json(res, 422, { ok: false, error: `there is no page "${where}" in the site` }), true;
+      result = addFile(where === 'site' ? { site: dir } : { page: pageWorkspace(dir, where) }, { bytes: new Uint8Array(Buffer.from(String(a.data ?? ''), 'base64')), name: String(a.name ?? 'file'), type: a.type ? String(a.type) : null, local: true }, { from: `upload ${String(a.name ?? '')}`, author: 'user' });
+    } else return res.writeHead(404).end('not found'), true;
+    refreshAll();
+    return json(res, 200, { ok: true, result: result ?? null }), true;
+  }
+  // Add files… in the manager: one file the person chose, into the site's assets/ (files.ts; a site step)
+  if (req.method === 'POST' && p === '/_tykerf/site/files') {
+    const a = await body(req);
+    const { addFile } = await import('../files.js');
+    const r = addFile({ site: dir }, { bytes: new Uint8Array(Buffer.from(String(a.data ?? ''), 'base64')), name: String(a.name ?? 'file'), type: a.type ? String(a.type) : null, local: true }, { from: `upload ${String(a.name ?? '')}`, author: 'user' });
+    refreshAll();
+    return json(res, 200, { ok: true, result: r }), true;
+  }
+  // the site's one history: its head, its kit and its settings (site/history.ts)
+  if (req.method === 'GET' && p === '/_tykerf/site/history') {
+    const h = new Site(dir).history;
+    return json(res, 200, { ok: true, steps: h.steps(30), undo: h.peekUndo(), redo: h.peekRedo() }), true;
+  }
+  // (the head's and the kit's Undo of older managers and editors: the same one Undo)
+  if (req.method === 'POST' && ['/_tykerf/site/undo', '/_tykerf/site/redo', '/_tykerf/site/head/undo', '/_tykerf/site/kit/undo'].includes(p)) {
+    await body(req);
+    if (siteAI.running()) return json(res, 409, { ok: false, error: 'Kaity is working on the whole site; wait for her to finish' }), true;
+    const site = new Site(dir);
+    if (p === '/_tykerf/site/kit/undo' && !site.history.peekUndo()) return json(res, 200, { ok: true, result: null }), true;
+    const result = p === '/_tykerf/site/redo' ? site.redo() : site.undo();
+    refreshAll();
+    const h = site.history;
+    return json(res, 200, { ok: true, result, undo: h.peekUndo(), redo: h.peekRedo(), last: lastSiteHeadChange(dir) }), true;
+  }
   if (req.method === 'GET' && p === '/_tykerf/site/head') {
-    json(res, 200, { ok: true, html: siteHead(dir), last: lastSiteHeadChange(dir) });
+    json(res, 200, { ok: true, html: siteHead(dir), last: headStep() });
     return true;
   }
-  if (req.method === 'POST' && (p === '/_tykerf/site/head' || p === '/_tykerf/site/head/undo' || p === '/_tykerf/site/theme/share')) {
+  if (req.method === 'POST' && (p === '/_tykerf/site/head' || p === '/_tykerf/site/theme/share')) {
     const a = await body(req);
     let result: unknown = null;
     if (p === '/_tykerf/site/head') setSiteHead(dir, String(a.html ?? ''));
-    if (p === '/_tykerf/site/head/undo') result = undoSiteHead(dir);
     if (p === '/_tykerf/site/theme/share') {
       if (!sitePages(dir).includes(String(a.page))) return json(res, 422, { ok: false, error: `there is no page "${a.page}" in the site` }), true;
       result = shareTheme(dir, String(a.page));
@@ -492,6 +560,11 @@ async function serveGlobal(req: IncomingMessage, res: ServerResponse, p: string,
     return json(res, 200, { ok: true, own: siteIcon(dir).own, file: siteIcon(dir).file }), true;
   }
   // the site kit's behaviours and their loader (src/kit.ts), which every page of the site loads from /kit/
+  // the site's stylesheet (kit/styles): pages link it with ?v=<hash>, so that address can be kept for a year
+  if (req.method === 'GET' && p === '/kit/site.css') {
+    res.writeHead(200, { 'content-type': 'text/css; charset=utf-8', 'cache-control': url.searchParams.has('v') ? 'public, max-age=31536000, immutable' : 'no-cache', 'x-content-type-options': 'nosniff' });
+    return res.end(kitCSS(dir)), true;
+  }
   if (req.method === 'GET' && p.startsWith('/kit/')) {
     const m = /^\/kit\/(?:loader|scripts\/([a-z0-9][a-z0-9-]{0,40}))\.js$/.exec(p);
     const code = !m ? null : m[1] ? kitRead(dir, 'scripts', m[1]) : KIT_LOADER;
@@ -503,7 +576,11 @@ async function serveGlobal(req: IncomingMessage, res: ServerResponse, p: string,
   if (p.startsWith('/_tykerf/site/kit')) {
     if (req.method === 'GET' && p === '/_tykerf/site/kit') {
       const files = kitList(dir);
-      return json(res, 200, { ok: true, files, last: lastKitChange(dir), identical: identicalBoxes(dir), users: Object.fromEntries(files.blocks.map((b) => [b, Object.keys(blockUsers(dir, b))])) }), true;
+      // each shared block's pages, and its boxes on each (to open the page on it)
+      const where = Object.fromEntries(files.blocks.map((b) => [b, blockUsers(dir, b)]));
+      // the site's fonts, and the font files its assets/ has for a new one
+      const fontFiles = new Site(dir).files().filter((f) => /\.(woff2|woff|ttf|otf)$/i.test(f)).sort();
+      return json(res, 200, { ok: true, files, last: lastKitChange(dir), identical: identicalBoxes(dir), users: Object.fromEntries(Object.entries(where).map(([b, w]) => [b, Object.keys(w)])), where, fonts: kitFonts(dir), fontFiles, library: kitLibraryScripts(dir) }), true;
     }
     if (req.method === 'GET' && p === '/_tykerf/site/kit/file') {
       const kitKind = String(url.searchParams.get('kind')) as KitKind;
@@ -512,12 +589,37 @@ async function serveGlobal(req: IncomingMessage, res: ServerResponse, p: string,
     if (req.method === 'POST') {
       const a = await body(req);
       let result: unknown = null;
-      if (p === '/_tykerf/site/kit/file') kitWrite(dir, a.kind as KitKind, String(a.name ?? 'tags'), typeof a.text === 'string' ? a.text : null);
-      else if (p === '/_tykerf/site/kit/undo') result = undoKit(dir);
+      let warning: string | null = null, pageFiles: string[] = [];
+      if (p === '/_tykerf/site/kit/file') {
+        const text = typeof a.text === 'string' ? a.text : null;
+        kitWrite(dir, a.kind as KitKind, String(a.name ?? 'tags'), text);
+        // saved, but it may not work everywhere: a shared block with a page's own file shows it on that page only
+        warning = text === null ? null : kitWarning(a.kind as KitKind, String(a.name ?? 'tags'), text);
+        if (warning) pageFiles = pageFileRefs(text!).map((f) => `assets/${f}`);
+      }
       else if (p === '/_tykerf/site/kit/share') result = shareIdentical(dir, String(a.box ?? ''));
+      else if (p === '/_tykerf/site/kit/migrate-head') result = migrateHeadStyles(dir);
+      else if (p === '/_tykerf/site/kit/update-behaviour') {
+        // the library's version of a behaviour the site took from it, in place of the site's copy
+        const { behaviourCode } = await import('../library.js');
+        const name = String(a.name ?? ''), code = behaviourCode(name);
+        if (code === null) return json(res, 422, { ok: false, error: `the library has no behaviour "${name}"` }), true;
+        kitWrite(dir, 'scripts', name, code, `update behaviour ${name} from the library`);
+        result = name;
+      }
+      else if (p === '/_tykerf/site/kit/font') {
+        // one font file for a family (a new family, or one more file of it), from the manager's form
+        const fonts = kitFonts(dir);
+        const family = String(a.family ?? '').trim();
+        const file = { file: String(a.file ?? ''), weight: String(a.weight ?? '400').trim(), style: a.style === 'italic' ? 'italic' as const : 'normal' as const };
+        const f = fonts[family] ?? { files: [], display: 'swap' as const };
+        fonts[family] = { ...f, files: [...f.files.filter((x) => x.file !== file.file), file], ...(String(a.licence ?? '').trim() ? { licence: String(a.licence).trim() } : {}) };
+        kitWrite(dir, 'fonts', 'fonts', `${JSON.stringify(fonts, null, 2)}\n`, `the font ${family}`);
+        result = family;
+      }
       else return res.writeHead(404).end('not found'), true;
       refreshAll();
-      return json(res, 200, { ok: true, result, last: lastKitChange(dir) }), true;
+      return json(res, 200, { ok: true, result, last: lastKitChange(dir), warning, pageFiles }), true;
     }
   }
   // the site's own files (the shared theme's fonts), at /assets/ like an export has them
@@ -603,7 +705,7 @@ async function serveGlobal(req: IncomingMessage, res: ServerResponse, p: string,
     const from = exportDir(url);
     if (!from) return json(res, 404, { ok: false, error: 'no such page in this site' }), true;
     const { exportZip } = await import('../export.js');
-    const { bytes, report } = exportZip(from, { files: url.searchParams.get('links') === 'files', publicUrl: PUBLIC_URL });
+    const { bytes, report } = exportZip(from, { files: url.searchParams.get('links') === 'files', inlineKit: url.searchParams.get('kit') === 'inline', publicUrl: PUBLIC_URL });
     const name = `${basename(from).replace(/[^A-Za-z0-9._-]+/g, '-') || 'site'}-${new Date().toISOString().slice(0, 10)}.zip`;
     const summary = { pages: report.pages.length, files: report.files, bytes: report.bytes, broken: report.broken.length, remote: report.remote.length };
     res.writeHead(200, { 'content-type': 'application/zip', 'content-disposition': `attachment; filename="${name}"`, 'cache-control': 'no-store', 'x-tykerf-report': JSON.stringify(summary) });

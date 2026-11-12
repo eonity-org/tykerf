@@ -43,7 +43,7 @@ Click **Publish**. TYKERF says how many files are new, changed and removed, with
 - **One publish is one commit.** The repository's history is the list of your publishes; to take one back, revert its commit on GitHub.
 - **Only what changed is sent**, and only files TYKERF published before are ever replaced or removed (it keeps their list in `.tykerf-published.json`). A `CNAME`, a README or your own files in the repository stay.
 - **It waits while Kaity is working**, so half a change never goes live.
-- The same checks as an export: links to pages that don't exist, and files still loaded from other servers.
+- The same checks as an export: links to pages that don't exist, files still loaded from other servers, fonts without a licence noted, and how many things the site's check found (**Check the site** in the site manager lists them).
 
 ### What a published site holds
 
@@ -54,7 +54,7 @@ Click **Publish**. TYKERF says how many files are new, changed and removed, with
 | `pages/index.html` | The list of pages |
 | `404.html` | What the host shows for an address that isn't there: *This page isn't here*, and the list of pages |
 | `kit/…` | The [site kit](sites.md#the-site-kit)'s behaviours and their loader, when it has any (its styles and shared blocks are already inside each page) |
-| `favicon.svg` | The site's icon ([Styles & scripts](sites.md#styles--scripts)) |
+| `favicon.svg` | The site's icon ([Site kit & head code](sites.md#head-code)) |
 | `sitemap.xml` | For search engines, when the site's address is set |
 | `.nojekyll` | Tells GitHub Pages to serve every file as it is |
 

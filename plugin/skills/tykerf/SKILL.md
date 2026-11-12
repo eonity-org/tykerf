@@ -18,21 +18,22 @@ Never edit `layout.slice`, `boxes/` or `head.html` with file tools or shell comm
 1. **Open a folder.** If the person named one, `open_folder` with that path. Otherwise `open_folder` without a path (the default folder). Then, before any other tool, write one line saying which folder is open, so the person can stop you and name another before anything is written. A folder that holds other files is refused: ask for another.
 2. **Start or read the page.**
    - An empty folder becomes a site: pick a layout and a theme (`list_layouts`, `list_themes`) and `use_layout`, which makes its home page; `new_page` for each other page.
-   - An existing page: `get_layout` first. In a site, `list_pages` and `open_page`; `rename_page` and `remove_page` when the person asks (read a page before naming it after what it holds).
+   - An existing page: `get_layout` first. In a site, `list_pages` and `open_page`; `rename_page` and `remove_page` when the person asks (read a page before naming it after what it holds). `set_title` gives a page its title when its first heading doesn't fit, or when `check_page` says another page has the same one.
    - Tasks people left on the page in the TYKERF editor: `list_tasks`. When asked to work through them, look at each at the width it was written at, do it, and `close_task` with a one-sentence reply.
-   - What every page of a site shares (the navigation, the footer, styles for all pages): the site kit. `list_kit` shows it; `share_block` makes a box of this page a shared block and `link_block` shows it in a box of another page (`unlink_block` gives a page its own copy); `get_kit_file` and `set_kit_file` read and change the kit's styles and behaviours. Don't copy the same navigation into every page.
+   - What every page of a site shares (the navigation, the footer, styles for all pages): the site kit. A new site's navigation and footer are shared blocks from the start (`get_layout` marks them `use=`), and `new_page` links them; change one only when the request is about every page. A shared block's slots (`get_layout`: `slots: …`) are what each page fills itself, such as its title: `set_slot`. `list_kit` shows the kit; `share_block` makes a box of this page a shared block and `link_block` shows it in a box of another page (`unlink_block` gives a page its own copy); `get_kit_file` and `set_kit_file` read and change the kit's styles and behaviours. Don't copy the same navigation into every page. For tabs, a carousel, an accordion or a reveal on scroll, write `data-use` with the library's behaviour (`list_components` lists them) instead of a script of your own.
    - Read a box's code with `get_content` and its name, when you are about to change that box. Without a name it returns every box at once, which is long and rarely needed: `get_layout` is the overview.
 3. **Focus before you change.** When the request is about one block ("the header", "the pricing"), `focus` on it, so nothing outside it can change. `unfocus` when you move on to another part.
 4. **Change it.**
    - A new section: start from a component (`list_components`, `use_component`), then rewrite its text and pictures for this page.
    - Part of a box's code: `edit_content`, not the whole box.
-   - Colours, fonts and spacing for the whole page: `set_theme` or `use_theme`.
+   - Colours, fonts and spacing for the whole page: `set_theme` or `use_theme`. In a site whose pages each have their own theme (`get_theme` says so), `share_theme` makes one page's theme every page's: do that instead of applying a preset page by page.
    - Narrow screens: `add_rule` (flip a row into a column, hide a box), not a different base layout.
-   - Pictures: draw an SVG or place one the person attached with `add_picture`. You can't download pictures; never make up a file name.
+   - Pictures and files: draw an SVG or place one the person attached with `add_picture`; bring a picture, font or PDF from an address or a file on the person's computer with `add_file` (`add_files` for several), to the page or the site (what every page uses). Write the address the reply gives; never make up a file name.
+   - Long code you have in a file (a generated post): `set_content` reading that file (its file argument) instead of pasting it.
    - Links to a section of the page: the block's element is `#sw-<name>` (the block "faq" is `#sw-faq`), not `#faq`.
 5. **Ask before replacing a page.** `use_layout` and `use_page` replace a whole existing page. Undo brings it back, but say what will happen and ask first.
 6. **Look at it.** `screenshot` at 1440 and 375 px wide, and fix what looks wrong: spacing, alignment, contrast, text that spills out. A picture over 2000 px tall is cut, and the reply says where to continue (from: 2000): look at the rest before you call the page done.
-7. **Finish.** `check_page` lists placeholder text and pictures left from layouts and components, and links that go nowhere: fix them, or tell the person what is still needed from them.
+7. **Finish.** `check_page` lists placeholder text and pictures left from layouts and components, and links that go nowhere: fix them, or tell the person what is still needed from them. On a site, `check_site` checks every page at once before publishing.
 
 ## When you answer
 

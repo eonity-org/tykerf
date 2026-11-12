@@ -77,7 +77,7 @@ console.log(ws.render());   // writes out/index.html and returns its path
 
 `create` refuses a folder that already has a page, and writes no head: add a theme with `ws.setHead(…)`, or start from `createPage` and change the tree. The notation is specified in [docs/slicing-notation.md](../../slicing-notation.md).
 
-**Pages of a site** are made with `newSitePage(siteDir, name, layout, theme)` (`site.ts`), which also gives the page the site's shared theme. To open an existing page of a site, use `pageWorkspace(siteDir, name)`, or `new Workspace(pageDir, { site: siteOf(pageDir) })`: a plain `new Workspace(pageDir)` renders without the site's head.
+**Pages of a site** are made with `newSitePage(siteDir, name, layout, theme)` (`site.ts`), which also gives the page the site's shared theme. To open an existing page of a site, use `new Site(siteDir).page(name)` (or `pageWorkspace(siteDir, name)`, the same), or `new Workspace(pageDir, { site: siteOf(pageDir) })`: a plain `new Workspace(pageDir)` renders without the site's head. The `Site` also gives the site's settings, pages, kit and history (`site.undo()`).
 
 ## Let your own agent edit pages (MCP)
 

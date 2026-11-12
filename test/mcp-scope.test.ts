@@ -61,7 +61,7 @@ describe('a site of pages', () => {
     for (const name of ['rome', 'prague']) createPage(new Workspace(join(site, name)), 'blank');
     const call = await connect('--dir', site);
     expect(await call('get_layout')).toMatchObject({ error: true, text: expect.stringMatching(/no page is open\. In a site, open_page opens one of its pages \(list_pages lists them\)/) });
-    expect((await call('list_pages')).text).toBe(`site ${site}\nprague\nrome\nno page is open: open_page opens one`);
+    expect((await call('list_pages')).text).toBe(`site ${site}\nprague: no title (no heading either: its name stands in)\nrome: no title (no heading either: its name stands in)\nno page is open: open_page opens one`);
     // a page made right in the site folder would hide its pages
     expect(await call('use_layout', { name: 'blank' })).toMatchObject({ error: true, text: expect.stringMatching(/refused: this folder is a site of pages \(prague, rome\)/) });
 
@@ -72,10 +72,10 @@ describe('a site of pages', () => {
     expect(await call('open_page', { name: 'munich' })).toMatchObject({ error: true, text: expect.stringMatching(/no page "munich" in the site \(pages: prague, rome\)/) });
 
     const made = await call('new_page', { name: 'munich', layout: 'factual', theme: 'warm' });
-    expect(made.text).toMatch(/^ok: new page "munich" from the factual layout, with the warm theme; it is open now/);
+    expect(made.text).toMatch(/^ok: new page "munich" from the factual layout, with the warm theme; it shows the site's shared blocks nav, footer, the same on every page: change them only when the request is about every page; it is open now/);
     expect(readFileSync(join(site, 'munich', 'head.html'), 'utf8')).toContain('data-tykerf-preset="warm"');
     expect((await call('get_layout')).text).toMatch(/intro leaf/);
-    expect((await call('list_pages')).text).toBe(`site ${site}\nmunich (open)\nprague\nrome`);
+    expect((await call('list_pages')).text).toMatch(/^site .*\nmunich \(open\): .*\nprague: .*\nrome: .*$/);
     expect((await call('new_page', { name: 'Bad Name' })).text).toMatch(/can't be a page name/);
   });
 
@@ -88,7 +88,7 @@ describe('a site of pages', () => {
     await call('open_page', { name: 'page-one' });
     expect((await call('rename_page', { name: 'page-one', to: 'madrid' })).text).toBe('ok: "page-one" is "madrid" now, at /madrid/; links to it on 1 page follow; it is still the open page');
     expect(readFileSync(join(site, 'page-two', 'boxes', `${two.boxIds()[0]}.html`), 'utf8')).toContain('href="/madrid/"');
-    expect((await call('list_pages')).text).toBe(`site ${site}\nmadrid (open)\npage-two`);
+    expect((await call('list_pages')).text).toBe(`site ${site}\nmadrid (open): no title (no heading either: its name stands in)\npage-two: no title (no heading either: its name stands in)`);
     expect((await call('rename_page', { name: 'page-two', to: 'Bad Name' })).text).toMatch(/can't be a page name/);
     expect((await call('remove_page', { name: 'madrid' })).text).toBe('ok: "madrid" is in the site\'s trash; 1 link on other pages still leads to /madrid/: change or remove them. No page is open now: open_page opens one');
     expect(sitePages(site)).toEqual(['page-two']);
@@ -100,7 +100,7 @@ describe('a site of pages', () => {
     const site = mkdtempSync(join(tmpdir(), 'tykerf-mcp-site-'));
     for (const name of ['rome', 'prague']) createPage(new Workspace(join(site, name)), 'blank');
     const call = await connect('--dir', join(site, 'rome'));
-    expect((await call('list_pages')).text).toBe(`site ${site}\nprague\nrome (open)`);
+    expect((await call('list_pages')).text).toBe(`site ${site}\nprague: no title (no heading either: its name stands in)\nrome (open): no title (no heading either: its name stands in)`);
     expect((await call('open_page', { name: 'prague' })).error).toBe(false);
     const scoped = await connect('--dir', join(site, 'rome'), '--scope', 'nav');
     expect(await scoped('list_pages')).toMatchObject({ error: true, text: expect.stringMatching(/list_pages not found/) }); // not offered at all

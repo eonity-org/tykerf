@@ -309,7 +309,7 @@ describe('pages while Kaity works', () => {
   it('can be renamed and removed, except her page and the pages it links to', async () => {
     const { url, site } = await editor({ TYKERF_RUNNER: 'anthropic', TYKERF_API_KEY: 'k', TYKERF_API_BASE_URL: `http://127.0.0.1:${(api.address() as { port: number }).port}` });
     const post = (path: string, data: unknown) => fetch(`${url}${path}`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(data) });
-    for (const name of ['busy', 'other', 'target']) await post('_tykerf/site/new', { name, layout: 'blank' });
+    for (const name of ['busy', 'other', 'target']) await post('_tykerf/site/new', { name, layout: 'blank', shared: false }); // each page's own navigation
     new Workspace(join(site, 'busy')).setContent('nav', '<a href="/target/">Target</a>', 'user');
     replies.splice(0);
     replies.push({ ...message([{ type: 'text', text: 'done' }], 'end_turn'), delay: 4000 } as any);
@@ -403,7 +403,7 @@ describe('Kaity for the whole site', () => {
   it('goes through the pages one by one from the site manager, while page-level work waits', async () => {
     const { url, site } = await editor({ TYKERF_RUNNER: 'anthropic', TYKERF_API_KEY: 'k', TYKERF_API_BASE_URL: `http://127.0.0.1:${(api.address() as { port: number }).port}` });
     const post = (path: string, data: unknown) => fetch(`${url}${path}`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(data) });
-    for (const name of ['rome', 'munich']) await post('_tykerf/site/new', { name, layout: 'blank' });
+    for (const name of ['rome', 'munich']) await post('_tykerf/site/new', { name, layout: 'blank', shared: false }); // each page's own navigation, which she changes page by page
     const nav = '<nav><a href="/rome/">Rome</a> <a href="/munich/">Munich</a></nav>';
     const call = (id: string, name: string, input: unknown, delay = 200) => ({ ...message([{ type: 'tool_use', id, name, input }]), delay }) as any;
     replies.splice(0);

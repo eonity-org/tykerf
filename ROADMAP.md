@@ -69,6 +69,7 @@ Needs from the Tydal team: a `tykerf-page` schema (a resource bundling `layout.s
 
 - Spanish: `src/editor/public/i18n/es.json`, the user guide in `docs/user-guide/es/`, and server messages.
 - Sites (done locally: a folder of pages, the start screen, New page…). Page renames with links that follow, a link picker and exporting a page or a site as plain files are done ([plan](docs/plans/0.2-finish.md)). The site as a Tydal Vault is postponed, with no date. A shared site theme and *New page like this one* are done; the rest of the site manager (sections, shared media, a navigation menu) is [not scheduled yet](docs/plans/site-manager.md); when it comes, it opens from the editor's Site menu.
+- Collections: pages that are data (news, projects), with fields, an index and previous/next made at render time, and a WordPress importer.
 - Drag blocks to rearrange them; wheel layouts in the editor.
 - The AI places a picture attached in the AI tab into a box (saved to `assets/`).
 - Listing in the MCP Registry once the Desktop extension or an npm package exists.

@@ -44,7 +44,7 @@ Use **Site → Kaity status… → Test**. It sends one short request and shows 
 The API runners stop a request after 40 steps, and a single model turn after 180 seconds (`TYKERF_TURN_TIMEOUT` changes that). What she did so far stays. Ask her to go on in the same conversation.
 
 **Kaity refuses to change something.**
-In the Kaity tab and in *Give only these to Kaity*, she can only change the selected block. Select the block you mean (or `page`) and ask there, or use **Give Kaity every task**, which works on the whole page. The theme can be changed only with `page` selected, and the site's shared head (Styles & scripts) is never hers to change.
+In the Kaity tab and in *Give only these to Kaity*, she can only change the selected block. Select the block you mean (or `page`) and ask there, or use **Give Kaity every task**, which works on the whole page. The theme can be changed only with `page` selected, and the site's shared head (its head code) is never hers to change.
 
 **Undo and redo say *Kaity is working on …*.**
 While Kaity works, undo and redo wait, so they can't undo half of her change. Wait until she is done, or stop her (*Stop* in the Kaity tab, or the **×** of the build window).
@@ -88,6 +88,10 @@ TYKERF edits in place only when it can find that exact text in the box's code. T
 
 **An image is the wrong size on the page.**
 An image's size comes from its box or from the section's layout, not from the image file. Drag the box's handles, or leave Kaity a task on the section. See [Editing in place](editor.md#editing-in-place).
+
+**"A behaviour failed on this page"**
+
+A behaviour of the site kit (a script an element asks for with `data-use`) stopped with an error on this page. The browser's console (right-click → *Inspect* → *Console*) says why and on which element. Open it in the site manager (*Site kit & head code*, under *Behaviours*): an element missing what it expects, often; for a library behaviour that you changed, **Update from the library** puts its version back.
 
 ## Copying, exporting and publishing
 
