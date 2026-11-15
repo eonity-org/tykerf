@@ -413,12 +413,13 @@ body.full-screen .layout { grid-template-columns: minmax(0, 1fr); }
 
 /* the second button's menu, on the page */
 .ctxmenu { position: fixed; z-index: 45; min-width: 240px; max-width: 360px; padding: 6px; border: 1px solid var(--line-strong); border-radius: 10px; background: #fff; box-shadow: 0 12px 32px rgb(16 48 63 / .22); }
-.ctxmenu .ctxhead { display: grid; gap: 1px; margin: 0 0 6px; padding: 6px 10px 9px; border-bottom: 1px solid var(--line); }
+/* the header: what the menu acts on, in a band of its own (the lines below only part the groups of actions) */
+.ctxmenu .ctxhead { display: grid; gap: 2px; margin: -6px -6px 6px; padding: 11px 16px 10px; border-radius: 9px 9px 0 0; background: var(--ground); border-bottom: 1px solid var(--line); }
 .ctxmenu .ctxhead b { font-size: 15px; color: var(--ink); }
 .ctxmenu .ctxhead span { font-size: 14px; color: var(--ink-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .ctxmenu [role=menuitem] { display: block; width: 100%; padding: 8px 10px; border: 0; border-radius: 6px; background: none; font-size: 15px; text-align: left; color: var(--ink); cursor: pointer; }
 .ctxmenu [role=menuitem]:hover, .ctxmenu [role=menuitem]:focus-visible { background: var(--selected); outline: none; }
-.ctxmenu hr { margin: 4px 6px; border: 0; border-top: 1px solid var(--line); }
+.ctxmenu hr { margin: 5px 10px; border: 0; border-top: 1px solid #E4EDF1; }
 .ctxmenu [role=menuitem].danger { color: var(--problem); }
 .ctxmenu .ctxconfirm { padding: 6px 8px; }
 .ctxmenu .ctxconfirm p { margin: 0 0 10px; font-size: 14px; color: var(--ink); }
