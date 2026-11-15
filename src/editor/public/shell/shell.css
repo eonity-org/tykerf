@@ -99,16 +99,18 @@ button, input, textarea, select { font: inherit; color: inherit; }
 .compare .row { display: flex; justify-content: flex-end; }
 
 /* the task box, anchored to the element it is about */
-.taskbox { position: absolute; width: min(440px, calc(100% - 24px)); padding: 14px 16px 16px; border: 1px solid var(--line-strong); border-radius: 12px; background: #fff; box-shadow: 0 12px 32px rgb(16 48 63 / .18); pointer-events: auto; }
-.taskbox .where { display: flex; align-items: center; gap: 8px; margin: 0 0 10px; font-size: 14px; color: var(--ink-2); }
+.taskbox { position: absolute; width: min(440px, calc(100% - 24px)); padding: 0 16px 16px; border: 1px solid var(--line-strong); border-radius: 12px; background: #fff; box-shadow: 0 12px 32px rgb(16 48 63 / .18); pointer-events: auto; }
+/* its header: light, as the full editor's (tykerf.css :host(.embedded) .head), with the same × */
+.taskbox .where { display: flex; align-items: center; gap: 8px; min-height: 44px; margin: 0 -16px 12px; padding: 7px 8px 7px 16px; border-bottom: 1px solid var(--line); border-radius: 11px 11px 0 0; background: var(--ground); font-size: 14px; color: var(--ink-2); }
 .taskbox .where b { flex: none; color: var(--ink); font-size: 15px; }
 .taskbox .where .what { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .taskbox .where .chip { flex: none; padding: 0 6px; border-radius: 4px; background: var(--tag); color: var(--ink); font-size: 12px; font-weight: 600; line-height: 20px; }
 .taskbox .where button.num { flex: none; border: 0; cursor: pointer; }
 .taskbox .where button.num.q { border: 1px solid var(--bar); }
 .taskbox .where button.num:focus-visible { outline: 3px solid var(--bar); outline-offset: 1px; }
-.taskbox .where .x { flex: none; margin-left: auto; width: 28px; height: 28px; padding: 0; border: 0; border-radius: 6px; background: none; color: var(--ink-2); font-size: 20px; line-height: 1; cursor: pointer; }
-.taskbox .where .x:hover, .taskbox .where .x:focus-visible { background: var(--selected); color: var(--ink); outline: none; }
+.taskbox .where .x { flex: none; margin-left: auto; width: 30px; height: 30px; padding: 0; border: 1px solid #6FA6C0; border-radius: 8px; background: #fff; color: var(--ink); font-size: 17px; line-height: 1; cursor: pointer; }
+.taskbox .where .x:hover { background: var(--selected); }
+.taskbox .where .x:focus-visible { outline: 3px solid var(--task); outline-offset: 2px; }
 .taskbox .field { position: relative; }
 .taskbox .addpic { position: absolute; right: 22px; bottom: 6px; display: grid; place-items: center; width: 30px; height: 30px; padding: 0; border: 0; border-radius: 6px; background: #fff; color: var(--ink-2); cursor: pointer; }
 .taskbox .addpic:hover, .taskbox .addpic:focus-visible { background: var(--selected); color: var(--bar); outline: none; }

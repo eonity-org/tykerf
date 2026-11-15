@@ -618,3 +618,12 @@ textarea.code { flex: 1; min-height: 120px; font: var(--mono); tab-size: 2; whit
 :host(.embedded) .item .chip.shared { font-size: 11px; font-weight: 600; padding: 0 6px; border-radius: 4px; margin-left: 6px; }
 /* compacted while the site's sidebar is open (the shell asks: tykerfSidebar) */
 .compacted-note { flex: none; color: var(--muted); font-size: 13px; white-space: nowrap; }
+/* what the full editor shares with the task box: the amber of the block in focus. The block's name in the header is
+   underlined in it (as the frame round the block on the page), and a field being typed in, or anything reached with
+   the keyboard, gets the task box's amber ring */
+:host(.embedded) .path button[aria-current] { box-shadow: inset 0 -2px 0 var(--focus); border-radius: 5px 5px 0 0; }
+:host(.embedded) :focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
+:host(.embedded) :is(input, textarea, select):focus, :host(.embedded) .w-name:focus { outline: 3px solid var(--focus); outline-offset: 1px; border-color: var(--focus-under); }
+:host(.embedded) .menu button:focus-visible, :host(.embedded) .pop .mini:focus-visible { outline: none; }
+/* room for that ring where the fields scroll (it would be cut at their edges) */
+:host(.embedded) .fields { padding: 5px 6px 5px 5px; margin: -5px -6px -5px -5px; }
