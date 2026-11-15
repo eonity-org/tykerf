@@ -8,6 +8,20 @@
 
 ## Unreleased
 
+### The v3 editor: one bar, the page at its real size, Kaity task by task
+
+- **One editor for the page and the site.** A page opens with one bar on top and the page below it, in a frame at its real width, untouched. Leaving tasks is the normal way to work: click anything, say what should change (or ask: end with `?`), and **Give them to Kaity**. The site manager and the editor's floating toolbar are gone; the page's name at the left of the bar opens the site.
+- **Kaity works through the tasks one at a time**, each only in the box it points at, questions last. The bar says which task she is on, the tray shows each one as she goes, and the page follows her. When she needs something only you know (a price, a name), she asks, and the task waits for your answer.
+- **The review.** Each task's card says what she changed, with *Before and after*, a check that fits it (*See it on a phone*, *Try the link*), **Undo this one** (only that task's work) and *Ask for more*. **Undo all she did** takes the run back as one step. What a task left unfinished (sample text, a link that goes nowhere) is listed on its card, with **Fix them** (part of the task, so Undo this one takes both) or **Leave them as they are**. *See her conversation on …* shows everything asked on that box.
+- **Pictures with a task:** up to five (pick, paste or drop: a screenshot, a sketch, a design), sent to Kaity with the task and shown on its card.
+- **The right-click menu** (also **More…** in the task box): *Ask a question here…*, *Edit this text* (or a double click: the words change right on the page), *Fix it by hand*, *Add a box below / beside…* (the task box opens on the new box), *Delete this box…*, *Open … in the full editor*. Each is one step Undo takes back.
+- **Fixing one thing by hand** shows only the element clicked: a button's words and where it leads, a heading's words, a picture's description. Bigger fixes open the full editor on that box and tab.
+- **The full editor stays**, for long manual work: **Tasks | Full editor** in the bar. Its header keeps only editing (the path, Dim/Blur, Undo/Redo, Compact, × back to Tasks), its text is a size larger, and Kaity is asked with tasks there too (its Kaity tab is gone).
+- **The site in a sidebar.** The pages as cards (open, rename, duplicate, remove, home, title), *Ask Kaity about the whole site*, and the site's screens: every task of the site (**Give Kaity everything**, page by page), shared blocks and the kit, the check, media, links between pages, Kaity's work, the site's history and trash, head code, icon and language, Publish and the exports. It stays open from page to page until you close it, or folds to its edge; over the page, or with the page shrunk to fit beside it.
+- **The page at a tablet's or a phone's width** from the bar (768 or 375 px); a task written then remembers that width. **Hide tykerf** (Alt+Shift+T) shows the page as a visitor sees it.
+- **New page** is a screen of its own: describe it or show it (pictures, or a design exported as a ZIP) and Kaity builds it while the page fills in below the bar; or start from a layout or a copy of a web page.
+- **Undo all she did no longer refuses** a run in which a task was added after her first change (a later step now gets in the way only when it changed the same part after her).
+
 - **The site's icon can be undone.** Uploading an icon, or going back to the one made from the site's name, is a step of the site's history: **Undo** in the site manager puts the previous icon back.
 - **For developers: a site in memory.** `new Site(new MemoryStore('memory:shop'))` is a whole site, its pages views of the store: tests and previews no longer need a folder. Renaming, removing and duplicating pages still need one.
 

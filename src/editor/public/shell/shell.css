@@ -55,7 +55,12 @@ button, input, textarea, select { font: inherit; color: inherit; }
 .bar .switcher .addr { font-family: var(--mono); font-size: 13px; color: inherit; opacity: .8; }
 .bar .switcher .chev { width: 12px; height: 12px; }
 .bar .hint { margin: 0; flex: 1 1 260px; min-width: 0; font-size: 14px; opacity: .92; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.bar .status { flex: 1 1 260px; min-width: 0; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; font-weight: 600; }
+.bar .status { flex: 1 1 260px; min-width: 0; display: flex; align-items: center; gap: 10px; font-weight: 600; }
+/* one line, whatever it says: a long status ends in … (its tooltip has it all), so the bar never grows */
+.bar .status > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bar .status > span:first-of-type { flex: 0 1 auto; }
+.bar .status > .chip { flex: 0 10 auto; }
+.bar .status > .btn, .bar .status > .kaity { flex: none; }
 .bar .chip { display: inline-flex; align-items: center; gap: 6px; max-width: 46ch; padding: 3px 10px; border-radius: 8px; background: rgb(0 0 0 / .18); font-weight: 400; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
 .bar .actions { display: flex; flex-wrap: wrap; gap: 8px; margin-left: auto; }
 .kaity { display: inline-flex; }
@@ -68,6 +73,8 @@ button, input, textarea, select { font: inherit; color: inherit; }
 .stage.tablet { background: var(--ground); }
 .stage.phone .viewport, .stage.tablet .viewport { width: 375px; max-width: 100%; outline: 1px solid var(--line-strong); box-shadow: 0 0 24px rgb(16 48 63 / .12); }
 .stage.tablet .viewport { width: 768px; }
+/* only the page takes a tablet's or a phone's width: the task box keeps its own, and may go past the page's sides */
+.stage.phone .taskbox, .stage.tablet .taskbox { width: min(440px, calc(100vw - 24px)); }
 .frame { display: block; width: 100%; height: 100%; border: 0; background: #fff; }
 .overlay { position: absolute; inset: 0; pointer-events: none; overflow: hidden; z-index: 10; }
 .outline { position: absolute; border: 2px solid var(--task); border-radius: 3px; pointer-events: none; }

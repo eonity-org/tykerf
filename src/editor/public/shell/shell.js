@@ -121,6 +121,10 @@ function draw() {
   // the full editor draws its own outlines and pins in the page
   if (FULL) return void (overlay.innerHTML = '');
   const out = [];
+  // the page shrunk to fit beside a panel: labels (pins, Kaity's tag) are drawn back at their own size, each anchored
+  // at the corner that touches its element, so they stay readable and still point at it
+  const u = S.zoom && S.zoom < 0.999 ? 1 / S.zoom : 1;
+  const unzoom = (above) => (u === 1 ? '' : `scale:${u};transform-origin:${above ? 'left bottom' : 'left top'};`);
   const target = S.box ? frame.taskEl(S.box.block, S.box.path) : null;
   const tr = frame.rect(target);
   if (tr) out.push(outline(tr, 'target'));
@@ -136,8 +140,9 @@ function draw() {
   if (nr) {
     out.push(outline(nr, 'kaity'));
     // on the outline's top-left corner, above the element (inside it at the top of the page): never over the page's content beside it
-    const left = Math.max(4, Math.min(nr.left - 3, frame.width - 150)), top = nr.top >= 30 ? nr.top - 30 : nr.top + 4;
-    out.push(`<span class="ktag" style="left:${left}px;top:${top}px">${esc(t('{n} · Kaity is here', { n: now.question ? '?' : now.n }))}</span>`);
+    const above = nr.top >= 30 * u;
+    const left = Math.max(4, Math.min(nr.left - 3, frame.width - 150 * u)), top = above ? nr.top - 30 : nr.top + 4;
+    out.push(`<span class="ktag" style="left:${left}px;top:${top}px;${unzoom(above)}">${esc(t('{n} · Kaity is here', { n: now.question ? '?' : now.n }))}</span>`);
   }
   // pins: one per open task, and "done" on the tasks Kaity finished in this run; on one element they line up leftwards
   const pins = [
@@ -151,11 +156,11 @@ function draw() {
     if (!r) continue;
     const i = taken.get(el) ?? 0;
     taken.set(el, i + 1);
-    const inside = !x.path?.length || r.top < 24;
+    const inside = !x.path?.length || r.top < 24 * u;
     const shown = kind === 'done' ? t('{n} done', { n: x.n }) : kind === 'question' ? '?' : String(x.n);
-    const left = Math.min(r.right, frame.width - 30 - (kind === 'done' ? 40 : 0)) - i * 34, top = inside ? r.top + 2 : r.top - 24;
+    const left = Math.min(r.right, frame.width - (30 + (kind === 'done' ? 40 : 0)) * u) - i * 34 * u, top = inside ? r.top + 2 : r.top - 24;
     const name = kind === 'done' ? t('Task {n}, done: {text}', { n: x.n, text: x.text }) : kind === 'question' ? t('Question {n}: {text}', { n: x.n, text: x.text }) : t('Task {n}: {text}', { n: x.n, text: x.text });
-    out.push(`<button class="pin ${kind}" data-pin="${x.n}" style="left:${left}px;top:${top}px" title="${esc(name)}" aria-label="${esc(name)}">${esc(shown)}</button>`);
+    out.push(`<button class="pin ${kind}" data-pin="${x.n}" style="left:${left}px;top:${top}px;${unzoom(!inside)}" title="${esc(name)}" aria-label="${esc(name)}">${esc(shown)}</button>`);
   }
   overlay.innerHTML = out.join('');
   const tb = $('.taskbox');
@@ -315,7 +320,10 @@ function placeBox(el, r) {
   const W = vp.clientWidth, H = vp.clientHeight, w = el.offsetWidth / k, h = el.offsetHeight / k;
   const below = r.bottom + 12, above = r.top - 12 - h;
   const top = below + h <= H || above < 0 ? Math.min(Math.max(8, below), Math.max(8, H - h - 8)) : above;
-  el.style.left = `${Math.max(12, Math.min(r.left + r.width / 2 - w / 2, W - w - 12))}px`;
+  // at a tablet's or a phone's width the page is a column in the middle of the stage: the box may go past its sides,
+  // and stays on the stage
+  const off = S.device === 'full' ? 0 : vp.offsetLeft, room = S.device === 'full' ? W : $('.stage').clientWidth;
+  el.style.left = `${Math.max(12 - off, Math.min(r.left + r.width / 2 - w / 2, room - off - w - 12))}px`;
   el.style.top = `${top}px`;
 }
 
@@ -836,6 +844,8 @@ function renderBar() {
   const widths = `<div class="widths" role="group" aria-label="${esc(t('The page\'s width'))}">${Object.entries(DEVICES).map(([k, d]) =>
     `<button type="button" data-device="${k}" aria-pressed="${S.device === k}" aria-label="${esc(titleOf(k, d))}" title="${esc(titleOf(k, d))}"><svg viewBox="0 0 24 24" aria-hidden="true">${d.icon}</svg><span class="size">${esc(sizeOf(k, d))}</span></button>`).join('')}</div>`;
   bar.innerHTML = `${switcher}${modes}${widths}${middle}<div class="actions">${actions}</div>`;
+  // what the status says in full, where it ends in …
+  for (const s of bar.querySelectorAll('.status > span, .hint')) s.title = s.textContent;
 }
 
 bar.addEventListener('click', async (e) => {

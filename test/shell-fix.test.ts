@@ -144,7 +144,15 @@ describe('fixing by hand in the v3 editor', () => {
     expect(Math.round((await page.locator('.taskbox').boundingBox())!.width)).toBe(440);
     const box = (await page.locator('.taskbox').boundingBox())!, stage = (await page.locator('.stage').boundingBox())!;
     expect(box.x + box.width).toBeLessThanOrEqual(stage.x + stage.width + 1); // and it stays on the screen
-    await page.keyboard.press('Escape');
+    // so is the task's pin (22 px high, as without a panel), on the element's top edge
+    await page.locator('.taskbox textarea').fill('Shorter');
+    await page.locator('.taskbox [data-box="add"]').click();
+    const n = tasks(ws).at(-1)!.n;
+    const pin = page.locator(`.pin[data-pin="${n}"]`);
+    await pin.waitFor();
+    expect(Math.round((await pin.boundingBox())!.height)).toBe(22);
+    const h1 = (await frame().locator('[data-sw="hero"] h1').boundingBox())!;
+    expect(Math.abs((await pin.boundingBox())!.y + 22 - h1.y)).toBeLessThan(6);
     await page.locator('.sidebar [data-mode="over"]').click();
     await page.locator('.sidebar [data-sb="collapse"]').click();
   });

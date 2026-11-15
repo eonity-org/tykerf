@@ -19,7 +19,7 @@ TYKERF gives people and AI a shared language for building and changing web pages
 - **Publish in one click.** The site goes to a GitHub repository that GitHub Pages, Cloudflare Pages or Netlify serve, one commit per publish, only what changed. Or export a `.zip`, or let TYKERF serve the site itself while you sign in to edit it.
 - **An MCP server** with the same moves, so any MCP client can edit a TYKERF page.
 
-![A page in TYKERF's editor: the page's tree, a box selected on the page, and its text ready to edit](docs/user-guide/images/editor.png)
+![A page in TYKERF's editor: the bar on top, a button outlined on the page, and the box for a task on it](docs/user-guide/images/editor.png)
 
 **See it in 3 minutes:** one sentence on New page, and Kaity builds a page about Lisbon with facts, trivia, games and illustrations.
 
