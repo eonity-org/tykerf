@@ -49,6 +49,8 @@ On a **new or empty folder**, TYKERF opens on **New page**. Give the first page 
 - **From a layout:** pick one, and the theme the whole site will share ([layouts](layouts.md)).
 - **From a copy of a web page:** see [copying a website](importing.md).
 
+On a site with pages, **+ Page** also offers **Like a page of this site**: the new page takes that page's navigation, footer and look, with one empty section between them for its own content (a page without a navigation and a footer is copied whole). The page you came from is chosen; click another to start from it.
+
 Page names are lowercase letters, digits and `-`: they are folder names and addresses (`/home/`, `/about/`).
 
 ## The site's screens

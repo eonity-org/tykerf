@@ -23,8 +23,16 @@ export interface Task {
   images?: string[];
   by: string; // user | ai
   at: string;
-  done?: { by: string; at: string; reply?: string };
+  done?: { by: string; at: string; reply?: string; next?: Suggestion[] };
 }
+
+/**
+ * Something the person can do in one click after Kaity's reply (close_task's `suggest`): share a box with every
+ * page of the site, open a box to fix by hand, go to another page. The editor shows each as a button on the task.
+ */
+export interface Suggestion { do: 'share' | 'open' | 'page'; name: string }
+export const SUGGESTIONS = ['share', 'open', 'page'] as const;
+const MAX_SUGGESTIONS = 3;
 
 /** A task as it reads now: its block under the block's current name, and whether the block is gone. */
 export type TaskNow = Task & { gone?: true };
@@ -109,10 +117,13 @@ function update(ws: Workspace, n: number, label: string, by: string, fn: (x: Tas
   });
 }
 
-export function closeTask(ws: Workspace, n: number, by = 'user', reply?: string, within?: string | null): TaskNow {
+export function closeTask(ws: Workspace, n: number, by = 'user', reply?: string, within?: string | null, next: Suggestion[] = []): TaskNow {
   const r = reply?.trim().slice(0, MAX_TEXT);
+  if (next.length > MAX_SUGGESTIONS) throw new Error(`at most ${MAX_SUGGESTIONS} suggestions`);
+  const seen = new Set<string>();
+  const nx = next.filter((x) => SUGGESTIONS.includes(x.do) && !seen.has(`${x.do} ${x.name}`) && seen.add(`${x.do} ${x.name}`));
   return update(ws, n, 'close task #', by, (x) => {
-    x.done = { by, at: new Date().toISOString(), ...(r ? { reply: r } : {}) };
+    x.done = { by, at: new Date().toISOString(), ...(r ? { reply: r } : {}), ...(nx.length ? { next: nx.map(({ do: d, name }) => ({ do: d, name })) } : {}) };
   }, within);
 }
 

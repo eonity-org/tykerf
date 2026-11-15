@@ -150,9 +150,12 @@ describe('fixing by hand in the v3 editor', () => {
     const n = tasks(ws).at(-1)!.n;
     const pin = page.locator(`.pin[data-pin="${n}"]`);
     await pin.waitFor();
-    expect(Math.round((await pin.boundingBox())!.height)).toBe(22);
+    // (a redraw replaces the pins: measure it again until it holds)
     const h1 = (await frame().locator('[data-sw="hero"] h1').boundingBox())!;
-    expect(Math.abs((await pin.boundingBox())!.y + 22 - h1.y)).toBeLessThan(6);
+    await expect.poll(async () => {
+      const b = await pin.boundingBox();
+      return b && Math.round(b.height) === 22 && Math.abs(b.y + 22 - h1.y) < 6;
+    }).toBe(true);
     await page.locator('.sidebar [data-mode="over"]').click();
     await page.locator('.sidebar [data-sb="collapse"]').click();
   });

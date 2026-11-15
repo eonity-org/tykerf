@@ -638,7 +638,11 @@ const newScreen = {
     const taken = site.pages;
     let n = taken.length + 1;
     while (taken.includes(`page-${n}`)) n++;
-    draft ??= { name: `page-${n}`, prompt: '', images: [], zip: null, layout: layouts.some((l) => l.name === 'launch') ? 'launch' : layouts[0].name, url: '', structureOnly: false, shared: true, theme: themes.some((x) => x.name === 'studio') ? 'studio' : themes[0].name };
+    // Like a page: the page the screen was opened from, else the home page
+    const from = new URLSearchParams(location.search).get('from');
+    const likeFirst = taken.includes(from) ? from : taken.includes(site.home) ? site.home : taken[0] ?? '';
+    draft ??= { like: likeFirst, name: `page-${n}`, prompt: '', images: [], zip: null, layout: layouts.some((l) => l.name === 'launch') ? 'launch' : layouts[0].name, url: '', structureOnly: false, shared: true, theme: themes.some((x) => x.name === 'studio') ? 'studio' : themes[0].name };
+    if (!taken.includes(draft.like)) draft.like = likeFirst;
     const L = () => layouts.find((l) => l.name === draft.layout);
     const draw = () => {
       const nm = draft.name || '…';
@@ -689,6 +693,12 @@ const newScreen = {
             <p class="note">${esc(t('The site\'s pages share it. You can change the colours, fonts and spacing later in the full editor\'s Page tab.'))}</p>`}
             <div class="row"><button class="btn primary" type="submit">${esc(t('Create {name} from it', { name: nm }))}</button><a class="btn" href="/_tykerf/preview/${encodeURIComponent(draft.layout)}/${site.sharedTheme ? 'site' : encodeURIComponent(draft.theme)}/" target="_blank" rel="noopener">${esc(t('Preview at full size'))}</a></div>
           </form>
+          ${taken.length ? `<form class="np-card" data-np="like">
+            <h3>${esc(t('Like a page of this site'))}</h3>
+            <p class="note">${esc(t('Its navigation, footer and look, with one empty section between them for the new content. A page without a navigation and a footer is copied whole.'))}</p>
+            <div class="np-chips">${taken.map((p) => `<button type="button" class="btn" data-like="${esc(p)}" aria-pressed="${p === draft.like}">${esc(p)}</button>`).join('')}</div>
+            <div class="row"><button class="btn primary" type="submit">${esc(t('Create {name} like {page}', { name: nm, page: draft.like }))}</button></div>
+          </form>` : ''}
           <form class="np-card" data-np="copy">
             <h3>${esc(t('From a copy of a web page'))}</h3>
             <p class="note">${esc(t('TYKERF opens the site in a browser and cuts the page into rows, columns and boxes. The copy is a starting point, not a perfect clone: check it at desktop and phone widths.'))}</p>
@@ -746,6 +756,8 @@ const newScreen = {
         for (const p of main.querySelectorAll('.np-name .note')) p.firstChild.textContent = t('Its address will be /{name}/.', { name: draft.name || '…' });
         const b = $('[data-np="layout"] [type="submit"]', main);
         if (b) b.textContent = t('Create {name} from it', { name: draft.name || '…' });
+        const lb = $('[data-np="like"] [type="submit"]', main);
+        if (lb) lb.textContent = t('Create {name} like {page}', { name: draft.name || '…', page: draft.like });
       }
     };
     main.onchange = (e) => {
@@ -758,6 +770,8 @@ const newScreen = {
     main.onclick = (e) => {
       const lay = e.target.closest('[data-layout]')?.dataset.layout;
       if (lay) return (draft.layout = lay), draw();
+      const like = e.target.closest('[data-like]')?.dataset.like;
+      if (like) return (draft.like = like), draw();
       if (e.target.closest('[data-unpic]')) return draft.images.splice(Number(e.target.closest('[data-unpic]').dataset.unpic), 1), draw();
       if (e.target.closest('[data-unzip]')) return (draft.zip = null), draw();
       if (e.target.closest('.np-drop')) $('.np-drop input', main).click();
@@ -783,7 +797,8 @@ const newScreen = {
       } else if (kind === 'copy') {
         if (!/^https?:\/\/[^\s/]+\S*$/i.test(draft.url.trim())) return error(t('Write the address of the page to copy, starting with https://'), $('#np-url', main));
         body = { name, url: draft.url.trim(), structureOnly: draft.structureOnly };
-      } else body = { name, layout: draft.layout, shared: draft.shared, ...(site.sharedTheme ? {} : { theme: draft.theme }) };
+      } else if (kind === 'like') body = { name, like: draft.like };
+      else body = { name, layout: draft.layout, shared: draft.shared, ...(site.sharedTheme ? {} : { theme: draft.theme }) };
       for (const b of main.querySelectorAll('[type="submit"]')) b.disabled = true;
       try {
         await request('/_tykerf/site/new', body);

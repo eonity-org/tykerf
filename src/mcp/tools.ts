@@ -15,7 +15,7 @@ import { pathOf, positionOf, resolveRef } from '../refs.js';
 import { inScope, scopeViolation } from '../scope.js';
 import { cost, optimize } from '../shape.js';
 import { leftovers, missingFiles, say } from '../check.js';
-import { closeTask, sayTask, tasks } from '../tasks.js';
+import { SUGGESTIONS, type Suggestion, closeTask, sayTask, tasks } from '../tasks.js';
 import { type KitKind, blockSlots, kitClasses, kitFonts, kitLibraryScripts, kitList, kitRead, kitTags, kitWarning, kitWrite } from '../kit.js';
 import { removeMediaFile, siteMedia } from '../site.js';
 import { HOME_PAGE, blockUsers, linkBlock, newSitePage, pageTitle, pagesWithOwnTheme, pageWorkspace, readSite, setLang, setTitle, shareTheme, removePage, renamePage, shareBlock, movedFiles, siteHead, siteKind, unlinkBlock, unsafeSVG, siteOf, sitePages, usePage } from '../site.js';
@@ -1139,8 +1139,25 @@ export function createTykerfServer(start: Workspace | null, opts: TykerfServerOp
   server.registerTool('close_task', {
     title: 'Close a task', annotations: CHANGE,
     description: 'Mark a task done once what it asks for is done (or a question answered), with a short reply the person will read next to it: what you changed and what you left alone ("Changed the heading\'s size at phone width. Nothing else in hero moved."), or, for a question, your answer. Only tasks inside the scope.',
-    inputSchema: { n: z.number().int().min(1).describe('the task\'s number, as list_tasks gives it'), reply: z.string().max(2000).optional().describe('one or two sentences for the person; for a question, the answer') },
-  }, guard(({ n, reply }: { n: number; reply?: string }) => `closed ${sayTask(closeTask(ws, n, 'ai', reply, scope()))}`));
+    inputSchema: {
+      n: z.number().int().min(1).describe('the task\'s number, as list_tasks gives it'),
+      reply: z.string().max(2000).optional().describe('one or two sentences for the person; for a question, the answer'),
+      suggest: z.array(z.object({
+        do: z.enum(SUGGESTIONS).describe('share: share this box with every page of the site; open: open this box for the person to fix by hand; page: go to this page of the site'),
+        name: z.string().min(1).max(80).describe('the box\'s name on this page (share, open), or the page\'s name (page)'),
+      })).max(3).optional().describe('only when your reply points at it: up to 3 things the person can then do in one click (the reply "hero is the same on both pages" → share hero). They do it, not you.'),
+    },
+  }, guard(({ n, reply, suggest }: { n: number; reply?: string; suggest?: Suggestion[] }) => {
+    const l = ws.load();
+    for (const x of suggest ?? []) {
+      const node = x.do === 'page' ? null : find(l.root, x.name)?.node;
+      if (x.do === 'page' && !ws.site?.pageNames().includes(x.name)) throw new Error(`suggest: the site has no page "${x.name}"`);
+      if (x.do !== 'page' && node?.type !== 'leaf') throw new Error(`suggest: "${x.name}" is not a box on this page`);
+      if (x.do === 'share' && !ws.site) throw new Error('suggest: only a page of a site shares boxes');
+      if (x.do === 'share' && node?.type === 'leaf' && node.use) throw new Error(`suggest: "${x.name}" is shared already (it shows the shared block "${node.use}")`);
+    }
+    return `closed ${sayTask(closeTask(ws, n, 'ai', reply, scope(), suggest))}`;
+  }));
 
   if (opts.tag) {
     const tag = opts.tag;

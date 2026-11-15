@@ -3,7 +3,7 @@
 // the Anthropic runner against a fake API.
 
 import { type ChildProcess, spawn } from 'node:child_process';
-import { existsSync, mkdtempSync } from 'node:fs';
+import { existsSync, readFileSync, mkdtempSync } from 'node:fs';
 import { createServer, type Server } from 'node:http';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -103,5 +103,22 @@ describe('a new page in the v3 editor', () => {
     expect(existsSync(join(site, 'about', 'layout.slice'))).toBe(true);
     // without the site's header: the bar is back, with no job
     expect(await page.locator('.bar .hint').isVisible()).toBe(true);
+  });
+
+  it('starts one like a page of the site: its navigation, footer and look, one empty section between', async () => {
+    await page.goto(`${base}/_tykerf/edit/_site/new?from=about`);
+    const like = page.locator('[data-np="like"]');
+    // the page it was opened from is chosen
+    expect(await like.locator('[data-like="about"]').getAttribute('aria-pressed')).toBe('true');
+    await like.locator('[data-like="first"]').click();
+    await page.locator('#np-name').fill('contact');
+    expect(await like.locator('[type="submit"]').textContent()).toBe('Create contact like first');
+    await like.locator('[type="submit"]').click();
+    await page.waitForURL(/\/_tykerf\/edit\/contact\/$/);
+    await page.frameLocator('.frame').locator('[data-sw="main"]').waitFor();
+    const slice = readFileSync(join(site, 'contact', 'layout.slice'), 'utf8');
+    expect(slice).toMatch(/\bnav\b/);
+    expect(slice).toMatch(/\bfooter\b/);
+    expect(slice).not.toMatch(/\bhero\b/);
   });
 });

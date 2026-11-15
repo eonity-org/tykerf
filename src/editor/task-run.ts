@@ -9,7 +9,7 @@
 // at the width the task was written at, are kept in .tykerf/runs/<run>/ until the person keeps the result.
 
 import { askFile } from '../mcp/tools.js';
-import { type TaskNow, sayTask, tasks } from '../tasks.js';
+import { type Suggestion, type TaskNow, sayTask, tasks } from '../tasks.js';
 import type { AI, Attachment, RunEnd } from './ai.js';
 import { runId } from './kaity-log.js';
 import type { Workspace } from '../workspace.js';
@@ -23,6 +23,7 @@ export interface RunTask {
   text: string;
   question?: true;
   summary?: string; // what she changed (her close_task reply), her answer to a question, or why it failed
+  next?: Suggestion[]; // what she suggests the person does next (close_task's suggest): buttons on the card
   asked?: string; // her question to the person (needs-you)
   answer?: string; // the person's answer, given to her with the task again
   step?: string; // what she is doing now
@@ -57,6 +58,7 @@ export function taskPrompt(x: TaskNow, t: RunTask): string {
       ...asked,
       'Answer it. You can look at the page (get_layout, get_content, screenshot at the width it was asked at) but change nothing.',
       `Then close it with close_task (n: ${x.n}) and your answer as the reply, in two or three sentences. If you can't answer without something only the person knows, use ask_person.`,
+      'When your answer points at something the person can then do in one click (share a box with every page, open a box to fix it by hand, go to another page), add it as close_task\'s suggest.',
     ].join('\n');
   }
   return [
@@ -169,7 +171,7 @@ export class TaskRun {
     const x = tasks(this.ws).find((y) => y.n === t.n);
     if (t.fix) return this.fixLeft(t, x);
     if (!x || x.done || x.gone) {
-      Object.assign(t, { state: x?.done ? (t.question ? 'answered' : 'done') : 'failed', summary: x?.done?.reply ?? (x ? `the block ${x.block} is gone` : 'the task was removed') });
+      Object.assign(t, { state: x?.done ? (t.question ? 'answered' : 'done') : 'failed', summary: x?.done?.reply ?? (x ? `the block ${x.block} is gone` : 'the task was removed'), ...(x?.done?.next ? { next: x.done.next } : {}) });
       this.save();
       return this.next();
     }
@@ -275,7 +277,7 @@ export class TaskRun {
       t.state = 'waiting'; // what she changed so far stays, and can be undone with the rest
       this.cur!.stopping = true;
     } else if (x?.done) {
-      Object.assign(t, { state: t.question ? 'answered' : 'done', summary: x.done.reply || r.answer });
+      Object.assign(t, { state: t.question ? 'answered' : 'done', summary: x.done.reply || r.answer, ...(x.done.next ? { next: x.done.next } : {}) });
       delete t.asked;
       delete t.answer;
     } else if (asked) Object.assign(t, { state: 'needs-you', asked });

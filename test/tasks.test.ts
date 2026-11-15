@@ -10,6 +10,7 @@ import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { AI, type RunEvents, type RunRequest, type Runner } from '../src/editor/ai.js';
 import * as M from '../src/moves.js';
 import { createPage } from '../src/library.js';
+import { newSitePage } from '../src/site.js';
 import { addTask, clearDone, closeTask, removeTask, reopenTask, sayTask, tasks } from '../src/tasks.js';
 import { MemoryStore } from '../src/store.js';
 import { Workspace } from '../src/workspace.js';
@@ -93,6 +94,24 @@ describe('tasks', () => {
     expect((await whole.call('list_tasks', {})).text).toBe('#2 on cta: Another colour');
     await whole.close();
     expect(tasks(ws)[0].done).toMatchObject({ by: 'ai' });
+  });
+
+  it('keeps what she suggests doing next, only boxes and pages that are there', async () => {
+    const site = join(mkdtempSync(join(tmpdir(), 'tykerf-suggest-')), 'site');
+    const ws = newSitePage(site, 'first', 'launch', 'studio');
+    newSitePage(site, 'second', 'launch', 'studio');
+    addTask(ws, { block: 'hero', text: 'Is hero the same on second?', question: true });
+    const { openTools } = await import('../src/editor/tools-client.js');
+    const tools = await openTools(ws, 'page');
+    const close = (suggest: unknown) => tools.call('close_task', { n: 1, reply: 'Yes.', suggest });
+    expect((await close([{ do: 'open', name: 'nothing' }])).text).toMatch(/"nothing" is not a box on this page/);
+    expect((await close([{ do: 'page', name: 'third' }])).text).toMatch(/the site has no page "third"/);
+    // nav shows the site's shared block already
+    expect((await close([{ do: 'share', name: 'nav' }])).text).toMatch(/"nav" is shared already/);
+    expect(tasks(ws, { open: true })).toHaveLength(1);
+    expect((await close([{ do: 'share', name: 'hero' }, { do: 'page', name: 'second' }, { do: 'share', name: 'hero' }])).text).toMatch(/^closed/);
+    await tools.close();
+    expect(tasks(ws)[0].done?.next).toEqual([{ do: 'share', name: 'hero' }, { do: 'page', name: 'second' }]);
   });
 });
 

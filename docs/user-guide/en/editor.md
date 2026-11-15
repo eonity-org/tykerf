@@ -47,6 +47,7 @@ When she stops, the bar sums it up (*Kaity stopped · 2 done, 1 answered, 1 need
 - When she **left something unfinished** in it (sample text, a placeholder picture, a link that goes nowhere), the card lists it: **Fix them** has her finish it as part of the task; **Leave them as they are** keeps it, and it isn't listed again.
 - When she **needs you** (a price, a name, which of two options), the card shows her question and a field: **Answer and continue** gives her the answer and she goes on; *Leave it for later* keeps the task open.
 - An **answered question** shows what you asked and her answer, with *Ask a follow-up* and *Got it*.
+- When her answer or her summary points at something you can do in one click, the card has it as a button: **Share hero with every page** (the box becomes one of the site's shared blocks, as on *Shared blocks*), **Open hero** (to fix it by hand) or **Go to about**. A button goes once it's done.
 
 **Keep the changes** closes the review. Everything she did stays a normal change, which Undo takes back step by step.
 

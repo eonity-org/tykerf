@@ -455,6 +455,25 @@ function leftNote(r) {
     ${r.left.state === 'open' ? `<div class="row">${btn('fix-left', t('Fix them'), 'primary')}${btn('leave-left', t('Leave them as they are'))}</div>` : ''}</div>`;
 }
 
+/** A box of the page as the state has it (its leaf: `shared` when it shows a shared block), or null. */
+function boxOf(id, n = S.tree) {
+  if (!n) return null;
+  if (n.id === id) return n.kind === 'box' ? n : null;
+  for (const c of n.children ?? []) {
+    const b = boxOf(id, c);
+    if (b) return b;
+  }
+  return null;
+}
+
+/** What Kaity suggests doing after her reply (close_task's suggest), as buttons; those done or no longer possible go. */
+function nextSteps(r) {
+  const ok = (x) => (x.do === 'page' ? (S.site?.pages ?? []).includes(x.name) && x.name !== PAGE : !!boxOf(x.name) && !(x.do === 'share' && boxOf(x.name).shared));
+  const label = (x) => ({ share: t('Share {box} with every page', { box: x.name }), open: t('Open {box}', { box: x.name }), page: t('Go to {page}', { page: x.name }) })[x.do];
+  const list = (r.next ?? []).map((x, i) => ({ ...x, i })).filter(ok);
+  return list.map((x) => btn('next', label(x), 'primary', `data-next="${x.i}"`)).join('');
+}
+
 /** A task in Kaity's run: what she is doing, did, or needs; and what the person can do about it. */
 function runCard(r) {
   const x = taskOf(r.n) ?? { n: r.n, block: r.block, label: '', text: r.text, kind: r.question ? 'question' : undefined };
@@ -476,14 +495,14 @@ function runCard(r) {
   } else if (r.state === 'done') {
     body = r.undone ? `<p class="note">${esc(t('Her work on it was undone.'))}</p>` : `<p class="note">${esc(r.summary ?? '')}</p>${r.left ? leftNote(r) : ''}`;
     actions = r.undone ? btn('again', t('Give it to her again'))
-      : `${check(x)}${r.before && r.after ? btn('compare', busy ? t('See before and after') : t('Before and after')) : ''}${btn('undo', t('Undo this one'), '', busy ? `disabled title="${esc(t('When she is done'))}"` : '')}${btn('more', t('Ask for more'))}${convoBtn(x)}`;
+      : `${nextSteps(r)}${check(x)}${r.before && r.after ? btn('compare', busy ? t('See before and after') : t('Before and after')) : ''}${btn('undo', t('Undo this one'), '', busy ? `disabled title="${esc(t('When she is done'))}"` : '')}${btn('more', t('Ask for more'))}${convoBtn(x)}`;
   } else if (r.state === 'answered') {
     return `<article class="card" data-card="${r.n}">
       ${where(x, badge)}
       <p class="youasked">${esc(t('You asked: {q}', { q: x.text }))}</p>${pics(x)}
       <p class="answer">${esc(r.summary ?? '')}</p>
       ${more}
-      <div class="row">${S.more?.n === r.n ? '' : btn('more', t('Ask a follow-up'))}${btn('seen', t('Got it'))}${convoBtn(x)}</div>
+      <div class="row">${S.more?.n === r.n ? '' : `${nextSteps(r)}${btn('more', t('Ask a follow-up'))}`}${btn('seen', t('Got it'))}${convoBtn(x)}</div>
     </article>`;
   } else if (r.state === 'needs-you') {
     return `<article class="card needs" data-card="${r.n}">
@@ -576,6 +595,7 @@ tray.addEventListener('click', async (e) => {
     if (act === 'try') return tryIt(x);
     if (act === 'compare') return compare(n);
     if (act === 'convo') return conversation(S.run?.tasks.find((y) => y.n === n)?.block ?? x?.block);
+    if (act === 'next') return nextStep(S.run?.tasks.find((y) => y.n === n)?.next?.[Number(b.dataset.next)]);
     if (act === 'fix-left') return runAct('/taskrun/fix', { n });
     if (act === 'leave-left') return runAct('/taskrun/leave-left', { n });
     if (act === 'more') return (S.more = { n, draft: '' }), renderTray(), $(`.card[data-card="${n}"] [data-more]`)?.focus();
@@ -602,6 +622,22 @@ tray.addEventListener('click', async (e) => {
     failed(err);
   }
 });
+
+/** Do what Kaity suggested: share a box with every page (as Shared blocks does), open one, go to a page. */
+async function nextStep(x) {
+  if (!x) return;
+  if (x.do === 'page') return location.assign(shellOf(x.name, false));
+  if (x.do === 'open') {
+    const el = frame.taskEl(x.name, null);
+    if (!el) return toast(t('{block} is not on the page any more', { block: x.name }), true);
+    frame.show(el, trayHeight());
+    return openFix({ block: x.name, path: null, label: '', el });
+  }
+  const { result } = await api('/op', { op: 'share', id: x.name });
+  toast(t('{box} is shared now: every page can show it, and a change to it reaches them all.', { box: result?.name ?? x.name }));
+  await loadState();
+  renderTray();
+}
 
 /** "Ask for more" / "Ask a follow-up": a new task on the same element, given to Kaity at once. */
 async function askMore(x) {
@@ -923,6 +959,8 @@ function layoutStage() {
     Object.assign(vp.style, { position: 'absolute', left: `${side}px`, top: '0', width: `${W}px`, height: `${H / k}px`, transform: `scale(${k})`, transformOrigin: '0 0', margin: '0' });
     S.zoom = k;
   }
+  // the tray comes down beside the sidebar (open or folded), never under it
+  $('.tray').style.left = sidebar.isShown() ? `${sidebar.el.offsetWidth}px` : '';
   renderBar();
   draw();
 }

@@ -3,7 +3,7 @@
 // that closes each task it is given.
 
 import { type ChildProcess, spawn } from 'node:child_process';
-import { mkdtempSync, readFileSync } from 'node:fs';
+import { existsSync, mkdtempSync, readFileSync } from 'node:fs';
 import { createServer, type Server } from 'node:http';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -26,7 +26,9 @@ function kaity(body: { messages: { role: string; content: { type: string; text?:
   const prompt = msgs[i].content.filter((c) => c.type === 'text').map((c) => c.text).join('\n');
   const n = Number(/^(?:Task|Question) (\d+):/.exec(prompt)?.[1]);
   const turn = msgs.slice(i + 1).filter((m) => m.role === 'assistant').length;
-  return n && turn === 0 ? message([{ type: 'tool_use', id: 'c', name: 'close_task', input: { n, reply: `Did task ${n}.` } }]) : message([{ type: 'text', text: 'done' }], 'end_turn');
+  // her answer to the question on second's hero suggests sharing it, and going to first
+  const suggest = prompt.startsWith('Question') ? { suggest: [{ do: 'share', name: 'hero' }, { do: 'page', name: 'first' }] } : {};
+  return n && turn === 0 ? message([{ type: 'tool_use', id: 'c', name: 'close_task', input: { n, reply: `Did task ${n}.`, ...suggest } }]) : message([{ type: 'text', text: 'done' }], 'end_turn');
 }
 
 describe('the site in the v3 editor', () => {
@@ -172,5 +174,19 @@ describe('the site in the v3 editor', () => {
     // she went through both pages; each page keeps its review
     await expect.poll(() => screen.locator('.state.done').count(), { timeout: 15_000 }).toBe(2);
     expect(await screen.locator('[data-t="all"]').isDisabled()).toBe(true);
+  });
+
+  it('does what her answer suggests in one click: shares the box, goes to the page', async () => {
+    await page.goto(`${base}/_tykerf/edit/second/`);
+    await page.frameLocator('.frame').locator('[data-sw="hero"]').waitFor();
+    await page.locator('[data-bar="tray"]').click();
+    const q = page.locator('.card[data-card="2"]');
+    const share = q.locator('[data-card-act="next"]', { hasText: 'Share hero with every page' });
+    await share.click();
+    await expect.poll(() => existsSync(join(site, 'kit', 'blocks', 'hero.html'))).toBe(true);
+    // shared now: that button goes, the other stays
+    await expect.poll(() => share.count()).toBe(0);
+    await q.locator('[data-card-act="next"]', { hasText: 'Go to first' }).click();
+    await page.waitForURL(`${base}/_tykerf/edit/first/`);
   });
 });

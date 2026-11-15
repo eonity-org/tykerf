@@ -37,7 +37,7 @@ function kaity(body: { messages: { role: string; content: { type: string; text?:
     if (/Their answer: \$90/.test(prompt)) return turn === 0 ? message([call('close_task', { n: 2, reply: 'Added $90 a year.' })]) : say('Added it.');
     return turn === 0 ? message([call('ask_person', { question: 'What is the yearly price?' })]) : say('I need the yearly price.');
   }
-  if (prompt.startsWith('Question 3:')) return turn === 0 ? message([call('close_task', { n: 3, reply: 'Yes: hero is the same on both pages.' })]) : say('Answered.');
+  if (prompt.startsWith('Question 3:')) return turn === 0 ? message([call('close_task', { n: 3, reply: 'Yes: hero is the same on both pages.', suggest: [{ do: 'open', name: 'hero' }] })]) : say('Answered.');
   return say('done');
 }
 
@@ -142,6 +142,12 @@ describe('Kaity in the v3 editor', () => {
     const q = page.locator('.card[data-card="3"]');
     expect(await q.locator('.youasked').textContent()).toBe('You asked: Is this box the same on second?');
     expect(await q.locator('.answer').textContent()).toBe('Yes: hero is the same on both pages.');
+    // what her answer points at, in one click: here, the box to fix by hand
+    await q.locator('[data-card-act="next"]', { hasText: 'Open hero' }).click();
+    await page.locator('.fixbar .fxtitle', { hasText: 'The hero box' }).waitFor();
+    await page.locator('.fixbar [data-fx="close"]').click();
+    await expect.poll(() => page.locator('.fixbar').isHidden()).toBe(true);
+    await page.locator('[data-bar="tray"]').click();
     await q.locator('[data-card-act="seen"]').click();
     await expect.poll(() => q.count()).toBe(0);
   });
