@@ -45,7 +45,7 @@ const S = {
   lit: null, // the task card to light up in the tray
   more: null, // the card whose "Ask for more" field is open: { n, draft }
   answers: {}, // drafts of answers to Kaity's questions, by task
-  phone: false, // the page at a phone's width (See it on a phone)
+  device: 'full', // the page's width: full, a tablet held upright (768 px) or a phone (375 px); the bar switches it
   trying: null, // the task whose result is being tried on the page (Try the button)
   followed: null, // the task Kaity was last followed to
   scrolledAt: 0, // when the person last scrolled the page themselves
@@ -615,22 +615,33 @@ function showTask(x) {
   flash(el);
 }
 
-/** The page at a phone's width, on the task's element; Back to full width ends it. */
+/** The widths the page can be seen at, from the bar: its own, a tablet held upright, a phone. */
+const DEVICES = {
+  full: { px: null, label: () => t('Full width'), icon: '<rect x="2" y="4" width="20" height="13" rx="1.5"/><path d="M8 20h8M12 17v3"/>' },
+  tablet: { px: 768, label: () => t('Tablet, upright (768 px)'), icon: '<rect x="5" y="2" width="14" height="20" rx="2"/><path d="M11 18.5h2"/>' },
+  phone: { px: 375, label: () => t('Phone (375 px)'), icon: '<rect x="7" y="3" width="10" height="18" rx="2"/><path d="M11 18h2"/>' },
+};
+
+/** The page at that width (the frame lays out again at it; tasks written now say that width). */
+function setDevice(d) {
+  if (!DEVICES[d] || S.device === d) return;
+  S.device = d;
+  const stage = $('.stage');
+  stage.classList.toggle('phone', d === 'phone');
+  stage.classList.toggle('tablet', d === 'tablet');
+  layoutStage();
+  setTimeout(draw, 60);
+}
+
+/** The page at a phone's width, on the task's element; the bar's Full width ends it. */
 function seeOnPhone(x) {
-  S.phone = true;
-  $('.stage').classList.add('phone');
   S.tray = false;
   renderTray();
-  renderBar();
+  setDevice('phone');
   // the frame lays out again at 375 px before the element is found
   setTimeout(() => x && showTask(x), 120);
 }
-function fullWidth() {
-  S.phone = false;
-  $('.stage').classList.remove('phone');
-  renderBar();
-  setTimeout(draw, 60);
-}
+const fullWidth = () => setDevice('full');
 
 /** Try the result: the page reacts as for a visitor until Done (links that leave the page only say where they lead). */
 function tryIt(x) {
@@ -765,13 +776,12 @@ function renderBar() {
   const modes = `<nav class="modes" aria-label="${esc(t('Mode'))}"><a href="${shellOf(PAGE, false)}" ${FULL ? '' : 'aria-current="page"'}>${esc(t('Tasks'))}</a><a href="${fullEditor(!FULL ? fix?.selected : null)}" ${FULL ? 'aria-current="page"' : ''} aria-label="${esc(t('Full editor'))}" title="${esc(t('Every block in detail: the box tree, text, code, sizes, look and the page\'s theme'))}">${esc(t('Full editor'))}</a></nav>`;
   const stepsBtn = `<button type="button" class="btn" data-bar="tray" aria-expanded="${S.tray}">${esc(S.tray ? t('Hide the steps') : t('Show the steps'))}</button>`;
   let middle, actions;
-  const zoom = S.zoom && S.zoom < 0.999 ? `<span class="zoom" title="${esc(t('The page is laid out at its real width and shrunk to fit beside the panel'))}">${esc(t('{n} %', { n: Math.round(S.zoom * 100) }))}</span>` : '';
   if (FULL && !running()) {
-    middle = `<p class="hint">${esc(t('Every block in detail: select one on the page or in the tree.'))}</p>${zoom}`;
+    middle = `<p class="hint">${esc(t('Every block in detail: select one on the page or in the tree.'))}</p>`;
     // the tray is Tasks' own (R9): from here the count leads there
     actions = `<a class="btn" href="${shellOf(PAGE, false)}" title="${esc(t('Your tasks are in Tasks'))}">${esc(count)}</a>${hideBtn}`;
   } else if (fix?.isOpen()) {
-    middle = `<div class="status" role="status"><span>${esc(t('Fixing by hand · {what}', { what: fix.what() }))}</span>${zoom}<button type="button" class="btn main" data-bar="done-fixing">${esc(t('Done, back to tasks'))}</button></div>`;
+    middle = `<div class="status" role="status"><span>${esc(t('Fixing by hand · {what}', { what: fix.what() }))}</span><button type="button" class="btn main" data-bar="done-fixing">${esc(t('Done, back to tasks'))}</button></div>`;
     actions = `<button type="button" class="btn" data-bar="tray" aria-expanded="${S.tray}">${esc(count)}</button>
       <button type="button" class="btn" data-bar="undo" title="${esc(undoTitle)}" aria-label="${esc(undoTitle)}" ${S.canUndo ? '' : 'disabled'}>${esc(t('Undo'))}</button>${hideBtn}`;
   } else if (S.job && !S.trying) {
@@ -798,16 +808,24 @@ function renderBar() {
     actions = `<button type="button" class="btn main" data-bar="keep">${esc(kept === 0 ? t('Close the review') : kept === 1 ? t('Keep the change') : t('Keep the {n} changes', { n: kept }))}</button>
       ${kept ? `<button type="button" class="btn" data-bar="undo-all">${esc(t('Undo all she did'))}</button>` : ''}${stepsBtn}${hideBtn}`;
   } else {
-    middle = `<p class="hint">${esc(t('Click anything on the page and say what should change.'))}</p>${zoom}`;
+    middle = `<p class="hint">${esc(t('Click anything on the page and say what should change.'))}</p>`;
     actions = `<button type="button" class="btn${S.tray ? ' on' : ''}" data-bar="tray" aria-expanded="${S.tray}">${esc(S.tray ? t('{count} · close', { count }) : count)}</button>
       <button type="button" class="btn main" data-bar="give" ${open.length ? '' : 'disabled'}>${esc(open.length === 1 ? t('Give it to Kaity') : t('Give them to Kaity'))}</button>
       <button type="button" class="btn" data-bar="undo" title="${esc(undoTitle)}" aria-label="${esc(undoTitle)}" ${S.canUndo ? '' : 'disabled'}>${esc(t('Undo'))}</button>${hideBtn}`;
   }
-  const phone = S.phone ? `<button type="button" class="btn on" data-bar="full">${esc(t('375 px · back to full width'))}</button>` : '';
-  bar.innerHTML = `${switcher}${modes}${middle}<div class="actions">${phone}${actions}</div>`;
+  // the page's width: full (with how small it is shown, shrunk to fit beside a panel), a tablet held upright, a phone;
+  // each says its own in a label of fixed width, so the box, and what comes after it, never move
+  const pct = Math.round((S.device === 'full' ? S.zoom || 1 : 1) * 100);
+  const sizeOf = (k, d) => (d.px ? String(d.px) : t('{n} %', { n: pct }));
+  const titleOf = (k, d) => (k === 'full' && pct < 100 ? `${d.label()} · ${t('The page is laid out at its real width and shrunk to fit beside the panel')}` : d.label());
+  const widths = `<div class="widths" role="group" aria-label="${esc(t('The page\'s width'))}">${Object.entries(DEVICES).map(([k, d]) =>
+    `<button type="button" data-device="${k}" aria-pressed="${S.device === k}" aria-label="${esc(titleOf(k, d))}" title="${esc(titleOf(k, d))}"><svg viewBox="0 0 24 24" aria-hidden="true">${d.icon}</svg><span class="size">${esc(sizeOf(k, d))}</span></button>`).join('')}</div>`;
+  bar.innerHTML = `${switcher}${modes}${widths}${middle}<div class="actions">${actions}</div>`;
 }
 
 bar.addEventListener('click', async (e) => {
+  const device = e.target.closest('[data-device]')?.dataset.device;
+  if (device) return setDevice(device);
   const act = e.target.closest('[data-bar]')?.dataset.bar;
   if (!act) return;
   if (act === 'pages') return sidebar.toggle();
@@ -815,7 +833,6 @@ bar.addEventListener('click', async (e) => {
   if (act === 'give') return giveKaity(openTasks().map((x) => x.n));
   if (act === 'hide') return hide();
   if (act === 'undo') return undo();
-  if (act === 'full') return fullWidth();
   if (act === 'done-trying') return doneTrying();
   if (act === 'done-fixing') return fix.close();
   if (act === 'job-stop') return api('/job/stop', {}).catch(failed);
@@ -848,11 +865,17 @@ const hide = () => (location.href = `/${encodeURIComponent(PAGE)}/?tykerf=hidden
 
 // ---------- the site sidebar, from the page switcher (site.js) ----------
 
-/** "Over the page" or "Shrink the page to fit", at the top of both sidebars; the choice is remembered. */
+/**
+ * "Over the page" or "Shrink the page to fit", at the top of both sidebars; the choice is remembered. In Full editor
+ * mode the page is always over: the full editor is in the page's frame, so shrinking the page would shrink its panel
+ * too. Shrink shows there greyed out, with why (aria-disabled, so its tooltip still shows).
+ */
+const NO_SHRINK = () => t('In the full editor the page isn\'t shrunk: its panel would shrink with it.');
 const modeSwitch = () => `<div class="modesw" role="group" aria-label="${esc(t('The page beside this panel'))}">
-  <button type="button" data-mode="over" aria-pressed="${S.mode === 'over'}">${esc(t('Over the page'))}</button>
-  <button type="button" data-mode="shrink" aria-pressed="${S.mode === 'shrink'}">${esc(t('Shrink the page to fit'))}</button></div>`;
+  <button type="button" data-mode="over" aria-pressed="${FULL || S.mode === 'over'}">${esc(t('Over the page'))}</button>
+  <button type="button" data-mode="shrink" aria-pressed="${!FULL && S.mode === 'shrink'}" ${FULL ? `aria-disabled="true" title="${esc(NO_SHRINK())}"` : ''}>${esc(t('Shrink the page to fit'))}</button></div>`;
 function setMode(m) {
+  if (FULL) return toast(NO_SHRINK());
   S.mode = m;
   store.set('sidebarMode', m);
   for (const b of document.querySelectorAll('.modesw [data-mode]')) b.setAttribute('aria-pressed', String(b.dataset.mode === m));
@@ -866,7 +889,7 @@ function setMode(m) {
 function layoutStage() {
   const vp = $('.viewport'), stage = $('.stage');
   const panel = fix?.isOpen() ? fix.el : sidebar.isShown() ? sidebar.el : null;
-  const shrink = panel && S.mode === 'shrink' && !S.phone;
+  const shrink = panel && S.mode === 'shrink' && S.device === 'full' && !FULL;
   if (!shrink) {
     vp.style.cssText = '';
     S.zoom = 1;
@@ -920,7 +943,7 @@ function keys(e) {
     if (S.box) return closeBox();
     if (fix.isOpen()) return fix.close();
     if (S.trying) return doneTrying();
-    if (S.phone) return fullWidth();
+    if (S.device !== 'full') return fullWidth();
     if (S.tray) return closeTray();
   }
   if ((e.metaKey || e.ctrlKey) && !e.shiftKey && e.key.toLowerCase() === 'z' && !inField) return e.preventDefault(), undo();

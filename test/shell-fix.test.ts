@@ -87,10 +87,37 @@ describe('fixing by hand in the v3 editor', () => {
     // the page keeps its width; it is scaled to fit beside the panel, and the bar says how much
     expect(await page.locator('.frame').evaluate((f: HTMLIFrameElement) => f.contentWindow!.innerWidth)).toBe(1440);
     expect(await page.locator('.viewport').evaluate((v) => getComputedStyle(v).transform)).toMatch(/^matrix\(0\.7/);
-    expect(await page.locator('.bar .zoom').textContent()).toMatch(/^7\d %$/);
+    expect(await page.locator('.bar [data-device="full"]').textContent()).toMatch(/^7\d %$/); // on the full-width button
     // over the page, the page is as it was
     await panel().locator('[data-mode="over"]').click();
     expect(await page.locator('.viewport').evaluate((v) => getComputedStyle(v).transform)).toBe('none');
+  });
+
+  it('never shrinks the page in Full editor mode: its panel is in the page, and would shrink with it', async () => {
+    await panel().locator('[data-mode="shrink"]').click();
+    const url = page.url();
+    await page.goto(url.replace(/\/$/, '/?mode=full'));
+    await frame().locator('.panel').waitFor();
+    await page.locator('[data-bar="pages"]').click();
+    await page.locator('.sidebar .pcard').first().waitFor();
+    // the switch is there, as in Tasks: Over the page, and Shrink greyed out with why
+    expect(await page.locator('.sidebar [data-mode="over"]').getAttribute('aria-pressed')).toBe('true');
+    const shrink = page.locator('.sidebar [data-mode="shrink"]');
+    expect(await shrink.getAttribute('aria-disabled')).toBe('true');
+    expect(await shrink.getAttribute('title')).toMatch(/isn't shrunk: its panel would shrink with it/);
+    await shrink.click({ force: true }); // (it can be clicked: it says why, and nothing changes)
+    await page.locator('.toast', { hasText: "isn't shrunk" }).waitFor();
+    expect(await page.locator('.viewport').evaluate((v) => getComputedStyle(v).transform)).toBe('none');
+    expect(await page.locator('.bar [data-device="full"]').textContent()).toBe('100 %');
+    // back in Tasks, shrink to fit is as the person left it
+    await page.locator('.sidebar [data-sb="collapse"]').click();
+    await page.goto(url);
+    await frame().locator('[data-sw="hero"]').waitFor();
+    await frame().locator('[data-sw="hero"] h1').click();
+    await page.locator('.taskbox [data-box="hand"]').click();
+    await panel().locator('.fxtitle').waitFor();
+    expect(await page.locator('.viewport').evaluate((v) => getComputedStyle(v).transform)).toMatch(/^matrix\(0\.7/);
+    await panel().locator('[data-mode="over"]').click();
   });
 
   it('leaves it as a task for Kaity instead', async () => {

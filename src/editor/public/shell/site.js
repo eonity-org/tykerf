@@ -112,7 +112,7 @@ export function createSidebar({ page = null, docked = false, go, screen = () => 
     const s = info.site, states = screenStates(info);
     const now = screen();
     el.innerHTML = `
-      <div class="sbtop">${!docked && modeSwitch ? modeSwitch() : ''}${docked ? '' : `<button type="button" class="btn small" data-sb="fold" aria-label="${esc(t('Fold the sidebar to its edge'))}" title="${esc(t('Fold the sidebar to its edge'))}">‹</button>`}<button type="button" class="btn small" data-sb="collapse">${esc(docked ? t('Collapse') : t('Close'))}</button></div>
+      <div class="sbtop">${!docked && modeSwitch ? modeSwitch() : ''}<span class="sbacts">${docked ? '' : `<button type="button" class="btn small" data-sb="fold" aria-label="${esc(t('Fold the sidebar to its edge'))}" title="${esc(t('Fold the sidebar to its edge'))}">‹</button>`}<button type="button" class="btn small" data-sb="collapse">${esc(docked ? t('Collapse') : t('Close'))}</button></span></div>
       <form class="askk">
         ${kaityMark(false, true)}
         <label for="ask-site">${esc(t('Ask Kaity about the whole site'))}</label>

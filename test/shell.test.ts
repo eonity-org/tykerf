@@ -124,6 +124,9 @@ describe('the v3 editor', () => {
     await page.waitForURL(/\/home\/\?tykerf=hidden$/);
     expect(await page.locator('.bar').count()).toBe(0);
     expect(await page.locator('tykerf-root').count()).toBe(0);
+    // TYKERF's pill in the corner: its mark and a word
+    expect(await page.locator('[data-tykerf-show] svg rect').count()).toBe(5);
+    expect(await page.locator('[data-tykerf-show]').textContent()).toBe('Show tykerf');
     await page.locator('[data-tykerf-show]').click();
     await page.waitForURL(/\/_tykerf\/edit\/home\/$/);
     await page.locator('.bar .switcher').waitFor();
@@ -133,6 +136,25 @@ describe('the v3 editor', () => {
     await page.waitForURL(/tykerf=hidden$/);
     await page.keyboard.press('Alt+Shift+KeyT');
     await page.waitForURL(/\/_tykerf\/edit\/home\/$/);
+  });
+
+  it('shows the page at a tablet\'s or a phone\'s width from the bar, and tasks written then say that width', async () => {
+    const width = () => page.locator('.frame').evaluate((f: HTMLIFrameElement) => f.contentWindow!.innerWidth);
+    expect(await page.locator('.bar .widths [aria-pressed="true"]').getAttribute('data-device')).toBe('full');
+    expect(await page.locator('.bar .widths button').allTextContents()).toEqual(['100 %', '768', '375']);
+    const box = () => page.locator('.bar .widths').evaluate((e) => e.getBoundingClientRect().width);
+    const before = await box();
+    await page.locator('.bar [data-device="tablet"]').click();
+    await expect.poll(width).toBe(768);
+    expect(await box()).toBe(before); // the box doesn't change size, so the hint after it stays where it is
+    expect(await page.locator('.bar [data-device="tablet"]').textContent()).toBe('768');
+    await page.locator('.bar [data-device="phone"]').click();
+    await expect.poll(width).toBe(375);
+    await frame().locator('[data-sw="hero"] h1').click();
+    expect(await page.locator('.taskbox .where').textContent()).toContain('seen at 375 px');
+    await page.keyboard.press('Escape'); // the task box
+    await page.keyboard.press('Escape'); // then the full width again
+    await expect.poll(width).toBe(1280);
   });
 
   it('fits a narrow window: the bar wraps, nothing scrolls sideways', async () => {

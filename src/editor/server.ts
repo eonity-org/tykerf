@@ -28,7 +28,7 @@ import { kaityRuns } from './kaity-log.js';
 import { type DesignZip, designContext, designNote, readDesignZip } from './design-zip.js';
 import { createAuth, loginPage } from './auth.js';
 import { ASSET_TYPES, pageFileRefs } from '../assets.js';
-import { type PageHost, body, createPageHost, json } from './page.js';
+import { type PageHost, body, cornerButton, createPageHost, json } from './page.js';
 import type { TaskRunState } from './task-run.js';
 import { runnerFromEnv } from './runners/index.js';
 
@@ -150,7 +150,7 @@ const auth = createAuth(process.env.TYKERF_ADMIN_PASSWORD, { secure: !!PUBLIC_UR
  * What a page shows a visitor whose browser signed in here before (the login page leaves tykerf.admin in its
  * storage): Edit with TYKERF, to sign in and come back to this page. Other visitors see nothing of TYKERF.
  */
-const EDIT_BUTTON = `<script>try{if(localStorage.getItem('tykerf.admin')==='true'){const a=document.createElement('a');a.href='/_tykerf/login?next='+encodeURIComponent(location.pathname+location.search);a.textContent='Edit with TYKERF';a.dataset.tykerfEdit='';a.setAttribute('style','position:fixed;right:16px;bottom:16px;z-index:2147483647;padding:10px 16px;border-radius:999px;background:#0A5475;color:#fff;font:600 14px/1.2 system-ui,sans-serif;text-decoration:none;box-shadow:0 4px 16px rgb(0 0 0 / .2)');document.body.append(a)}}catch{}</script>`;
+const EDIT_BUTTON = `<script>try{if(localStorage.getItem('tykerf.admin')==='true'){${cornerButton("'/_tykerf/login?next='+encodeURIComponent(location.pathname+location.search)", 'Edit with TYKERF', 'tykerfEdit')}}}catch{}</script>`;
 
 const hosts = new Map<string, PageHost>();
 

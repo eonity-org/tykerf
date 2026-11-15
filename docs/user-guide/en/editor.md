@@ -12,7 +12,7 @@ Open the page in the browser (by default http://localhost:4400). The page fills 
 
 ## The bar
 
-From left to right: the **page switcher** (the TYKERF mark, the page's name and address; it opens [the site](sites.md#the-sites-screens)), a hint or what Kaity is doing, then the **number of open tasks** (it opens them), **Give them to Kaity**, **Undo** (point at it to see which step it takes back) and **Hide tykerf**. After the page switcher, **Tasks | Full editor** switches between the two ways of working on the page. On a narrow window the bar wraps.
+From left to right: the **page switcher** (the TYKERF mark, the page's name and address; it opens [the site](sites.md#the-sites-screens)), a hint or what Kaity is doing, then the **number of open tasks** (it opens them), **Give them to Kaity**, **Undo** (point at it to see which step it takes back) and **Hide tykerf**. After the page switcher, **Tasks | Full editor** switches between the two ways of working on the page, and three small buttons show the page **at full width, on a tablet held upright (768 px) or on a phone (375 px)**: the page lays out again at that width, and a task you write then remembers it. Each button says its size; the full-width one says how much the page is shown at (*100 %*, or *72 %* when it is shrunk to fit beside a panel). Escape goes back to full width. On a narrow window the bar wraps.
 
 ## Tasks
 
@@ -43,7 +43,7 @@ You can keep leaving tasks meanwhile, and *Ask for more* on a finished one: they
 
 When she stops, the bar sums it up (*Kaity stopped · 2 done, 1 answered, 1 needs you*) with **Keep the changes** and **Undo all she did**. In the tray:
 
-- A **done** task has a way to check it that fits it (*See it on a phone* shows the page 375 px wide; *Try the button* or *Try the link* lets the page react until **Done trying**, a link to elsewhere only saying where it leads), **Before and after** (pictures of the box before she started and after), **Undo this one** (only that task's work, wherever it is in the history; Undo brings it back), **Ask for more** and *See her conversation on …* (everything asked on that box, her steps and answers, to read).
+- A **done** task has a way to check it that fits it (*See it on a phone* shows the page 375 px wide, as the bar's phone button does; *Try the button* or *Try the link* lets the page react until **Done trying**, a link to elsewhere only saying where it leads), **Before and after** (pictures of the box before she started and after), **Undo this one** (only that task's work, wherever it is in the history; Undo brings it back), **Ask for more** and *See her conversation on …* (everything asked on that box, her steps and answers, to read).
 - When she **left something unfinished** in it (sample text, a placeholder picture, a link that goes nowhere), the card lists it: **Fix them** has her finish it as part of the task; **Leave them as they are** keeps it, and it isn't listed again.
 - When she **needs you** (a price, a name, which of two options), the card shows her question and a field: **Answer and continue** gives her the answer and she goes on; *Leave it for later* keeps the task open.
 - An **answered question** shows what you asked and her answer, with *Ask a follow-up* and *Got it*.
@@ -62,7 +62,7 @@ While the panel is open, a click on the page picks the next thing to fix, and th
 
 ## Over the page, or shrunk to fit
 
-The panels on the left (the site, fixing by hand) open **over the page**: the page doesn't move. **Shrink the page to fit**, at their top, puts the page beside the panel instead: it keeps its real width, so nothing moves around in it, and is shown smaller; the bar says how much. TYKERF remembers your choice.
+The panels on the left (the site, fixing by hand) open **over the page**: the page doesn't move. **Shrink the page to fit**, at their top, puts the page beside the panel instead: it keeps its real width, so nothing moves around in it, and is shown smaller; the bar says how much. TYKERF remembers your choice. In the full editor the page is never shrunk (its panel is part of the page and would shrink with it): the site opens over the page there, and *Shrink the page to fit* is greyed out.
 
 ## The second button
 

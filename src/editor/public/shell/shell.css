@@ -65,7 +65,9 @@ button, input, textarea, select { font: inherit; color: inherit; }
 .stage { position: relative; min-height: 0; overflow: hidden; background: #fff; }
 .viewport { position: relative; width: 100%; height: 100%; margin: 0 auto; }
 .stage.phone { background: var(--ground); }
-.stage.phone .viewport { width: 375px; max-width: 100%; outline: 1px solid var(--line-strong); box-shadow: 0 0 24px rgb(16 48 63 / .12); }
+.stage.tablet { background: var(--ground); }
+.stage.phone .viewport, .stage.tablet .viewport { width: 375px; max-width: 100%; outline: 1px solid var(--line-strong); box-shadow: 0 0 24px rgb(16 48 63 / .12); }
+.stage.tablet .viewport { width: 768px; }
 .frame { display: block; width: 100%; height: 100%; border: 0; background: #fff; }
 .overlay { position: absolute; inset: 0; pointer-events: none; overflow: hidden; z-index: 10; }
 .outline { position: absolute; border: 2px solid var(--task); border-radius: 3px; pointer-events: none; }
@@ -192,8 +194,8 @@ button, input, textarea, select { font: inherit; color: inherit; }
 .sidebar { position: absolute; z-index: 25; left: 0; top: 0; bottom: 0; width: min(400px, 100%); overflow: auto; padding: 16px 18px 20px; background: var(--ground); border-right: 1px solid var(--line-strong); box-shadow: 8px 0 24px rgb(16 48 63 / .14); }
 .sidebar.docked { position: sticky; top: 0; height: 100%; box-shadow: none; }
 .sidebar h2 { margin: 0; font-size: 13px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-2); }
-.sidebar .sbtop { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 6px; margin-bottom: 10px; }
-.sidebar .sbtop .modesw { margin-right: auto; }
+.sidebar .sbtop { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-start; gap: 6px; margin-bottom: 10px; }
+.sidebar .sbtop .sbacts { display: flex; gap: 6px; margin-left: auto; }
 /* folded: only its edge, with › to open it again */
 .sidebar.folded { width: 22px; padding: 0; overflow: hidden; box-shadow: 2px 0 8px rgb(16 48 63 / .12); }
 .sidebar .sbunfold { display: grid; place-items: start center; width: 100%; height: 100%; padding: 14px 0 0; border: 0; background: var(--ground); color: var(--bar); font-size: 20px; font-weight: 600; line-height: 1; cursor: pointer; }
@@ -333,7 +335,8 @@ button, input, textarea, select { font: inherit; color: inherit; }
 .modesw button { padding: 5px 10px; border: 0; background: none; font-size: 13px; font-weight: 500; color: var(--ink); cursor: pointer; }
 .modesw button + button { border-left: 1px solid var(--line-strong); }
 .modesw button[aria-pressed=true] { background: var(--bar); color: #fff; }
-.bar .zoom { padding: 2px 8px; border-radius: 6px; background: rgb(0 0 0 / .2); font-size: 13px; font-weight: 600; }
+.modesw button[aria-disabled=true] { color: var(--ink-2); opacity: .55; cursor: not-allowed; }
+
 .bar .status .btn.main { margin-left: 4px; }
 
 /* ---------- fixing one thing by hand (R8) and the box tree (R9) ---------- */
@@ -426,3 +429,12 @@ body > .stage, body > .layout { grid-row: 3; }
 .bar .modes a[aria-current=page] { background: #fff; color: var(--bar); }
 .bar .modes a:not([aria-current]):hover { background: rgb(255 255 255 / .12); }
 .bar .modes a:focus-visible { outline: 3px solid var(--task); outline-offset: -3px; }
+/* the page's width: full, a tablet held upright, a phone */
+.bar .widths { display: inline-flex; flex: none; border: 1px solid rgb(255 255 255 / .55); border-radius: 8px; overflow: hidden; }
+.bar .widths button { display: inline-flex; align-items: center; gap: 4px; padding: 5px 8px; border: 0; background: none; color: #fff; font-size: 13px; font-weight: 600; cursor: pointer; }
+.bar .widths button + button { border-left: 1px solid rgb(255 255 255 / .55); }
+.bar .widths .size { display: inline-block; min-width: 5ch; text-align: left; font-variant-numeric: tabular-nums; }
+.bar .widths svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+.bar .widths button[aria-pressed=true] { background: #fff; color: var(--bar); }
+.bar .widths button:not([aria-pressed=true]):hover { background: rgb(255 255 255 / .12); }
+.bar .widths button:focus-visible { outline: 3px solid var(--task); outline-offset: -3px; }

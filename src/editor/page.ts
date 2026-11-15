@@ -88,15 +88,27 @@ export interface PageHost {
   handle(req: IncomingMessage, res: ServerResponse, p: string, url: URL): Promise<unknown>;
 }
 
+/** TYKERF's mark (BRAND.md; the shell's MARK): white blocks and the amber one, for the corner buttons on a page. */
+const CORNER_MARK = '<svg viewBox="0 0 64 64" width="18" height="18" aria-hidden="true" style="flex:none"><rect width="64" height="20" rx="6" fill="currentColor"/><rect y="27" width="28.5" height="37" rx="6" fill="currentColor"/><rect x="35.5" y="27" width="28.5" height="12" rx="3" fill="#EA9A27"/><rect x="35.5" y="45" width="11.25" height="19" rx="3" fill="currentColor"/><rect x="52.75" y="45" width="11.25" height="19" rx="3" fill="currentColor"/></svg>';
+
+/**
+ * A script that puts TYKERF's pill in the page's corner: its mark and a word, leading to `href` (a JS expression).
+ * Hide tykerf's *Show tykerf* and the visitors' *Edit with TYKERF* look alike.
+ */
+export function cornerButton(href: string, label: string, data: string): string {
+  return `const a=document.createElement('a');a.href=${href};a.innerHTML=${JSON.stringify(`${CORNER_MARK}<span>${label}</span>`)};a.dataset.${data}='';` +
+    `a.setAttribute('style','position:fixed;right:16px;bottom:16px;z-index:2147483647;display:flex;align-items:center;gap:8px;padding:9px 16px 9px 13px;border-radius:999px;background:#0A5475;color:#fff;font:600 14px/1.2 system-ui,sans-serif;text-decoration:none;box-shadow:0 4px 16px rgb(0 0 0 / .2)');` +
+    'document.body.append(a);';
+}
+
 /**
  * The page as a visitor sees it, after Hide tykerf in the v3 editor: a button back to the editor, and the same key
  * (Alt+Shift+T) that hid it.
  */
 function showTykerf(name: string): string {
   const to = JSON.stringify(`/_tykerf/edit/${encodeURIComponent(name)}/`);
-  return `<script>(()=>{const to=${to};const a=document.createElement('a');a.href=to;a.textContent='Show tykerf';a.dataset.tykerfShow='';` +
-    `a.setAttribute('style','position:fixed;right:16px;bottom:16px;z-index:2147483647;padding:10px 16px;border-radius:999px;background:#0A5475;color:#fff;font:600 14px/1.2 system-ui,sans-serif;text-decoration:none;box-shadow:0 4px 16px rgb(0 0 0 / .2)');` +
-    `document.body.append(a);addEventListener('keydown',(e)=>{if(e.altKey&&e.shiftKey&&e.code==='KeyT'){e.preventDefault();location.href=to}})})()</script>`;
+  return `<script>(()=>{const to=${to};${cornerButton('to', 'Show tykerf', 'tykerfShow')}` +
+    `addEventListener('keydown',(e)=>{if(e.altKey&&e.shiftKey&&e.code==='KeyT'){e.preventDefault();location.href=to}})})()</script>`;
 }
 
 export function createPageHost(ws: Workspace, opts: { name: string; site?: () => SiteInfo; runner?: Runner; title?: () => string; admin?: (req: IncomingMessage) => boolean; visitorEnd?: string; onTaskRun?: (run: TaskRunState | null) => void }): PageHost {

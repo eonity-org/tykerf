@@ -126,7 +126,8 @@ describe('Kaity in the v3 editor', () => {
     // the task was about a phone: the page at 375 px, then back
     await done.locator('[data-card-act="phone"]').click();
     await expect.poll(() => page.locator('.frame').evaluate((f: HTMLIFrameElement) => f.contentWindow!.innerWidth)).toBe(375);
-    await page.locator('[data-bar="full"]').click();
+    expect(await page.locator('.bar [data-device="phone"]').getAttribute('aria-pressed')).toBe('true');
+    await page.locator('.bar [data-device="full"]').click();
     await expect.poll(() => page.locator('.frame').evaluate((f: HTMLIFrameElement) => f.contentWindow!.innerWidth)).toBe(1280);
   });
 

@@ -222,6 +222,8 @@ describe('editing images in place', () => {
 
   it('makes a box narrower and centred with the handle on its right edge, and full width again', async () => {
     const img = page.locator('[data-sw="testimonials"] img');
+    // the previous test's change refreshes the page: wait for the picture to be back before measuring it
+    await expect.poll(async () => (await img.boundingBox())?.width ?? 0).toBeGreaterThan(0);
     const full = (await img.boundingBox())!.width;
     await page.locator('[data-sw="testimonials"]').scrollIntoViewIfNeeded();
     await page.locator('[data-sw="testimonials"] figcaption').click();
