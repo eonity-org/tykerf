@@ -62,11 +62,19 @@ While the panel is open, a click on the page picks the next thing to fix, and th
 
 ## Over the page, or shrunk to fit
 
-The panels on the left (the site, fixing by hand) open **over the page**: the page doesn't move. **Shrink the page to fit**, at their top, puts the page beside the panel instead: it keeps its real width, so nothing moves around in it, and is shown smaller; the bar says how much. TYKERF remembers your choice. In the full editor the page is never shrunk (its panel is part of the page and would shrink with it): the site opens over the page there, and *Shrink the page to fit* is greyed out.
+The panels on the left (the site, fixing by hand) open **over the page**: the page doesn't move. **Shrink the page to fit**, at their top, puts the page beside the panel instead: it keeps its real width, so nothing moves around in it, and is shown smaller (the task box stays at its own size); the bar says how much. TYKERF remembers your choice. In the full editor the page is never shrunk (its panel is part of the page and would shrink with it): the site opens over the page there, and *Shrink the page to fit* is greyed out.
 
 ## The second button
 
-**Right-click** anything on the page: *Leave a task here…*, *Fix it by hand*, *Move, add or delete boxes* (the full editor, on that box), *Open … in the full editor* and *Hide tykerf*.
+**Right-click** anything on the page for what can be done there:
+
+- *Leave a task here…* and *Fix it by hand*;
+- *Edit this text*, for a heading, a paragraph, a link or a button that holds only words: type the new words right on the page; **Enter** keeps them, **Esc** puts them back. **Double-click** the words does the same, as in the full editor;
+- *Add a box below…* or *Add a box beside…*: a new empty box, and the task box opens on it to say what should go there (Kaity fills it), or leave it empty;
+- *Delete this box…*, asked first: its code goes into the box before it;
+- *Open … in the full editor*, for everything else (renaming, sizes, code, moving boxes), and *Hide tykerf*.
+
+Each of these is one step that **Undo** takes back.
 
 ## Hide tykerf
 

@@ -25,13 +25,16 @@ const BLOCK_EVENTS = ['click', 'dblclick', 'auxclick', 'mousedown', 'mouseup', '
 
 /**
  * Show the page `src` in `iframe`. `on` gets: `hover(spot|null)`, `pick(spot, x, y)` (a click; x, y in the frame's
- * viewport), `moved()` (scroll, resize or new content: redraw), `key(event)` (a key pressed in the page),
+ * viewport), `dblpick(spot)` (a double click), `moved()` (scroll, resize or new content: redraw), `key(event)` (a key pressed in the page),
  * `loaded()` (a new document), `scrolled()` (the person scrolled the page themselves), `leads(href)` (while trying
  * the page, a link to somewhere else was clicked: it doesn't go). `isBlock(id)` says which `[data-sw]` ids are blocks.
  */
 export function createFrame(iframe, { isBlock, on, passive = () => false }) {
   let win = null, doc = null, observer = null;
   let trying = false; // the page reacts as for a visitor (Try the button), except links that would leave it
+  let editing = null; // { el, before, onEnd } while a text is edited in place on the page
+  let ended = false; // the click that ended the editing ends there: it doesn't pick what it lands on
+  let waiting = null; // new content that came while words were being edited: it goes in once the editing ends
 
   const blockAt = (el) => {
     for (let x = el?.closest?.('[data-sw]'); x; x = x.parentElement?.closest('[data-sw]')) if (isBlock(x.dataset.sw)) return x.dataset.sw;
@@ -69,6 +72,23 @@ export function createFrame(iframe, { isBlock, on, passive = () => false }) {
     // the page is for pointing: nothing on it reacts, a left click picks what it lands on
     for (const type of BLOCK_EVENTS) {
       doc.addEventListener(type, (e) => {
+        // the text being edited works like text (caret, selection); its links don't go anywhere; a click elsewhere ends it
+        if (editing) {
+          e.stopImmediatePropagation();
+          if (e.composedPath().includes(editing.el)) {
+            if (type === 'click' || type === 'auxclick' || type === 'submit' || type === 'contextmenu') e.preventDefault();
+            return;
+          }
+          e.preventDefault();
+          if (type === 'pointerdown') (end(true), (ended = true));
+          return;
+        }
+        if (ended && (type === 'mousedown' || type === 'pointerup' || type === 'mouseup' || type === 'click')) {
+          e.preventDefault();
+          e.stopImmediatePropagation();
+          if (type === 'click') ended = false;
+          return;
+        }
         if (trying) {
           // a link within the page (#section) works; one to another page or site says where it leads instead
           const a = type === 'click' ? e.target.closest?.('a[href]') : null;
@@ -83,6 +103,11 @@ export function createFrame(iframe, { isBlock, on, passive = () => false }) {
           const spot = spotAt(e.target);
           if (spot) on.pick(spot, e.clientX, e.clientY);
         }
+        // two clicks: edit its words right there, as the full editor does
+        if (type === 'dblclick' && e.button === 0) {
+          const spot = spotAt(e.target);
+          if (spot) on.dblpick?.(spot);
+        }
         // the second button: what can be done here (the shell's menu)
         if (type === 'contextmenu') {
           const spot = spotAt(e.target);
@@ -90,7 +115,20 @@ export function createFrame(iframe, { isBlock, on, passive = () => false }) {
         }
       }, true);
     }
-    doc.addEventListener('keydown', (e) => on.key(e), true);
+    doc.addEventListener('keydown', (e) => {
+      if (editing) {
+        if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) (e.preventDefault(), end(true));
+        else if (e.key === 'Escape') (e.preventDefault(), end(false));
+        return; // typing is the text's
+      }
+      on.key(e);
+    }, true);
+    // pasted into the text being edited: its words only
+    doc.addEventListener('paste', (e) => {
+      if (!editing) return;
+      e.preventDefault();
+      doc.execCommand('insertText', false, (e.clipboardData?.getData('text/plain') ?? '').replace(/\s+/g, ' '));
+    }, true);
     win.addEventListener('scroll', () => on.moved(), { passive: true });
     win.addEventListener('resize', () => on.moved());
     observer?.disconnect();
@@ -99,9 +137,29 @@ export function createFrame(iframe, { isBlock, on, passive = () => false }) {
     // the site's behaviours that failed show in the frame's console; the page keeps working
     on.loaded();
   }
-  iframe.addEventListener('load', attach);
+  iframe.addEventListener('load', () => {
+    if (editing) end(false); // a new document: the text being edited is gone
+    attach();
+  });
 
-  return {
+  /** End editing in place: `save` hands the new words over; otherwise the element shows what it had. */
+  function end(save) {
+    const ed = editing;
+    if (!ed) return;
+    editing = null;
+    const text = ed.el.textContent;
+    ed.el.removeAttribute('contenteditable');
+    if (doc) doc.documentElement.style.cursor = trying ? '' : 'crosshair';
+    if (!save) ed.el.textContent = ed.before;
+    ed.onEnd(save && text !== ed.before, text, ed.before);
+    if (waiting) {
+      const next = waiting;
+      waiting = null;
+      api.swap(next);
+    }
+  }
+
+  const api = {
     /** Load (or reload) the page; `keepScroll` comes back to where it was. */
     load(src, { keepScroll = false } = {}) {
       const y = keepScroll && win ? win.scrollY : 0;
@@ -112,6 +170,8 @@ export function createFrame(iframe, { isBlock, on, passive = () => false }) {
     /** New content in place (after a change): the page's style and body, scripts run again, the scroll stays. */
     swap({ css, body, lang }) {
       if (!doc) return;
+      // never under the words being edited: after them
+      if (editing) return void (waiting = { css, body, lang });
       const style = doc.getElementById('sw--style');
       const page = doc.getElementById('sw--page');
       if (!style || !page) return win.location.reload();
@@ -126,6 +186,24 @@ export function createFrame(iframe, { isBlock, on, passive = () => false }) {
       }
       doc.dispatchEvent(new Event('tykerf:render')); // the site's behaviours (kit/scripts) run on the new elements
       on.moved();
+    },
+    /**
+     * Edit an element's words right on the page (an element with text only): Enter or a click elsewhere keeps them,
+     * Escape puts back what it had. `onEnd(changed, text, before)`.
+     */
+    editText(el, onEnd) {
+      if (editing) end(true);
+      editing = { el, before: el.textContent, onEnd };
+      el.setAttribute('contenteditable', 'plaintext-only');
+      doc.documentElement.style.cursor = '';
+      el.focus();
+      const range = doc.createRange();
+      range.selectNodeContents(el);
+      win.getSelection().removeAllRanges();
+      win.getSelection().addRange(range);
+    },
+    get editing() {
+      return editing?.el ?? null;
     },
     /** Let the page react as for a visitor (true), or back to pointing at it (false). */
     try(v) {
@@ -157,4 +235,5 @@ export function createFrame(iframe, { isBlock, on, passive = () => false }) {
       win.scrollTo({ top: win.scrollY + r.top - top - Math.max(16, (room - r.height) / 2), behavior: still ? 'auto' : 'smooth' });
     },
   };
+  return api;
 }

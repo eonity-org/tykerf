@@ -9,6 +9,7 @@ import { $, CHEVRON, MARK, esc, failed, kaityMark, plainLabel, request, shrinkIm
 import { createFixPanel } from './fix.js';
 import { createFrame } from './frame.js';
 import { createSidebar } from './site.js';
+import { atPath } from '../inline.js';
 import { markdown } from '../markdown.js';
 
 const PAGE = decodeURIComponent(location.pathname.match(/^\/_tykerf\/edit\/([^/]+)\//)?.[1] ?? '');
@@ -77,6 +78,14 @@ const frame = createFrame($('.frame'), {
       // a task being written stays where it is; an empty one moves to what was clicked
       if (S.box?.draft.trim()) return void $('.taskbox textarea')?.focus();
       openBox(spot);
+    },
+    // two clicks on words: edit them in place (the first click's task box goes, while nothing is written in it)
+    dblpick(spot) {
+      const el = frame.taskEl(spot.block, spot.path);
+      if (!spot.path || !textOnly(el) || S.trying) return;
+      if (S.box?.draft.trim()) return;
+      closeBox();
+      editInPlace(spot, el);
     },
     moved: () => draw(),
     menu: (spot, x, y) => openMenu(spot, x, y),
@@ -171,7 +180,8 @@ function followKaity() {
 // ---------- the task box: what should change here, or a question ----------
 
 function openBox(spot) {
-  S.box = { block: spot.block, path: spot.path, label: spot.label, draft: '', question: false, touched: false, images: [] };
+  // fresh: a box just added, empty (nothing to point at on the page: the task box sits by the box it came from, `near`)
+  S.box = { block: spot.block, path: spot.path, label: spot.label, draft: '', question: false, touched: false, images: [], fresh: !!spot.fresh, near: spot.near ?? null };
   renderBox();
   draw();
   $('.taskbox textarea').focus();
@@ -195,7 +205,7 @@ function renderBox() {
   el.setAttribute('aria-label', t('A task for {what}', { what: plainLabel(b.label) }));
   el.innerHTML = `
     <p class="where"><span class="num${b.question ? ' q' : ''}">${b.question ? esc(t('Question')) : S.next}</span><b>${esc(b.block)}</b><span>${esc(plainLabel(b.label))} · ${esc(t('seen at {w} px', { w: frame.width }))}</span></p>
-    <label class="ask" for="task-text">${esc(t('What should change here, or what do you want to ask?'))}</label>
+    <label class="ask" for="task-text">${esc(b.fresh ? t('What should go in this new box? Kaity fills it, or leave it empty.') : t('What should change here, or what do you want to ask?'))}</label>
     <textarea id="task-text" rows="2">${esc(b.draft)}</textarea>
     <div class="attach"><div class="pics" ${b.images.length ? '' : 'hidden'}>${b.images.map((im, i) => `<span class="thumb"><img src="data:${im.mediaType};base64,${im.data}" alt="${esc(t('Picture {n}', { n: i + 1 }))}"><button type="button" data-unpic="${i}" aria-label="${esc(t('Remove picture {n}', { n: i + 1 }))}">×</button></span>`).join('')}</div>
       ${b.images.length >= 5 ? '' : `<button type="button" class="link" data-box="pic" title="${esc(t('A screenshot, a sketch or a design to follow (up to 5; you can also paste or drop them here)'))}">${esc(b.images.length ? t('Add another picture') : t('Add a picture'))}</button>`}</div>
@@ -262,7 +272,7 @@ function renderBox() {
       openFix(spot);
     }
   };
-  const r = frame.rect(frame.taskEl(b.block, b.path));
+  const r = frame.rect(frame.taskEl(b.block, b.path)) ?? (b.near ? frame.rect(frame.blockEl(b.near)) : null);
   if (r) placeBox(el, r);
 }
 
@@ -297,7 +307,11 @@ async function attachPictures(files) {
 /** Below the element when there is room, else above it, inside the page's viewport. */
 function placeBox(el, r) {
   const vp = $('.viewport');
-  const W = vp.clientWidth, H = vp.clientHeight, w = el.offsetWidth, h = el.offsetHeight;
+  // the page shrunk to fit beside a panel: the task box is drawn back at its own size (it is read, not the page),
+  // so it takes 1/zoom of the page's room
+  const k = S.zoom && S.zoom < 0.999 ? S.zoom : 1;
+  Object.assign(el.style, { transform: k < 1 ? `scale(${1 / k})` : '', transformOrigin: '0 0' });
+  const W = vp.clientWidth, H = vp.clientHeight, w = el.offsetWidth / k, h = el.offsetHeight / k;
   const below = r.bottom + 12, above = r.top - 12 - h;
   const top = below + h <= H || above < 0 ? Math.min(Math.max(8, below), Math.max(8, H - h - 8)) : above;
   el.style.left = `${Math.max(12, Math.min(r.left + r.width / 2 - w / 2, W - w - 12))}px`;
@@ -1020,17 +1034,23 @@ ctxMenu.hidden = true;
 document.body.append(ctxMenu);
 let menuSpot = null;
 
+/** An element whose words can be edited right on the page: text only, nothing else inside it. */
+const textOnly = (el) => !!el && el.children.length === 0 && !!el.textContent.trim() && !/^(SCRIPT|STYLE|TEMPLATE|TEXTAREA|INPUT|SELECT|SVG)$/i.test(el.nodeName);
+
 function openMenu(spot, x, y) {
   closeBox();
   menuSpot = spot;
   const what = spot.path ? plainLabel(spot.label) : t('the {block} box', { block: spot.block });
-  const item = (act, label) => `<button type="button" role="menuitem" data-ctx="${act}">${esc(label)}</button>`;
+  const item = (act, label, cls = '') => `<button type="button" role="menuitem" data-ctx="${act}" ${cls ? `class="${cls}"` : ''}>${esc(label)}</button>`;
+  const el = frame.taskEl(spot.block, spot.path);
+  const isPage = spot.block === S.tree?.id; // the page itself has nothing beside or below it, and isn't deleted
   ctxMenu.innerHTML = `<p class="ctxhead"><b>${esc(spot.block)}</b> ${esc(what)}</p>
     ${item('task', t('Leave a task here…'))}
+    ${spot.path && textOnly(el) ? item('text', t('Edit this text')) : ''}
     ${item('hand', t('Fix it by hand'))}
-    ${item('tree', t('Move, add or delete boxes'))}
-    ${item('full', t('Open {block} in the full editor', { block: spot.block }))}
-    <hr>${item('hide', t('Hide tykerf'))}`;
+    ${isPage ? '' : `<hr>${item('below', t('Add a box below…'))}${item('beside', t('Add a box beside…'))}${item('delete', t('Delete this box…'), 'danger')}`}
+    <hr>${item('full', t('Open {block} in the full editor', { block: spot.block }))}
+    ${item('hide', t('Hide tykerf'))}`;
   // where the pointer is, in the window: the frame's place on the stage, at the page's zoom
   const f = $('.frame').getBoundingClientRect(), k = S.zoom || 1;
   ctxMenu.hidden = false;
@@ -1045,13 +1065,74 @@ ctxMenu.addEventListener('click', (e) => {
   const spot = menuSpot;
   if (!act || !spot) return;
   closeCtx();
+  if (act === 'delete-yes') return void deleteBox(spot.block);
   const el = frame.taskEl(spot.block, spot.path);
   if (act === 'task' && el) openBox({ ...spot, el });
   if (act === 'hand') openFix(spot);
-  if (act === 'tree') location.assign(fullEditor(spot.block, ''));
+  if (act === 'text' && el) editInPlace(spot, el);
+  if (act === 'below' || act === 'beside') addBox(spot, act === 'below' ? 'column' : 'row');
+  if (act === 'delete') confirmDelete(spot);
   if (act === 'full') location.assign(fullEditor(spot.block));
   if (act === 'hide') hide();
 });
+// ---------- small changes from the menu: words in place, a box added or deleted (each one step; Undo takes it back) ----------
+
+/** Edit the words of an element right on the page; Enter keeps them, Escape puts them back. */
+function editInPlace(spot, el) {
+  toast(t('Type the new words: Enter keeps them, Esc puts them back.'));
+  frame.editText(el, async (changed, text, before) => {
+    if (!changed) return;
+    try {
+      // the box as it is now: the words go into its code only when it still has the element as the page showed it
+      const box = await api(`/box?id=${encodeURIComponent(spot.block)}`);
+      const tpl = document.createElement('template');
+      tpl.innerHTML = box.html;
+      const code = atPath(tpl.content, spot.path);
+      const words = (x) => x.replace(/\s+/g, ' ').trim();
+      if (!code || code.children.length || words(code.textContent) !== words(before))
+        throw new Error(t('{block} changed meanwhile, so this fix was not saved: look at it again.', { block: spot.block }));
+      const [, lead, , tail] = /^(\s*)([\s\S]*?)(\s*)$/.exec(code.textContent);
+      code.textContent = lead + text.replace(/\s+/g, ' ').trim() + tail;
+      await api('/box', { id: spot.block, html: tpl.innerHTML });
+      toast(t('Saved. Undo takes it back.'));
+    } catch (e) {
+      failed(e);
+      await refresh(); // the page shows what the box really has
+    }
+  });
+}
+
+/** A new empty box below or beside this one; the task box opens on it, to say what goes there. */
+async function addBox(spot, as) {
+  try {
+    const { result: id } = await api('/op', { op: 'insert', id: spot.block, as });
+    // the page brings it in with the change; then a task on it
+    for (let i = 0; i < 50 && !frame.blockEl(id); i++) await new Promise((ok) => setTimeout(ok, 100));
+    const el = frame.blockEl(id);
+    if (!el) return toast(t('{block} was added. Undo takes it back.', { block: id }));
+    openBox({ block: id, path: null, label: '', el, fresh: true, near: spot.block });
+  } catch (e) {
+    failed(e);
+  }
+}
+
+/** Delete asks first, in the menu: the box's code goes into the box before it, and Undo brings it back. */
+function confirmDelete(spot) {
+  menuSpot = spot;
+  ctxMenu.innerHTML = `<div class="ctxconfirm" role="alert"><p>${esc(t('Delete {block}? Its code goes into the box before it, and Undo brings it back.', { block: spot.block }))}</p>
+    <div class="row"><button type="button" role="menuitem" class="btn small danger" data-ctx="delete-yes">${esc(t('Delete {block}', { block: spot.block }))}</button><button type="button" role="menuitem" class="btn small" data-ctx="cancel">${esc(t('Cancel'))}</button></div></div>`;
+  ctxMenu.hidden = false;
+  $('[data-ctx="cancel"]', ctxMenu).focus();
+}
+async function deleteBox(id) {
+  try {
+    await api('/op', { op: 'delete', id });
+    toast(t('{block} is deleted. Undo brings it back.', { block: id }));
+  } catch (err) {
+    failed(err);
+  }
+}
+
 ctxMenu.addEventListener('keydown', (e) => {
   const items = [...ctxMenu.querySelectorAll('[role=menuitem]')];
   const i = items.indexOf(document.activeElement);
