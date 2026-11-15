@@ -54,7 +54,7 @@ Add an entry to `library/layouts.json`:
 - **`boxes`** gives the component for each box.
 - **Tones:** alternate `#tone-alt` and `#tone-soft` bands, and keep `#tone-dark` for one or two sections, usually the footer.
 
-The order in `layouts.json` is the order in the chooser. Keep the set small and clearly different: a layout should differ from the others in structure or density, not only in content. Ones that no longer earn their place go to `Other_Layouts/` (see [its README](../../../Other_Layouts/README.md)), not away. **Tests:** `test/library.test.ts` and `test/design.test.ts` pick up every layout automatically. Update the counts in `test/site-editor.test.ts` and the table in [the user guide](../../user-guide/en/layouts.md).
+The order in `layouts.json` is the order on New page. Keep the set small and clearly different: a layout should differ from the others in structure or density, not only in content. Ones that no longer earn their place go to `Other_Layouts/` (see [its README](../../../Other_Layouts/README.md)), not away. **Tests:** `test/library.test.ts` and `test/design.test.ts` pick up every layout automatically. Update the counts in `test/site-editor.test.ts` and the table in [the user guide](../../user-guide/en/layouts.md).
 
 ## A theme preset
 
@@ -131,7 +131,7 @@ Speak *row* and *column* in descriptions and replies, never H/V. The Claude Desk
    - **`status()`:** ready, or why not (never print a key);
    - **`check()`:** one tiny real request;
    - **`describe(e)`:** errors in plain words.
-2. Add it to `runnerFromEnv` (`runners/index.ts`) and `RUNNERS`. Give its label in `RUNNER_LABEL` (`tykerf.js`) and the chooser.
+2. Add it to `runnerFromEnv` (`runners/index.ts`) and `RUNNERS`. Give its label in `RUNNER_LABEL` (`tykerf.js`) and in the shell's Kaity status (`screens.js`).
 3. Document its variables in `.env.example`, [the AI guide](../../user-guide/en/ai.md#which-ai-answers) and `DEPLOY.md`.
 
 **Tests:** a fake API server in `test/runners.test.ts` (tools in scope, refusals, steps, cancel, memory, errors). Never call a real API in tests.

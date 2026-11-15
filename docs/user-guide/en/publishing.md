@@ -10,15 +10,15 @@ A TYKERF site is plain HTML once it leaves the editor: no TYKERF script, no requ
 
 | | How | Best for |
 |---|---|---|
-| **Publish** | The site manager commits the site to a GitHub repository; GitHub Pages, Cloudflare Pages or Netlify put it live | Most sites: free hosting, HTTPS, a history of every publish |
+| **Publish** | The site's Publish screen commits the site to a GitHub repository; GitHub Pages, Cloudflare Pages or Netlify put it live | Most sites: free hosting, HTTPS, a history of every publish |
 | **Export** | Download a `.zip` and upload it to any web host | A host that isn't connected to GitHub |
 | **Serve it with TYKERF** | TYKERF itself serves the pages to visitors, and you edit on the same server after signing in | Editing the live site directly |
 
 ## Publish
 
-**Publish** in the site manager exports the site and commits it to a GitHub repository, with no git needed on your machine. A host connected to that repository puts every publish live within a minute or two.
+**Publish**, at the bottom of the site's sidebar, exports the site and commits it to a GitHub repository, with no git needed on your machine. A host connected to that repository puts every publish live within a minute or two.
 
-![Publish in the site manager: the repository, branch, folder and address, and the Made with TYKERF option](../images/publish.png)
+![Publish: the button, where to (the repository, branch, folder and address, the Made with tykerf option), and the exports](../images/publish.png)
 
 ### Once
 
@@ -27,7 +27,7 @@ A TYKERF site is plain HTML once it leaves the editor: no TYKERF script, no requ
    ```bash
    TYKERF_GITHUB_TOKEN=github_pat_...
    ```
-   The token never leaves TYKERF's server: the site manager only says whether one is set.
+   The token never leaves TYKERF's server: the Publish screen only says whether one is set.
 3. **Where it goes:** in **Publish**, the repository (`you/your-site`), the branch (`gh-pages` by default), a folder if the site shouldn't be at the top of the branch (`docs`), and **the site's address** (`https://you.github.io/your-site`, or your own domain). The address is used for `sitemap.xml` and for the links of the *not found* page.
 4. **Connect a host** to the repository and branch (the steps for each are in [DEPLOY.md](../../../DEPLOY.md#publish-a-site-to-github-cloudflare-pages-or-netlify)):
    - **GitHub Pages:** the repository's *Settings → Pages → Deploy from a branch*. The site is at `https://you.github.io/your-site/`.
@@ -43,7 +43,7 @@ Click **Publish**. TYKERF says how many files are new, changed and removed, with
 - **One publish is one commit.** The repository's history is the list of your publishes; to take one back, revert its commit on GitHub.
 - **Only what changed is sent**, and only files TYKERF published before are ever replaced or removed (it keeps their list in `.tykerf-published.json`). A `CNAME`, a README or your own files in the repository stay.
 - **It waits while Kaity is working**, so half a change never goes live.
-- The same checks as an export: links to pages that don't exist, files still loaded from other servers, fonts without a licence noted, and how many things the site's check found (**Check the site** in the site manager lists them).
+- The same checks as an export: links to pages that don't exist, files still loaded from other servers, fonts without a licence noted, and how many things the site's check found (**Check the site** lists them).
 
 ### What a published site holds
 
@@ -74,7 +74,7 @@ TYKERF_PUBLIC_URL=https://cities.example.org  # the site's address
 ```
 
 - **Visitors** get the pages without the editor, their images, `/`, `/pages/`, `/sitemap.xml` and the site's icon. Every editor address answers *sign in first*.
-- **You** sign in at `/_tykerf/login` (TYKERF prints it when it starts, and `/_tykerf/` leads there too); the list of pages links to it (*Sign in to edit*). You stay signed in for a week, restarts included. After that, a browser that has signed in before gets **Edit with TYKERF** on every page, which signs you in and brings you back to the same page; visitors never see it. **Sign out** is in the site manager.
+- **You** sign in at `/_tykerf/login` (TYKERF prints it when it starts, and `/_tykerf/` leads there too); the list of pages links to it (*Sign in to edit*). You stay signed in for a week, restarts included. After that, a browser that has signed in before gets **Edit with TYKERF** on every page, which signs you in and brings you back to the same page; visitors never see it. **Sign out** is at the bottom of the site's sidebar.
 - Run it behind a proxy that does HTTPS (Caddy or nginx). [DEPLOY.md](../../../DEPLOY.md#serve-a-site-to-visitors-with-an-admin) has the setup.
 
 Without `TYKERF_ADMIN_PASSWORD`, TYKERF is a local editor: anyone who can reach it edits, and uses your AI account. Don't put it on the internet that way.

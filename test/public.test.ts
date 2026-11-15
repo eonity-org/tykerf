@@ -69,7 +69,11 @@ describe('a site served to visitors', () => {
     const set = ok.headers.get('set-cookie')!;
     expect(set).toMatch(/^tykerf_session=[\w-]{20,}; Path=\/; HttpOnly; SameSite=Strict; Max-Age=\d+$/);
     const cookie = set.split(';')[0];
-    const own = await (await get('rome/', cookie)).text();
+    // a page opens in the editor (the shell); the full editor is its own address
+    expect((await get('rome/', cookie)).headers.get('location')).toBe('/_tykerf/edit/rome/');
+    expect((await get('_tykerf/edit/rome/', cookie)).status).toBe(200);
+    expect((await get('_tykerf/edit/rome/')).status).toBe(401); // closed to visitors
+    const own = await (await get('rome/?tykerf=full-frame', cookie)).text();
     expect(own).toContain('_tykerf/tykerf.js');
     expect(own).not.toContain('tykerf.admin'); // the editor, not the way to it
     // TYKERF's own address is the manager; the sign-in page, once signed in, goes straight on
@@ -78,7 +82,8 @@ describe('a site served to visitors', () => {
     expect((await get('_tykerf/login?next=%2Frome%2F', cookie)).headers.get('location')).toBe('/rome/');
     expect((await get('_tykerf/login?next=%2F%2Fevil.example', cookie)).headers.get('location')).toBe('/_tykerf/site/');
     expect(await (await get('_tykerf/site', cookie)).json()).toMatchObject({ pages: ['munich', 'rome'], signin: true });
-    expect((await get('_tykerf/site/', cookie)).status).toBe(200);
+    // the site manager's old address is the site's screens in the editor now
+    expect((await get('_tykerf/site/', cookie)).headers.get('location')).toBe('/_tykerf/edit/_site/tasks');
     expect(await (await get('pages/', cookie)).text()).toContain('<a href="/_tykerf/site/" rel="nofollow">Site manager</a>');
     expect((await post('_tykerf/logout', {}, cookie)).headers.get('set-cookie')).toMatch(/Max-Age=0/);
     expect((await get('_tykerf/site', cookie)).status).toBe(401); // that session is over

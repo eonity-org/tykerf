@@ -24,7 +24,7 @@ npm test && npm run typecheck
 
 ```bash
 npm start -- examples                         # the sample site: its one page at http://localhost:4400/widgets/
-npm start -- /tmp/my-site --port 4500         # a new or empty folder is a site: the start screen
+npm start -- /tmp/my-site --port 4500         # a new or empty folder is a site: New page
 npm run mcp -- --dir examples/widgets         # the MCP server on stdio
 npm run cli -- layouts                      # the command line (outline, render, export, import, new, …)
 ```
@@ -47,7 +47,7 @@ npx vitest run test/site.test.ts -t "like another"
 | The core | `notation`, `moves` (with a property test of 1000 random move sequences), `refs`, `render`, `shape`, `boxes`, `types-scope`, `redo`, `store`, `concurrency`, `check` | The tree, its notation, moves, rendering, the optimizer, box types and scope, history, locks across processes, what is left unfinished |
 | Sites and pages | `site`, `library`, `theme`, `assets`, `export`, `import-files`, `publish`, `unzip` | Sites, shared theme, page renames and links, layouts and presets, images, export and zip, publishing against a fake GitHub, design ZIPs |
 | AI and MCP | `mcp-scope`, `runners`, `mcpb` | MCP tools under a scope, the API runners against fake API servers, the bundled Claude Desktop server |
-| In a browser | `editor`, `site-editor`, `start-ai`, `inline`, `import`, `design`, `public`, `markdown` | The editor end to end, the start screen, the AI-first start (fake API), editing in place, the importer on a local fixture site, design checks, serving to visitors with sign-in, Kaity's answers |
+| In a browser | `shell`, `shell-kaity`, `shell-site`, `shell-fix`, `shell-new`, `editor`, `site-editor`, `start-ai`, `inline`, `import`, `design`, `public`, `markdown` | The shell (tasks, Kaity task by task with a fake API, the site's screens, fixing by hand, New page), the full editor end to end, the AI-first start (fake API), editing in place, the importer on a local fixture site, design checks, serving to visitors with sign-in, Kaity's answers |
 | The docs | `docs` | Every page's header and footer, and every link between pages, images and `#sections` |
 
 **`test/design.test.ts`** renders every page layout in the main theme presets at 1440 and 375 px and fails on:
@@ -76,7 +76,7 @@ src/
   editor/server.ts editor/page.ts         the editor's HTTP server and one page's API
   editor/ai.ts editor/runners/ editor/tools-client.ts   AI conversations and the model runners
   editor/auth.ts editor/design-zip.ts     signing in to edit a served site, design exports for Kaity
-  editor/public/                          the browser client: plain JS, no build (tykerf.js, chooser.js, inline.js, start.html)
+  editor/public/                          the browser clients: plain JS, no build (shell.html + shell/, tykerf.js, inline.js)
 library/                                layouts.json, components/, theme.html, themes.json, fonts/, assets/
 scripts/                                  build-mcpb.ts (Claude Desktop extension), build-plugin.ts (Claude plugin), brand-png.ts, docs-nav.ts (the docs' headers and footers)
 test/                                     Vitest suites (see above)

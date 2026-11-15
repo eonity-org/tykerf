@@ -118,7 +118,20 @@ export interface TykerfServerOptions {
    * files only), since a request may come from a hosted TYKERF later (SECURITY.md).
    */
   localFiles?: boolean;
+  /**
+   * Kaity working on one task (the editor's task runs, ai.ts): every change the tools make carries this tag in the
+   * page's history (Workspace.tag), so that task's work can be taken back on its own, and ask_person is there.
+   */
+  tag?: string | null;
+  /** Only the tools that look (and close_task, ask_person): Kaity answering a question changes nothing. */
+  readOnly?: boolean;
 }
+
+/** Where ask_person leaves a task run's question for the editor (ai.ts reads it when the run ends). */
+export const askFile = (tag: string) => `.tykerf/asks/${encodeURIComponent(tag)}.json`;
+
+/** The tools a read-only server keeps besides those that only look. */
+const READ_ONLY_TOO = new Set(['close_task', 'ask_person']);
 
 /** The tools that answer with no folder open: they need no page. */
 const FOLDERLESS = new Set(['open_folder', 'list_themes', 'list_layouts', 'list_components']);
@@ -196,11 +209,18 @@ export function createTykerfServer(start: Workspace | null, opts: TykerfServerOp
       ((opts.home || folders) && !opts.scope ? 'A site is a folder of pages: list_pages shows them and which one is open, open_page switches the page every other tool works on, and new_page makes one. When there are several, say which page you are working on.' : ''),
   });
 
-  // every tool is registered through this, so with no folder open only open_folder and the library lists answer
+  // every tool is registered through this, so with no folder open only open_folder and the library lists answer;
+  // a task run's changes carry its tag (whatever page is open), and a read-only server has only the tools that look
   const registerTool = server.registerTool.bind(server);
-  server.registerTool = ((name: string, config: never, cb: (...a: unknown[]) => unknown) =>
-    registerTool(name, config, ((...a: unknown[]) => (folderOpen || FOLDERLESS.has(name) ? cb(...a)
-      : text(`error: no folder is open. open_folder opens one${folders ? ` (without a path: the default folder, ${folders.defaultDir})` : ''}; say which folder you open, so the person can name another first.`, true))) as never)) as typeof server.registerTool;
+  server.registerTool = ((name: string, config: { annotations?: { readOnlyHint?: boolean } }, cb: (...a: unknown[]) => unknown) => {
+    if (opts.readOnly && !config.annotations?.readOnlyHint && !READ_ONLY_TOO.has(name)) return undefined;
+    return registerTool(name, config as never, ((...a: unknown[]) => {
+      if (!folderOpen && !FOLDERLESS.has(name))
+        return text(`error: no folder is open. open_folder opens one${folders ? ` (without a path: the default folder, ${folders.defaultDir})` : ''}; say which folder you open, so the person can name another first.`, true);
+      ws.tag = opts.tag ?? null;
+      return cb(...a);
+    }) as never);
+  }) as unknown as typeof server.registerTool;
 
   /**
    * The block the AI is limited to: this run's block (--scope) or the workspace .scope, and who set it.
@@ -793,6 +813,7 @@ export function createTykerfServer(start: Workspace | null, opts: TykerfServerOp
       const peek = ws.peekUndo();
       if (sc && peek?.head && sc !== ws.load().root.id) throw new Error(`refused: undoing "${peek.label}" would change the page head (theme), which is outside the scope "${sc}"`);
       if (sc && peek?.site && sc !== ws.load().root.id) throw new Error(`refused: undoing "${peek.label}" would change the shared block ${peek.block} on every page that shows it, which is outside the scope "${sc}"`);
+      if (sc && peek?.tasks && peek.author !== 'ai') throw new Error(`refused: "${peek.label}" is the person's change to the page's tasks; leave it to them`);
       if (sc && peek) {
         const cur = ws.load();
         if (peek.layout) {
@@ -1117,9 +1138,22 @@ export function createTykerfServer(start: Workspace | null, opts: TykerfServerOp
 
   server.registerTool('close_task', {
     title: 'Close a task', annotations: CHANGE,
-    description: 'Mark a task done once what it asks for is done (or answered), with a short reply the person will read next to it: what you changed, or why nothing changed. Only tasks inside the scope.',
-    inputSchema: { n: z.number().int().min(1).describe('the task\'s number, as list_tasks gives it'), reply: z.string().max(2000).optional().describe('one or two sentences for the person') },
+    description: 'Mark a task done once what it asks for is done (or a question answered), with a short reply the person will read next to it: what you changed and what you left alone ("Changed the heading\'s size at phone width. Nothing else in hero moved."), or, for a question, your answer. Only tasks inside the scope.',
+    inputSchema: { n: z.number().int().min(1).describe('the task\'s number, as list_tasks gives it'), reply: z.string().max(2000).optional().describe('one or two sentences for the person; for a question, the answer') },
   }, guard(({ n, reply }: { n: number; reply?: string }) => `closed ${sayTask(closeTask(ws, n, 'ai', reply, scope()))}`));
+
+  if (opts.tag) {
+    const tag = opts.tag;
+    server.registerTool('ask_person', {
+      title: 'Ask the person', annotations: { readOnlyHint: true, openWorldHint: false },
+      description: 'When the task needs something only the person can tell you (a price, a name, which of two options), ask one short question. ' +
+        'Then end your turn without changing anything more: the task waits for their answer, and you get it with the task again.',
+      inputSchema: { question: z.string().min(1).max(500).describe('one short question, as you would ask it in person') },
+    }, guard(({ question }: { question: string }) => {
+      ws.store.write(askFile(tag), JSON.stringify({ question: question.trim(), at: new Date().toISOString() }));
+      return 'asked: end your turn now, saying in one sentence what you need; the task waits for the answer';
+    }));
+  }
 
   server.registerTool('evaluate', {
     title: 'Score the page in a browser', annotations: LOOK,

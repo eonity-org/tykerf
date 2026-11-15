@@ -22,6 +22,8 @@ export interface SiteSettings {
   publish?: PublishSettings;
   /** The site's language, BCP 47 ("en", "es", "pt-BR"): every page's <html lang>. "en" when site.json has none. */
   lang: string;
+  /** The language was chosen (site.json has it, English too): the site's check stops asking for it. */
+  langSet?: true;
 }
 
 /** A language tag a site can have: BCP 47's language, then subtags ("es", "pt-BR", "sr-Latn-RS"). */
@@ -63,19 +65,20 @@ export function readSite(dir: string): SiteSettings {
   const pages = new Set(sitePages(dir));
   const titles = Object.fromEntries(Object.entries(raw.titles ?? {}).filter(([p, t]) => pages.has(p) && typeof t === 'string' && t.trim()));
   const publish = raw.publish && !publishSettingsError(raw.publish) ? raw.publish : undefined;
-  const lang = typeof raw.lang === 'string' && LANG.test(raw.lang) ? raw.lang : 'en';
-  return { version: 1, ...(raw.home && pages.has(raw.home) ? { home: raw.home } : {}), titles, ...(publish ? { publish } : {}), lang };
+  const set = typeof raw.lang === 'string' && LANG.test(raw.lang);
+  const lang: string = set ? raw.lang! : 'en';
+  return { version: 1, ...(raw.home && pages.has(raw.home) ? { home: raw.home } : {}), titles, ...(publish ? { publish } : {}), lang, ...(set ? { langSet: true as const } : {}) };
 }
 
 /**
  * Write site.json whole (FolderStore.write: a process reading it meanwhile never gets it half written, and so
- * never saves its next change over settings it couldn't read). The default language isn't written. With a
+ * never saves its next change over settings it couldn't read). The language is written once it was chosen (English too). With a
  * `step` it is a step of the site's history; without, it only follows a change made elsewhere (a page renamed
  * or removed), which has no undo.
  */
 export function writeSite(dir: string, s: SiteSettings, step: { label: string; author?: string } | null) {
-  const { lang, ...rest } = s;
-  const text = `${JSON.stringify(lang === 'en' ? rest : { ...rest, lang }, null, 2)}\n`;
+  const { lang, langSet, ...rest } = s;
+  const text = `${JSON.stringify(lang === 'en' && !langSet ? rest : { ...rest, lang }, null, 2)}\n`;
   if (step) new SiteHistory(dir).change('settings', SITE_FILE, text, step.label, step.author);
   else siteStore(dir).write(SITE_FILE, text);
 }
@@ -89,12 +92,13 @@ function changeSite(dir: string, label: string, author: string, fn: (s: SiteSett
   });
 }
 
-/** Set the site's language (BCP 47: "es", "pt-BR"); "" goes back to English. Every page's <html lang> follows it. */
+/** Set the site's language (BCP 47: "es", "pt-BR"); "" is English. Every page's <html lang> follows it. */
 export function setLang(dir: string, lang: string, author = 'user') {
   const l = lang.trim() || 'en';
   if (!LANG.test(l)) throw new Error(`"${lang}" is not a language tag: two or three lowercase letters, then subtags if any, such as es, pt-BR or sr-Latn`);
-  if (readSite(dir).lang === l) return;
-  changeSite(dir, `the site's language: ${l}`, author, (s) => (s.lang = l));
+  const now = readSite(dir);
+  if (now.lang === l && now.langSet) return;
+  changeSite(dir, `the site's language: ${l}`, author, (s) => Object.assign(s, { lang: l, langSet: true }));
 }
 
 /** Make a page the site's home (null: no home page, the site's address shows the manager). */

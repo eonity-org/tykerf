@@ -84,7 +84,7 @@ async function works(page: Page) {
 describe("the library's behaviours", () => {
   it('work with the keyboard in the editor', async () => {
     const page = await browser.newPage();
-    await page.goto(`${url}home/`);
+    await page.goto(`${url}home/?tykerf=frame`); // the page as the editor shows it in its frame
     await works(page);
     await page.close();
   });
@@ -108,7 +108,7 @@ describe('a behaviour the person writes', () => {
   it('that fails is said in the editor', async () => {
     const page = await browser.newPage();
     await page.addInitScript(() => localStorage.setItem('tykerf.on', 'true'));
-    await page.goto(`${url}other/`);
+    await page.goto(`${url}other/?tykerf=full-frame`);
     await expect.poll(() => page.locator('.toast').textContent({ timeout: 2000 }).catch(() => ''), { timeout: 10_000 }).toMatch(/A behaviour failed on this page: boom/);
     await page.close();
   });

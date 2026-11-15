@@ -69,7 +69,7 @@ describe('complex boxes', () => {
     expect(readFileSync(join(ws.boxesDir, 'footer.html'), 'utf8').trim()).toBe('<small>new footer</small>');
     const last = JSON.parse(readFileSync(ws.historyPath, 'utf8').trim().split('\n').pop()!);
     expect(last).toMatchObject({ kind: 'content', id: 'footer', author: 'user', prev: before });
-    expect(ws.undo()).toMatch(/set_content footer/);
+    expect(ws.undo()).toMatch(/change the code of footer/);
     expect(ws.content('footer')).toBe(before);
     ws.setContent('newbox', '<p>x</p>');
     ws.undo();
@@ -109,7 +109,7 @@ describe('history groups', () => {
     expect(ws.undo()).toBe('merge b into a');
     expect(ws.content('a')).toBe('<p>A</p>\n');
     expect(serializeSlice(ws.load())).toContain('a b V');
-    expect(ws.undo()).toMatch(/set_content a/);
+    expect(ws.undo()).toMatch(/change the code of a/);
   });
 });
 

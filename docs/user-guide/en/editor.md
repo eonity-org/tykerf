@@ -6,26 +6,82 @@
 
 # Editing a page
 
-Open the page in the browser (by default http://localhost:4400) and press **Edit with TYKERF** in the bottom right corner. The page stays the real page, exactly as it renders; TYKERF draws its panel and frames on top of it and never changes the site's look.
+Open the page in the browser (by default http://localhost:4400). The page fills the window at its real width, and one thin bar sits on top: that bar is all of TYKERF until you ask for more. Everything else (your tasks, Kaity at work, the site, fixing something by hand) slides in from the top or the left when you need it, and goes away again. TYKERF never draws inside the page or changes its look.
 
-![A page in the editor: the panel with the page's tree, a box selected and its Text tab](../images/editor.png)
+![A page in the editor: the bar on top, the headline and a button outlined, and the box for a task on the button](../images/editor.png)
 
-## Start with tasks
+## The bar
 
-Most changes need only the **Tasks** mode, where the editor starts: point at anything on the page, write what should change, and give your tasks to Kaity (see [Tasks](#tasks), below). Use the **Edit** mode when you want exact control by hand: a word, a size, the order of sections, a block's code. The rest of this page describes Edit; the Tasks, handbook and mode sections apply to both.
+From left to right: the **page switcher** (the TYKERF mark, the page's name and address; it opens [the site](sites.md#the-sites-screens)), a hint or what Kaity is doing, then the **number of open tasks** (it opens them), **Give them to Kaity**, **Undo** (point at it to see which step it takes back) and **Hide tykerf**. After the page switcher, **Tasks | Full editor** switches between the two ways of working on the page. On a narrow window the bar wraps.
 
-## Two modes: Tasks and Edit
+## Tasks
 
-The switch at the top left of the panel picks how you work. TYKERF remembers your choice.
+Leaving tasks for Kaity is the normal way to work. A task is something to be done, left on the exact place on the page it is about: a change to make, or a question.
 
-- **Tasks** (where you start): point at anything on the page and say what should change. Each task stays on its spot (see [Tasks](#tasks)). The panel shows only your tasks and what Kaity is doing. When you have them all, **Give Kaity every task**: she works through them, you watch her at work on the page, and her answer appears at the top of the panel when she's done. **Tabs** shows or hides the tasks' tabs on the page, **Copy all** copies them as text, and Undo and Redo are there too.
-- **Edit**: the whole editor, described below: the page's blocks in a tree, each block's text, code, sizes and look, and Kaity block by block. Tasks still show on the page, and right-click → *Add a task for Kaity here…* adds one.
+- **Click anything on the page.** The element under the pointer is outlined in orange; a click opens the task box by it, with the task's number, the box it is in, the element in words (*the button "Get started free"*) and the width the page is seen at. Write what should change and press **Add task** (⌘↵ / Ctrl+↵), or **Kaity, do it now** to hand over this one at once. Nothing on the page reacts to clicks: links don't go anywhere, buttons don't press.
+- **A question** is marked *This is a question*: it ticks itself when what you write ends with `?`, and you can untick it. Kaity answers a question and changes nothing.
+- Each open task leaves a **numbered pin** on its element (a question shows `?`). A pin opens the tray on its task.
+- **The tray** (the number of tasks in the bar) lists every open task and question as a card: *Show on the page*, *Mark done* and *Remove*. *Copy all for another agent* copies them as text, for any AI agent or a message; *Open the handbook* opens [the handbook](#the-handbook).
+- A task remembers **how wide the window was** when you wrote it, so whoever does it looks at the page at that width ("too big on a phone").
+- Tasks aren't part of the page and don't go with an export, but adding, changing, closing or removing one is a step: **Undo** takes it back like any other change. They follow a block when it is renamed; a task whose block was deleted says so.
 
-A link that opens a particular block (from the site manager, say) opens the Edit mode. After Kaity builds a new page, the Tasks mode shows her answer, ready for your first tasks.
+![The tray under the bar: two tasks and a question as cards, each with its box, its element and what to do about it](../images/tasks.png)
 
-## Selecting
+[![Watch two tasks given to Kaity on a page about London (1:40)](../../media/tykerf-tasks.jpg)](https://eonity.org/tykerf-guides/videos/tykerf-tasks.mp4)
 
-*From here to **Tasks**, this page describes the Edit mode.*
+## Kaity at work
+
+**Give them to Kaity** hands over every open task on the page. She takes them **one at a time**, and on each she changes **only the box the task points at**; questions come last. While she works:
+
+- The bar says *Kaity is working · task 2 of 3*, with the task she is on, and **Stop Kaity**, **Undo all she did** and *Hide the steps*.
+- The tray shows each task: **done** with what she changed, in a sentence; **now** with what she is doing; **waiting**, which *Take it off her list* skips.
+- On the page, her element is outlined with *2 · Kaity is here*, and the page scrolls to it (scroll yourself, and it stops following for a few seconds). Finished tasks' pins read *1 done*.
+
+You can keep leaving tasks meanwhile, and *Ask for more* on a finished one: they join the end of her list.
+
+## The review
+
+When she stops, the bar sums it up (*Kaity stopped · 2 done, 1 answered, 1 needs you*) with **Keep the changes** and **Undo all she did**. In the tray:
+
+- A **done** task has a way to check it that fits it (*See it on a phone* shows the page 375 px wide; *Try the button* or *Try the link* lets the page react until **Done trying**, a link to elsewhere only saying where it leads), **Before and after** (pictures of the box before she started and after), **Undo this one** (only that task's work, wherever it is in the history; Undo brings it back) and **Ask for more**.
+- When she **needs you** (a price, a name, which of two options), the card shows her question and a field: **Answer and continue** gives her the answer and she goes on; *Leave it for later* keeps the task open.
+- An **answered question** shows what you asked and her answer, with *Ask a follow-up* and *Got it*.
+
+**Keep the changes** closes the review. Everything she did stays a normal change, which Undo takes back step by step.
+
+![Kaity done: the bar sums it up; the tray shows two tasks done, one waiting for an answer and a question answered](../images/review.png)
+
+## Fixing one thing by hand
+
+When it is quicker to do it yourself, **Fix it by hand** in the task box (or right-click the element) opens a narrow panel on the left with **only that element**: a button's or link's words and where it leads (nowhere yet, a box of this page, a page of the site, or another address), a heading's or paragraph's words, a picture's description and *Choose another picture…*. **Save** writes it into the box; **Revert** puts back what is there. One line says whether the box is the same on another page (the fix stays on this one unless you share the box) or is a shared block (the fix reaches every page that shows it).
+
+While the panel is open, a click on the page picks the next thing to fix, and the bar says *Fixing by hand · …* with **Done, back to tasks**. **More, if the fix is bigger** goes one step further: the box's size and look (widest, lowest, band), all its text, its code, and the boxes of the page. *Too much to fix by hand?* leaves it as a task for Kaity instead.
+
+![Fixing the button by hand: its text and where it leads, on the left; the button outlined on the page](../images/fix.png)
+
+## The boxes of the page
+
+*Move, add or delete boxes* (from the fix panel, or a right-click) lists the page's boxes, with a *shared* tag on those that show a shared block and the number of tasks on each. For the box you choose: **Move up**, **Move down**, **Add below**, **Share** (one box for every page of the site), **Delete** (asked first; its code goes into the box before it, and Undo brings it back), and its Text, Size & look and Code.
+
+## Over the page, or shrunk to fit
+
+The panels on the left (the site, fixing by hand) open **over the page**: the page doesn't move. **Shrink the page to fit**, at their top, puts the page beside the panel instead: it keeps its real width, so nothing moves around in it, and is shown smaller; the bar says how much. TYKERF remembers your choice.
+
+## The second button
+
+**Right-click** anything on the page: *Leave a task here…*, *Fix it by hand*, *Move, add or delete boxes*, *Open … in the full editor* and *Hide tykerf*.
+
+## Hide tykerf
+
+**Hide tykerf** shows the page as a visitor sees it, with nothing of TYKERF on it but a **Show tykerf** button in the corner. **Alt+Shift+T** goes either way.
+
+## The full editor
+
+The full editor is the expert way, beside tasks: the page's blocks in a tree, and each block's text, code, sizes and look by hand, with a conversation with Kaity per block. **Full editor**, next to **Tasks** in the bar, switches to it (on the box you are fixing, when you are), and so does a right-click's *Open … in the full editor*. The bar stays as it is (the site, the tasks, Hide tykerf); its panel floats over the page; **Tasks** comes back. The rest of this page describes it.
+
+![The full editor: the panel with the page's tree, a box selected and its Text tab](../images/full-editor.png)
+
+### Selecting
 
 - **Click** a box on the page, or a line in the tree, to select it.
 - **Esc** selects the container one level up. The path at the top of the panel (`page / intro / header / title`) is clickable too.
@@ -35,19 +91,20 @@ A link that opens a particular block (from the site manager, say) opens the Edit
 - The box under the mouse gets a moving outline and its name.
 - While editing, the page is for pointing: links, buttons and forms don't react. Press **Back to the page** to use it normally.
 - **⌘Z** (Ctrl+Z) undoes the last change, whoever made it, you or Kaity. **⇧⌘Z** (Ctrl+Y), or the arrow next to *Undo*, redoes it. Redo works until you make a new change. The last 200 steps can be undone; older ones stay listed in `.history-archive.jsonl`.
+- Right-click → *Add a task for Kaity here…* leaves a task here too; it shows in the editor's tray.
 - **Box scripts run here** with the editor's own access, so open only pages whose code you trust (see [SECURITY.md](../../../SECURITY.md)).
 
-## The panel
+### The panel
 
-Drag it by its header and resize it from its corner. **Compact** makes it small: in the Tasks mode it keeps a few lines of the tasks (what Kaity is doing, the button that gives her the tasks, the first ones); in the Edit mode only the header. **See more** opens it again, and so does choosing **Tasks** or **Edit**. **×** closes the editor, after asking; your tasks and changes stay, and *Edit with TYKERF* brings it back. On phones it docks at the bottom.
+Drag it by its header and resize it from its corner. **Compact** makes it small, only its header; **See more** opens it again. **×** closes it, after asking; your changes stay, and *Edit with TYKERF* brings it back. On phones it docks at the bottom.
 
 | Zone | What it shows |
 |---|---|
-| Header | The **Site** button (*Manage the site…*, *Export the site…*, *Export this page…*, *Kaity status…*). In a site, the current page: it lists the pages to switch to, with *Rename* and *Remove* on the current one, *All pages* (the [site manager](sites.md#the-site-manager)) and *New page…* at the end; the path of the selected block, Dim/Blur, Undo, Redo and collapse |
+| Header | **← Tasks** (back to the editor's bar and tasks), the **Site** button (*Manage the site…*, *Export the site…*, *Export this page…*, *Kaity's work across the site…*, *Kaity status…*). In a site, the current page: it lists the pages to switch to, with *Rename* and *Remove* on the current one, *All pages* (the [site's screens](sites.md#the-sites-screens)) and *New page…* at the end; the path of the selected block, Dim/Blur, Undo, Redo and collapse |
 | Tree | The whole page. **Boxes** (a small square) hold code; **containers** hold blocks. A container's icon shows its cut: a vertical line for blocks side by side (a *row*), a horizontal line for stacked blocks (a *column*). Hover a line to see the block on the page |
 | Work area | Everything for the selected block. Each block keeps its own tab, unsaved drafts and conversation with Kaity |
 
-## Actions
+### Actions
 
 - **Add beside / Add below:** a new empty box next to the selection. It joins the parent if the parent already runs that way; otherwise the selection is wrapped in a new row or column.
 - **Add inside, Make row / Make column, Ungroup** (containers).
@@ -57,7 +114,7 @@ Drag it by its header and resize it from its corner. **Compact** makes it small:
 - **Delete…**: see below.
 - **Share…** (a box in a site): make it a shared block that every page can show, or show one the site already has. A box that shows one is marked **shared** and offers **Make this page's own copy**; see [the site kit](sites.md#the-site-kit).
 
-## Editing in place
+### Editing in place
 
 **Text.** Double-click a heading, paragraph, button or list item. It becomes editable where it is, with a small toolbar above it.
 - Type to change the words. **⌘B** bold, **⌘I** italic, **⌘K** link (or the toolbar); in a site the link box lists the site's pages to pick from. **Shift+Enter** starts a new line.
@@ -76,7 +133,7 @@ Drag it by its header and resize it from its corner. **Compact** makes it small:
 - **Its size on the page** comes from its box. With the **Image** component (a picture and a caption) the image fills its box, so the box handles size it: the right edge makes it narrower (centred), the handles between boxes side by side share the width, the bottom edge makes it taller (a taller box shows more of the picture, cut to fit, never stretched). An image inside a larger section (a hero) is sized by that section's layout: change it in the *Code* tab, or ask Kaity.
 - An image from another site (an imported page) can be copied into the page first with *Copy into the page*, so the page stops loading it from there.
 
-## Tabs
+### Tabs
 
 - **Text** (boxes): the box's words, link targets, image addresses and image descriptions as plain fields. The markup stays as it was.
 - **Code** (boxes): *Content* (markup and scripts), *Style* (CSS that only applies to this box) or *Full code*. ⌘S saves.
@@ -98,27 +155,11 @@ Drag it by its header and resize it from its corner. **Compact** makes it small:
 An empty box's Text tab offers **Use a component** (ready-made sections with placeholders), **Import a section** (a part of another website, see [copying a website](importing.md)), **Write code** and **Ask Kaity**. *Import a section…* is also in the right-click menu of every box.
 - **Kaity:** see [Working with Kaity](ai.md).
 
-## Tasks
-
-A task is something to be done, left on the exact place on the page it is about: a change to make, a question, something to check. It is for you, a colleague or Kaity.
-
-![The Tasks mode: three tasks on the page, each a numbered tab on its element, and the panel listing them by block with the button that gives them all to Kaity](../images/tasks.png)
-
-[![Watch two tasks given to Kaity on a page about London (1:40)](../../media/tykerf-tasks.jpg)](https://eonity.org/tykerf-guides/videos/tykerf-tasks.mp4)
-
-- In the **Tasks** mode, the element under the pointer is outlined, with its place in words (`hero › h1 "The short promise…"`). Click it, write the task and press **Enter** (or **Add task**). Nothing else happens on the page in this mode; **Edit** goes back to the whole editor.
-- In the **Edit** mode: right-click anything and choose *Add a task for Kaity here…*. The same form opens on the element you clicked, with **Add task** (for later) and **Add and give it to Kaity** (Kaity works on the block's open tasks at once; **Enter** does this).
-- Each open task shows as a **numbered tab** (`T3`) on its element's top-right corner, which follows it when the page changes. The header shows how many are open. Click a tab to read the task: **Done** closes it, **Remove** deletes it, **Give it to Kaity** hands every open task on that block to Kaity.
-- **While Kaity works**, her block glows on the page with a light sweeping across it, each task she still has to do pulses, and a small label shows what she's doing right now. The page follows her: when she moves to a block out of sight, it scrolls there, and on a run over the whole page her frame and label move to the block she's on. Scroll yourself and it stops following for a few seconds, so it never pulls the page away from you. Her conversation shows the tasks she was given, word for word. You can keep adding tasks meanwhile, on her block too: they don't change what she's doing, she leaves them for the next request, and only the tasks she was given pulse.
-- A task remembers **how wide the window was** when you wrote it, so whoever does it looks at the page at that width ("too big on a phone").
-- The Tasks mode's panel lists every task by block: **Give Kaity every task** for one run over the whole page, *Give only these to Kaity* for one block's tasks, and the tasks that are done, with Kaity's reply. Click a task to see it on the page. In the header, **Tabs** shows or hides the tabs and **Copy all** copies the open tasks as text to paste into any AI agent or a message.
-- Tasks aren't part of the page: they aren't undone with Undo, and they don't go with an export. They follow a block when it is renamed; a task whose block was deleted says so.
-
 ## The handbook
 
-*Handbook* at the top of the **Page** tab opens the page's system on one page, in a tab of its own: the theme (colours as swatches, fonts as samples, sizes and spacing as bars) and every block in page order, with chips to copy its name, its path or its link (`#sw-<name>`) into a request, and its tasks: the open ones, then the ones that are done with their reply, a record of what was decided. It is made from the page as it is now, so it is never out of date. **Markdown** downloads the same as text, for an AI agent or a colleague.
+*Open the handbook* in the tray (or *Handbook* at the top of the full editor's **Page** tab) opens the page's system on one page, in a tab of its own: the theme (colours as swatches, fonts as samples, sizes and spacing as bars) and every block in page order, with chips to copy its name, its path or its link (`#sw-<name>`) into a request, and its tasks: the open ones, then the ones that are done with their reply, a record of what was decided. It is made from the page as it is now, so it is never out of date. **Markdown** downloads the same as text, for an AI agent or a colleague.
 
-## Delete or Remove
+### Delete or Remove
 
 Taking a block out asks what should happen to its code:
 

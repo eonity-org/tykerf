@@ -494,9 +494,15 @@ describe("the site's language", () => {
     expect(readSite(dir).lang).toBe('pt-BR');
     for (const bad of ['Spanish', 'ES', 'e', 'es_ES', 'es-', 'en"><script>']) expect(() => setLang(dir, bad), bad).toThrow(/not a language tag/);
     expect(readSite(dir).lang).toBe('pt-BR');
-    setLang(dir, ''); // back to English, which site.json doesn't write
-    expect(readSite(dir).lang).toBe('en');
-    expect(JSON.parse(readFileSync(join(dir, 'site.json'), 'utf8'))).not.toHaveProperty('lang');
+    setLang(dir, ''); // back to English, kept as chosen: the site's check stops asking for a language
+    expect(readSite(dir)).toMatchObject({ lang: 'en', langSet: true });
+    expect(JSON.parse(readFileSync(join(dir, 'site.json'), 'utf8')).lang).toBe('en');
+    // a new site has none: English by default, not chosen yet
+    const fresh = mkdtempSync(join(tmpdir(), 'tykerf-lang-'));
+    newSitePage(fresh, 'home', 'launch', 'studio');
+    expect(readSite(fresh).langSet).toBeUndefined();
+    setLang(fresh, 'en');
+    expect(readSite(fresh).langSet).toBe(true);
     // a broken site.json value is English
     writeFileSync(join(dir, 'site.json'), JSON.stringify({ version: 1, titles: {}, lang: '"><b>' }));
     expect(readSite(dir).lang).toBe('en');

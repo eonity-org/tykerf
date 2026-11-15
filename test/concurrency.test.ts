@@ -95,7 +95,7 @@ describe('history', () => {
     }
     const archived = ws.store.read('.history-archive.jsonl')!.trim().split('\n').map((l) => JSON.parse(l));
     // a group's entries come before its marker
-    expect(archived.slice(0, 3).map((e) => e.label)).toEqual(['set_content faq (12 chars)', 'set_content signup (15 chars)', 'pair 0']);
+    expect(archived.slice(0, 3).map((e) => e.label)).toEqual(['change the code of faq', 'change the code of signup', 'pair 0']);
     expect(archived[2]).toEqual({ label: 'pair 0', author: 'user', at: expect.any(String), kind: 'group' });
     expect(archived.every((e) => !('prev' in e) && !('slice' in e))).toBe(true);
     // the history starts on a step boundary: every remaining step undoes cleanly

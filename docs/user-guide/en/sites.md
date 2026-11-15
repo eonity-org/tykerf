@@ -20,14 +20,14 @@ my-site/
   .trash/        removed pages, until you empty the trash
 ```
 
-`npm start -- my-site` opens it at `http://localhost:4400`. Every page is in a site: the first page you make in a new or empty folder (from the start screen, `--layout`, `npm run cli -- new` or Claude) is the site's **home page**, named `home` unless you name it, and the site's address opens it. To name it, change **Page name** on the start screen, or give `--name`:
+`npm start -- my-site` opens it at `http://localhost:4400`. Every page is in a site: the first page you make in a new or empty folder (from New page, `--layout`, `npm run cli -- new` or Claude) is the site's **home page**, named `home` unless you name it, and the site's address opens it. To name it, change **Page name** on New page, or give `--name`:
 
 ```bash
 npm start -- my-site --layout biased --name portfolio      # a site whose one page is /portfolio/
 npm run cli -- new my-site biased --name portfolio         # the same, without opening the editor
 ```
 
-The site manager's name field renames it later; it stays the home page.
+**Name and title** in the site's sidebar renames it later; it stays the home page.
 
 On a site that has pages already, `--layout` with `--name` adds that page, once (it says so, with the page's address); the same command run again just starts the editor. In a site that shares one theme, the theme you name becomes that page's own values, so the other pages keep their look. Without `--name`, it asks for one:
 
@@ -40,73 +40,76 @@ mkdir my-site && mv my-page my-site/home
 npm start -- my-site
 ```
 
-![The site manager: its actions on the left, above the pages of a site with their titles and icons](../images/site-manager.png)
+![The site's screens: the sidebar with the pages and the whole site's screens, beside every open task of the site](../images/site-manager.png)
 
 ## The first page
 
-On a **new or empty folder**, TYKERF shows the **start screen**. Give the first page a name (`home`) and choose how to start:
-- **Show or describe it:** words, up to three pictures and/or a design ZIP; Kaity builds the page ([Kaity](ai.md#start-a-page-with-kaity)).
-- **A layout:** pick one and a theme while the preview shows them ([layouts](layouts.md)).
-- **A copy of a website:** see [copying a website](importing.md).
+On a **new or empty folder**, TYKERF opens on **New page**. Give the first page a name (`home`) and choose how to start:
+- **Describe it, show it, or both:** words, up to three pictures and/or a design ZIP; Kaity builds the page ([Kaity](ai.md#start-a-page-with-kaity)).
+- **From a layout:** pick one, and the theme the whole site will share ([layouts](layouts.md)).
+- **From a copy of a web page:** see [copying a website](importing.md).
 
 Page names are lowercase letters, digits and `-`: they are folder names and addresses (`/home/`, `/about/`).
 
-## The site manager
+## The site's screens
 
-The site manager is at `http://localhost:4400/_tykerf/site/`. From any page, the **Manage the site** button next to *Edit with TYKERF* opens it, and so do *Manage the site…* in the Site menu and **All pages** in the page list. Until the site has a home page, `http://localhost:4400/` opens it too.
+The page's name at the left of the editor's bar opens **the site** from the left: over the page, or with the page shrunk to fit beside it (the switch at its top; TYKERF remembers it). On the site's own screens there is no page behind it, so it sits beside them. `http://localhost:4400/_tykerf/edit/_site/tasks` opens them directly (the old `/_tykerf/site/` leads there too), and so do *Manage the site…* and *All pages* in the full editor.
 
-It starts with what acts on the whole site:
+From top to bottom:
 
-| Button | What it does |
+| Part | What it does |
 |---|---|
-| **+ New page** | The ways to start a page, step by step; the button that makes the page always stays in sight |
 | **Ask Kaity about the whole site** | Kaity works across pages: she opens each, changes it and checks it ([Kaity for the whole site](ai.md#kaity-for-the-whole-site)) |
-| **Site kit & head code** | The site's icon and language, the code every page gets in its head (see below), and [the site kit](#the-site-kit) |
-| **Links between pages** | Broken links first, then the pages nothing links to (see below) |
-| **Kaity's work** | Everything Kaity did and is doing in the site, on any page or the whole site (see below) |
+| The pages | Each as a card: its name and address, *Home*, and what it has (*open now*, its tasks, things to check); a click opens it. Below each, its actions in words (see below). **+ Page** opens New page |
+| **Tasks for Kaity** | Every open task and question of the site, page by page: **Give Kaity everything** (she works page after page), or *Give Kaity this page*; the fixes Check the site found on a page's box can be added as tasks |
+| **Shared blocks** | Boxes that could be shared, the blocks that are, and the rest of [the site kit](#the-site-kit) |
+| **Check the site** | What to fix before publishing (see below); its count shows in red |
 | **Media** | Every file of the site and of its pages, who uses each, and the unused ones (see below) |
-| **Check the site** | What to fix before publishing, every page at once; its count shows on the button (see below) |
-| **Publish** | The site, live on GitHub Pages, Cloudflare Pages or Netlify ([publishing](publishing.md)) |
+| **Links between pages** | Broken links first, then the pages nothing links to (see below) |
+| **Kaity's work** | Kaity on the whole site, and everything she did and is doing in the site (see below) |
+| **Head code, icon & language** | The code every page gets in its head, the site's icon, its language, and Kaity's status |
+| **Publish**, **Site history**, **Sign out** | The site, live ([publishing](publishing.md)); the site's own undo, and its trash (see below) |
+
+Each line says how it stands now: *3 open on 2 pages*, *2 · 10 more could be*, *language not set*.
 
 ### The pages
 
-Each page shows its name, its address and its title, and five icons; their names show when you point at them. The **name** opens the page as visitors see it (*Edit with TYKERF* is there when you want it).
+Each page is a card with its name, its address, *Home* on the home page, and what it has; a click opens it in the editor. Below it, in words:
 
-- **Make home** (the star): visitors get this page at the site's address (`/`). The home page's star is filled.
-- **Edit** (the pencil): opens the page with the editor open, as the pencil means everywhere in TYKERF.
-- **Name and title** (a name field): the page's name (its folder and address) and its **title**. Without a title of its own, a page is titled by its first heading; a heading in a shared block (a banner every page shows) doesn't count, since it would give every page the same title. Titles name the pages in the browser tab, in the list of pages and in an export. The editor's **Page** tab shows the title too, with where it comes from (*from its first heading* or *set by hand*), and a field to change it. Kaity can set titles (`set_title`), and her check tells her when two pages have the same title from their headings, as a duplicated page does until you give it its own.
+- **Make it home**: visitors get this page at the site's address (`/`).
+- **Name and title**: the page's name (its folder and address) and its **title**. Without a title of its own, a page is titled by its first heading; a heading in a shared block (a banner every page shows) doesn't count, since it would give every page the same title. Titles name the pages in the browser tab, in the list of pages and in an export. The full editor's **Page** tab shows the title too, with where it comes from (*from its first heading* or *set by hand*), and a field to change it. Kaity can set titles (`set_title`), and her check tells her when two pages have the same title from their headings, as a duplicated page does until you give it its own.
 - **Duplicate**: a copy of the page next to it, named `<name>-copy`, ready to rename. The copy doesn't bring the page's history or its conversations with Kaity.
-- **Remove** (the bin): after asking, the page goes to the site's trash (its `.trash` folder). **Removed pages** lists them with when they were removed, and **Empty the trash** deletes them for good, after asking again. Until then, move a page's folder from `.trash` back into the site folder to bring it back.
+- **Remove**: after asking, the page goes to the site's trash (its `.trash` folder). **Site history** lists the removed pages with when they were removed, and **Empty the trash for good…** deletes them, after asking again. Until then, move a page's folder from `.trash` back into the site folder to bring it back.
 
-Pages made meanwhile by Kaity, Claude Desktop or the command line appear in the list by themselves.
+Pages made meanwhile by Kaity, Claude Desktop or the command line appear when you come back to the window.
 
 ### Where Kaity is working
 
-While Kaity works, **Kaity is working** appears above the list: the whole site, or each page with the block she's on. Her three balls pulse next to those pages, and each one opens the page on her block's Kaity tab. In the page itself, the block she works on carries her balls in the tree, and any other block's Kaity tab says where she is, with **Go there**.
+While Kaity works, the sidebar's **Kaity's work** says *working now*, and that screen lists what she is doing at the top. On a page, the bar says what she is doing; in the full editor, the block she works on carries her balls in the tree, and any other block's Kaity tab says where she is, with **Go there**.
 
 A page Kaity is working on waits: it can't be renamed, removed or duplicated until she finishes. Nor can a page it links to be renamed, so those links can follow the new name. Every other page can.
 
 ### Kaity's work
 
-Kaity can work on several pages at once, a block on each, so on a site of many pages you need one place to see it all. **Kaity's work** (also *All of Kaity's work* under **Kaity is working**, and *Kaity's work across the site…* in the editor's Site menu) lists every request she had, newest first, with the ones going on now at the top:
+Kaity can work on several pages at once, a block on each, so on a site of many pages you need one place to see it all. **Kaity's work** (also *Kaity's work across the site…* in the full editor's Site menu) starts with your conversation with Kaity about the whole site, then lists every request she had, newest first, with the ones going on now at the top:
 
-- where: the page and its block, or **The whole site**; each opens the page on that block's Kaity tab, with the whole conversation;
-- what you asked, word for word (tasks included), when, and how long it took;
-- how it ended: **Done**, **Didn't finish** (with what went wrong), **Stopped**, or **Cut short** when TYKERF stopped while she worked; while she works, what she is doing right now;
-- **Her answer**, and how many steps she took.
+- where: the page and its block, or **The whole site**; each opens the full editor on that block's Kaity tab, with the whole conversation;
+- what you asked, word for word (tasks included), and when;
+- how it ended: **Done**, **Failed** (with what went wrong), **Stopped**, or **Cut short** when TYKERF stopped while she worked; while she works, what she is doing right now;
+- her answer, and how many steps she took.
 
-**Show** keeps to one page, or to the whole site. The list is kept in the site's `.tykerf/kaity.jsonl`, the last thousand requests or so.
+The menu next to the summary keeps to one page, or to the whole site. The list is kept in the site's `.tykerf/kaity.jsonl`, the last thousand requests or so.
 
 ### Links between pages
 
 Links between pages are written from the site root: `/about/`, `/about/#team`. They work as written in the editor, and an export makes them relative, so the site works at any address. While you edit text, the link box (**⌘K**) and the Text tab's link fields list the site's pages to pick from. Renaming a page changes every link to it, in every page, as one undo step on each.
 
-![Links between pages in the site manager](../images/links.png)
+![Links between pages: a sentence on how the pages are linked, then each page with what it links to and what links to it](../images/links.png)
 
-**Links between pages** in the manager shows:
-- **links to pages that don't exist**, each opening the page on the box that holds it (its Text tab), so you can fix it;
-- **pages no other page links to:** visitors reach them only from the list of pages or a search engine;
-- **what each page links to.**
+**Links between pages** says how the pages are linked, in a sentence, then shows:
+- **links to pages that don't exist**, each with **Open the box** on the page that holds it, so you can fix it;
+- each page, with what it links to and what links to it; a page nothing links to is marked **Hard to reach** (visitors reach it only from the list of pages or a search engine), with **Add it to the shared nav**, which asks Kaity;
+- **Ask Kaity to link the pages**, for all of it at once.
 
 ### Media
 
@@ -121,11 +124,11 @@ What is shared uses the site's files: sharing a box moves the page's files it us
 
 ### Check the site
 
-**Check the site** looks at every page at once and lists what to fix before publishing, each item linking to its page and box: links to pages the site doesn't have, files that aren't there, shared blocks using one page's file, pictures without a text alternative (`alt`), page titles that are missing, too long or the same as another page's, pages no other page links to, a page's own copy of a shared block that equals the block (it could follow the block), fonts without a licence noted, files loaded from other servers, and a site whose language was never set. Each says how to fix it. Its count shows on the button; **Check again** looks once more. An export, Publish and Kaity (`check_site`) report the same.
+**Check the site** looks at every page at once and lists what to fix before publishing, each item linking to its page and box: links to pages the site doesn't have, files that aren't there, shared blocks using one page's file, pictures without a text alternative (`alt`), page titles that are missing, too long or the same as another page's, pages no other page links to, a page's own copy of a shared block that equals the block (it could follow the block), fonts without a licence noted, files loaded from other servers, and a site whose language was never set. They come in groups, each with its count and a fix on the spot (a title field, the language, *Add it to the shared nav*, *Open the box*), and each group says whether **Kaity can fix** it or it is **yours to decide**; **Give Kaity the ones she can fix** asks her. Its count shows in the sidebar. An export, Publish and Kaity (`check_site`) report the same.
 
 ### Head code
 
-**Site kit & head code** opens what every page gets in its head that isn't a style: meta tags, scripts, a link to a stylesheet. Scripts here run on every page. Styles for every page go in [the site kit](#the-site-kit), and the theme (colours and fonts) stays in the Page tab: a new `<style>` here is refused, with a word on where it goes. A site made before keeps the styles its head code has; the manager offers **Move N style blocks to the kit**, which moves them to `kit/styles/head.css` (each with a comment saying where it came from) as one step **Undo** takes back. From the command line, `npm run cli -- site <dir> migrate-head` does the same. Nothing moves on its own. **Undo**, at the top of the manager, takes a change back (see [Undo](#undo-and-the-sites-history)).
+**Head code, icon & language** shows what every page gets in its head that isn't a style: meta tags, scripts, a link to a stylesheet. Scripts here run on every page. Styles for every page go in [the site kit](#the-site-kit), and the theme (colours and fonts) stays in the full editor's Page tab: a new `<style>` here is refused, with a word on where it goes. A site made before keeps the styles its head code has; the screen offers **Move to the kit**, which moves them to `kit/styles/head.css` (each with a comment saying where it came from) as one step **Undo** takes back. From the command line, `npm run cli -- site <dir> migrate-head` does the same. Nothing moves on its own. **Undo**, in the bar, takes a change back (see [Undo](#undo-and-the-sites-history)).
 
 Above the code is **the site's icon**, the one browser tabs and bookmarks show. TYKERF makes one from the home page's first letter on the theme's accent colour. **Upload an icon…** uses yours instead (SVG, PNG or ICO, up to 512 KB), and **Use the made one** goes back. While you edit, the editor's tabs show TYKERF's mark instead, so they're easy to find; visitors see the site's icon.
 
@@ -133,15 +136,15 @@ Below it is **the site's language**: the language its pages are written in, as a
 
 ### Undo and the site's history
 
-What the whole site shares has one history, apart from each page's: the theme and the head code, the site kit, and the settings (the home page, page titles, the language, where Publish sends the site). At the top of the manager, **Undo** takes back the last of those changes, whoever made it (you, or Kaity on the whole site), and says which one it is (*Undo: add kit/styles/note.css*); **Redo** brings back what you undid, until the next change. **Site history** below them lists the latest changes, who made them and when. A change Kaity makes as one request, across the kit and the settings, undoes as one step.
+What the whole site shares has one history, apart from each page's: the theme and the head code, the site kit, and the settings (the home page, page titles, the language, where Publish sends the site). **Undo**, in the bar of the site's screens, takes back the last of those changes, whoever made it (you, or Kaity on the whole site); point at it to see which one it is (*Undo "add kit/styles/note.css"*). **Site history** lists the latest changes, who made them and when, with **Undo** and **Redo** (which brings back what you undid, until the next change). A change Kaity makes as one request, across the kit and the settings, undoes as one step.
 
 Renaming, duplicating or removing a page isn't a step of it: a removed page waits in the trash, and a rename can be made again the other way.
 
 ## The site kit
 
-![The site kit in the site manager, below the head code: the kit's styles and behaviours, a footer shared by all seven pages, box types and tags](../images/site-kit.png)
+![Shared blocks: the boxes that could be shared, each with Share, and the blocks shared now with their pages and slots](../images/site-kit.png)
 
-The site kit holds what every page shares besides the theme, one small named file each, in the site's `kit/` folder. It opens with **Site kit & head code** in the site manager, below the head code: each kind lists its files (click one to edit it, **+ New** to add one). **Undo**, at the top of the manager, takes back a change, with the site's other changes.
+The site kit holds what every page shares besides the theme, one small named file each, in the site's `kit/` folder. **Shared blocks** opens it, with a tab for each kind (Shared blocks, Styles, Behaviours, Box types, Tags, Fonts): each lists its files (click one to edit it, **New** to add one). **Undo**, in the bar, takes back a change, with the site's other changes. The **Fonts** tab registers a font from the site's files, with its weight, style and licence.
 
 | Kind | What it is | Where it shows |
 |---|---|---|
@@ -189,7 +192,7 @@ A behaviour is checked when you save it: it must export a function as default (`
 
 **Shared blocks.** A navigation or a footer is the same on every page, so it is one thing, shared already:
 - **A new site's navigation and footer are shared from its first page.** The layout says which of its boxes every page shares (its `nav` and its `footer`); the first page makes them the site's shared blocks, and every page made later from a layout shows them. When you make a page from a layout, *With the site's navigation and footer (shared)* is ticked; untick it and the page gets copies of its own instead.
-- A box that shows a shared block has a **shared** chip in the tree and a notice above its tabs, which names the pages that show it and links to it in the site kit (**Open in the site kit**). A change to it (its text, its code, Kaity's) changes every page that shows it. **Undo** on that page takes it back from every page, and says so (*shared block nav, on 8 pages*), as long as it's still the site's last change; once something else changed the site after it, Undo says to use the site manager's **Undo**, with a link to it.
+- A box that shows a shared block has a **shared** chip in the tree and a notice above its tabs, which names the pages that show it and links to it in the site kit (**Open in the site kit**). A change to it (its text, its code, Kaity's) changes every page that shows it. **Undo** on that page takes it back from every page, and says so (*shared block nav, on 8 pages*), as long as it's still the site's last change; once something else changed the site after it, Undo says to use the site's **Undo**, with a link to Site history.
 - In the site kit, each shared block lists the pages that show it: a page's name opens it on that box. **Edit block** opens the block's code in the kit's editor.
 - **Paste keeps it shared.** A box that shows a shared block, removed and pasted elsewhere (on this page or another), is still that shared block: a later change to it reaches the pasted box too, and its slots stay as they were. Pasted *into* a box, that box shows the block. For a copy of your own, paste it and then take **Make this page's own copy**; for the library's original, use the component instead.
 - **Make this page's own copy** gives this page the block as it shows now (its slots filled), to change on its own; the other pages keep the shared block. It's one undo step on the page.
@@ -215,30 +218,32 @@ A shared block can leave parts to each page: its **slots**. A banner with the pa
 2. On each other page, add a box under the navigation, press **Share…** and choose `banner`.
 3. On each page, select the banner and fill its `title` and `lead` in the Text tab, or edit them on the page.
 
-Kaity changes a shared block when you ask her about the whole page (the page block selected), or for the whole site in the site manager, and she says which pages a change reaches. Asked about a smaller block, she can't change one, but she can fill its slots; she'll suggest selecting the page, or making the page's own copy. Exports and Publish include the kit: its styles in each page, its behaviours as files.
+Kaity changes a shared block when you ask her about the whole page (the page block selected), or for the whole site (*Ask Kaity about the whole site*), and she says which pages a change reaches. Asked about a smaller block, she can't change one, but she can fill its slots; she'll suggest selecting the page, or making the page's own copy. Exports and Publish include the kit: its styles in each page, its behaviours as files.
 
 ## One theme for every page
 
-The first page's theme becomes the site's: it lives in the site's own `head.html` (with its fonts in the site's `assets/`), and every page uses it before its own `head.html`. Change it in the **Page** tab of any page (*Every page*); *Undo the last site theme change* sits next to it while the site's last change is the theme's. A page can set some values for itself with *This page only*, and the Page tab always says where a page's look comes from (see [the theme](layouts.md#the-theme)). Copies of websites keep their own look.
+The first page's theme becomes the site's: it lives in the site's own `head.html` (with its fonts in the site's `assets/`), and every page uses it before its own `head.html`. Change it in the full editor's **Page** tab of any page (*Every page*); *Undo the last site theme change* sits next to it while the site's last change is the theme's. A page can set some values for itself with *This page only*, and the Page tab always says where a page's look comes from (see [the theme](layouts.md#the-theme)). Copies of websites keep their own look.
 
 Sites made before TYKERF shared themes keep a theme per page. The Page tab of one of their pages offers **Use this theme for every page**: it becomes the site's theme, and the other pages drop their own (one undo step on each).
 
 ## Moving between pages
 
-In the editor each page has its own address (`http://localhost:4400/home/`). The **page name** next to the TYKERF logo lists the site's pages to switch to; **All pages** opens the site manager, and **New page…** adds one, with the same choices as the start screen plus **Like this page**: the current page's navigation, footer and theme, with one empty section in between.
+In the editor each page has its own address (`http://localhost:4400/_tykerf/edit/home/`; `/home/` leads there). The page's name in the bar opens the site's sidebar, whose cards switch pages; **+ Page** adds one.
 
-Next to the current page in that list, **Rename this page…** (the name field) and **Remove this page…** (the bin) do what the manager's icons do; removing first says how many links to it will point nowhere. Open tabs of a renamed page follow it to its new address.
+In the full editor, the **page name** next to the TYKERF logo lists the site's pages to switch to, with **Rename this page…** and **Remove this page…** on the current one (removing first says how many links to it will point nowhere); **All pages** and **New page…** lead to the site's screens. Open tabs of a renamed page follow it to its new address.
 
 ## The site's addresses
 
 | Address | What it is |
 |---|---|
-| `/` | The home page (until there is one: the site manager, or for visitors the list of pages) |
-| `/<page>/` | A page |
+| `/` | The home page (until there is one: the site's screens, or for visitors the list of pages) |
+| `/<page>/` | A page: in the editor when you are signed in, as it is for visitors |
+| `/_tykerf/edit/<page>/?mode=full` | The editor on a page, in the full editor (`/<page>/?tykerf=full` leads there) |
 | `/pages/` | Every page by title and address, the home page marked, in the site's theme |
 | `/sitemap.xml` | For search engines, when the site's public address is set (`TYKERF_PUBLIC_URL`) |
 | `/favicon.svg` | The site's icon (`.png` or `.ico` when you upload one) |
-| `/_tykerf/site/` | The site manager |
+| `/_tykerf/edit/<page>/` | The editor on a page |
+| `/_tykerf/edit/_site/<screen>` | The site's screens (`tasks`, `shared`, `check`, `media`, `links`, `kaity`, `settings`, `history`, `publish`, `new`) |
 
 `pages` and `sitemap.xml` can't be page names. `npm run cli -- render my-site` renders every page into its own `out/`.
 

@@ -37,7 +37,7 @@ import { outline } from '../src/notation.js';
 import { leftovers, say } from '../src/check.js';
 
 const ws = new Workspace(process.argv[2]);      // the page's folder; made on the first write
-createPage(ws, 'blank', 'studio');              // a layout and a theme, as the start screen does
+createPage(ws, 'blank', 'studio');              // a layout and a theme, as New page does
 
 // two changes, one undo step
 ws.group('add a FAQ', 'script', () => {
@@ -178,7 +178,7 @@ process.exitCode = problems.length ? 1 : 0;
 - **`breakage`** counts hard failures at each width: sideways scroll, overflowing elements, distorted images and missing priority blocks. The full report also has line-length issues, small tap targets and wasted space, which are worth reading but rarely worth failing a build for.
 - A CI runner needs Chromium for the metrics: `npx playwright install --with-deps chromium`.
 
-To publish from CI as well, `publishToGitHub` (`src/publish.ts`) is what the site manager's **Publish** calls, with the token in `TYKERF_GITHUB_TOKEN`; see [DEPLOY.md](../../../DEPLOY.md).
+To publish from CI as well, `publishToGitHub` (`src/publish.ts`) is what the site's **Publish** calls, with the token in `TYKERF_GITHUB_TOKEN`; see [DEPLOY.md](../../../DEPLOY.md).
 
 ## What is stable
 

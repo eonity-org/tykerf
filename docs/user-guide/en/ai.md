@@ -14,20 +14,20 @@ There are two ways to ask her. **Tasks** come first, because they are the quicke
 
 ## Start a page with Kaity
 
-On the start screen of a new site, or with **New page…**, choose **Show or describe it** (it is the first choice when Kaity is ready):
+On **New page** (a new site opens on it; later, **+ Page** in the site's sidebar), Kaity comes first:
 
 - **Show it** (drop, paste or choose up to three pictures: a screenshot of a page you like, a sketch, a mock-up, or a design exported as a ZIP file) and/or **describe it** ("a launch page for our bakery in Murcia: warm and simple, our three best breads, opening hours and a map"). Either one is enough; both together work best.
-- **Build it with Kaity** makes the page and opens it at once, with a window that follows Kaity step by step while she builds the whole page (the page can't be clicked meanwhile, so nothing gets in her way). The **×** stops her. While she works, Kaity:
-  - picks the layout that fits, and the theme unless you chose one;
+- **Build it with Kaity** makes the page and opens it at once in the editor: the bar says she is building it, with her latest step, and the tray lists every step. **Stop Kaity** stops her. While she works, Kaity:
+  - picks the layout that fits, and the theme when the site has none yet;
   - plans the sections, starts them from components and rewrites their text;
   - alternates the bands and draws the illustrations she needs as SVG;
   - checks the result at desktop and phone widths and fixes what looks wrong;
   - goes once more over what she left unfinished (sample text, placeholder pictures, links without a target).
 
-  Meanwhile the page comes into focus: sections Kaity hasn't reached are blurred, the one she's working on softly, and each section turns sharp once it's done. **See the page clearly** in the window turns the blur off. At the end, the window shows her summary, a short guide, and the choice between **Open the editor** (in the Tasks mode, ready for your first tasks) and **See the page**.
+  Meanwhile the page fills in below the bar. At the end, the bar says *Your page is ready* and the tray shows her summary; **Got it** puts it away, ready for your first tasks. (In the full editor, the page comes into focus as she builds: sections she hasn't reached are blurred, the one she's working on softly, and each turns sharp once it's done.)
 - **A design ZIP** (up to 8 MB, one per page; Google Stitch exports one): TYKERF opens it without running anything in it. Its pictures go to Kaity like the ones you drop (five in all), and its text files (`.md`, `.txt`, `.html`, `.css`, `.json`) go with your request as the reference; anything else is left out. The conversation shows only the file names. Kaity rebuilds the design with TYKERF's components and the theme; she doesn't copy code that loads things from other servers (Tailwind, Google Fonts, icon fonts).
 - It uses your AI (see [Which AI answers](#which-ai-answers)) and takes a few minutes. Every step is a normal change: stop her, undo a step, or ask for more in the same conversation.
-- When Kaity is not ready (Claude Code not installed, no key), the option says why and the other ways to start remain.
+- When Kaity is not ready (Claude Code not installed, no key), New page says why and the other ways to start remain.
 
 ## Tasks: point, say, hand over
 
@@ -48,24 +48,24 @@ For a longer talk about one block, switch to the **Edit** mode, select the block
 - **The theme** (colours, fonts, spacing of the whole page) can be changed by Kaity only when the top block, `page`, is selected: "make the accent pink", "use a serif font for headings". She can change the theme's values but nothing else in the page head, and never load fonts or files from other servers.
 - **Images:** paste, drop or *Add image* (screenshots, sketches, reference designs; up to 5 per message). They are sent with your request and stay in the conversation. Kaity can also put one on the page ("use this photo in the banner"): it goes to the page's `assets/`.
 - **Pictures on the page:** Kaity can't download pictures from the internet. She draws illustrations, icons and patterns as SVG, places pictures you attach, or says which picture is needed so you add it with the picture tool in the Text tab. She's told at once when a box points at a file the page doesn't have, and *what she leaves unfinished* lists it.
-- **Where she is:** while Kaity works on a block, the block carries her pulsing balls in the tree, and the Kaity tab of any other block says where she is, with **Go there**. The site manager lists what she's doing on every page.
+- **Where she is:** while Kaity works on a block, the block carries her pulsing balls in the tree, and the Kaity tab of any other block says where she is, with **Go there**. The site's **Kaity's work** lists what she's doing on every page.
 - **She looks at her work.** Kaity takes screenshots of the block at desktop (1440 px) and phone (375 px) widths and fixes what looks wrong.
 - Her changes appear on the page as she works. *Stop* cancels the run; ⌘Z undoes a change.
 - **What she leaves unfinished is listed.** After each request, TYKERF checks what the request added: sample text and pictures from layouts and components, and links that go nowhere or to a section or page that doesn't exist. Only what this request left is listed, never what you had already left that way. **Fix them** asks Kaity to finish them; **Leave them as they are** keeps them, and they aren't listed again. When Kaity builds a whole page, she gets one pass over the list herself before she finishes.
-- **A page like another one:** ask for it ("make this page like rome", or from the start screen: "a page about Munich with the same layout as Rome"). Kaity knows the site's other pages and copies the one you name (`use_page`): its blocks, code and images, and its look if you ask; then she rewrites the text.
+- **A page like another one:** ask for it ("make this page like rome", or for the whole site: "a page about Munich with the same layout as Rome"). Kaity knows the site's other pages and copies the one you name (`use_page`): its blocks, code and images, and its look if you ask; then she rewrites the text.
 - **Links to pages that don't exist yet:** Kaity doesn't make up their addresses. She asks you whether those pages will be made, and the links stay in the list until you decide.
 - **While she works, her block is locked:** you can keep editing the rest of the page, but changes to that block, and undo and redo, wait until Kaity is done (or you stop her).
 - **Check the scripts she writes.** A `<script>` in a box runs in the editor with the same access as the editor itself, outside Kaity's scope. Look at the box's *Code* tab before reopening the page, or forbid scripts with a box type. See [SECURITY.md](../../../SECURITY.md).
 
 ## Kaity for the whole site
 
-In the site manager, **Ask Kaity about the whole site** opens a conversation about every page at once: *"make the navigation the same height on every page, and link it to all the pages"*, *"add a footer like Rome's to every page"*. Kaity lists the pages, opens each in turn, changes it and checks it at desktop and phone widths, as Claude Desktop does with TYKERF's tools; her steps show as she goes, and **Stop** ends the run.
+**Ask Kaity about the whole site**, at the top of the site's sidebar, opens a conversation about every page at once (on the site's **Kaity's work**): *"make the navigation the same height on every page, and link it to all the pages"*, *"add a footer like Rome's to every page"*. Kaity lists the pages, opens each in turn, changes it and checks it at desktop and phone widths, as Claude Desktop does with TYKERF's tools; her steps show as she goes, and **Stop** ends the run.
 
 - Each change goes into the history of its page, so it can be undone there.
 - While she works on the site, renaming or removing pages and asking Kaity about one page wait; you can keep editing pages yourself. She waits for a run on one page too.
 - She can make, rename and remove pages: a rename changes the page's address, and links to it on every page follow; a removed page goes to the site's trash. Open tabs of a page she renames or removes follow it.
 - When each page has a theme of its own (a site from before shared themes, or one built page by page in Claude), she can make one page's theme the one every page shares (`share_theme`): *"use the home page's colours and fonts on every page"*. The other pages give up their own theme, each with one undo step on the page, and the site theme's own **Undo** in the Page tab takes the shared theme back. Copies of websites keep their own look.
-- She sets the site's language when you ask (`set_site`). Otherwise the site's shared head (its theme's values, and its head code) stays yours, in the site manager and the Page tab.
+- She sets the site's language when you ask (`set_site`). Otherwise the site's shared head (its theme's values, and its head code) stays yours, in the site's screens and the full editor's Page tab.
 - She does change the [site kit](sites.md#the-site-kit) (shared blocks such as the navigation and the footer, styles and behaviours for every page) when you ask for it here, and tells you which pages a change reaches. On a page, she changes a shared block only when you ask her about the whole page (the page block selected), and says which pages it reached; asked about a smaller block, she can't, but she can fill its [slots](sites.md#slots) for that page.
 - Every request to her, about the site or about one block of any page, is listed in [Kaity's work](sites.md#kaitys-work).
 

@@ -283,49 +283,41 @@ describe('the importer in the editor', () => {
   const post = (path: string, body: unknown) =>
     fetch(url + path, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) }).then(async (r) => ({ status: r.status, ...(await r.json()) }));
 
-  it('starts a page from a website on the start screen, with the copying advice', async () => {
+  it('starts a page from a website on the New page screen, with the copying advice', async () => {
     const page = await browser.newPage({ viewport: { width: 1280, height: 860 } });
-    await page.goto(url);
-    await page.locator('[data-from="website"]').click();
-    expect(await page.locator('.ch-advice').textContent()).toMatch(/owner's permission/);
-    expect(await page.locator('[data-layout]').first().isVisible()).toBe(false);
-    await page.locator('input[name=url]').fill(fixtureURL);
-    expect(await page.locator('input[name=name]').inputValue()).toBe('127-0-0-1'); // named after the site
-    await page.locator('input[name=name]').fill('copy');
-    await page.locator('[type=submit]').click();
-    // the page opens at once, with the copy's progress in a modal
-    await page.waitForURL(`${url}copy/`, { timeout: 15_000 });
-    await page.locator('.jobmodal').waitFor({ state: 'visible' });
-    await page.locator('.job-steps li').first().waitFor();
-    // the copy replaces the empty page, the page reloads with it, and the modal says it is ready
-    await page.locator('.job-box h2', { hasText: 'Your page is ready' }).waitFor({ timeout: 60_000 });
-    // (the copy's new head reloads the page, which may come just after "ready": read again across it)
-    await expect.poll(() => page.locator('.job-steps li').allTextContents().catch(() => []), { timeout: 15_000 })
+    await page.goto(url); // a site with no pages yet opens on New page
+    await page.waitForURL(/\/_tykerf\/edit\/_site\/new$/);
+    const card = page.locator('[data-np="copy"]');
+    expect(await card.textContent()).toMatch(/owner's permission/);
+    await card.locator('input[name=url]').fill(fixtureURL);
+    expect(await page.locator('#np-name').inputValue()).toBe('127-0-0-1'); // named after the site
+    await page.locator('#np-name').fill('copy');
+    await card.locator('[type=submit]').click();
+    // the page opens at once in the editor, with the copy's progress in the bar and the tray
+    await page.waitForURL(`${url}_tykerf/edit/copy/`, { timeout: 15_000 });
+    await expect.poll(() => page.locator('.bar .status').textContent(), { timeout: 15_000 }).toMatch(/Copying 127\.0\.0\.1|Your page is ready/);
+    await expect.poll(() => page.locator('.bar .status').textContent(), { timeout: 60_000 }).toContain('Your page is ready');
+    await expect.poll(() => page.locator('.jobsteps li').allTextContents().catch(() => []), { timeout: 15_000 })
       .toEqual(expect.arrayContaining([expect.stringMatching(/^Opening 127\.0\.0\.1/), 'Cutting the page into rows, columns and boxes', 'Writing the page']));
-    await page.waitForLoadState('load');
     expect(readFileSync(join(site, 'copy', 'layout.slice'), 'utf8')).toMatch(/^\/\/ imported from http:\/\/127\.0\.0\.1/);
     // the copy started the site, which takes its language
     expect(JSON.parse(readFileSync(join(site, 'site.json'), 'utf8')).lang).toBe('es');
-    expect(await fetch(`${url}copy/`).then((r) => r.text())).toContain('<html lang="es">');
-    await expect.poll(() => page.locator('html').getAttribute('lang').catch(() => null), { timeout: 15_000 }).toBe('es');
-    // see the page as visitors do: the editor stays closed, and its button is pointed out
-    await page.locator('[data-job="page"]').click();
-    await page.locator('.jobmodal').waitFor({ state: 'hidden' });
-    expect(await page.locator('h1').textContent()).toBe('Big claim');
-    await page.locator('button.toggle', { hasText: 'Edit with TYKERF' }).waitFor(); // TYKERF's own button, not the copy's
-    // the job is forgotten once seen
+    expect(await fetch(`${url}copy/?tykerf=frame`).then((r) => r.text())).toContain('<html lang="es">');
+    await expect.poll(() => page.frameLocator('.frame').locator('h1').textContent(), { timeout: 15_000 }).toBe('Big claim');
+    // Got it: the job is forgotten
+    await page.locator('[data-bar="job-seen"]').click();
+    await page.locator('.bar .hint').waitFor();
     expect((await fetch(`${url}copy/_tykerf/job`).then((r) => r.json())).job).toBeNull();
     await page.close();
   });
 
-  it('stops a copy with the X: the unfinished page goes to .trash', async () => {
+  it('stops a copy from the bar: the unfinished page goes to .trash', async () => {
     const r = await post('_tykerf/site/new', { name: 'stopped', url: fixtureURL });
     expect(r.ok).toBe(true);
     const page = await browser.newPage({ viewport: { width: 1280, height: 860 } });
-    await page.goto(`${url}stopped/`);
-    await page.locator('.job-x').click();
-    await page.locator('[data-job="stop"]').click();
-    await page.waitForURL((u) => !u.pathname.startsWith('/stopped/'), { timeout: 30_000 });
+    await page.goto(`${url}_tykerf/edit/stopped/`);
+    await page.locator('[data-bar="job-stop"]').click();
+    await page.waitForURL((u) => !u.pathname.includes('/stopped/'), { timeout: 30_000 });
     await expect.poll(() => existsSync(join(site, 'stopped')), { timeout: 30_000 }).toBe(false);
     await page.close();
   });

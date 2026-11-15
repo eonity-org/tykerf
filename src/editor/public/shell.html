@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>tykerf</title>
+<link rel="icon" href="/_tykerf/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="/_tykerf/shell/shell.css">
+</head>
+<body>
+<!-- The v3 editor: one bar on top, the page below it in a frame at its real width, and the panels that come and go
+     (the task tray from the top; the sidebars from the left, later). shell.js draws them; frame.js reaches into the page. -->
+<header class="bar" role="toolbar" aria-label="tykerf"></header>
+<main class="stage">
+  <!-- the page at a width: the window's, or a phone's (See it on a phone); the overlay draws over it -->
+  <div class="viewport">
+    <iframe class="frame" title="The page"></iframe>
+    <div class="overlay"></div>
+  </div>
+  <section class="tray" hidden aria-label="Tasks"></section>
+</main>
+<dialog class="compare" aria-label="Before and after"></dialog>
+<p class="toast" role="status" aria-live="polite" hidden></p>
+<script type="module" src="/_tykerf/shell/boot.js"></script>
+</body>
+</html>

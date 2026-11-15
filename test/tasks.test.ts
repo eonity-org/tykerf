@@ -31,8 +31,8 @@ describe('tasks', () => {
     expect([a.n, b.n]).toEqual([1, 2]);
     expect(tasks(ws)).toMatchObject([{ n: 1, block: 'hero', path: [0, 1], width: 1280, text: 'Shorter, please', by: 'user' }, { n: 2, block: 'cta', path: null, width: null }]);
     expect(sayTask(tasks(ws)[0])).toBe('#1 on hero › h1 "The short promise" (element 0.1), seen 1280 px wide: Shorter, please');
-    // nothing about tasks is part of the page or its history
-    expect(ws.history()).toEqual([]);
+    // tasks are not part of the page, but each change to them is a step of its history (Undo takes it back)
+    expect(ws.history().map((h) => h.label)).toEqual(['add task 2', 'add task 1']);
     expect(ws.page()).not.toContain('Shorter, please');
   });
 
@@ -130,6 +130,7 @@ describe('tasks in the editor', () => {
   let server: ChildProcess;
   let ws: Workspace;
   let page: Page;
+  let base: string; // the page's address, /home/
 
   beforeAll(async () => {
     // a site with its home page, which the editor serves at /home/
@@ -138,6 +139,7 @@ describe('tasks in the editor', () => {
     ws = new Workspace(dir);
     createPage(ws, 'launch');
     const port = await freePort();
+    base = `http://localhost:${port}/home/`;
     server = spawn(process.execPath, ['--import', 'tsx', 'src/editor/server.ts', site, '--port', String(port)], { stdio: ['ignore', 'pipe', 'inherit'] });
     await new Promise<void>((ok, fail) => {
       server.stdout!.on('data', (d) => String(d).includes('TYKERF: http') && ok());
@@ -146,12 +148,8 @@ describe('tasks in the editor', () => {
     browser = await chromium.launch();
     page = await browser.newPage({ viewport: { width: 1280, height: 900 } });
     page.setDefaultTimeout(5000);
-    await page.addInitScript(() => {
-      localStorage.setItem('tykerf.on', 'true');
-      localStorage.setItem('tykerf.min', 'true');
-      if (!localStorage.getItem('tykerf.mode')) localStorage.setItem('tykerf.mode', '"edit"');
-    });
-    await page.goto(`http://localhost:${port}/home/`);
+    await page.addInitScript(() => localStorage.setItem('tykerf.min', 'true'));
+    await page.goto(`${base}?tykerf=full-frame`); // the full editor
     await page.locator('.panel').waitFor();
   }, 60_000);
   afterAll(async () => {
@@ -159,40 +157,31 @@ describe('tasks in the editor', () => {
     server?.kill();
   });
 
-  it('adds a task on the element clicked in the Tasks mode, and closes it from its tab', async () => {
-    await page.locator('[data-mode="tasks"]').click();
-    await expect.poll(() => page.locator('[data-mode="tasks"]').getAttribute('aria-checked')).toBe('true');
-    // choosing Tasks opens the panel; the headline's left edge stays in view
-    await expect.poll(() => page.locator('.minimize').getAttribute('aria-expanded')).toBe('true');
-    const h1 = page.locator('[data-sw="hero"] h1');
-    const box = (await h1.boundingBox())!;
-    await page.mouse.move(box.x + 14, box.y + 20);
-    await expect.poll(() => page.locator('.nhover .tag').textContent()).toMatch(/^hero › h1 "The short promise/);
-    await page.mouse.click(box.x + 14, box.y + 20);
-    await page.locator('.pop textarea').fill('Say it in five words');
-    await page.keyboard.press('Enter');
-    await expect.poll(() => tasks(ws).length).toBe(1);
-    expect(tasks(ws)[0]).toMatchObject({ n: 1, block: 'hero', width: 1280, text: 'Say it in five words', label: expect.stringMatching(/^h1 "/) });
-    // the path finds the same element on the page
-    expect(await page.evaluate((path) => {
-      let x: Element = document.querySelector('[data-sw="hero"]')!;
-      for (const i of path) x = [...x.children].filter((c) => !['STYLE', 'SCRIPT', 'TEMPLATE', 'NOSCRIPT'].includes(c.nodeName))[i];
-      return x.nodeName;
-    }, tasks(ws)[0].path!)).toBe('H1');
-    await expect.poll(() => page.locator('[data-mode="tasks"] .count').textContent()).toBe('1');
-    // a click in the Tasks mode doesn't select or edit anything
-    expect(await h1.getAttribute('contenteditable')).toBeNull();
-
-    await page.locator('[data-mode="edit"]').click(); // the Edit mode: the tab stays
-    await expect.poll(() => page.locator('[data-mode="edit"]').getAttribute('aria-checked')).toBe('true');
-    await page.locator('.minimize').click(); // compact again, out of the page's way
-    await page.locator('.pin[data-pin="1"]').click();
-    await page.locator('.pop [data-n="close"]').click();
-    await expect.poll(() => tasks(ws)[0].done?.by).toBe('user');
-    await expect.poll(() => page.locator('.pins .pin').count()).toBe(0);
+  it('opens a page in the shell; the full editor is the shell\'s other mode, and its old addresses lead there', async () => {
+    const r = await fetch(base, { redirect: 'manual' });
+    expect([r.status, r.headers.get('location')]).toEqual([302, '/_tykerf/edit/home/']);
+    // the full editor's old addresses: the shell's Full editor mode, on the block and tab asked for
+    const loc = async (q: string) => (await fetch(`${base}${q}`, { redirect: 'manual' })).headers.get('location');
+    expect(await loc('?tykerf=full')).toBe('/_tykerf/edit/home/?mode=full');
+    expect(await loc('?block=hero&tab=code')).toBe('/_tykerf/edit/home/?mode=full&block=hero&tab=code');
+    // where it loads it: the page with the full editor, in the shell's frame
+    expect(await (await fetch(`${base}?tykerf=full-frame`)).text()).toContain('_tykerf/tykerf.js');
+    expect(await (await fetch(`${base}?tykerf=frame`)).text()).not.toContain('_tykerf/tykerf.js');
+    expect(await page.locator('.backtasks').getAttribute('href')).toBe('/_tykerf/edit/home/');
+    expect(await page.locator('.modesw').isHidden()).toBe(true); // tasks are the shell's
+    const fresh = await browser.newPage({ viewport: { width: 1280, height: 900 } });
+    // a link to a block: the shell's Full editor mode, the full editor in its frame on that block, the bar on top
+    await fresh.goto(`${base}?block=hero&tab=text`);
+    await fresh.waitForURL(/\/_tykerf\/edit\/home\/\?mode=full$/);
+    await expect.poll(() => fresh.frameLocator('.frame').locator('.work .w-name').inputValue()).toBe('hero');
+    expect(await fresh.locator('.bar .modes a[aria-current="page"]').textContent()).toBe('Full editor');
+    expect(await fresh.frameLocator('.frame').locator('.backtasks').isHidden()).toBe(true); // the shell's bar has the way back
+    await fresh.locator('.bar .modes a', { hasText: 'Tasks' }).click();
+    await fresh.waitForURL(/\/_tykerf\/edit\/home\/$/);
+    await fresh.close();
   });
 
-  it('adds a task from the context menu, on the element under the pointer, ready for Kaity', async () => {
+  it('adds a task from the context menu of the full editor, on the element under the pointer, ready for Kaity', async () => {
     const lead = page.locator('[data-sw="hero"] p').first();
     await lead.scrollIntoViewIfNeeded();
     const r = (await lead.boundingBox())!;
@@ -206,46 +195,38 @@ describe('tasks in the editor', () => {
     expect(tasks(ws).find((x) => x.text === 'Say who it is for')!.label).toMatch(/^p "/);
   });
 
-  it('offers one run for every open task on the page, from the top block', async () => {
-    const a = addTask(ws, { block: 'cta', text: 'One' }).n, b = addTask(ws, { block: 'faq', text: 'Two' }).n;
-    await expect.poll(() => page.locator(`.pin[data-pin="${b}"]`).count(), { timeout: 5000 }).toBe(1); // a change from outside: slower on a CI runner
-    await page.locator('[data-mode="tasks"]').click();
-    const all = page.locator('.taskpanel .ask-all');
-    await expect.poll(() => all.textContent()).toMatch(/Give Kaity every task \(\d+\)/);
-    expect(await all.getAttribute('data-ask')).toBe('page');
-    await page.locator('[data-mode="edit"]').click();
-    closeTask(ws, a);
-    closeTask(ws, b);
-  });
-
-  it('opens new people in the Tasks mode, and a link to a block in the Edit mode', async () => {
-    const fresh = await browser.newPage({ viewport: { width: 1280, height: 900 } });
-    await fresh.addInitScript(() => localStorage.setItem('tykerf.on', 'true'));
-    await fresh.goto(page.url());
-    await fresh.locator('.panel').waitFor();
-    await expect.poll(() => fresh.locator('[data-mode="tasks"]').getAttribute('aria-checked')).toBe('true');
-    expect(await fresh.locator('.taskpanel').isVisible()).toBe(true);
-    expect(await fresh.locator('.panel .body').isVisible()).toBe(false);
-    await fresh.goto(`${page.url().replace(/[?#].*$/, '')}?block=hero&tab=text`);
-    await expect.poll(() => fresh.locator('[data-mode="edit"]').getAttribute('aria-checked')).toBe('true');
-    expect(await fresh.locator('.work .w-name').inputValue()).toBe('hero');
-    await fresh.close();
-  });
-
   it('serves the handbook, as a page and as Markdown, with the page\'s tasks', async () => {
-    const base = page.url();
+    const n = addTask(ws, { block: 'hero', path: [1], label: 'h1 "The short promise of your product"', text: 'Say it in five words' }).n;
+    closeTask(ws, n);
     const html = await (await fetch(`${base}_tykerf/handbook`)).text();
     expect(html).toContain('<base href="../">');
     expect(html).toContain('Say it in five words');
     const md = await fetch(`${base}_tykerf/handbook.md`);
     expect(md.headers.get('content-type')).toMatch(/^text\/markdown/);
-    expect(await md.text()).toMatch(/task #1 on hero › h1 "The short promise.*: Say it in five words \[done\]/);
+    expect(await md.text()).toMatch(/task #\d+ on hero › h1 "The short promise.*: Say it in five words \[done\]/);
   });
 
   it('shows tasks Kaity closes from outside at once', async () => {
+    const shell = await browser.newPage({ viewport: { width: 1280, height: 900 } });
+    await shell.goto(base);
+    await shell.frameLocator('.frame').locator('[data-sw="cta"]').waitFor();
     const n = addTask(ws, { block: 'cta', text: 'Check the button colour' }).n;
-    await expect.poll(() => page.locator(`.pin[data-pin="${n}"]`).count(), { timeout: 5000 }).toBe(1);
+    await expect.poll(() => shell.locator(`.pin[data-pin="${n}"]`).count(), { timeout: 5000 }).toBe(1);
     closeTask(ws, n, 'ai', 'It follows the theme accent now.');
-    await expect.poll(() => page.locator(`.pin[data-pin="${n}"]`).count(), { timeout: 5000 }).toBe(0);
+    await expect.poll(() => shell.locator(`.pin[data-pin="${n}"]`).count(), { timeout: 5000 }).toBe(0);
+    await shell.close();
+  });
+
+  it('lists every open task of the site, and Undo takes back a question just added', async () => {
+    const post = (path: string, body: unknown) => fetch(`${base}${path}`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) }).then((x) => x.json());
+    const q = await post('_tykerf/tasks/add', { block: 'hero', text: 'Is this the same on every page?', question: true });
+    expect(q.result).toMatchObject({ kind: 'question', text: 'Is this the same on every page?' });
+    const site = await (await fetch(new URL('/_tykerf/site/tasks', base))).json();
+    expect(site.pages.map((x: { page: string }) => x.page)).toEqual(['home']);
+    expect(site.pages[0].tasks.at(-1)).toMatchObject({ n: q.result.n, kind: 'question' });
+    expect(site.total).toBe(tasks(ws, { open: true }).length);
+    expect((await (await fetch(`${base}_tykerf/taskrun`)).json()).run).toBeNull();
+    expect(await post('_tykerf/undo', {})).toMatchObject({ ok: true, undone: `add question ${q.result.n}` });
+    expect(tasks(ws).some((x) => x.n === q.result.n)).toBe(false);
   });
 });

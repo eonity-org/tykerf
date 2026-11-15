@@ -46,7 +46,7 @@ What to expect:
 - **Keep the rest of the page safe.** Ask Claude to *focus* on a block: after that, changes outside it are refused. A scope you set yourself (a `.scope` file with `<block> user`, which the editor also uses) can't be lifted by Claude.
 - **Tasks you left in the editor.** In the editor's **Tasks** mode you leave tasks on the page's elements ([Tasks](editor.md#tasks)); ask Claude to work through them and it reads each at the width it was written at, does it and closes it with a short reply.
 - **Everything can be undone.** Ask Claude to undo, or use *Undo* in the editor. The history records each change as made by an AI (`ai`).
-- **Use it with the editor.** Keep `npm start -- my-page` open in the browser: Claude's changes appear there as they happen, and you can keep editing. Started on an empty folder, the editor shows its start screen until Claude makes the page, then opens it by itself; pages Claude makes in subfolders are offered on the start screen.
+- **Use it with the editor.** Keep `npm start -- my-page` open in the browser: Claude's changes appear there as they happen, and you can keep editing. Started on an empty folder, the editor shows New page until Claude makes the page; pages Claude makes show in the site's sidebar when you come back to the window.
 
 ## What it can't do
 

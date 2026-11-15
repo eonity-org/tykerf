@@ -18,6 +18,7 @@ import { isIP } from 'node:net';
 import { basename, dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { HOME_PAGE, type PublishSettings, addSitePage, pageMoves, emptyTrash, lastSiteHeadChange, newPageLike, newSitePage, pageLinks, pageNameError, pageTitle, pageWorkspace, readSite, setLang, duplicatePage, removePage, renamePage, setHome, setPublish, setSiteIcon, siteIcon, setSiteCode, setSiteHead, setTitle, shareTheme, siteCode, siteHead, siteIndex, siteKind, siteMap, siteOf, sitePages, trashedPages, Site, siteMedia, removeMediaFile, moveToSite, moveSiteDuplicates, pruneMedia, headStyles, migrateHeadStyles, blockUsers, identicalBoxes, shareIdentical } from '../site.js';
+import { tasks } from '../tasks.js';
 import { FolderStore, MemoryStore } from '../store.js';
 import { KIT_LOADER, type KitKind, kitCSS, kitFonts, kitLibraryScripts, kitList, kitRead, kitWarning, kitWrite, lastKitChange } from '../kit.js';
 import { DEFAULT_THEME, EMPTY_LAYOUT, createPage, hasTheme, pageLayouts, libraryAsset, theme, themes } from '../library.js';
@@ -28,6 +29,7 @@ import { type DesignZip, designContext, designNote, readDesignZip } from './desi
 import { createAuth, loginPage } from './auth.js';
 import { ASSET_TYPES, pageFileRefs } from '../assets.js';
 import { type PageHost, body, createPageHost, json } from './page.js';
+import type { TaskRunState } from './task-run.js';
 import { runnerFromEnv } from './runners/index.js';
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -138,7 +140,7 @@ try {
   process.exit(1);
 }
 
-/** The site manager's own address (public/start.html): the site's pages, its trash, and the ways to make a page. */
+/** The old site manager's address: now the shell's site screens (/_tykerf/edit/_site/), where it leads. */
 const MANAGER = '/_tykerf/site/';
 /** The site's public address, for its sitemap.xml (TYKERF_PUBLIC_URL in .env). */
 const PUBLIC_URL = process.env.TYKERF_PUBLIC_URL?.trim().replace(/\/+$/, '') || null;
@@ -155,8 +157,11 @@ const hosts = new Map<string, PageHost>();
 // Kaity for the whole site, in the site manager: one conversation kept in the site folder, her steps
 // streamed to the manager; she lists, opens and makes the pages herself (MCP with the site as home)
 const siteClients = new Set<ServerResponse>();
-const siteAI = new AI(new Workspace(dir, { site: new Site(dir) }), (event, data) => {
+const siteEvent = (event: string, data: unknown) => {
   for (const c of siteClients) c.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
+};
+const siteAI = new AI(new Workspace(dir, { site: new Site(dir) }), (event, data) => {
+  siteEvent(event, data);
   if ((data as { role?: string }).role === 'end') followMoves(); // in case the folder watcher missed one
 }, runner, { site: dir });
 /** What Kaity is doing now: the whole site, and the block she works on in each page. */
@@ -223,16 +228,46 @@ function hostOf(name: string): PageHost | null {
   if (!sitePages(dir).includes(name)) return null;
   watchSite();
   let h = hosts.get(name);
-  if (!h) hosts.set(name, (h = createPageHost(pageWorkspace(dir, name), { name, runner, admin: auth.admin, visitorEnd: EDIT_BUTTON, title: () => pageTitle(dir, name), site: () => ({ pages: sitePages(dir), current: name, sharedTheme: sharedTheme() }) })));
+  if (!h) hosts.set(name, (h = createPageHost(pageWorkspace(dir, name), { name, runner, admin: auth.admin, visitorEnd: EDIT_BUTTON, title: () => pageTitle(dir, name), site: () => ({ pages: sitePages(dir), current: name, sharedTheme: sharedTheme() }), onTaskRun: (run) => taskRunChanged(name, run) })));
   return h;
+}
+
+// ---------- Kaity through the tasks of several pages, one page after the other (the v3 editor's Give Kaity everything) ----------
+
+/** The pages still to go, the one she works on first; empty when no site-wide run is going. */
+let taskQueue: string[] = [];
+
+function taskRunChanged(page: string, run: TaskRunState | null) {
+  siteEvent('taskrun', { page, run, queue: taskQueue });
+  if (taskQueue[0] !== page || run?.running) return;
+  // the page is done (or stopped: then the rest wait too)
+  if (run?.stopped) taskQueue = [];
+  else taskQueue.shift();
+  nextQueuedPage();
+}
+
+/** Start Kaity on the first page of the queue that has open tasks. */
+function nextQueuedPage() {
+  while (taskQueue.length) {
+    const page = taskQueue[0], h = hostOf(page);
+    const open = h ? tasks(pageWorkspace(dir, page), { open: true }).map((x) => x.n) : [];
+    try {
+      if (h && open.length) return void h.taskRun.start(open);
+    } catch {}
+    taskQueue.shift();
+  }
+  siteEvent('taskrun', { page: null, run: null, queue: taskQueue });
 }
 
 // ---------- the editor's own files ----------
 
 const STATIC: Record<string, string> = {
-  '/_tykerf/tykerf.js': 'text/javascript', '/_tykerf/inline.js': 'text/javascript', '/_tykerf/chooser.js': 'text/javascript', '/_tykerf/markdown.js': 'text/javascript',
-  '/_tykerf/tykerf.css': 'text/css', '/_tykerf/chooser.css': 'text/css',
+  '/_tykerf/tykerf.js': 'text/javascript', '/_tykerf/inline.js': 'text/javascript', '/_tykerf/markdown.js': 'text/javascript',
+  '/_tykerf/tykerf.css': 'text/css',
   '/_tykerf/favicon.svg': 'image/svg+xml', // TYKERF's mark: the tab icon of its own screens and of pages being edited
+  // the v3 editor: the shell around a page in a frame (shell.html at /_tykerf/edit/<page>/)
+  '/_tykerf/shell/boot.js': 'text/javascript', '/_tykerf/shell/common.js': 'text/javascript', '/_tykerf/shell/shell.js': 'text/javascript',
+  '/_tykerf/shell/frame.js': 'text/javascript', '/_tykerf/shell/fix.js': 'text/javascript', '/_tykerf/shell/site.js': 'text/javascript', '/_tykerf/shell/screens.js': 'text/javascript', '/_tykerf/shell/shell.css': 'text/css',
 };
 
 /** TYKERF's own scripts, styles, fonts and translations (also under a page's address, where its script asks for them). */
@@ -264,7 +299,7 @@ function serveStatic(req: IncomingMessage, res: ServerResponse, p: string): bool
 
 // ---------- layouts, themes and the site ----------
 
-/** The answers that don't belong to one page: the chooser (layouts, themes), its previews and the site's pages. */
+/** The answers that don't belong to one page: the layouts and themes, their previews and the site's pages. */
 /** The last publish (in the site's .tykerf/), for the site manager: when, which commit, where. */
 const PUBLISHED = '.tykerf/published.json';
 let publishing = false;
@@ -285,10 +320,11 @@ function exportDir(url: URL): string | null {
 
 async function serveGlobal(req: IncomingMessage, res: ServerResponse, p: string, url: URL): Promise<boolean> {
   if (req.method === 'GET' && p === '/_tykerf/library') {
-    json(res, 200, { layouts: pageLayouts().map(({ name, label, description }) => ({ name, label, description })), themes: themes(), theme: theme() });
+    // (shared: the boxes a layout gives the site as its shared blocks, which New page offers to link)
+    json(res, 200, { layouts: pageLayouts().map(({ name, label, description, shared }) => ({ name, label, description, ...(shared?.length ? { shared } : {}) })), themes: themes(), theme: theme() });
     return true;
   }
-  // a layout with a theme, rendered in memory: the chooser shows it in a sandboxed frame
+  // a layout with a theme, rendered in memory, for a preview (New page's Preview at full size)
   const pv = req.method === 'GET' ? /^\/_tykerf\/preview\/([a-z0-9-]+)\/([a-z0-9-]+)\/(.*)$/.exec(p) : null;
   if (pv) {
     const [, tpl, th, rest] = pv;
@@ -310,7 +346,7 @@ async function serveGlobal(req: IncomingMessage, res: ServerResponse, p: string,
   }
   if (req.method === 'GET' && p === '/_tykerf/site') {
     const pages = sitePages(dir), settings = readSite(dir);
-    json(res, 200, { pages, sharedTheme: sharedTheme(), home: settings.home ?? null, titles: Object.fromEntries(pages.map((pg) => [pg, pageTitle(dir, pg, settings)])), ownTitles: settings.titles, lang: settings.lang, signin: auth.on, kaity: kaityNow() });
+    json(res, 200, { pages, sharedTheme: sharedTheme(), home: settings.home ?? null, titles: Object.fromEntries(pages.map((pg) => [pg, pageTitle(dir, pg, settings)])), ownTitles: settings.titles, lang: settings.lang, langSet: !!settings.langSet, signin: auth.on, kaity: kaityNow() });
     return true;
   }
   // a copy of a page, next to it
@@ -648,6 +684,30 @@ async function serveGlobal(req: IncomingMessage, res: ServerResponse, p: string,
     const runs = kaityRuns(dir, live);
     return json(res, 200, { ok: true, runs: [...runs.filter((r) => r.state === 'working'), ...runs.filter((r) => r.state !== 'working')] }), true;
   }
+  // every open task and question on the site, page by page (the v3 editor's "Tasks for Kaity"), with Kaity's run on each
+  if (req.method === 'GET' && p === '/_tykerf/site/tasks') {
+    const pages = sitePages(dir).map((page) => ({ page, tasks: tasks(pageWorkspace(dir, page), { open: true }), run: hosts.get(page)?.taskRun.state() ?? null }))
+      .filter((x) => x.tasks.length || x.run);
+    return json(res, 200, { ok: true, total: pages.reduce((n, x) => n + x.tasks.length, 0), pages, queue: taskQueue }), true;
+  }
+  // Give Kaity everything (or these pages): page after page, each page's open tasks one at a time
+  if (req.method === 'POST' && (p === '/_tykerf/site/tasks/give' || p === '/_tykerf/site/tasks/stop')) {
+    const a = await body(req);
+    if (p === '/_tykerf/site/tasks/stop') {
+      const now = taskQueue[0];
+      taskQueue = [];
+      if (now && hosts.get(now)?.taskRun.state()?.running) hosts.get(now)!.taskRun.stop();
+      siteEvent('taskrun', { page: null, run: null, queue: taskQueue });
+      return json(res, 200, { ok: true }), true;
+    }
+    if (siteAI.running()) return json(res, 409, { ok: false, error: 'Kaity is working on the whole site; wait for her to finish' }), true;
+    if (taskQueue.length || pageRun()) return json(res, 409, { ok: false, error: `Kaity is working on ${taskQueue[0] ?? pageRun()}; wait for her to finish` }), true;
+    const want = Array.isArray(a.pages) ? a.pages.map(String) : sitePages(dir);
+    taskQueue = sitePages(dir).filter((pg) => want.includes(pg) && tasks(pageWorkspace(dir, pg), { open: true }).length);
+    if (!taskQueue.length) return json(res, 422, { ok: false, error: 'no open tasks to give her' }), true;
+    nextQueuedPage();
+    return json(res, 200, { ok: true, queue: taskQueue }), true;
+  }
   if (req.method === 'GET' && p === '/_tykerf/site/chat') return json(res, 200, { ok: true, ...siteAI.chat(SITE_CHAT), running: !!siteAI.running() }), true;
   if (req.method === 'POST' && (p === '/_tykerf/site/ask' || p === '/_tykerf/site/ask/cancel' || p === '/_tykerf/site/chat/reset')) {
     const a = await body(req);
@@ -805,6 +865,10 @@ function foreign(req: IncomingMessage): string | null {
 
 const redirect = (res: ServerResponse, to: string) => res.writeHead(302, { location: to, 'cache-control': 'no-store' }).end();
 
+// A stop (SIGTERM: a service manager, kill) ends the editor. Once a screenshot has started Playwright's browser, its own
+// SIGTERM handler would close the browser and leave the editor running; exiting runs its exit hook, which closes it too.
+process.on('SIGTERM', () => process.exit(0));
+
 createServer(async (req, res) => {
   // the request's address is a path: parsed on its own, "//x" would name another server (and "//" throws),
   // so it goes after this server's address; a bad one is refused instead of stopping the server
@@ -850,9 +914,22 @@ createServer(async (req, res) => {
     if (p === '/sitemap.xml' && PUBLIC_URL) return res.writeHead(200, { 'content-type': 'application/xml; charset=utf-8' }).end(siteMap(dir, PUBLIC_URL)), undefined;
     // a site: "/" opens its home page when it has one; otherwise it is the manager, as /_tykerf/site/ always is
     if (p === '/' && readSite(dir).home) return redirect(res, `/${readSite(dir).home}/`);
-    if (p === '/' || p === MANAGER) {
+    // the site's own screens in the shell: its tasks, or New page for a site with no pages yet (the site manager was here)
+    if (p === '/' || p === MANAGER) return redirect(res, sitePages(dir).length ? (url.searchParams.has('kit') ? '/_tykerf/edit/_site/shared' : '/_tykerf/edit/_site/tasks') : '/_tykerf/edit/_site/new');
+    // the v3 editor on the whole site: the sidebar docked, a site screen beside it (no page in a frame)
+    if (/^\/_tykerf\/edit\/_site\/([a-z-]*)$/.test(p)) {
       res.writeHead(200, { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store' });
-      return res.end(readFileSync(join(here, 'public', 'start.html')));
+      return res.end(readFileSync(join(here, 'public', 'shell.html')));
+    }
+    if (p === '/_tykerf/edit/_site') return redirect(res, '/_tykerf/edit/_site/');
+    // the v3 editor: one shell around the page, which it shows in a frame (public/shell.html)
+    const shell = /^\/_tykerf\/edit\/([^/]+)(\/?)$/.exec(p);
+    if (shell) {
+      const name = decodeURIComponent(shell[1]);
+      if (!hostOf(name)) return notFound(res, admin);
+      if (!shell[2]) return redirect(res, `/_tykerf/edit/${encodeURIComponent(name)}/`);
+      res.writeHead(200, { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store' });
+      return res.end(readFileSync(join(here, 'public', 'shell.html')));
     }
     const m = /^\/([^/]+)(\/.*)?$/.exec(p);
     const host = m && hostOf(decodeURIComponent(m[1]));
@@ -862,9 +939,11 @@ createServer(async (req, res) => {
     if (!m[2]) return redirect(res, `/${m[1]}/${url.search}`);
     if (serveStatic(req, res, m[2])) return;
     if (notThere(req, m[2])) return notFound(res, admin);
-    if (req.method === 'POST' && (m[2] === '/_tykerf/ask' || m[2] === '/_tykerf/tasks/ask') && siteAI.running()) return json(res, 409, { ok: false, error: 'Kaity is working on the whole site; wait for her to finish' });
+    if (req.method === 'POST' && (m[2] === '/_tykerf/ask' || m[2] === '/_tykerf/tasks/ask' || m[2] === '/_tykerf/taskrun/start' || m[2] === '/_tykerf/taskrun/answer') && siteAI.running()) return json(res, 409, { ok: false, error: 'Kaity is working on the whole site; wait for her to finish' });
     await host.handle(req, res, m[2], url);
   } catch (e) {
+    // an answer already under way can't become an error: it ends there (writing headers again would end the editor)
+    if (res.headersSent) return void res.end();
     json(res, 422, { ok: false, error: (e as Error).message });
   }
 }).listen(PORT, HOST, () => {

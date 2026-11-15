@@ -12,14 +12,14 @@
 
 [![Watch two tasks given to Kaity on a page about London (1:40)](../../media/tykerf-tasks.jpg)](https://eonity.org/tykerf-guides/videos/tykerf-tasks.mp4)
 
-*The video above was made with one request on the start screen. Everything in it, the illustrations, the games and the animations, is Kaity's first build, unedited.*
+*The video above was made with one request for a new page. Everything in it, the illustrations, the games and the animations, is Kaity's first build, unedited.*
 
 ## How Kaity reads a request
 
 Three things decide what Kaity does, before she reads a single word:
 
 - **The block you selected.** Kaity changes that block and what is inside it, nothing else. A request about the footer sent from the hero is refused, however it is worded. Select the block first, or select `page` for something that spans the page.
-- **The conversation of that block.** In the Edit mode's Kaity tab, each block keeps its own. Kaity remembers what you said about the hero when you ask about the hero again, but not what you said about the pricing table. *New conversation* starts over. A **task** carries its block, the element and the window width with it, so Kaity doesn't need you to select anything first.
+- **The conversation of that block.** In the full editor's Kaity tab, each block keeps its own. Kaity remembers what you said about the hero when you ask about the hero again, but not what you said about the pricing table. *New conversation* starts over. A **task** carries its block, the element and the window width with it, so Kaity doesn't need you to select anything first.
 - **What she can see.** Kaity reads the page as a tree of named blocks and their code, and she takes screenshots at desktop and phone width. She can't browse the web or download pictures: what she knows about your business is what you write or attach.
 
 ## Writing a request
@@ -44,7 +44,7 @@ Some habits that pay off:
 
 ## Writing a task
 
-After the first build, most of your requests will be **tasks**: you point at an element in the **Tasks** mode and write a line. The task carries the block, the element and the window width with it, so say *what*, not *where*.
+After the first build, most of your requests will be **tasks**: you click an element on the page and write a line. The task carries the block, the element and the window width with it, so say *what*, not *where*.
 
 - **Loose is fine for looks.** "Make the illustration more colorful." "Make the background of this section pale yellow." "Add something about The Shard." Kaity looks at the page and chooses; if you don't like it, undo and say more.
 - **Be exact for words, numbers and facts.** "The title: six words at most." "Opening hours: Tuesday to Sunday, 9 to 14." She writes plausible text when she has none to go on.
@@ -57,8 +57,8 @@ After the first build, most of your requests will be **tasks**: you point at an 
 
 The fastest way to a good page is two passes:
 
-1. **The whole page, once.** On the start screen (or *New page…*), *Show or describe it* with everything you know. Kaity picks a layout, builds every section, checks the result at desktop and phone width and goes once over what she left unfinished.
-2. **Then tasks.** Look at the page in the **Tasks** mode and click what you'd change, one task each. Small, specific ones: "the title is too long, keep it under six words", "make this a dark band", "add a fourth card about the earthquake of 1755". Give them to Kaity all at once, or one block's at a time. To talk about one block at length, select it in the Edit mode and use its Kaity tab.
+1. **The whole page, once.** On **New page**, describe it, show it, or both, with everything you know. Kaity picks a layout, builds every section, checks the result at desktop and phone width and goes once over what she left unfinished.
+2. **Then tasks.** Look at the page and click what you'd change, one task each. Small, specific ones: "the title is too long, keep it under six words", "make this a dark band", "add a fourth card about the earthquake of 1755". Give them to Kaity all at once, or one with *Kaity, do it now*; review each, and answer her when she asks. To talk about one block at length, select it in the full editor and use its Kaity tab.
 
 Undo is your friend: every step Kaity takes is a separate undo step, so if one change goes wrong you don't lose the others. ⌘Z goes back one step; the Kaity tab shows each step she took.
 
@@ -77,7 +77,7 @@ Kaity checks her own work, but you are the one who knows what the page is for:
 
 ### A page from one sentence
 
-On the start screen, choose *Show or describe it*, leave the theme on *Kaity chooses* and write the sentence. The page in the video came from this one:
+On **New page**, write the sentence and choose **Build it with Kaity**; she picks the theme. The page in the video came from this one:
 
 > Create a page in English about Lisbon. Include facts, trivia, games, animations and illustrations about the city. Make it joyful and colourful.
 
@@ -97,11 +97,11 @@ A [copy of a website](importing.md) is a starting point with the site's own code
 
 ### A consistent site
 
-Build the first page well, then add pages with *New page…* → *Like this page*, or ask from the start screen: "a page about Porto with the same layout as Lisbon". For changes that touch every page, use **Ask Kaity about the whole site** in the site manager: "make the navigation link to every page", "use the same footer as Lisbon on every page". Each page's changes go into that page's history.
+Build the first page well, then add pages with **+ Page**, or ask Kaity about the whole site: "a page about Porto with the same layout as Lisbon". For changes that touch every page, use **Ask Kaity about the whole site**, at the top of the site's sidebar: "make the navigation link to every page", "use the same footer as Lisbon on every page". Each page's changes go into that page's history.
 
 ### The same navigation and footer on every page
 
-Don't ask for the navigation to be copied into each page: it drifts as soon as one copy changes. In the site manager, **Ask Kaity about the whole site**: "make the navigation and the footer one shared block for every page". She puts them in the [site kit](sites.md#the-site-kit), so a later change ("add Contact to the menu") reaches every page at once, and she says which pages it reaches. To make one page differ, select its navigation and ask for the page's own copy (*Make this page's own copy*). Asked about one block, Kaity can't change a shared block: she'll suggest the page's own copy, or that you ask her about the whole site.
+Don't ask for the navigation to be copied into each page: it drifts as soon as one copy changes. Use **Ask Kaity about the whole site**: "make the navigation and the footer one shared block for every page". She puts them in the [site kit](sites.md#the-site-kit), so a later change ("add Contact to the menu") reaches every page at once, and she says which pages it reaches. To make one page differ, select its navigation and ask for the page's own copy (*Make this page's own copy*). Asked about one block, Kaity can't change a shared block: she'll suggest the page's own copy, or that you ask her about the whole site.
 
 The same goes for what every page shares: "give all buttons rounded corners" becomes a style in the kit, and "make the cards flip when hovered" a behaviour.
 
@@ -111,7 +111,7 @@ Select `page` and ask about the theme: "make the accent a deep green", "headings
 
 ### Several small changes at once
 
-Go through the page in the **Tasks** mode (where the editor starts) and add a task on each thing to change, at the width where you see it (see [Tasks](editor.md#tasks)). Then **Give Kaity every task** in the list, or **Give it to Kaity** on one block's tasks: she gets each open task with where it is and how wide the window was, works through them and closes each one with a short reply you'll see next to it. Tasks she couldn't do stay open, and she says why. From Claude Code or another MCP client, ask it to work through the page's tasks: it reads them with `list_tasks` and closes them with `close_task`.
+Go through the page and add a task on each thing to change, at the width where you see it (see [Tasks](editor.md#tasks)). Then **Give them to Kaity**: she takes them one at a time, each in its own box, and closes each with a sentence on what she changed, which the tray shows with a way to check it, *Before and after* and *Undo this one*. When she needs something only you know, she asks, and the task waits for your answer. For the whole site, **Give Kaity everything** on the site's *Tasks for Kaity* goes page after page. From Claude Code or another MCP client, ask it to work through the page's tasks: it reads them with `list_tasks` and closes them with `close_task`.
 
 ## When to do it yourself
 

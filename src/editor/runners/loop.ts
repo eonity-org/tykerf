@@ -70,7 +70,7 @@ export function runLoop<M>(runner: string, wire: Wire<M>, req: RunRequest, on: R
     let tools: Tools | null = null;
     let late: AbortSignal | null = null;
     try {
-      tools = await openTools(req.ws, req.scope, req.home);
+      tools = await openTools(req.ws, req.scope, req.home, { tag: req.tag, readOnly: req.readOnly });
       const saved = req.memory.load() as Memory<M> | null;
       const past = saved?.runner === runner ? saved.exchanges : [];
       const now: M[] = [wire.user(req.prompt, req.images)];

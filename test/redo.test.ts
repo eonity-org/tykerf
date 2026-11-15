@@ -33,7 +33,7 @@ describe('redo', () => {
     const after = state(ws);
     const labels: string[] = [];
     while (ws.peekUndo()) labels.push(ws.undo());
-    expect(labels).toEqual(['two boxes', 'rename pricing plans', 'set_content footer (56 chars)', 'split title']);
+    expect(labels).toEqual(['two boxes', 'rename pricing plans', 'change the code of footer', 'split title']);
     const redone: string[] = [];
     while (ws.peekRedo()) redone.push(ws.redo());
     expect(redone).toEqual([...labels].reverse());

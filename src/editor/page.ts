@@ -14,7 +14,8 @@ import { handbookMarkdown, handbookPage } from '../handbook.js';
 import { kitClasses, kitFonts, kitList, kitTags } from '../kit.js';
 import { blockUsers, linkBlock, shareBlock, unlinkBlock } from '../site.js';
 import { addFile } from '../files.js';
-import { addTask, clearDone, closeTask, removeTask, reopenTask, sayTask, tasks } from '../tasks.js';
+import { addTask, clearDone, closeTask, editTask, nextTask, removeTask, reopenTask, sayTask, tasks } from '../tasks.js';
+import { TaskRun, type TaskRunState } from './task-run.js';
 import { pathOf } from '../refs.js';
 import { renderParts } from '../render.js';
 import { FolderStore, checkPath } from '../store.js';
@@ -71,6 +72,8 @@ export interface Job {
 
 export interface PageHost {
   ai: AI;
+  /** Kaity working through the page's tasks one by one (task-run.ts). */
+  taskRun: TaskRun;
   /** The page's background job, if it has one (until the person has seen how it ended). */
   job: {
     start(kind: Job['kind'], opts: { select?: string | null; site?: string; stop?: () => void }): void;
@@ -85,7 +88,18 @@ export interface PageHost {
   handle(req: IncomingMessage, res: ServerResponse, p: string, url: URL): Promise<unknown>;
 }
 
-export function createPageHost(ws: Workspace, opts: { name: string; site?: () => SiteInfo; runner?: Runner; title?: () => string; admin?: (req: IncomingMessage) => boolean; visitorEnd?: string }): PageHost {
+/**
+ * The page as a visitor sees it, after Hide tykerf in the v3 editor: a button back to the editor, and the same key
+ * (Alt+Shift+T) that hid it.
+ */
+function showTykerf(name: string): string {
+  const to = JSON.stringify(`/_tykerf/edit/${encodeURIComponent(name)}/`);
+  return `<script>(()=>{const to=${to};const a=document.createElement('a');a.href=to;a.textContent='Show tykerf';a.dataset.tykerfShow='';` +
+    `a.setAttribute('style','position:fixed;right:16px;bottom:16px;z-index:2147483647;padding:10px 16px;border-radius:999px;background:#0A5475;color:#fff;font:600 14px/1.2 system-ui,sans-serif;text-decoration:none;box-shadow:0 4px 16px rgb(0 0 0 / .2)');` +
+    `document.body.append(a);addEventListener('keydown',(e)=>{if(e.altKey&&e.shiftKey&&e.code==='KeyT'){e.preventDefault();location.href=to}})})()</script>`;
+}
+
+export function createPageHost(ws: Workspace, opts: { name: string; site?: () => SiteInfo; runner?: Runner; title?: () => string; admin?: (req: IncomingMessage) => boolean; visitorEnd?: string; onTaskRun?: (run: TaskRunState | null) => void }): PageHost {
   const store = ws.store;
 
   /**
@@ -138,7 +152,7 @@ export function createPageHost(ws: Workspace, opts: { name: string; site?: () =>
     const undo = ws.peekUndo(), redo = ws.peekRedo();
     return {
       name: opts.name, site: opts.site?.() ?? null, tree: panelTree(layout.root, codes), slice: serializeSlice(layout), ai: ai.running(), aiRunner: ai.runnerInfo(), buffer: bufferSummary(),
-      canUndo: !!undo, lastChange: undo?.label ?? null, nextRedo: redo?.label ?? null, head: headVersion(), build: buildFocus(),
+      canUndo: !!undo, lastChange: undo?.label ?? null, nextRedo: redo?.label ?? null, head: headVersion(), build: buildFocus(), taskRun: taskRun.state(),
       // a step that changes a shared block: the Undo and Redo buttons say so (it changes every page that shows it)
       undoBlock: undo?.site ? undo.block ?? null : null, redoBlock: redo?.site ? redo.block ?? null : null,
     };
@@ -441,6 +455,11 @@ export function createPageHost(ws: Workspace, opts: { name: string; site?: () =>
     broadcast(event, data);
   };
   const ai = new AI(ws, aiEvents, opts.runner);
+  // the site hears of every change to it too (its screens, and Give Kaity everything going page by page)
+  const taskRun = new TaskRun(ws, ai, (event, data) => {
+    broadcast(event, data);
+    if (event === 'taskrun') opts.onTaskRun?.(data as TaskRunState | null);
+  });
 
   // Every change to the page refreshes open pages: this editor's own changes (after each change
   // request) and changes from outside (the AI's MCP server, another editor, a text editor), seen
@@ -459,11 +478,24 @@ export function createPageHost(ws: Workspace, opts: { name: string; site?: () =>
 
   async function handle(req: IncomingMessage, res: ServerResponse, p: string, url: URL) {
     if (req.method === 'GET' && p === '/') {
-      res.writeHead(200, { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store' });
       // a visitor (TYKERF serving the site, auth.ts) gets the page as it is, and the way to sign in when their
       // browser signed in here before (visitorEnd); the admin gets the editor
       const admin = opts.admin?.(req) ?? true;
-      return res.end(ws.page({ title: opts.title?.() ?? opts.name, bodyEnd: admin ? '<script type="module" src="_tykerf/tykerf.js"></script>' : (opts.visitorEnd ?? '') }));
+      // the editor is the shell (/_tykerf/edit/<page>/, public/shell.html), which shows the page in a frame as it is
+      // (?tykerf=frame); after Hide tykerf the person sees it as a visitor does, with the way back (?tykerf=hidden);
+      // the full editor, the expert way, is the shell's other mode (?mode=full): its frame loads the page with the
+      // full editor's script (?tykerf=full-frame); ?tykerf=full and the older ?block=/?edit links lead there
+      const as = admin ? url.searchParams.get('tykerf') : null;
+      const shell = `/_tykerf/edit/${encodeURIComponent(opts.name)}/`;
+      if (admin && (as === 'full' || (!as && (url.searchParams.has('block') || url.searchParams.has('edit'))))) {
+        const block = url.searchParams.get('block');
+        const at = block ? `&block=${encodeURIComponent(block)}${url.searchParams.get('tab') ? `&tab=${encodeURIComponent(url.searchParams.get('tab')!)}` : ''}` : '';
+        return res.writeHead(302, { location: `${shell}?mode=full${at}`, 'cache-control': 'no-store' }).end();
+      }
+      if (admin && !as) return res.writeHead(302, { location: shell, 'cache-control': 'no-store' }).end();
+      res.writeHead(200, { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store' });
+      const end = !admin ? (opts.visitorEnd ?? '') : as === 'frame' ? '' : as === 'hidden' ? showTykerf(opts.name) : as === 'full-frame' ? '<script type="module" src="_tykerf/tykerf.js"></script>' : '';
+      return res.end(ws.page({ title: opts.title?.() ?? opts.name, bodyEnd: end }));
     }
     // the page's own files: images and other files the boxes refer to as assets/<file>
     if (req.method === 'GET' && p.startsWith('/assets/')) {
@@ -525,7 +557,15 @@ export function createPageHost(ws: Workspace, opts: { name: string; site?: () =>
       const blocks = dir ? kitList(dir).blocks : [];
       return json(res, 200, dir ? { site: true, blocks, tags: kitTags(dir), classes: kitClasses(dir), scripts: kitList(dir).scripts, fonts: Object.keys(kitFonts(dir)), behaviours: libraryBehaviours().map((b) => b.name), users: Object.fromEntries(blocks.map((b) => [b, Object.keys(blockUsers(dir, b))])) } : { site: false, blocks: [], tags: {}, classes: [], users: {} });
     }
-    if (req.method === 'GET' && p === '/_tykerf/tasks') return json(res, 200, { tasks: tasks(ws), text: tasks(ws, { open: true }).map(sayTask).join('\n') });
+    if (req.method === 'GET' && p === '/_tykerf/tasks') return json(res, 200, { tasks: tasks(ws), next: nextTask(ws), text: tasks(ws, { open: true }).map(sayTask).join('\n') });
+    // Kaity working through the tasks one by one: where she is, and the before and after pictures of each task
+    if (req.method === 'GET' && p === '/_tykerf/taskrun') return json(res, 200, { run: taskRun.state() });
+    if (req.method === 'GET' && p.startsWith('/_tykerf/taskrun/picture/')) {
+      const png = taskRun.picture(p.slice('/_tykerf/taskrun/picture/'.length));
+      if (!png) return res.writeHead(404).end('not found');
+      res.writeHead(200, { 'content-type': 'image/png', 'cache-control': 'no-store' });
+      return res.end(png);
+    }
     if (req.method === 'GET' && p === '/_tykerf/events') {
       res.writeHead(200, { 'content-type': 'text/event-stream', 'cache-control': 'no-store', connection: 'keep-alive' });
       res.write(': connected\n\n');
@@ -617,6 +657,7 @@ export function createPageHost(ws: Workspace, opts: { name: string; site?: () =>
         return { box, label: redo ? ws.redo() : ws.undo() };
       });
       changed();
+      tasksChanged(); // the step may have been a task's
       return json(res, 200, { ok: true, [redo ? 'redone' : 'undone']: label, focus: box && find(ws.load().root, box) ? box : null });
     }
     // "Import a section": copy a page (slow: a browser opens it) and list its sections with a picture of each
@@ -640,11 +681,12 @@ export function createPageHost(ws: Workspace, opts: { name: string; site?: () =>
       return json(res, 200, { ok: true });
     }
     if (p === '/_tykerf/chat/reset') return json(res, 200, { ok: ai.reset(a.id) });
-    // tasks left on the page: what to change, ask or check (src/tasks.ts); not part of the page's history
+    // tasks left on the page: what to change, ask or check (src/tasks.ts); each change is an undo step of the page
     if (p.startsWith('/_tykerf/tasks/')) {
       const n = Number(a.n);
       const r = ({
-        add: () => addTask(ws, { block: String(a.block ?? ''), text: String(a.text ?? ''), path: a.path ?? null, label: a.label, width: a.width ?? null, by: 'user' }),
+        add: () => addTask(ws, { block: String(a.block ?? ''), text: String(a.text ?? ''), path: a.path ?? null, label: a.label, width: a.width ?? null, by: 'user', question: a.question === true }),
+        edit: () => editTask(ws, n, { ...(typeof a.text === 'string' ? { text: a.text } : {}), ...(typeof a.question === 'boolean' ? { question: a.question } : {}) }),
         close: () => closeTask(ws, n, 'user', typeof a.reply === 'string' ? a.reply : undefined),
         reopen: () => reopenTask(ws, n),
         remove: () => removeTask(ws, n),
@@ -655,6 +697,26 @@ export function createPageHost(ws: Workspace, opts: { name: string; site?: () =>
       const result = r();
       tasksChanged();
       return json(res, 200, { ok: true, result: result ?? null });
+    }
+    // Kaity and the tasks, one at a time (task-run.ts): hand them over, stop her, answer her, review what she did
+    if (p.startsWith('/_tykerf/taskrun/')) {
+      const n = Number(a.n);
+      const r = ({
+        start: () => taskRun.start(Array.isArray(a.tasks) ? a.tasks : tasks(ws, { open: true }).map((x) => x.n)),
+        stop: () => taskRun.stop(),
+        skip: () => taskRun.skip(n),
+        answer: () => taskRun.answer(n, String(a.answer ?? '')),
+        leave: () => taskRun.leave(n),
+        seen: () => taskRun.seen(n),
+        undo: () => taskRun.undoTask(n),
+        'undo-all': () => taskRun.undoAll(),
+        keep: () => taskRun.keep(),
+      } as Record<string, () => unknown>)[p.slice('/_tykerf/taskrun/'.length)];
+      if (!r) return res.writeHead(404).end('not found');
+      r();
+      // undoing her work changes the page and its tasks
+      if (p.startsWith('/_tykerf/taskrun/undo')) changed(), tasksChanged();
+      return json(res, 200, { ok: true, run: taskRun.state() });
     }
     // what Kaity's last request left unfinished: she finishes it, or the person keeps it as it is
     if (p === '/_tykerf/check/fix') return ai.fix(String(a.id ?? '')), json(res, 200, { ok: true });
@@ -670,5 +732,5 @@ export function createPageHost(ws: Workspace, opts: { name: string; site?: () =>
     clients.clear();
   }
 
-  return { ai, job: jobs, handle, refresh: changed, close };
+  return { ai, taskRun, job: jobs, handle, refresh: changed, close };
 }

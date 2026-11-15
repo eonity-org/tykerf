@@ -32,7 +32,7 @@ Website builders give you a friendlier editor, with AI added on top. But that AI
 
 [![Watch Kaity build a page about Lisbon from one sentence (2:48)](../../media/tykerf-builds-lisbon.jpg)](https://eonity.org/tykerf-guides/videos/tykerf-builds-lisbon.mp4)
 
-One sentence on the start screen, a two-minute build, then a page whose every part is a named block you can select, change and undo.
+One sentence on New page, a two-minute build, then a page whose every part is a named block you can select, change and undo.
 
 [![Watch two tasks given to Kaity on a page about London (1:40)](../../media/tykerf-tasks.jpg)](https://eonity.org/tykerf-guides/videos/tykerf-tasks.mp4)
 
@@ -47,7 +47,7 @@ Then two tasks left on a finished page: Kaity makes the illustration more colorf
 
   See [Getting started](getting-started.md).
 - **Edit the real page.** TYKERF draws its panel over the page as it really renders. Double-click text to change it where it is, crop an image in place, drag a block narrower.
-- **Point, say, hand over:** click anything on the page, write what should change ("make this shorter", "turn these three cards into a pricing table"), and give your tasks to Kaity. She works through them and answers each one. For exact control, the Edit mode gives you the whole editor, and each block keeps its own conversation with Kaity.
+- **Point, say, hand over:** click anything on the page, write what should change ("make this shorter", "turn these three cards into a pricing table"), and give your tasks to Kaity. She works through them one at a time, in the box each points at, and you review each: check it, undo it, or answer her question. For exact control, the full editor gives you every block in detail, and each block keeps its own conversation with Kaity.
 - **A modern look by default:**
   - light, modern layouts and themes;
   - every layout is checked for readable contrast and for working on phones.

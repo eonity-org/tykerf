@@ -18,7 +18,7 @@ For people who work on TYKERF itself, extend it (components, layouts, moves, MCP
 | [Setup and tests](setup.md) | Install, run, the test suites, the project layout, the rules every change follows, working with an AI coding assistant |
 | [Architecture](architecture.md) | The core ideas (slicing tree, notation, moves, workspaces, history, scope, sites) and how the parts fit |
 | [Following a change](following-a-change.md) | One change followed through the code: a click in the editor, the same change by Kaity, undo, rendering; and where to look when something misbehaves |
-| [The editor](editor.md) | The HTTP server, page hosts, the browser client, the chooser, security |
+| [The editor](editor.md) | The HTTP server, page hosts, the shell (tasks, Kaity, the site's screens, New page), the full editor, security |
 | [The AI and MCP](ai-and-mcp.md) | The MCP tools, the scope, the AI runners (Claude Code, API, Gemini), the Claude Desktop extension |
 | [Extending TYKERF](extending.md) | Step by step: a component, a layout, a theme preset, a move, an MCP tool, an AI runner, an editor operation, a translation |
 | [Building on TYKERF](building-on-tykerf.md) | Using TYKERF from your own code: pages from a script, your own agent through MCP, checks in CI, and what is stable |

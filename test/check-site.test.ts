@@ -55,7 +55,7 @@ describe("the site's check", () => {
     expect(of('font')[0].detail).toBe('the font "Diavlo" has no licence noted');
     expect(of('lang')[0].fix).toMatch(/set_site lang/);
     // once the language is set, even to English, it is no finding
-    setLang(dir, 'es');
+    setLang(dir, 'en');
     expect(checkSite(dir).some((f) => f.kind === 'lang')).toBe(false);
   });
 

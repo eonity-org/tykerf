@@ -62,47 +62,33 @@ afterAll(async () => {
 });
 
 describe('show or describe it', () => {
+  /** The top block of a page, where the whole-page build's conversation is. */
+  const top = async (url: string, page: string) => (await fetch(`${url}${page}/_tykerf/state`).then((x) => x.json())).tree.id;
+
   it('makes the first page and opens the editor on the AI building it from the words and the picture', async () => {
     const { url, site } = await editor({ TYKERF_RUNNER: 'anthropic', TYKERF_API_KEY: 'k', TYKERF_API_BASE_URL: `http://127.0.0.1:${(api.address() as { port: number }).port}` });
     const page = await browser.newPage({ viewport: { width: 1280, height: 860 } });
-    await page.addInitScript(() => localStorage.setItem('tykerf.mode', '\"edit\"')); // her conversation is in the Edit mode
     page.setDefaultTimeout(8000);
-    await page.goto(url);
-    await page.locator('.chooser').waitFor();
-    expect(await page.locator('[data-from="idea"]').getAttribute('aria-pressed')).toBe('true'); // the AI comes first when it is ready
-    expect(await page.locator('.ch-ai').textContent()).toMatch(/Anthropic API/);
-    // the theme is Kaity's to choose unless the user picks one (a layout keeps its own choice)
-    expect(await page.locator('.ch-auto').getAttribute('aria-pressed')).toBe('true');
-    await page.locator('[data-from="layout"]').click();
-    expect(await page.locator('.ch-auto').isHidden()).toBe(true);
-    expect(await page.locator('[data-theme="studio"]').getAttribute('aria-pressed')).toBe('true');
-    await page.locator('[data-from="idea"]').click();
-    expect(await page.locator('.ch-auto').getAttribute('aria-pressed')).toBe('true');
-    await page.locator('input[name=name]').fill('bakery');
-    await page.locator('textarea[name=prompt]').fill('A page for our bakery in Murcia');
+    await page.goto(url); // a new site: New page
+    await page.waitForURL(/\/_tykerf\/edit\/_site\/new$/);
+    expect(await page.locator('.np-kaity [type="submit"]').isDisabled()).toBe(false); // the AI is ready
+    await page.locator('#np-name').fill('bakery');
+    await page.locator('#np-prompt').fill('A page for our bakery in Murcia');
     const shot = join(mkdtempSync(join(tmpdir(), 'tykerf-pic-')), 'sketch.png');
     writeFileSync(shot, PNG);
-    await page.locator('.ch-drop input[type=file]').setInputFiles(shot);
-    await page.locator('.ch-pics img').waitFor();
-    await page.locator('.chooser [type=submit]').click();
-    await page.waitForURL(`${url}bakery/`);
+    await page.locator('.np-drop input[type=file]').setInputFiles(shot);
+    await page.locator('.np-pics img').waitFor();
+    await page.locator('.np-kaity [type=submit]').click();
+    await page.waitForURL(`${url}_tykerf/edit/bakery/`);
 
-    // the page opens with the AI's work in a modal: its steps, then its answer and how to go on
-    await page.locator('.jobmodal').waitFor({ state: 'visible' });
-    expect(await page.locator('.job-brand .wordmark').textContent()).toBe('tykerf'); // Kaity never shows without TYKERF
-    // only the page and the modal: the editor and its button stay out of sight until the user picks
-    expect(await page.locator('.panel').isHidden()).toBe(true);
-    expect(await page.locator('.toggle').isHidden()).toBe(true);
-    await page.locator('.job-box h2', { hasText: 'Your page is ready' }).waitFor({ timeout: 20_000 });
-    expect(await page.locator('.panel').isHidden()).toBe(true);
-    expect(await page.locator('.job-steps li').allTextContents()).toEqual([expect.stringMatching(/^use component main hero/), expect.stringMatching(/^checking \d+ things left unfinished$/)]);
-    expect(await page.locator('.job-answer').textContent()).toBe('I left the hero text for you to write.');
-    // the editor, on the top block's AI tab, with the whole conversation
-    await page.locator('[data-job="editor"]').click();
-    await page.locator('.jobmodal').waitFor({ state: 'hidden' });
-    expect(await page.locator('.toggle').isVisible()).toBe(true);
-    expect(await page.locator('.panel').isVisible()).toBe(true);
-    await expect.poll(() => page.locator('.work .tabs [data-tab="ai"]').getAttribute('aria-selected')).toBe('true');
+    // the page opens at once; the bar says Kaity is building it and the tray lists her steps, then her answer
+    await expect.poll(() => page.locator('.bar .status').textContent(), { timeout: 20_000 }).toContain('Your page is ready');
+    expect(await page.locator('.jobsteps li').allTextContents()).toEqual([expect.stringMatching(/^use component main hero/), expect.stringMatching(/^checking \d+ things left unfinished$/)]);
+    expect(await page.locator('.tray .how').textContent()).toBe('I left the hero text for you to write.');
+    // Got it; then the whole conversation is the top block's, in the full editor's Kaity tab
+    await page.locator('[data-bar="job-seen"]').click();
+    await page.locator('.bar .hint').waitFor();
+    await page.goto(`${url}bakery/?tykerf=full-frame&block=${await top(url, 'bakery')}&tab=ai`);
     await page.locator('.chat .msg.ai').first().waitFor();
     expect(await page.locator('.chat .msg.ai .who').first().textContent()).toBe('Kaity'); // Kaity's replies carry its name and mark
     expect(await page.locator('.chat .msg.ai').first().textContent()).toBe('KaityI built a hero for the bakery.');
@@ -131,25 +117,25 @@ describe('show or describe it', () => {
     replies.push(message([{ type: 'text', text: 'I built the page from your design.' }], 'end_turn'));
     const before = got.length;
     const page = await browser.newPage({ viewport: { width: 1280, height: 860 } });
-    await page.addInitScript(() => localStorage.setItem('tykerf.mode', '\"edit\"')); // her conversation is in the Edit mode
     page.setDefaultTimeout(8000);
-    await page.goto(url);
-    await page.locator('.chooser').waitFor();
-    await page.locator('input[name=name]').fill('paris');
+    await page.goto(`${url}_tykerf/edit/_site/new`);
+    await page.locator('#np-name').fill('paris');
     const file = join(mkdtempSync(join(tmpdir(), 'tykerf-zip-')), 'stitch_paris.zip');
     writeFileSync(file, zip([
       { path: 'DESIGN.md', bytes: new TextEncoder().encode('# L\'Odyssée Parisienne\nPrimary: #0F1B29') },
       { path: 'code.html', bytes: new TextEncoder().encode('<h1>Paris en Données Rares</h1>') },
       { path: 'screen.png', bytes: new Uint8Array(PNG) },
     ]));
-    await page.locator('.ch-drop input[type=file]').setInputFiles(file);
-    expect(await page.locator('.ch-zip b').textContent()).toBe('stitch_paris.zip');
-    await page.locator('.chooser [type=submit]').click(); // no words needed: the ZIP is enough
-    await page.waitForURL(`${url}paris/`);
-    await page.locator('.job-box h2', { hasText: 'Your page is ready' }).waitFor({ timeout: 20_000 });
+    await page.locator('.np-drop input[type=file]').setInputFiles(file);
+    expect(await page.locator('.np-zip b').textContent()).toBe('stitch_paris.zip');
+    await page.locator('.np-kaity [type=submit]').click(); // no words needed: the ZIP is enough
+    await page.waitForURL(`${url}_tykerf/edit/paris/`);
+    await expect.poll(() => page.locator('.bar .status').textContent(), { timeout: 20_000 }).toContain('Your page is ready');
 
     // the chat shows the request and the file names; the model gets the files' text and the picture
-    await page.locator('[data-job="editor"]').click();
+    await page.locator('[data-bar="job-seen"]').click();
+    await page.locator('.bar .hint').waitFor();
+    await page.goto(`${url}paris/?tykerf=full-frame&block=${await top(url, 'paris')}&tab=ai`);
     await page.locator('.chat .msg.user').waitFor();
     expect(await page.locator('.chat .msg.user').textContent()).toContain('(Attached: stitch_paris.zip: DESIGN.md, code.html, screen.png)');
     expect(await page.locator('.chat .msg.user').textContent()).not.toContain('#0F1B29');
@@ -165,61 +151,45 @@ describe('show or describe it', () => {
     expect(r).toMatchObject({ ok: false, error: 'x.zip: this is not a ZIP file' });
   });
 
-  it('stops the AI with the X; what it built stays', async () => {
+  it('stops the AI from the bar; what it built stays', async () => {
     const { url } = await editor({ TYKERF_RUNNER: 'anthropic', TYKERF_API_KEY: 'k', TYKERF_API_BASE_URL: `http://127.0.0.1:${(api.address() as { port: number }).port}` });
     replies.push({ ...message([{ type: 'text', text: 'too late' }], 'end_turn'), delay: 8000 } as any);
     const r = await fetch(`${url}_tykerf/site/new`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ name: 'slow', prompt: 'a long page' }) }).then((x) => x.json());
     expect(r.ok).toBe(true);
     const page = await browser.newPage({ viewport: { width: 1280, height: 800 } });
-    await page.addInitScript(() => localStorage.setItem('tykerf.mode', '\"edit\"')); // her conversation is in the Edit mode
-    await page.goto(`${url}slow/`);
-    // while Kaity works, its progress is a small card in the bottom right corner, over the page
-    await page.locator('.jobmodal.running').waitFor();
-    await page.waitForTimeout(400); // the card's entrance
-    await page.screenshot({ path: join(tmpdir(), 'tykerf-job-running.png') });
-    const card = (await page.locator('.job-box').boundingBox())!;
-    expect(card.width).toBeLessThanOrEqual(380);
-    expect(1280 - (card.x + card.width)).toBeLessThan(40);
-    expect(800 - (card.y + card.height)).toBeLessThan(40);
-    await page.locator('.job-x').click();
-    expect(await page.locator('.job-confirm').textContent()).toMatch(/What it built so far stays/);
-    await page.locator('[data-job="stop"]').click();
-    await page.locator('.job-box h2', { hasText: 'Stopped' }).waitFor({ timeout: 10_000 });
-    expect(await page.locator('[data-job="editor"]').isVisible()).toBe(true);
-    // at the end it comes back to the middle
-    await page.waitForTimeout(400);
-    const end = (await page.locator('.job-box').boundingBox())!;
-    expect(Math.abs(end.x + end.width / 2 - 640)).toBeLessThan(4);
-    await page.screenshot({ path: join(tmpdir(), 'tykerf-job-ended.png') });
+    await page.goto(`${url}_tykerf/edit/slow/`);
+    await expect.poll(() => page.locator('.bar .status').textContent()).toContain('Kaity is building slow');
+    await page.locator('[data-bar="job-stop"]').click();
+    await expect.poll(() => page.locator('.bar .status').textContent(), { timeout: 10_000 }).toContain('Stopped');
+    expect(await page.locator('.tray .how').textContent()).toMatch(/What Kaity built so far stays/);
   });
 
-  it('shows where Kaity works: in the site manager, on the page list, and in the page editor with a way there', async () => {
+  it('shows where Kaity works: on the site\'s Kaity screen, and in the full editor with a way there', async () => {
     const { url } = await editor({ TYKERF_RUNNER: 'anthropic', TYKERF_API_KEY: 'k', TYKERF_API_BASE_URL: `http://127.0.0.1:${(api.address() as { port: number }).port}` });
     const post = (path: string, body: unknown) => fetch(`${url}${path}`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) }).then((x) => x.json());
     expect((await post('_tykerf/site/new', { name: 'tour', layout: 'blank' })).ok).toBe(true);
     const page = await browser.newPage({ viewport: { width: 1280, height: 860 } });
-    await page.addInitScript(() => localStorage.setItem('tykerf.mode', '\"edit\"')); // her conversation is in the Edit mode
     page.setDefaultTimeout(8000);
-    await page.goto(`${url}tour/`); // the page's editor is open: Kaity runs in it
+    await page.goto(`${url}tour/?tykerf=full-frame`); // the page's full editor is open: Kaity runs in it
     // only this run's slow reply: one left by an earlier test would end it at once
     replies.length = 0;
     replies.push({ ...message([{ type: 'text', text: 'slow' }], 'end_turn'), delay: 8000 } as any);
     expect((await post('tour/_tykerf/ask', { id: 'nav', prompt: 'make it shorter' })).ok).toBe(true);
     expect((await fetch(`${url}_tykerf/site`).then((x) => x.json())).kaity).toEqual({ site: false, pages: [{ page: 'tour', block: 'nav' }] });
 
-    // the site manager lists it, and marks the page
-    const manager = await browser.newPage();
-    await manager.addInitScript(() => localStorage.setItem('tykerf.mode', '\"edit\"')); // her conversation is in the Edit mode
-    await manager.goto(`${url}_tykerf/site/`);
-    await manager.locator('.now li').waitFor();
-    expect(await manager.locator('.now li').textContent()).toBe('tour · nav');
-    expect(await manager.locator('.now a').getAttribute('href')).toBe('/tour/?block=nav&tab=ai');
-    expect(await manager.locator('.pages li .who a[title="Kaity is working on nav"]').count()).toBe(1);
-    await manager.close();
+    // the site's Kaity screen lists her run as going on
+    const screen = await browser.newPage();
+    await screen.goto(`${url}_tykerf/edit/_site/kaity`);
+    const run = screen.locator('.runs .run.working');
+    await run.waitFor();
+    expect(await run.locator('.rhead').textContent()).toMatch(/^Working\s*tour · nav/);
+    expect(await run.locator('.rhead a').getAttribute('href')).toBe('/_tykerf/edit/tour/?mode=full&block=nav&tab=ai');
+    expect(await screen.locator('.sidebar [data-screen="kaity"] .sstate').textContent()).toBe('working now');
+    await screen.close();
 
-    // in the page editor: her balls on the block in the tree, and from another block's Kaity tab, a way there
+    // in the full editor: her balls on the block in the tree, and from another block's Kaity tab, a way there
     const other = (await fetch(`${url}tour/_tykerf/state`).then((x) => x.json())).tree.children.find((c: any) => c.id !== 'nav' && c.kind === 'box')?.id ?? 'footer';
-    await page.goto(`${url}tour/?block=${other}&tab=ai`);
+    await page.goto(`${url}tour/?tykerf=full-frame&block=${other}&tab=ai`);
     await page.locator('.work .elsewhere').waitFor();
     expect(await page.locator('.work .elsewhere').textContent()).toBe('Kaity is working on nav.Go there');
     expect(await page.locator('.tree .item[data-id="nav"] .at-work').count()).toBe(1);
@@ -233,13 +203,10 @@ describe('show or describe it', () => {
   it('starts from a layout when the AI is not ready, and says why', async () => {
     const { url } = await editor({ TYKERF_RUNNER: 'anthropic' }); // no key
     const page = await browser.newPage();
-    await page.addInitScript(() => localStorage.setItem('tykerf.mode', '\"edit\"')); // her conversation is in the Edit mode
-    await page.goto(url);
-    await page.locator('.chooser').waitFor();
-    expect(await page.locator('[data-from="layout"]').getAttribute('aria-pressed')).toBe('true');
-    await page.locator('[data-from="idea"]').click();
-    expect(await page.locator('.ch-ai').textContent()).toMatch(/not ready.*no key/);
-    expect(await page.locator('.chooser [type=submit]').isDisabled()).toBe(true);
+    await page.goto(`${url}_tykerf/edit/_site/new`);
+    expect(await page.locator('.np-kaity [type=submit]').isDisabled()).toBe(true);
+    expect(await page.locator('.np-kaity .warn').textContent()).toMatch(/not ready.*no key/);
+    expect(await page.locator('[data-np="layout"] [type=submit]').isDisabled()).toBe(false);
     const r = await fetch(`${url}_tykerf/site/new`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ name: 'x', prompt: 'a page' }) });
     expect(r.status).toBe(422);
     expect((await r.json()).error).toMatch(/Kaity is not ready/);
@@ -255,7 +222,7 @@ describe("Kaity's steps in the AI tab", () => {
     const page = await browser.newPage({ viewport: { width: 1280, height: 860 } });
     await page.addInitScript(() => localStorage.setItem('tykerf.mode', '\"edit\"')); // her conversation is in the Edit mode
     page.setDefaultTimeout(8000);
-    await page.goto(`${url}log/`);
+    await page.goto(`${url}log/?tykerf=full-frame`); // her conversation per block is the full editor's
     await page.locator('[data-job="editor"]').click();
     await page.locator('.chat .msg.ai').waitFor();
 
@@ -288,20 +255,19 @@ describe("Kaity's steps in the AI tab", () => {
   });
 });
 
-describe('the start screen', () => {
-  it('offers the pages made in its folder meanwhile', async () => {
+describe('the site in the editor', () => {
+  it('shows the pages made in its folder meanwhile, when the person comes back to it', async () => {
     const { url, site } = await editor({ TYKERF_RUNNER: 'anthropic' });
-    const page = await browser.newPage();
-    await page.addInitScript(() => localStorage.setItem('tykerf.mode', '\"edit\"')); // her conversation is in the Edit mode
+    createPage(new Workspace(join(site, 'home')), 'blank');
+    const page = await browser.newPage({ viewport: { width: 1280, height: 860 } });
     page.setDefaultTimeout(8000);
-    await page.goto(url);
-    await page.locator('.chooser').waitFor();
-    expect(await page.locator('.pages').isHidden()).toBe(true);
+    await page.goto(`${url}_tykerf/edit/_site/tasks`);
+    await expect.poll(() => page.locator('.sidebar .pname').allTextContents()).toEqual(['home']);
     for (const name of ['rome', 'prague']) createPage(new Workspace(join(site, name)), 'blank');
-    await expect.poll(() => page.locator('.pages .who a').allTextContents(), { timeout: 6000 }).toEqual(['prague', 'rome']);
-    expect(await page.locator('.chooser').isVisible()).toBe(true); // making another page stays possible
-    await page.locator('.pages .who a', { hasText: 'rome' }).click();
-    await page.waitForURL(`${url}rome/`);
+    await page.evaluate(() => window.dispatchEvent(new Event('focus')));
+    await expect.poll(() => page.locator('.sidebar .pname').allTextContents(), { timeout: 6000 }).toEqual(['home', 'prague', 'rome']);
+    await page.locator('.sidebar .popen', { hasText: 'rome' }).click();
+    await page.waitForURL(`${url}_tykerf/edit/rome/`);
   });
 });
 
@@ -343,7 +309,7 @@ describe('a page Kaity builds', () => {
     const page = await browser.newPage({ viewport: { width: 1280, height: 800 } });
     await page.addInitScript(() => localStorage.setItem('tykerf.mode', '\"edit\"')); // her conversation is in the Edit mode
     page.setDefaultTimeout(10_000);
-    await page.goto(`${url}bakery/`);
+    await page.goto(`${url}bakery/?tykerf=full-frame`); // the full editor shows her build coming into focus
     const focus = () => page.evaluate(() => document.getElementById('tykerf-focus')?.textContent ?? '');
     const blur = async (id: string) => /\d+/.exec((await focus()).split('\n').find((l) => l.includes(`[data-sw="${id}"]`))?.match(/blur\((\d+)px\)/)?.[0] ?? '')?.[0] ?? null;
 
@@ -382,7 +348,7 @@ describe('Kaity at work on the page', () => {
     );
     const page = await browser.newPage({ viewport: { width: 1280, height: 720 } });
     page.setDefaultTimeout(10_000);
-    await page.goto(`${url}home/?edit`);
+    await page.goto(`${url}home/?tykerf=full-frame`); // the full editor, as the shell's Full editor mode loads it
     await page.locator('section.panel').waitFor();
     expect(await page.evaluate('scrollY')).toBe(0);
     await post('home/_tykerf/ask', { id: 'page', prompt: 'Read the FAQ and the navigation' });
@@ -400,7 +366,7 @@ describe('Kaity at work on the page', () => {
 });
 
 describe('Kaity for the whole site', () => {
-  it('goes through the pages one by one from the site manager, while page-level work waits', async () => {
+  it('goes through the pages one by one from the site\'s Kaity screen, while page-level work waits', async () => {
     const { url, site } = await editor({ TYKERF_RUNNER: 'anthropic', TYKERF_API_KEY: 'k', TYKERF_API_BASE_URL: `http://127.0.0.1:${(api.address() as { port: number }).port}` });
     const post = (path: string, data: unknown) => fetch(`${url}${path}`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(data) });
     for (const name of ['rome', 'munich']) await post('_tykerf/site/new', { name, layout: 'blank', shared: false }); // each page's own navigation, which she changes page by page
@@ -416,13 +382,11 @@ describe('Kaity for the whole site', () => {
       message([{ type: 'text', text: 'Both navigations now link to every page.' }], 'end_turn') as any,
     );
     const page = await browser.newPage({ viewport: { width: 1280, height: 800 } });
-    await page.addInitScript(() => localStorage.setItem('tykerf.mode', '\"edit\"')); // her conversation is in the Edit mode
     page.setDefaultTimeout(10_000);
-    await page.goto(`${url}_tykerf/site/`);
-    await page.locator('.kaity-btn').click();
-    await page.locator('.kaity textarea').pressSequentially('Link every page from the navigation'); // real key presses
-    await page.locator('.kaity [data-k="send"]').click();
-    await page.locator('.kaity [data-k="send"]', { hasText: 'Stop' }).waitFor();
+    await page.goto(`${url}_tykerf/edit/_site/kaity`);
+    await page.locator('.convo #ask-site-2').pressSequentially('Link every page from the navigation'); // real key presses
+    await page.locator('.convo [type="submit"]').click();
+    await page.locator('.convo [data-k="stop"]').waitFor();
 
     // while she works on the site, renames and a page's own Kaity wait
     const rename = await post('_tykerf/site/rename', { name: 'rome', to: 'roma' });
@@ -436,11 +400,9 @@ describe('Kaity for the whole site', () => {
     const going = (await fetch(`${url}_tykerf/site/kaity`).then((r) => r.json())).runs[0];
     expect(going).toMatchObject({ page: null, request: 'Link every page from the navigation', state: 'working' });
 
-    await page.locator('.kaity .msg.ai', { hasText: 'Both navigations now link to every page.' }).waitFor({ timeout: 20_000 });
+    await page.locator('.convo .msg.ai', { hasText: 'Both navigations now link to every page.' }).waitFor({ timeout: 20_000 });
     for (const name of ['rome', 'munich']) expect(readFileSync(join(site, name, 'boxes', 'nav.html'), 'utf8')).toContain('<a href="/munich/">Munich</a>');
-    expect(await page.locator('.kaity details summary').textContent()).toBe('5 steps');
-    await page.screenshot({ path: join(tmpdir(), 'tykerf-site-kaity.png') });
-    expect(await page.locator('.kaity .msg.user').textContent()).toBe('Link every page from the navigation');
+    expect(await page.locator('.convo .msg.user').textContent()).toContain('Link every page from the navigation');
     // her conversation is the site's, kept in its folder
     expect(JSON.parse(readFileSync(join(site, '.tykerf', 'chats', 'site.json'), 'utf8')).messages.at(-1)).toMatchObject({ role: 'ai' });
     expect((await fetch(`${url}_tykerf/site/kaity`).then((r) => r.json())).runs[0]).toMatchObject({ page: null, state: 'done', steps: 5, answer: 'Both navigations now link to every page.' });

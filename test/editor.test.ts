@@ -66,7 +66,7 @@ beforeEach(async () => {
     localStorage.setItem('tykerf.min', 'true');
     localStorage.setItem('tykerf.mode', '"edit"'); // these tests are about the whole editor
   });
-  await page.goto(url);
+  await page.goto(`${url}?tykerf=full-frame`); // the full editor (the shell is where /<page>/ leads)
   await page.locator('.panel').waitFor();
 });
 

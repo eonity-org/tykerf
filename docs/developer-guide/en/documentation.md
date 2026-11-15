@@ -32,12 +32,13 @@ When a change alters what people see or how the code is extended, update the gui
 | You changed… | Update |
 |---|---|
 | Something in the panel, a tab, a menu, a shortcut | `user-guide/en/editor.md` |
-| The start screen, *New page…*, the ways to start | `getting-started.md`, `sites.md`, and the chooser section of `developer-guide/en/editor.md` |
+| New page, the ways to start | `getting-started.md`, `sites.md`, and the shell section of `developer-guide/en/editor.md` |
 | What Kaity can do, a runner, an environment variable | `user-guide/en/ai.md` (and `.env.example`), `developer-guide/en/ai-and-mcp.md` |
 | An MCP tool | The tools table in `user-guide/en/ai.md`, `developer-guide/en/ai-and-mcp.md` |
 | A message people may see when something fails | `user-guide/en/troubleshooting.md`, if people are likely to meet it |
 | A layout, a component or a theme preset | `user-guide/en/layouts.md` (the tables list every offered one) |
-| The site manager, links, the site's head | `user-guide/en/sites.md` |
+| The editor's bar, tasks, Kaity's review, fixing by hand, the full editor | `user-guide/en/editor.md`, and the shell section of `developer-guide/en/editor.md` |
+| The site's sidebar and screens, links, the site's head | `user-guide/en/sites.md` |
 | Export or publish | `exporting.md`, `publishing.md`, `DEPLOY.md` |
 | The notation, a move, a reference form | `docs/slicing-notation.md` |
 | A module's job, a rule other code relies on | `developer-guide/en/architecture.md` and `CLAUDE.md` |
@@ -70,7 +71,7 @@ Every Markdown page except `CLAUDE.md` starts with a pair of HTML comments, `tyk
 ## Screenshots and video
 
 - **Screenshots** go in `docs/user-guide/images/` as PNG, taken from a real page in the editor at 1440 px wide (Playwright with `deviceScaleFactor: 2` gives sharp ones). Crop to what the text talks about, and describe the picture in its alt text.
-- **The demo video** is on eonity.org (https://eonity.org/tykerf-guides/videos/tykerf-builds-lisbon.mp4), not in the repository, so clones stay small; its poster `docs/media/tykerf-builds-lisbon.jpg` is. It shows the whole flow: the start screen, one request, the build sped up, a tour of the finished page, its blocks in the editor and the phone view. GitHub doesn't play videos linked from Markdown inline, so pages link the poster to the video: `[![…](../../media/tykerf-builds-lisbon.jpg)](https://eonity.org/tykerf-guides/videos/tykerf-builds-lisbon.mp4)`. Replace both together when the interface changes enough that the video no longer matches. A second video, the tasks (https://eonity.org/tykerf-guides/videos/tykerf-tasks.mp4, poster `docs/media/tykerf-tasks.jpg`), shows two loose tasks on a page and Kaity doing them; it is linked from the README, Getting started and the Tasks section of the editor guide, and goes stale if the Tasks mode changes how it looks.
+- **The demo video** is on eonity.org (https://eonity.org/tykerf-guides/videos/tykerf-builds-lisbon.mp4), not in the repository, so clones stay small; its poster `docs/media/tykerf-builds-lisbon.jpg` is. It shows the whole flow (made before the shell): the first request, the build sped up, a tour of the finished page, its blocks in the editor and the phone view. GitHub doesn't play videos linked from Markdown inline, so pages link the poster to the video: `[![…](../../media/tykerf-builds-lisbon.jpg)](https://eonity.org/tykerf-guides/videos/tykerf-builds-lisbon.mp4)`. Replace both together when the interface changes enough that the video no longer matches. A second video, the tasks (https://eonity.org/tykerf-guides/videos/tykerf-tasks.mp4, poster `docs/media/tykerf-tasks.jpg`), shows two loose tasks on a page and Kaity doing them; it is linked from the README, Getting started and the Tasks section of the editor guide, and goes stale if the Tasks mode changes how it looks.
 - **Keep people out of pictures.** Use made-up names and `example.com`/`example.org` addresses; no personal names, real domains other than TYKERF's own, keys, tokens or local paths that name someone.
 
 ## Translations

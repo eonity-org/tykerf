@@ -26,7 +26,7 @@ import { type Contents, layerStyles, toHTML } from './render.js';
 import type { FontRegistry } from './library.js';
 import { trimSteps } from './history-trim.js';
 
-type HistoryEntry =
+type HistoryEntry = (
   | { kind?: 'layout'; label: string; author?: string; at?: string; slice: string }
   | { kind: 'rename'; label: string; author: string; at: string; slice: string; from: string; to: string }
   | { kind: 'content'; label: string; author: string; at: string; id: string; prev: string | null }
@@ -36,8 +36,14 @@ type HistoryEntry =
   // which the page's undo takes back while it is still the site's last
   | { kind: 'site'; label: string; author: string; at: string; id: string; block: string; step: string }
   // a file added to assets/ (files.ts): undo removes it, keeping its bytes in .tykerf/trash/<hash> for redo
-  | { kind: 'file'; label: string; author: string; at: string; file: string; from: string; size: number; hash: string; removed?: true };
+  | { kind: 'file'; label: string; author: string; at: string; file: string; from: string; size: number; hash: string; removed?: true }
   // (removed: the step took the file away, keeping its bytes in .tykerf/trash/<hash>; undo puts it back)
+  // the page's tasks (tasks.ts): only the tasks the step changed, as they were before it (null: it added that task)
+  | { kind: 'tasks'; label: string; author: string; at: string; prev: TasksPatch }
+) & { tag?: string }; // the task run that made it (Workspace.tag), so its work can be taken back on its own
+
+/** Tasks by number (as a string), each as a whole task, or null for no task of that number. */
+export type TasksPatch = Record<string, { n: number } | null>;
 
 /** An undone step, kept so redo can bring it back: the entry plus the state undo replaced. */
 type RedoEntry =
@@ -46,7 +52,8 @@ type RedoEntry =
   | { entry: HistoryEntry; head: string | null } // head.html steps: head.html before undo
   | { group: Extract<HistoryEntry, { kind: 'group' }> } // marks the inner steps below it as one
   | { entry: HistoryEntry; site: 'undone' | 'gone' } // a shared block's change: undone in the site's history, or gone from it already
-  | { entry: HistoryEntry; file: true }; // an added file, removed by undo (its bytes in .tykerf/trash/<hash>)
+  | { entry: HistoryEntry; file: true } // an added file, removed by undo (its bytes in .tykerf/trash/<hash>)
+  | { entry: HistoryEntry; tasks: TasksPatch }; // the tasks undo replaced, as they were
 
 /**
  * What undo or redo would do, without doing it: the layout it would restore, the box it would change, whether it
@@ -60,6 +67,7 @@ export interface Peek {
   head?: boolean;
   site?: boolean;
   block?: string;
+  tasks?: boolean; // it changes the page's tasks
 }
 
 /** A change about to be made, as guards see it (see Workspace.addGuard). */
@@ -96,6 +104,8 @@ const SCOPE = '.scope';
 const HEAD = 'head.html';
 const ASSETS = 'assets';
 const OUT = 'out/index.html';
+/** The page's tasks (tasks.ts). Not part of the page, but their changes are steps of its history. */
+export const TASKS = '.tykerf/tasks.json';
 
 /**
  * What a page needs of its site (src/site/index.ts: class Site implements it). A shared thing is a method here,
@@ -163,6 +173,12 @@ export class Workspace {
    * A folder path (as before) or any Store. With a site, the page's name is `page`, else its folder's name when
    * the folder is in the site's (a page of the site); none for the site folder itself or a page in memory.
    */
+  /**
+   * The task run making the changes through this object (Kaity working on one task, ai.ts): every history entry
+   * logged while it is set carries it, so that task's work can be taken back on its own (revertTagged).
+   */
+  tag: string | null = null;
+
   constructor(where: string | Store, opts: { site?: SiteLike | null; page?: string } = {}) {
     this.store = typeof where === 'string' ? new FolderStore(where) : where;
     if (!opts.site) return;
@@ -257,6 +273,7 @@ export class Workspace {
 
   /** Record a new change. A new change makes the undone steps unreachable, so redo starts over. */
   private log(entry: HistoryEntry) {
+    if (this.tag) entry = { ...entry, tag: this.tag };
     this.store.append(HISTORY, JSON.stringify(entry) + '\n');
     const hadRedo = this.store.exists(REDO);
     this.store.remove(REDO);
@@ -419,8 +436,10 @@ export class Workspace {
       const box = inner.find((x) => x.kind === 'content' || x.kind === 'site') as { id: string } | undefined;
       const head = inner.some((x) => x.kind === 'head') || undefined;
       const site = inner.find((x) => x.kind === 'site') as { block: string } | undefined;
-      return { label: e.label, author: e.author, layout: firstLayout && parseSlice(firstLayout.slice), box: box?.id, head, ...(site ? { site: true, block: site.block } : {}) };
+      const tasks = inner.some((x) => x.kind === 'tasks') || undefined;
+      return { label: e.label, author: e.author, layout: firstLayout && parseSlice(firstLayout.slice), box: box?.id, head, tasks, ...(site ? { site: true, block: site.block } : {}) };
     }
+    if (e.kind === 'tasks') return { label: e.label, author: e.author, tasks: true };
     if (e.kind === 'content') return { label: e.label, author: e.author, box: e.id };
     if (e.kind === 'site') return { label: e.label, author: e.author, box: e.id, head: false, site: true, block: e.block };
     if (e.kind === 'head') return { label: e.label, author: e.author, head: true };
@@ -471,7 +490,9 @@ export class Workspace {
       this.pushRedo({ group: e });
       return e.label;
     }
-    if (e.kind === 'file') {
+    if (e.kind === 'tasks') {
+      this.pushRedo({ entry: e, tasks: this.patchTasks(e.prev) });
+    } else if (e.kind === 'file') {
       // an added file goes (its bytes wait in .tykerf/trash/ for redo); a removed one comes back from there
       if (e.removed) this.restoreAsset(e.file, e.hash);
       else this.trashAsset(e.file, e.hash);
@@ -535,7 +556,8 @@ export class Workspace {
       return r.group.label;
     }
     const e = r.entry;
-    if ('file' in r && e.kind === 'file') {
+    if ('tasks' in r) this.patchTasks(r.tasks);
+    else if ('file' in r && e.kind === 'file') {
       if (e.removed) this.trashAsset(e.file, e.hash);
       else this.restoreAsset(e.file, e.hash);
     } else if ('site' in r) {
@@ -570,8 +592,128 @@ export class Workspace {
       layout: layouts.length ? parseSlice(layouts[layouts.length - 1].slice) : undefined,
       box: box?.entry.id ?? rename?.entry.to,
       head: steps.some((x) => 'head' in x) || undefined,
+      tasks: steps.some((x) => 'tasks' in x) || undefined,
       ...(site ? { site: true, block: site.entry.block } : {}),
     };
+  }
+
+  /** The page's tasks file as it is (tasks.ts reads it the same way). */
+  private tasksFile(): { next: number; tasks: { n: number }[] } {
+    try {
+      const f = JSON.parse(this.store.read(TASKS) ?? '');
+      if (Array.isArray(f?.tasks)) return { next: Number(f.next) || 1, tasks: f.tasks };
+    } catch {}
+    return { next: 1, tasks: [] };
+  }
+
+  /**
+   * Replace the page's tasks (tasks.ts) as one step of the page's history, so Undo takes back adding, closing or
+   * removing a task like any other change. The step keeps only the tasks that changed.
+   */
+  writeTasks(next: { next: number; tasks: { n: number }[] }, label: string, author: string = 'user') {
+    this.transaction(() => {
+      const cur = this.tasksFile();
+      const was = new Map(cur.tasks.map((t) => [t.n, t]));
+      const now = new Map(next.tasks.map((t) => [t.n, t]));
+      const prev: TasksPatch = {};
+      for (const n of new Set([...was.keys(), ...now.keys()])) {
+        if (JSON.stringify(was.get(n) ?? null) !== JSON.stringify(now.get(n) ?? null)) prev[n] = was.get(n) ?? null;
+      }
+      if (Object.keys(prev).length) this.log({ kind: 'tasks', label, author, at: new Date().toISOString(), prev });
+      this.store.write(TASKS, JSON.stringify(next, null, 1));
+    });
+  }
+
+  /** Put these tasks as the patch has them (null: no such task); returns the tasks it replaced. Numbers are never reused. */
+  private patchTasks(patch: TasksPatch): TasksPatch {
+    const f = this.tasksFile();
+    const was: TasksPatch = {};
+    for (const [k, task] of Object.entries(patch)) {
+      const n = Number(k);
+      const i = f.tasks.findIndex((t) => t.n === n);
+      was[k] = i >= 0 ? f.tasks[i] : null;
+      if (i >= 0) f.tasks.splice(i, 1);
+      if (task) {
+        const at = f.tasks.findIndex((t) => t.n > n);
+        f.tasks.splice(at < 0 ? f.tasks.length : at, 0, task);
+        f.next = Math.max(f.next, n + 1);
+      }
+    }
+    this.store.write(TASKS, JSON.stringify(f, null, 1));
+    return was;
+  }
+
+  /**
+   * Take back what the task runs `tags` changed (Kaity's work on some tasks, Workspace.tag), wherever it is in the
+   * history, as one new step that Undo can take back in turn. Refused when a later step changed the same boxes,
+   * layout, head, files or tasks: those would be lost or half undone. Returns how many changes it took back.
+   */
+  revertTagged(tags: string[], label: string, author: string = 'user'): number {
+    const touches = (e: HistoryEntry): string[] => {
+      switch (e.kind) {
+        case 'content': return [`box:${e.id}`];
+        case 'site': return [`box:${e.id}`, `site:${e.block}`];
+        case 'rename': return ['layout', `box:${e.from}`, `box:${e.to}`];
+        case 'head': return ['head'];
+        case 'file': return [`file:${e.file}`];
+        case 'tasks': return Object.keys(e.prev).map((n) => `task:${n}`);
+        case 'group': return [];
+        default: return ['layout'];
+      }
+    };
+    return this.transaction(() => {
+      const all = this.entries();
+      const mine = (e: HistoryEntry) => !!e.tag && tags.includes(e.tag);
+      const first = all.findIndex(mine);
+      const targets = all.filter((e) => mine(e) && e.kind !== 'group');
+      if (first < 0 || !targets.length) throw new Error('nothing of that is left in the page\'s history');
+      if (targets.some((e) => e.kind === 'site'))
+        throw new Error('it changed a shared block on every page that shows it: undo that in the site manager');
+      const touched = new Set(targets.flatMap(touches));
+      const later = all.slice(first + 1).filter((e) => !mine(e) && touches(e).some((t) => touched.has(t)));
+      if (later.length) {
+        const labels = [...new Set(later.map((e) => `"${e.label}"`))];
+        throw new Error(`what came after it changed the same part of the page (${labels.slice(0, 3).join(', ')}${labels.length > 3 ? '…' : ''}): undo that first`);
+      }
+      const tag = this.tag;
+      this.tag = null;
+      try {
+        this.group(label, author, () => {
+          const at = new Date().toISOString();
+          for (const e of targets.reverse()) {
+            if (e.kind === 'content') {
+              this.checkGuards({ kind: 'content', id: e.id, layout: this.load() });
+              this.log({ kind: 'content', label, author, at, id: e.id, prev: this.ownContent(e.id) });
+              this.writeBox(e.id, e.prev);
+            } else if (e.kind === 'head') {
+              this.checkGuards({ kind: 'head' });
+              this.log({ kind: 'head', label, author, at, prev: this.store.read(HEAD) });
+              this.writeHead(e.prev);
+            } else if (e.kind === 'tasks') {
+              this.log({ kind: 'tasks', label, author, at, prev: this.patchTasks(e.prev) });
+            } else if (e.kind === 'file') {
+              if (e.removed) this.restoreAsset(e.file, e.hash);
+              else this.trashAsset(e.file, e.hash);
+              this.log({ kind: 'file', label, author, at, file: e.file, from: e.from, size: e.size, hash: e.hash, ...(e.removed ? {} : { removed: true as const }) });
+            } else if (e.kind !== 'group' && e.kind !== 'site') {
+              const cur = this.slice();
+              this.checkGuards({ kind: 'layout', prev: parseSlice(cur), next: parseSlice(e.slice) });
+              if (e.kind === 'rename') {
+                this.log({ kind: 'rename', label, author, at, slice: cur, from: e.to, to: e.from });
+                this.store.write(SLICE, e.slice);
+                this.moveBox(e.to, e.from);
+              } else {
+                this.log({ label, author, at, slice: cur });
+                this.store.write(SLICE, e.slice);
+              }
+            }
+          }
+        });
+      } finally {
+        this.tag = tag;
+      }
+      return targets.length;
+    });
   }
 
   contents(): Contents {
@@ -776,7 +918,7 @@ export class Workspace {
     const prev = this.ownContent(id);
     if (prev === html) return;
     this.checkGuards({ kind: 'content', id, layout });
-    this.log({ kind: 'content', label: `set_content ${id}${html === null ? ' (removed)' : ` (${html.length} chars)`}`, author, at: new Date().toISOString(), id, prev });
+    this.log({ kind: 'content', label: html === null ? `empty ${id}` : `change the code of ${id}`, author, at: new Date().toISOString(), id, prev });
     this.writeBox(id, html);
   }
 

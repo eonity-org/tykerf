@@ -27,7 +27,7 @@ The code changed under the running editor (after a `git pull`, for example). Pre
 
 ## Kaity
 
-**The start screen says *Kaity is not ready here*.**
+**New page says *Kaity is not ready here*.**
 The line after it says why:
 - *Claude Code is not installed here*: install [Claude Code](https://claude.com/claude-code), run `claude` once and sign in with `/login`, then restart TYKERF. Or use an API key instead ([Which AI answers](ai.md#which-ai-answers)).
 - *no key: set TYKERF_API_KEY…* or *set GEMINI_API_KEY…*: the runner in `.env` needs its key. Add it to `.env` and restart TYKERF.
@@ -49,11 +49,11 @@ In the Kaity tab and in *Give only these to Kaity*, she can only change the sele
 **Undo and redo say *Kaity is working on …*.**
 While Kaity works, undo and redo wait, so they can't undo half of her change. Wait until she is done, or stop her (*Stop* in the Kaity tab, or the **×** of the build window).
 
-**Give Kaity every task is greyed out, or a task I just added didn't run.**
-Kaity does one run at a time on a page. Tasks you add while she works wait for the next request: when she is done, press **Give Kaity every task** again for the rest. See [Tasks](editor.md#tasks).
+**Give them to Kaity is greyed out.**
+There are no open tasks on the page. Tasks you add while she works join the end of her list. See [Tasks](editor.md#tasks).
 
-**I can't see the numbered tabs on the page.**
-**Tabs** in the header of the Tasks mode shows or hides them. They show in the Edit mode too.
+**I can't see the numbered pins on the page.**
+A pin sits on its element's top-right corner: scroll to the element, or open the tray (the number of tasks in the bar) and choose *Show on the page*. After **Hide tykerf**, nothing of TYKERF shows; **Show tykerf** brings it back.
 
 **A task says its block is gone.**
 The block it was left on has been deleted. **Remove** the task and leave a new one where the element is now.
@@ -91,7 +91,7 @@ An image's size comes from its box or from the section's layout, not from the im
 
 **"A behaviour failed on this page"**
 
-A behaviour of the site kit (a script an element asks for with `data-use`) stopped with an error on this page. The browser's console (right-click → *Inspect* → *Console*) says why and on which element. Open it in the site manager (*Site kit & head code*, under *Behaviours*): an element missing what it expects, often; for a library behaviour that you changed, **Update from the library** puts its version back.
+A behaviour of the site kit (a script an element asks for with `data-use`) stopped with an error on this page. The browser's console (right-click → *Inspect* → *Console*) says why and on which element. Open it in the site's **Shared blocks**, under *Behaviours*: an element missing what it expects, often; for a library behaviour that you changed, **Update from the library** puts its version back.
 
 ## Copying, exporting and publishing
 

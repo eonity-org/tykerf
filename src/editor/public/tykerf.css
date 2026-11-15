@@ -720,3 +720,8 @@ textarea.code { flex: 1; min-height: 120px; font: var(--mono); tab-size: 2; whit
 .kaity-title .kaity svg { width: 22px; height: 11px; }
 .job-head .kaity svg { width: 28px; height: 14px; }
 .pop .inline-kit { display: flex; gap: 6px; align-items: center; margin: 10px 0 0; }
+/* the way back to tasks (the v3 editor's shell): the full editor is the expert way beside it */
+.backtasks { display: inline-flex; align-items: center; flex: none; height: 26px; margin-right: 6px; padding: 0 10px; border-radius: 7px; background: #EA9A27; color: #10303F; font-size: 13px; font-weight: 600; text-decoration: none; white-space: nowrap; }
+.backtasks:hover { background: #F0A23B; }
+/* inside the shell (its Full editor mode): the shell's bar has the pages, the site and the way back to tasks */
+:host(.embedded) .backtasks, :host(.embedded) .sitebtn, :host(.embedded) .pagesw, :host(.embedded) .closebtn, :host(.embedded) .managebtn { display: none !important; }

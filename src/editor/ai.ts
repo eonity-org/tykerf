@@ -72,6 +72,10 @@ export interface RunRequest {
   session?: string; // conversation to resume (Claude Code)
   /** The model's side of the block's past requests, for runners that keep it themselves (API runners). */
   memory: { load(): unknown; save(m: unknown): void };
+  /** Kaity working on one task (TaskRun): her changes carry this tag in the page's history, and ask_person is there. */
+  tag?: string;
+  /** Only the tools that look: Kaity answering a question changes nothing. */
+  readOnly?: boolean;
 }
 
 /** What a run reports while it works. `end` comes last, once. */
@@ -171,7 +175,8 @@ export class ClaudeCodeRunner implements Runner {
       on.end();
       return { cancel: () => {} };
     }
-    const cfg = JSON.stringify({ mcpServers: { tykerf: { command: 'npx', args: ['tsx', MCP_SERVER, '--dir', req.dir, ...(req.scope ? ['--scope', req.scope] : [])] } } });
+    const args = ['tsx', MCP_SERVER, '--dir', req.dir, ...(req.scope ? ['--scope', req.scope] : []), ...(req.tag ? ['--tag', req.tag] : []), ...(req.readOnly ? ['--read-only'] : [])];
+    const cfg = JSON.stringify({ mcpServers: { tykerf: { command: 'npx', args } } });
     // The request goes in on stdin as a stream-json user message, so it can carry pictures.
     const argv = ['-p', '--input-format', 'stream-json', '--output-format', 'stream-json', '--verbose', '--tools', '', '--strict-mcp-config',
       '--mcp-config', cfg, '--allowedTools', 'mcp__tykerf', '--permission-mode', 'dontAsk', '--append-system-prompt', req.system];
@@ -262,10 +267,21 @@ function inBlock(c: Extract<Change, { kind: 'content' }>, id: string) {
   return f.node.id === target || (isOp(f.node) && find(f.node, target) !== null);
 }
 
+/** How one request runs when it is Kaity's work on one task (TaskRun). */
+export interface RunOptions {
+  tag?: string; // her changes carry it in the page's history (Workspace.tag)
+  readOnly?: boolean; // a question: only the tools that look
+  queued?: boolean; // started by the task run, which otherwise keeps every other request out
+  onStep?(text: string): void;
+  onEnd?(r: { answer: string; error: string; failed: boolean; stopped: boolean }): void;
+}
+
 export class AI {
   private run: { cancel(): void; id: string; since: string; key: string; steps: number; step?: string; stopped?: boolean } | null = null;
   /** The tasks the current run was asked to work through (askTasks); null for any other run. */
   private runTasks: number[] | null = null;
+  /** Kaity working through tasks one by one (task-run.ts), between her runs too. */
+  taskRun: { active(): boolean; block(): string | null } | null = null;
 
   /**
    * `site`: Kaity for the whole site (the site manager), on `ws` over the site folder: one conversation
@@ -278,7 +294,10 @@ export class AI {
   }
 
   running() {
-    return this.run ? { id: this.follow(), ...(this.runTasks ? { tasks: this.runTasks } : {}) } : null;
+    if (this.run) return { id: this.follow(), ...(this.runTasks ? { tasks: this.runTasks } : {}) };
+    // between two tasks of a task run she is still at work: nothing else may start, undo waits
+    if (this.taskRun?.active()) return { id: this.taskRun.block() ?? this.ws.load().root.id };
+    return null;
   }
 
   /** The run going on now, for the site's log of Kaity's work: its id there, its block and what she is doing. */
@@ -377,8 +396,9 @@ export class AI {
    * Ask the AI about a block. `brief` adds instructions for this request (a new page to build, say);
    * `context` is reference material the model gets after the prompt but the chat doesn't show (a design file).
    */
-  ask(id: string, prompt: string, size?: string, images: Attachment[] = [], brief?: string, context?: string) {
+  ask(id: string, prompt: string, size?: string, images: Attachment[] = [], brief?: string, context?: string, opts: RunOptions = {}) {
     if (this.run) throw new Error(`Kaity is already working on "${this.run.id}"`);
+    if (!opts.queued && this.taskRun?.active()) throw new Error('Kaity is working through the tasks; wait until she is done, or stop her');
     const site = this.opts.site;
     if (site) id = SITE_CHAT;
     if (!prompt.trim()) throw new Error('write what you want first');
@@ -412,12 +432,13 @@ export class AI {
     };
     const start = (text: string, pictures: Attachment[]) => {
       let done = false;
-      run.cancel = this.runner.start({ ws: this.ws, dir, scope: site ? '' : run.id, home: site, system, prompt: text, images: pictures, session: this.chat(now()).session, memory }, {
+      run.cancel = this.runner.start({ ws: this.ws, dir, scope: site ? '' : run.id, home: site, system, prompt: text, images: pictures, session: this.chat(now()).session, memory, ...(opts.tag ? { tag: opts.tag } : {}), ...(opts.readOnly ? { readOnly: true } : {}) }, {
         session: (s) => this.save(now(), { ...this.chat(now()), session: s }),
         step: (t, at) => {
           run.steps++;
           run.step = t;
           this.add(now(), 'step', t, undefined, at);
+          opts.onStep?.(t);
         },
         answer: (t) => {
           answer = t;
@@ -432,7 +453,8 @@ export class AI {
           if (done) return;
           done = true;
           const last = this.follow();
-          const left = failed || site ? [] : this.left(before); // the site run's pages are checked by check_page
+          // the site run's pages are checked by check_page; a task's result is reviewed with the task (TaskRun)
+          const left = failed || site || opts.tag ? [] : this.left(before);
           // a whole page built in this request gets one pass over what it left, before the run ends
           if (left.length && !reviewed && (brief || this.usedLayout(run.since))) {
             reviewed = true;
@@ -446,6 +468,7 @@ export class AI {
           this.run = null;
           this.runTasks = null;
           this.emit('ai', { id: last, role: 'end' });
+          opts.onEnd?.({ answer, error: problem, failed, stopped: !!run.stopped });
         },
       }).cancel;
     };

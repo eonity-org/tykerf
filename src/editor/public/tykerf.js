@@ -7,6 +7,15 @@ import { markdown } from './markdown.js';
 
 // the page's own API: "/<page>/_tykerf" (each page of the site at /<page>/)
 const API = `${location.pathname.replace(/[^/]*$/, '')}_tykerf`;
+// this is the full editor (v3: the expert way, beside leaving tasks): pages open here with ?tykerf=full, and the
+// tasks, Kaity and the site live in the shell at /_tykerf/edit/<page>/ (public/shell/)
+const PAGE_NAME = decodeURIComponent(location.pathname.split('/')[1] ?? '');
+const SHELL = `/_tykerf/edit/${encodeURIComponent(PAGE_NAME)}/`;
+const full = (page) => `/_tykerf/edit/${encodeURIComponent(page)}/?mode=full`;
+// inside the shell's frame (?tykerf=full-frame, the shell's Full editor mode): the shell's bar does what this panel's
+// own navigation did (the pages, the site, back to tasks), so that stays out of sight, and moving on is the shell's
+const EMBEDDED = new URLSearchParams(location.search).get('tykerf') === 'full-frame' && window.top !== window;
+const go = (url) => (EMBEDDED ? window.top.location.assign(url) : location.assign(url));
 const $ = (sel, el = ui) => el.querySelector(sel);
 const esc = (s) => String(s).replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
 const store = {
@@ -33,7 +42,7 @@ async function api(path, body) {
 // ---------- state ----------
 
 const S = {
-  on: store.get('on', false),
+  on: ['full', 'full-frame'].includes(new URLSearchParams(location.search).get('tykerf')) || store.get('on', false),
   view: store.get('view', 'dim'), // dim | blur
   open: new Set(store.get('open', [])), // expanded containers in the tree
   min: store.get('min', false),
@@ -49,7 +58,7 @@ const S = {
   per: new Map(), // per block: { tab, codeTab, box, text, code, sheet, aiDraft }
   tasks: [], // tasks left on the page (src/tasks.ts), every one, done too
   tasksText: '', // the open ones in words, for copying to any agent
-  mode: store.get('mode', 'tasks'), // tasks (leave tasks on the page, give them to Kaity) | edit (every block in detail)
+  mode: 'edit', // the full editor: every block in detail (tasks are the shell's; the old Tasks mode stays out of sight)
   taskMode: false, // a click on the page adds a task there (on in the Tasks mode)
   lastRun: null, // Kaity's last answer, shown in the Tasks mode once she's done: { id, text }
   showPins: store.get('pins', true),
@@ -69,6 +78,7 @@ const isBox = (id) => info(id)?.node.kind === 'box';
 const host = document.createElement('tykerf-root');
 host.style.cssText = 'position:absolute;left:0;top:0;width:0;height:0;z-index:2147483647';
 const ui = host.attachShadow({ mode: 'open' });
+if (EMBEDDED) host.classList.add('embedded');
 const sheet = new CSSStyleSheet();
 sheet.replaceSync(await (await fetch(`${API}/tykerf.css`)).text());
 ui.adoptedStyleSheets = [sheet];
@@ -174,7 +184,8 @@ ui.innerHTML = `
 <section class="panel" role="dialog" aria-label="TYKERF">
   <header class="head">
     <span class="brand" title="TYKERF">${ICON.tykerf}<span class="wordmark">tykerf</span></span>
-    <div class="modesw" role="radiogroup" aria-label="${t('Mode')}">
+    <a class="backtasks" href="${SHELL}" title="${t('Leave tasks on the page and give them to Kaity')}">← ${t('Tasks')}</a>
+    <div class="modesw" role="radiogroup" aria-label="${t('Mode')}" hidden>
       <button data-mode="tasks" role="radio" title="${t('Tasks: click anything on the page to leave a task there, then give your tasks to Kaity')}">${ic('task')}<span class="label">${t('Tasks')}</span><span class="count" hidden></span></button>
       <button data-mode="edit" role="radio" title="${t('Edit: every block in detail, its text, code, sizes and look')}">${ic('edit')}<span class="label">${t('Edit')}</span></button>
     </div>
@@ -211,7 +222,7 @@ ui.innerHTML = `
   <button data-fmt="done" class="primary" title="${t('Save (Enter)')}">${t('Done')}</button>
 </div>
 <section class="imgtool" role="dialog" aria-label="${t('Image')}" hidden></section>
-<section class="newpage" role="dialog" aria-modal="true" aria-label="${t('New page')}" hidden><div class="np-box"></div></section>
+
 <section class="jobmodal" role="dialog" aria-modal="true" aria-live="polite" hidden><div class="job-box"></div></section>
 <input class="imgfile" type="file" accept="image/png,image/jpeg,image/gif,image/webp,image/avif" hidden>`;
 document.body.appendChild(host);
@@ -667,7 +678,7 @@ function renderWork() {
   ].join('');
   const users = n.shared ? S.kit.users[n.shared] ?? [] : [];
   // the pages it reaches, by name when there are a few (always on hover), linked to the block in the site kit
-  const kitHref = `/_tykerf/site/?kit=${encodeURIComponent(`blocks/${n.shared}`)}`;
+  const kitHref = `/_tykerf/edit/_site/shared?from=${encodeURIComponent(PAGE_NAME)}`;
   const npages = (k) => `<a href="${kitHref}" target="_blank" class="shared-pages">${esc(t('{n} pages', { n: k }))}</a>`;
   const sharedExplanation = n.shared ? `<p class="shared-explanation">${ic('site')}<span title="${esc(users.join(', '))}">${users.length > 1 && users.length <= 6
     ? t('This box shows the shared block {name}, which {pages} show ({names}): a change here changes all of them.', { name: `<b>${esc(n.shared)}</b>`, pages: npages(users.length), names: esc(users.join(', ')) })
@@ -1859,7 +1870,7 @@ async function shrinkImage(file) {
 
 // ---------- the site: its pages, and new ones ----------
 // In a site (a folder of pages) the header shows the current page; it lists the others and makes
-// new ones from a layout and a theme (chooser.js, shared with the start screen).
+// new ones on the shell's New page screen.
 
 const pageSwitch = $('.pagesw');
 function renderSwitcher() {
@@ -1872,11 +1883,11 @@ pageSwitch.addEventListener('click', () => openPages());
 function openPages() {
   const r = pageSwitch.getBoundingClientRect();
   popover(r.left, r.bottom + 6, `<nav class="pages" aria-label="${t('Pages')}">${S.site.pages.map((p) => p === S.site.current
-    ? `<div class="page-row" aria-current="page"><a href="/${encodeURIComponent(p)}/" aria-current="page">${esc(p)}</a>
+    ? `<div class="page-row" aria-current="page"><a href="${full(p)}" aria-current="page">${esc(p)}</a>
         <button class="mini" data-pg="rename" title="${t('Rename this page…')}" aria-label="${t('Rename this page…')}">${ic('name')}</button>
         <button class="mini danger" data-pg="remove" title="${t('Remove this page…')}" aria-label="${t('Remove this page…')}">${ic('delete')}</button></div>`
-    : `<a href="/${encodeURIComponent(p)}/">${esc(p)}</a>`).join('')}</nav>
-    <a class="newpage-btn" href="/_tykerf/site/">${ic('site')}${t('All pages')}</a>
+    : `<a href="${full(p)}">${esc(p)}</a>`).join('')}</nav>
+    <a class="newpage-btn" href="/_tykerf/edit/_site/tasks?from=${encodeURIComponent(PAGE_NAME)}">${ic('site')}${t('All pages')}</a>
     <button class="newpage-btn" data-pg="new">${ic('inside')}${t('New page…')}</button>`);
   pop.onclick = (e) => {
     const b = e.target.closest('[data-pg]')?.dataset.pg;
@@ -1906,8 +1917,8 @@ function openSiteMenu() {
   pop.querySelector('[data-site]')?.focus();
   pop.onclick = (e) => {
     const b = e.target.closest('[data-site]')?.dataset.site;
-    if (b === 'manage') location.href = '/_tykerf/site/';
-    if (b === 'work') location.href = '/_tykerf/site/#kaity-work';
+    if (b === 'manage') go(`/_tykerf/edit/_site/tasks?from=${encodeURIComponent(PAGE_NAME)}`);
+    if (b === 'work') go(`/_tykerf/edit/_site/kaity?from=${encodeURIComponent(PAGE_NAME)}`);
     if (b === 'export') exportPrompt();
     if (b === 'export-page') exportPrompt(S.site.current);
     if (b === 'ai') aiStatus();
@@ -2016,7 +2027,7 @@ function renamePagePrompt() {
     try {
       const j = await siteApi('/rename', { name, to });
       closePop();
-      location.replace(j.url);
+      go(full(j.url.replace(/^\/|\/$/g, '')));
     } catch (err) {
       toast(err.message, true);
     }
@@ -2055,40 +2066,8 @@ async function removePagePrompt() {
   };
 }
 
-const newPage = $('.newpage');
-let chooserSheet = null;
-async function openNewPage() {
-  // the chooser's styles join the editor's in the shadow root
-  if (!chooserSheet) {
-    chooserSheet = new CSSStyleSheet();
-    chooserSheet.replaceSync(await (await fetch('/_tykerf/chooser.css')).text());
-    ui.adoptedStyleSheets = [...ui.adoptedStyleSheets, chooserSheet];
-  }
-  const { openMadePage, renderChooser } = await import('/_tykerf/chooser.js');
-  newPage.hidden = false;
-  let n = S.site.pages.length + 1;
-  while (S.site.pages.includes(`page-${n}`)) n++;
-  await renderChooser($('.np-box', newPage), {
-    t,
-    name: `page-${n}`,
-    taken: S.site.pages,
-    like: S.site.current,
-    sharedTheme: !!S.site.sharedTheme,
-    onCancel: closeNewPage,
-    onCreate: async (choice) => {
-      const r = await fetch('/_tykerf/site/new', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(choice) });
-      const j = await r.json().catch(() => ({ ok: false, error: `HTTP ${r.status}` }));
-      if (!r.ok || j.ok === false) throw new Error(j.error || `HTTP ${r.status}`);
-      openMadePage(j);
-    },
-  });
-}
-function closeNewPage() {
-  newPage.hidden = true;
-  $('.np-box', newPage).innerHTML = '';
-}
-newPage.addEventListener('keydown', (e) => e.key === 'Escape' && (e.preventDefault(), closeNewPage()));
-newPage.addEventListener('pointerdown', (e) => e.target === newPage && closeNewPage());
+/** New page… is the shell's New page screen (public/shell/screens.js), which comes back to the new page. */
+const openNewPage = () => go(`/_tykerf/edit/_site/new?from=${encodeURIComponent(PAGE_NAME)}`);
 
 // ---------- a page being made: the job's progress, then how to go on ----------
 // The AI building a new page, or a copy of a website, runs on the server while this modal shows each
@@ -2122,7 +2101,7 @@ function refocus() {
 
 function renderJob(job) {
   if (job?.kind !== 'ai' || job.state !== 'running') (S.build = null), applyFocus(); // the build is over: all clear
-  if (!job) return void ((jobModal.hidden = true), ($('.dock').hidden = false));
+  if (!job) return void ((jobModal.hidden = true), ($('.dock').hidden = EMBEDDED && S.on));
   jobModal.hidden = false;
   // the page is the show: the panel and the Edit button wait until the user picks what comes next
   if (S.on) setOn(false);
@@ -2180,7 +2159,7 @@ function renderJob(job) {
     if (a === 'editor' || a === 'page') {
       await api('/job/seen', {}).catch(() => {});
       jobModal.hidden = true;
-      $('.dock').hidden = false;
+      $('.dock').hidden = EMBEDDED && S.on;
       if (a === 'editor') {
         setOn(true);
         // the Tasks mode shows Kaity's answer above the (still empty) tasks: the next step is to point at what should change
@@ -3372,7 +3351,8 @@ function keepPanelOnScreen() {
 }
 
 $('.head').addEventListener('pointerdown', (e) => {
-  if (e.target.closest('button') || e.button !== 0) return;
+  // what can be pressed in the header (buttons, the link back to tasks, fields) is pressed, not dragged
+  if (e.target.closest('button, a, input, select, textarea') || e.button !== 0) return;
   // a drag is not a text selection: without this, dragging past the window's edge selects the whole page
   e.preventDefault();
   getSelection()?.removeAllRanges();
@@ -3453,7 +3433,7 @@ const renderView = () => {
 function siteToast(err) {
   toast(err.message, true);
   if (!err.message.includes('/_tykerf/site/')) return;
-  const a = Object.assign(document.createElement('a'), { href: '/_tykerf/site/', target: '_blank', textContent: t('Open the site manager') });
+  const a = Object.assign(document.createElement('a'), { href: '/_tykerf/edit/_site/history', target: '_blank', textContent: t('Open the site\'s history') });
   $('.toast').append(' ', a);
 }
 
@@ -3486,6 +3466,8 @@ function setOn(v) {
   toggle.setAttribute('aria-pressed', v);
   toggle.querySelector('span').textContent = v ? t('Back to the page') : t('Edit with TYKERF');
   panel.hidden = !v;
+  // in the shell, the corner button is only the way back to a closed panel (Hide tykerf is the shell's)
+  if (EMBEDDED) $('.dock').hidden = v;
   if (!v) {
     if (S.taskMode) setTaskMode(false);
     S.lastRun = null;
@@ -3638,7 +3620,12 @@ const events = new EventSource(`${API}/events`);
 events.addEventListener('open', () => checkVersion()); // back after a restart: maybe a newer TYKERF
 events.addEventListener('changed', () => refresh().catch((e) => toast(e.message, true)));
 // the page was renamed or removed (maybe from another tab): go where it went
-events.addEventListener('moved', (e) => location.replace(JSON.parse(e.data).url));
+events.addEventListener('moved', (e) => {
+  const url = JSON.parse(e.data).url;
+  const to = /^\/[^/]+\/$/.test(url) ? full(url.replace(/^\/|\/$/g, '')) : '/_tykerf/edit/_site/tasks';
+  if (EMBEDDED) window.top.location.replace(to);
+  else location.replace(to);
+});
 events.addEventListener('job', (e) => renderJob(JSON.parse(e.data)));
 events.addEventListener('tasks', () => loadTasks());
 events.addEventListener('ai', (e) => {
@@ -3675,9 +3662,11 @@ try {
 // ?block=<name>&tab=<tab> (from the site manager: where Kaity works, where a link is): open on that block and tab;
 // ?edit opens the editor, ?view leaves the page to look at (the manager's pencil and page name)
 const asked = new URLSearchParams(location.search);
+// the address it is tidied to stays the full editor's: a reload (or a new head) comes back here, not to the shell
+const FULL_HERE = `${location.pathname}?tykerf=${EMBEDDED ? 'full-frame' : 'full'}${location.hash}`;
 if (asked.has('edit') || asked.has('view')) {
   S.on = asked.has('edit');
-  if (!asked.has('block')) history.replaceState(null, '', location.pathname + location.hash);
+  if (!asked.has('block')) history.replaceState(null, '', FULL_HERE);
 }
 if (asked.has('block')) {
   const id = asked.get('block');
@@ -3687,8 +3676,9 @@ if (asked.has('block')) {
     for (const a of ancestors(id)) S.open.add(a);
     S.on = true;
     S.mode = 'edit';
+    S.min = false; // brought here to work on this block: the panel opens on it, however it was left
   }
-  history.replaceState(null, '', location.pathname + location.hash);
+  history.replaceState(null, '', FULL_HERE);
 }
 renderView();
 panel.hidden = true;

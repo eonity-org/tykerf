@@ -256,22 +256,24 @@ describe('Publish in the site manager', () => {
     const browser = await chromium.launch();
     try {
       const page = await browser.newPage();
-      await page.goto(`${url}_tykerf/site/`);
-      await page.locator('.publish-btn').click();
-      await page.locator('.publish .token', { hasText: 'token: set' }).waitFor();
-      await page.locator('.publish [name=repo]').fill('me');
-      await page.locator('[data-pub="save"]').click();
-      await page.locator('.publish .msg.error', { hasText: 'owner/name' }).waitFor();
-      await page.locator('.publish [name=repo]').fill('me/site');
-      await page.locator('.publish [name=branch]').fill('live');
-      expect(await page.locator('.publish [name=credit]').isChecked()).toBe(true);
-      await page.locator('[data-pub="publish"]').click();
-      await page.locator('.publish .msg', { hasText: /^Published: \d+ new, 0 changed and 0 removed files/ }).waitFor({ timeout: 15_000 });
-      expect(await page.locator('.publish .last a').first().getAttribute('href')).toMatch(/^https:\/\/github\.com\/me\/site\/commit\//);
+      await page.goto(`${url}_tykerf/edit/_site/publish`);
+      await page.locator('.pubtoken', { hasText: 'GitHub token: set' }).waitFor();
+      const form = page.locator('.pubform');
+      await form.locator('[name=repo]').fill('me');
+      await form.locator('[type=submit]').click();
+      await page.locator('.pubmsg.bad', { hasText: 'owner/name' }).waitFor();
+      await form.locator('[name=repo]').fill('me/site');
+      await form.locator('[name=branch]').fill('live');
+      expect(await form.locator('[name=credit]').isChecked()).toBe(true);
+      await form.locator('[type=submit]').click();
+      await page.locator('.pubmsg', { hasText: 'Saved' }).waitFor();
+      await page.locator('[data-p="publish"]').click();
+      await page.locator('.pubmsg', { hasText: /^Published: \d+ new, 0 changed and 0 removed files/ }).waitFor({ timeout: 15_000 });
+      expect(await page.locator('.pubmsg a').getAttribute('href')).toMatch(/^https:\/\/github\.com\/me\/site\/commit\//);
       expect(gh.files('live')!['rome/index.html']).toBeDefined();
       expect(readSite(dir).publish).toEqual({ repo: 'me/site', branch: 'live', folder: '' });
-      await page.locator('[data-pub="publish"]').click();
-      await page.locator('.publish .msg', { hasText: 'Nothing changed since the last publish.' }).waitFor();
+      await page.locator('[data-p="publish"]').click();
+      await page.locator('.pubmsg', { hasText: 'Nothing changed since the last publish.' }).waitFor();
     } finally {
       await browser.close();
     }

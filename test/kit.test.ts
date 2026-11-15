@@ -234,7 +234,7 @@ describe('shared blocks', () => {
     home.setContent('nav', '<nav><a href="/home/">Home</a> <a href="/about/">About</a></nav>', 'user');
     expect(kitRead(dir, 'blocks', 'nav')).toContain('About');
     expect(about.content('nav')).toContain('About');
-    expect(home.history(1)[0].label).not.toMatch(/set_content nav/); // the change is the site's, not the page's
+    expect(home.history(1)[0].label).not.toMatch(/change the code of nav/); // the change is the site's, not the page's
     // each page marks its own link
     expect(pageWorkspace(dir, 'about').page()).toContain('<a href="/about/" aria-current="page">About</a>');
     expect(pageWorkspace(dir, 'home').page()).toContain('<a href="/home/" aria-current="page">Home</a>');
@@ -251,7 +251,7 @@ describe('shared blocks', () => {
     expect(about.ownContent('nav')).toContain('About');
     about.setContent('nav', '<nav>only here</nav>', 'user');
     expect(home.content('nav')).toContain('About');
-    expect(about.undo()).toMatch(/set_content nav/);
+    expect(about.undo()).toMatch(/change the code of nav/);
     expect(about.undo()).toBe("make nav this page's own copy of nav");
     expect(about.sharedBlock('nav')).toBe('nav');
     expect(about.ownContent('footer')).toBe(before);
@@ -388,9 +388,9 @@ describe('slots', () => {
     expect(about.page()).not.toContain('Welcome');
     expect(kitRead(dir, 'blocks', 'banner')).toBe(block); // the block didn't change
     expect(() => home.setSlots('cta', { subtitle: 'x' })).toThrow(/has no slot "subtitle" \(slots: title, lead, cta\)/);
-    expect(home.undo()).toMatch(/set_content cta/);
+    expect(home.undo()).toMatch(/change the code of cta/);
     expect(home.content('cta')).toBe(block);
-    expect(home.redo()).toMatch(/set_content cta/);
+    expect(home.redo()).toMatch(/change the code of cta/);
 
     // editing the page's code: what is inside a slot is the page's, the rest is the block's
     home.setContent('cta', home.content('cta')!.replace('Fresh bread', 'Rye on Sundays'), 'user');

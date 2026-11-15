@@ -18,7 +18,7 @@ A layout is a set of components arranged on a page. Once the page is made, it ke
 
 ## Start from a layout and a theme
 
-A page can start from a layout and a theme. On a new site (`npm start -- my-site` on a new or empty folder), the **start screen** offers them under **A layout**, with a live preview at desktop or phone width; in a site, **New page…** (the page name next to the TYKERF logo) shows the same choices. After the first page, a site's pages share its theme, so New page… shows the layouts in that theme. To start a site with its home page from a layout directly:
+A page can start from a layout and a theme. On a new site (`npm start -- my-site` on a new or empty folder), **New page** offers the layouts under **From a layout**, each described as you choose it, with the theme the site will share and **Preview at full size**; in a site, **+ Page** in the site's sidebar shows the same layouts, in the site's theme. To start a site with its home page from a layout directly:
 
 ```bash
 npm start -- ~/tykerf-sites/my-site --layout launch --theme studio

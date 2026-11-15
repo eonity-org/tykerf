@@ -6,7 +6,7 @@
 
 # Pages and the notation
 
-What a page is made of, on disk and in the notation. For a site's pages, its site manager and its theme, see [Your site](sites.md).
+What a page is made of, on disk and in the notation. For a site's pages, its screens and its theme, see [Your site](sites.md).
 
 ## A page
 
