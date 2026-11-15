@@ -174,9 +174,16 @@ describe('the v3 editor', () => {
     await expect.poll(width).toBe(375);
     await frame().locator('[data-sw="hero"] h1').click();
     expect(await page.locator('.taskbox .where .chip').textContent()).toBe('375 px');
+    // only the page takes the phone's width: the task box keeps its own (440 px), past the page's sides if it must
+    expect(Math.round((await page.locator('.taskbox').boundingBox())!.width)).toBe(440);
+    expect(await page.locator('.taskbox [data-box="now"]').evaluate((b) => b.getBoundingClientRect().top)).toBe(await page.locator('.taskbox [data-box="add"]').evaluate((b) => b.getBoundingClientRect().top));
     await page.keyboard.press('Escape'); // the task box
     await page.keyboard.press('Escape'); // then the full width again
     await expect.poll(width).toBe(1280);
+  });
+
+  it('keeps the bar on one line in a 1280 px window', async () => {
+    expect(Math.round((await page.locator('.bar').boundingBox())!.height)).toBeLessThan(60);
   });
 
   it('fits a narrow window: the bar wraps, nothing scrolls sideways', async () => {

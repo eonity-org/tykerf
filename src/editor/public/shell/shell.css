@@ -54,8 +54,8 @@ button, input, textarea, select { font: inherit; color: inherit; }
 .bar .switcher .name { font-size: 16px; font-weight: 600; }
 .bar .switcher .addr { font-family: var(--mono); font-size: 13px; color: inherit; opacity: .8; }
 .bar .switcher .chev { width: 12px; height: 12px; }
-.bar .hint { margin: 0; flex: 1 1 260px; min-width: 0; font-size: 14px; opacity: .92; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.bar .status { flex: 1 1 260px; min-width: 0; display: flex; align-items: center; gap: 10px; font-weight: 600; }
+.bar .hint { margin: 0; flex: 1 1 120px; min-width: 0; font-size: 14px; opacity: .92; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bar .status { flex: 1 1 120px; min-width: 0; display: flex; align-items: center; gap: 10px; font-weight: 600; }
 /* one line, whatever it says: a long status ends in … (its tooltip has it all), so the bar never grows */
 .bar .status > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .bar .status > span:first-of-type { flex: 0 1 auto; }
