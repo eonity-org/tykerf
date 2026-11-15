@@ -167,16 +167,18 @@ describe('tasks in the editor', () => {
     // where it loads it: the page with the full editor, in the shell's frame
     expect(await (await fetch(`${base}?tykerf=full-frame`)).text()).toContain('_tykerf/tykerf.js');
     expect(await (await fetch(`${base}?tykerf=frame`)).text()).not.toContain('_tykerf/tykerf.js');
-    expect(await page.locator('.backtasks').getAttribute('href')).toBe('/_tykerf/edit/home/');
-    expect(await page.locator('.modesw').isHidden()).toBe(true); // tasks are the shell's
+    // the shell's bar has the pages, the site and the way back to tasks: the full editor's header only edits
+    for (const gone of ['.backtasks', '.modesw', '.pagesw', '.sitebtn']) expect(await page.locator(gone).count()).toBe(0);
     const fresh = await browser.newPage({ viewport: { width: 1280, height: 900 } });
     // a link to a block: the shell's Full editor mode, the full editor in its frame on that block, the bar on top
     await fresh.goto(`${base}?block=hero&tab=text`);
     await fresh.waitForURL(/\/_tykerf\/edit\/home\/\?mode=full$/);
     await expect.poll(() => fresh.frameLocator('.frame').locator('.work .w-name').inputValue()).toBe('hero');
     expect(await fresh.locator('.bar .modes a[aria-current="page"]').textContent()).toBe('Full editor');
-    expect(await fresh.frameLocator('.frame').locator('.backtasks').isHidden()).toBe(true); // the shell's bar has the way back
-    await fresh.locator('.bar .modes a', { hasText: 'Tasks' }).click();
+    // its tasks are in Tasks: the count leads there, the tray doesn't open here
+    expect(await fresh.locator('.bar .actions a.btn').first().getAttribute('href')).toBe('/_tykerf/edit/home/');
+    // its × goes back to Tasks
+    await fresh.frameLocator('.frame').locator('.panel .closebtn').click();
     await fresh.waitForURL(/\/_tykerf\/edit\/home\/$/);
     await fresh.close();
   });

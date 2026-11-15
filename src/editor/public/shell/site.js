@@ -1,11 +1,12 @@
 // The site in the v3 editor: the sidebar (R7) and the site's own screens (R11, R12, R14).
 //
 // On a page, the page switcher opens the sidebar from the left, over the page (the page doesn't move or resize).
+// It stays until the person closes it, from one page to the next (open, folded to its edge, or closed: remembered).
 // It holds Ask Kaity about the whole site, the pages as large cards with their actions in words, and the whole
 // site's screens, each with its state on the right. On the site's screens (/_tykerf/edit/_site/<screen>) there is
 // no page behind it, so it is docked on the left, beside the screen (screens.js).
 
-import { $, CHEVRON, MARK, esc, failed, hardToReach, kaityMark, keptTwice, request, t, toast, watchVersion } from './common.js';
+import { $, CHEVRON, MARK, esc, failed, hardToReach, kaityMark, keptTwice, request, store, t, toast, watchVersion } from './common.js';
 import { SCREENS } from './screens.js';
 
 /** Everything the sidebar says about the site, from the site's endpoints (each may fail on its own). */
@@ -51,10 +52,22 @@ export function createSidebar({ page = null, docked = false, go, screen = () => 
   el.hidden = !docked;
   (docked ? $('.layout') : $('.stage')).prepend(el);
   let info = null, acting = null; // acting: { page, what } for a page's open form or confirmation
+  let folded = false; // over a page: only its edge shows, with a way to open it again
+  let suspended = false; // out of the way while the fix panel is open, as it was before that
+  /** Open, folded or closed: what a page opens with next (a site screen's docked sidebar is always open). */
+  const remember = (state) => !docked && store.set('sidebar', state);
 
   async function refresh() {
     info = await siteInfo();
     render();
+  }
+
+  /** What removing a page breaks: the links to it from the other pages. */
+  function linksTo(p) {
+    const mine = (acting?.links ?? []).filter((l) => l.to === p && l.page !== p);
+    const from = [...new Set(mine.map((l) => l.page))].join(', ');
+    return mine.length === 1 ? t('One link to it from {pages} will point nowhere.', { pages: from })
+      : mine.length ? t('{n} links to it from {pages} will point nowhere.', { n: mine.length, pages: from }) : t('No other page links to it.');
   }
 
   function pageCard(p) {
@@ -74,6 +87,7 @@ export function createSidebar({ page = null, docked = false, go, screen = () => 
         <div class="row"><button class="btn primary small" type="submit">${esc(t('Save'))}</button><button class="btn small" type="button" data-pact="cancel">${esc(t('Cancel'))}</button></div>
       </form>` : acting?.page === p && acting.what === 'remove' ? `
       <div class="confirm" role="alert"><p>${esc(t('Remove {page}? It goes to the site\'s trash, and links to it stop working.', { page: p }))}</p>
+        <p class="hint">${esc(linksTo(p))}</p>
         <div class="row"><button class="btn small danger" type="button" data-pact="remove-yes">${esc(t('Remove {page}', { page: p }))}</button><button class="btn small" type="button" data-pact="cancel">${esc(t('Cancel'))}</button></div></div>` : '';
     return `<li class="pcard${p === page ? ' current' : ''}" data-page="${esc(p)}">
       <a class="popen" href="${pageHref(p)}" ${p === page ? 'aria-current="page"' : ''}>
@@ -90,11 +104,15 @@ export function createSidebar({ page = null, docked = false, go, screen = () => 
   }
 
   function render() {
+    if (folded) {
+      el.innerHTML = `<button type="button" class="sbunfold" data-sb="unfold" aria-label="${esc(t('Open the site sidebar'))}" title="${esc(t('Open the site sidebar'))}">›</button>`;
+      return;
+    }
     if (!info?.site) return void (el.innerHTML = `<p class="loading">${esc(t('Loading the site…'))}</p>`);
     const s = info.site, states = screenStates(info);
     const now = screen();
     el.innerHTML = `
-      <div class="sbtop">${!docked && modeSwitch ? modeSwitch() : ''}<button type="button" class="btn small" data-sb="collapse">${esc(docked ? t('Collapse') : t('Close'))}</button></div>
+      <div class="sbtop">${!docked && modeSwitch ? modeSwitch() : ''}${docked ? '' : `<button type="button" class="btn small" data-sb="fold" aria-label="${esc(t('Fold the sidebar to its edge'))}" title="${esc(t('Fold the sidebar to its edge'))}">‹</button>`}<button type="button" class="btn small" data-sb="collapse">${esc(docked ? t('Collapse') : t('Close'))}</button></div>
       <form class="askk">
         ${kaityMark(false, true)}
         <label for="ask-site">${esc(t('Ask Kaity about the whole site'))}</label>
@@ -120,6 +138,8 @@ export function createSidebar({ page = null, docked = false, go, screen = () => 
     if (mode && setMode) return setMode(mode);
     const sb = e.target.closest('[data-sb]')?.dataset.sb;
     if (sb === 'collapse') return api.close();
+    if (sb === 'fold') return api.fold();
+    if (sb === 'unfold') return api.open();
     if (sb === 'signout') {
       await request('/_tykerf/logout', {}).catch(() => {});
       try { localStorage.removeItem('tykerf.admin'); } catch {}
@@ -131,7 +151,8 @@ export function createSidebar({ page = null, docked = false, go, screen = () => 
     const what = b.dataset.pact;
     try {
       if (what === 'cancel') acting = null;
-      else if (what === 'name' || what === 'remove') acting = { page: p, what };
+      else if (what === 'name') acting = { page: p, what };
+      else if (what === 'remove') acting = { page: p, what, links: (await request('/_tykerf/site/links').catch(() => ({ links: [] }))).links };
       else if (what === 'home') (await request('/_tykerf/site/home', { name: p }), toast(t('{page} is the home page now', { page: p })));
       else if (what === 'duplicate') {
         const r = await request('/_tykerf/site/duplicate', { name: p });
@@ -140,7 +161,7 @@ export function createSidebar({ page = null, docked = false, go, screen = () => 
         await request('/_tykerf/site/remove', { name: p });
         acting = null;
         toast(t('{page} is in the site\'s trash', { page: p }));
-        if (p === page) return location.assign('/_tykerf/edit/_site/');
+        if (p === page) return location.assign('/_tykerf/edit/_site/tasks');
       }
       await refresh();
       onChange();
@@ -183,24 +204,63 @@ export function createSidebar({ page = null, docked = false, go, screen = () => 
   // pages made or changed elsewhere (Kaity on the site, another tab, the command line) show when the person comes back
   addEventListener('focus', () => !el.hidden && refresh().catch(() => {}));
 
+  const show = (fold) => {
+    folded = fold;
+    suspended = false;
+    el.hidden = false;
+    el.classList.toggle('folded', fold);
+    document.body.classList.toggle('sidebar-open', !fold);
+  };
   const api = {
     el,
-    isOpen: () => !el.hidden,
+    /** Open in full (folded or closed: not). */
+    isOpen: () => !el.hidden && !folded,
+    /** On the screen at all, open or folded: what the page beside it makes room for. */
+    isShown: () => !el.hidden,
     async open() {
-      el.hidden = false;
-      document.body.classList.add('sidebar-open');
+      show(false);
+      remember('open');
       onChange();
       if (!info) render();
       await refresh();
       $('a.popen, button', el)?.focus();
     },
+    /** Only its edge, with › to open it again. */
+    fold() {
+      show(true);
+      remember('folded');
+      render();
+      onChange();
+    },
     close() {
       el.hidden = true;
+      folded = suspended = false;
+      el.classList.remove('folded');
       document.body.classList.remove('sidebar-open');
+      remember('closed');
       onChange();
     },
     toggle() {
-      return el.hidden ? api.open() : api.close();
+      return api.isOpen() ? api.close() : api.open();
+    },
+    /** As the person left it, on the last page (a page opens with it). */
+    restore() {
+      const state = docked ? 'open' : store.get('sidebar', 'closed');
+      if (state === 'open') return api.open();
+      if (state === 'folded') return api.fold();
+    },
+    /** Out of the way for a while (the fix panel takes the left), and back as it was. */
+    suspend() {
+      if (el.hidden) return;
+      el.hidden = true;
+      suspended = true;
+      onChange();
+    },
+    resume() {
+      if (!suspended) return;
+      suspended = false;
+      el.hidden = false;
+      onChange();
     },
     refresh,
     render,

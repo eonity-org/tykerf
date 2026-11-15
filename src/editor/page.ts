@@ -684,9 +684,15 @@ export function createPageHost(ws: Workspace, opts: { name: string; site?: () =>
     // tasks left on the page: what to change, ask or check (src/tasks.ts); each change is an undo step of the page
     if (p.startsWith('/_tykerf/tasks/')) {
       const n = Number(a.n);
+      // a task's pictures: new ones ({ mediaType, data }) are kept as Kaity's attachments are, kept ones stay by name
+      const pictures = (list: unknown): string[] | undefined => {
+        if (!Array.isArray(list)) return undefined;
+        if (list.length > 5) throw new Error('at most 5 pictures per task');
+        return list.map((x) => (typeof x === 'string' ? x : ai.keepImage({ mediaType: String(x?.mediaType ?? ''), data: String(x?.data ?? '') })));
+      };
       const r = ({
-        add: () => addTask(ws, { block: String(a.block ?? ''), text: String(a.text ?? ''), path: a.path ?? null, label: a.label, width: a.width ?? null, by: 'user', question: a.question === true }),
-        edit: () => editTask(ws, n, { ...(typeof a.text === 'string' ? { text: a.text } : {}), ...(typeof a.question === 'boolean' ? { question: a.question } : {}) }),
+        add: () => addTask(ws, { block: String(a.block ?? ''), text: String(a.text ?? ''), path: a.path ?? null, label: a.label, width: a.width ?? null, by: 'user', question: a.question === true, images: pictures(a.images) }),
+        edit: () => editTask(ws, n, { ...(typeof a.text === 'string' ? { text: a.text } : {}), ...(typeof a.question === 'boolean' ? { question: a.question } : {}), ...(Array.isArray(a.images) ? { images: pictures(a.images) } : {}) }),
         close: () => closeTask(ws, n, 'user', typeof a.reply === 'string' ? a.reply : undefined),
         reopen: () => reopenTask(ws, n),
         remove: () => removeTask(ws, n),
@@ -711,6 +717,8 @@ export function createPageHost(ws: Workspace, opts: { name: string; site?: () =>
         undo: () => taskRun.undoTask(n),
         'undo-all': () => taskRun.undoAll(),
         keep: () => taskRun.keep(),
+        fix: () => taskRun.fix(n),
+        'leave-left': () => taskRun.leaveLeft(n),
       } as Record<string, () => unknown>)[p.slice('/_tykerf/taskrun/'.length)];
       if (!r) return res.writeHead(404).end('not found');
       r();

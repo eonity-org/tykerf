@@ -35,19 +35,19 @@ The line after it says why:
 The other ways to start a page (a layout, a copy of a website) work without Kaity.
 
 **Kaity says *Claude Code is not logged in*.**
-Run `claude` in a terminal, then `/login`, and ask again. **Site → Kaity status… → Test** checks it without a real request.
+Run `claude` in a terminal, then `/login`, and ask again. **Test it** under *Kaity status* (the site's *Head code, icon & language* screen) checks it without a real request.
 
 **Kaity stops with an error about the key, the address or the model.**
-Use **Site → Kaity status… → Test**. It sends one short request and shows the answer, so a wrong key, a mistyped `TYKERF_API_BASE_URL` or a model name the service doesn't offer shows up at once. After changing `.env`, restart TYKERF.
+Use **Test it** under *Kaity status*, on the site's *Head code, icon & language* screen. It sends one short request and shows the answer, so a wrong key, a mistyped `TYKERF_API_BASE_URL` or a model name the service doesn't offer shows up at once. After changing `.env`, restart TYKERF.
 
 **Kaity stopped in the middle of a long request.**
 The API runners stop a request after 40 steps, and a single model turn after 180 seconds (`TYKERF_TURN_TIMEOUT` changes that). What she did so far stays. Ask her to go on in the same conversation.
 
 **Kaity refuses to change something.**
-In the Kaity tab and in *Give only these to Kaity*, she can only change the selected block. Select the block you mean (or `page`) and ask there, or use **Give Kaity every task**, which works on the whole page. The theme can be changed only with `page` selected, and the site's shared head (its head code) is never hers to change.
+For a task, she can only change the task's block (and what is inside it). Leave the task on the block you mean, or on `page` (right-click an empty part of the page in the full editor, or a task on the whole page) for something that spans the page. The theme changes only for a task on `page`, and the site's shared head (its head code) is never hers to change.
 
 **Undo and redo say *Kaity is working on …*.**
-While Kaity works, undo and redo wait, so they can't undo half of her change. Wait until she is done, or stop her (*Stop* in the Kaity tab, or the **×** of the build window).
+While Kaity works, undo and redo wait, so they can't undo half of her change. Wait until she is done, or stop her (**Stop Kaity** in the bar).
 
 **Give them to Kaity is greyed out.**
 There are no open tasks on the page. Tasks you add while she works join the end of her list. See [Tasks](editor.md#tasks).
@@ -109,7 +109,7 @@ It doesn't publish while Kaity is working, so half a change never goes live. Try
 
 ## Still stuck?
 
-Search the [issues](https://github.com/eonity-org/tykerf/issues) or open one. Say what you did, what TYKERF said (the exact message), and which runner and model **Site → Kaity status…** shows. Leave out keys and tokens.
+Search the [issues](https://github.com/eonity-org/tykerf/issues) or open one. Say what you did, what TYKERF said (the exact message), and which runner and model *Kaity status* shows (the site's *Head code, icon & language* screen). Leave out keys and tokens.
 
 <!-- tykerf:footer -->
 ---

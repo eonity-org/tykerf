@@ -1,6 +1,6 @@
 // "Show or describe it": a new site's first page built by the AI from words and a picture. The
 // editor runs with the Anthropic runner against a fake API that answers with scripted turns, so the
-// whole path is real: the chooser, the new page, the AI run with the picture, the editor on its AI tab.
+// whole path is real: New page, the AI run with the picture, the shell with her work, a task's review.
 
 import { type ChildProcess, spawn } from 'node:child_process';
 import { existsSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
@@ -85,15 +85,16 @@ describe('show or describe it', () => {
     await expect.poll(() => page.locator('.bar .status').textContent(), { timeout: 20_000 }).toContain('Your page is ready');
     expect(await page.locator('.jobsteps li').allTextContents()).toEqual([expect.stringMatching(/^use component main hero/), expect.stringMatching(/^checking \d+ things left unfinished$/)]);
     expect(await page.locator('.tray .how').textContent()).toBe('I left the hero text for you to write.');
-    // Got it; then the whole conversation is the top block's, in the full editor's Kaity tab
+    // Got it; then the whole conversation is the top block's, to read from Kaity's work
     await page.locator('[data-bar="job-seen"]').click();
     await page.locator('.bar .hint').waitFor();
-    await page.goto(`${url}bakery/?tykerf=full-frame&block=${await top(url, 'bakery')}&tab=ai`);
-    await page.locator('.chat .msg.ai').first().waitFor();
-    expect(await page.locator('.chat .msg.ai .who').first().textContent()).toBe('Kaity'); // Kaity's replies carry its name and mark
-    expect(await page.locator('.chat .msg.ai').first().textContent()).toBe('KaityI built a hero for the bakery.');
-    expect(await page.locator('.chat .msg.check.auto b').textContent()).toMatch(/^Kaity checks the \d+ things she left unfinished$/);
-    expect(await page.locator('.chat .msg.user').textContent()).toContain('A page for our bakery in Murcia');
+    await page.goto(`${url}_tykerf/edit/bakery/?conversation=${await top(url, 'bakery')}`);
+    await page.locator('.convo .msg.ai').first().waitFor();
+    expect(await page.locator('.convo .msg.ai .who').first().textContent()).toBe('Kaity'); // Kaity's replies carry her name and mark
+    expect(await page.locator('.convo .msg.ai').first().textContent()).toBe('KaityI built a hero for the bakery.');
+    expect(await page.locator('.convo .msg.check b').first().textContent()).toMatch(/^Kaity checks the \d+ things she left unfinished$/);
+    expect(await page.locator('.convo .msg.user').textContent()).toContain('A page for our bakery in Murcia');
+    expect(await page.locator('.convo [data-close]').count()).toBe(1); // to read: nothing is asked from here
     expect(readFileSync(join(site, 'bakery', 'boxes', 'main.html'), 'utf8')).toContain('The short promise of your product');
     // Kaity started from an empty page: two boxes with no code, no sample text
     expect(readFileSync(join(site, 'bakery', 'layout.slice'), 'utf8')).toMatch(/^header\[role=header\] main\[role=main\]/);
@@ -135,10 +136,10 @@ describe('show or describe it', () => {
     // the chat shows the request and the file names; the model gets the files' text and the picture
     await page.locator('[data-bar="job-seen"]').click();
     await page.locator('.bar .hint').waitFor();
-    await page.goto(`${url}paris/?tykerf=full-frame&block=${await top(url, 'paris')}&tab=ai`);
-    await page.locator('.chat .msg.user').waitFor();
-    expect(await page.locator('.chat .msg.user').textContent()).toContain('(Attached: stitch_paris.zip: DESIGN.md, code.html, screen.png)');
-    expect(await page.locator('.chat .msg.user').textContent()).not.toContain('#0F1B29');
+    await page.goto(`${url}_tykerf/edit/paris/?conversation=${await top(url, 'paris')}`);
+    await page.locator('.convo .msg.user').waitFor();
+    expect(await page.locator('.convo .msg.user').textContent()).toContain('(Attached: stitch_paris.zip: DESIGN.md, code.html, screen.png)');
+    expect(await page.locator('.convo .msg.user').textContent()).not.toContain('#0F1B29');
     const first = got[before];
     const [words, picture] = first.messages[0].content;
     expect(words.text).toMatch(/^Make this page from the attached design\./);
@@ -164,7 +165,7 @@ describe('show or describe it', () => {
     expect(await page.locator('.tray .how').textContent()).toMatch(/What Kaity built so far stays/);
   });
 
-  it('shows where Kaity works: on the site\'s Kaity screen, and in the full editor with a way there', async () => {
+  it('shows where Kaity works: on the site\'s Kaity screen, and on the block in the full editor\'s tree', async () => {
     const { url } = await editor({ TYKERF_RUNNER: 'anthropic', TYKERF_API_KEY: 'k', TYKERF_API_BASE_URL: `http://127.0.0.1:${(api.address() as { port: number }).port}` });
     const post = (path: string, body: unknown) => fetch(`${url}${path}`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) }).then((x) => x.json());
     expect((await post('_tykerf/site/new', { name: 'tour', layout: 'blank' })).ok).toBe(true);
@@ -183,19 +184,13 @@ describe('show or describe it', () => {
     const run = screen.locator('.runs .run.working');
     await run.waitFor();
     expect(await run.locator('.rhead').textContent()).toMatch(/^Working\s*tour · nav/);
-    expect(await run.locator('.rhead a').getAttribute('href')).toBe('/_tykerf/edit/tour/?mode=full&block=nav&tab=ai');
+    expect(await run.locator('.rhead a').getAttribute('href')).toBe('/_tykerf/edit/tour/?conversation=nav');
     expect(await screen.locator('.sidebar [data-screen="kaity"] .sstate').textContent()).toBe('working now');
     await screen.close();
 
-    // in the full editor: her balls on the block in the tree, and from another block's Kaity tab, a way there
-    const other = (await fetch(`${url}tour/_tykerf/state`).then((x) => x.json())).tree.children.find((c: any) => c.id !== 'nav' && c.kind === 'box')?.id ?? 'footer';
-    await page.goto(`${url}tour/?tykerf=full-frame&block=${other}&tab=ai`);
-    await page.locator('.work .elsewhere').waitFor();
-    expect(await page.locator('.work .elsewhere').textContent()).toBe('Kaity is working on nav.Go there');
-    expect(await page.locator('.tree .item[data-id="nav"] .at-work').count()).toBe(1);
-    await page.locator('[data-ai="goto"]').click();
-    expect(await page.locator('.tree .item.sel').getAttribute('data-id')).toBe('nav');
-    await page.locator('.work [data-ai="stop"]').waitFor();
+    // in the full editor: her balls on the block in the tree
+    await page.goto(`${url}tour/?tykerf=full-frame&block=nav`);
+    await expect.poll(() => page.locator('.tree .item[data-id="nav"] .at-work').count()).toBe(1);
     await post('tour/_tykerf/ask/cancel', {});
     await expect.poll(async () => (await fetch(`${url}_tykerf/site`).then((x) => x.json())).kaity.pages, { timeout: 5000 }).toEqual([]);
   });
@@ -213,45 +208,67 @@ describe('show or describe it', () => {
   });
 });
 
-describe("Kaity's steps in the AI tab", () => {
-  it('stay open while she works, and stay as the person leaves them', async () => {
-    const { url } = await editor({ TYKERF_RUNNER: 'anthropic', TYKERF_API_KEY: 'k', TYKERF_API_BASE_URL: `http://127.0.0.1:${(api.address() as { port: number }).port}` });
+describe("a task's review", () => {
+  it('takes the task\'s pictures to Kaity, shows what she left unfinished with Fix them / Leave them, and her conversation', async () => {
+    const { url } = await editor({ TYKERF_RUNNER: 'anthropic', TYKERF_API_KEY: 'k', TYKERF_API_BASE_URL: `http://127.0.0.1:${(api.address() as { port: number }).port}`, TYKERF_TASK_SHOTS: 'off' });
     replies.splice(0); // the scripted replies of the tests before, when this one runs alone
     replies.push(message([{ type: 'text', text: 'built' }], 'end_turn') as any);
-    await fetch(`${url}_tykerf/site/new`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ name: 'log', prompt: 'a page' }) });
+    const post = (path: string, body: unknown) => fetch(`${url}${path}`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) }).then((x) => x.json());
+    expect((await post('_tykerf/site/new', { name: 'log', prompt: 'a page' })).ok).toBe(true);
+    await expect.poll(async () => (await fetch(`${url}log/_tykerf/job`).then((x) => x.json())).job?.state, { timeout: 10_000 }).toBe('done');
+    await post('log/_tykerf/job/seen', {});
+    // a task with a picture, as the task box sends it
+    const one = await post('log/_tykerf/tasks/add', { block: 'main', text: 'Add a link like in the picture', images: [{ mediaType: 'image/png', data: PNG.toString('base64') }] });
+    expect(one.result.images).toEqual([expect.stringMatching(/^[a-f0-9]{40}\.png$/)]);
+
     const page = await browser.newPage({ viewport: { width: 1280, height: 860 } });
-    await page.addInitScript(() => localStorage.setItem('tykerf.mode', '\"edit\"')); // her conversation is in the Edit mode
     page.setDefaultTimeout(8000);
-    await page.goto(`${url}log/?tykerf=full-frame`); // her conversation per block is the full editor's
-    await page.locator('[data-job="editor"]').click();
-    await page.locator('.chat .msg.ai').waitFor();
+    await page.goto(`${url}_tykerf/edit/log/`);
+    await page.locator('[data-bar="tray"]').click();
+    expect(await page.locator('.card[data-card="1"] .pics img').count()).toBe(1);
+    const before = got.length;
+    replies.push(
+      message([{ type: 'tool_use', id: 'a1', name: 'set_content', input: { id: 'main', html: '<p>Rome</p><a href="#">Read on</a>' } }]) as any,
+      message([{ type: 'tool_use', id: 'a2', name: 'close_task', input: { n: 1, reply: 'Added the link.' } }]) as any,
+      message([{ type: 'text', text: 'added' }], 'end_turn') as any,
+    );
+    await page.locator('[data-bar="give"]').click();
+    // what she left unfinished in the task, on its card
+    const left = page.locator('.card[data-card="1"] .left');
+    await left.waitFor({ timeout: 15_000 });
+    expect(await left.locator('b').textContent()).toBe('Kaity left 1 thing unfinished');
+    expect(await left.locator('li').allTextContents()).toEqual(['main: the link "Read on" goes nowhere']);
+    // the picture went to her with the task
+    expect(got[before].messages[0].content.map((c: any) => c.type)).toEqual(['text', 'image']);
 
-    const call = (i: number) => ({ ...message([{ type: 'tool_use', id: `s${i}`, name: 'get_layout', input: {} }]), delay: 700 });
-    replies.push(call(1), call(2), call(3), call(4), { ...message([{ type: 'text', text: 'looked' }], 'end_turn'), delay: 700 } as any);
-    await page.locator('.composer textarea').fill('look at the layout');
-    await page.locator('[data-ai="send"]').click();
-    // each step draws the chat again: the run's list stays open and grows
-    const live = page.locator('.chat details.steps').last();
-    await expect.poll(() => live.locator('div').count(), { timeout: 5000 }).toBe(2);
-    expect(await live.getAttribute('open')).not.toBeNull();
-    // closed by the person, it stays closed while more steps come
-    await live.locator('summary').click();
-    await expect.poll(() => live.locator('summary').textContent(), { timeout: 5000 }).toBe('4 steps');
-    expect(await live.getAttribute('open')).toBeNull();
-    await page.locator('.chat .msg.ai', { hasText: 'looked' }).waitFor();
-    expect(await live.getAttribute('open')).toBeNull();
+    // Fix them: she finishes it, under the task (Undo this one takes both)
+    replies.push(
+      message([{ type: 'tool_use', id: 'f1', name: 'set_content', input: { id: 'main', html: '<p>Rome</p><a href="/log/">Read on</a>' } }]) as any,
+      message([{ type: 'text', text: 'fixed' }], 'end_turn') as any,
+    );
+    await left.locator('[data-card-act="fix-left"]').click();
+    await expect.poll(() => page.locator('.card[data-card="1"] .left').count(), { timeout: 15_000 }).toBe(0);
+    expect(JSON.stringify(got.at(-2).messages)).toContain('These were left unfinished');
 
-    // what a request leaves unfinished is listed after it, with a choice: Kaity finishes it, or it stays
-    replies.push(message([{ type: 'tool_use', id: 'l1', name: 'set_content', input: { id: 'main', html: '<p>Rome</p><a href="#">Read on</a>' } }]) as any, message([{ type: 'text', text: 'added' }], 'end_turn') as any);
-    await page.locator('.composer textarea').fill('add a link');
-    await page.locator('[data-ai="send"]').click();
-    const check = page.locator('.chat .msg.check.open');
-    await check.waitFor();
-    expect(await check.locator('b').textContent()).toBe('Kaity left 1 thing unfinished');
-    expect(await check.locator('li').allTextContents()).toEqual(['main: the link "Read on" goes nowhere']);
-    await check.locator('[data-check="leave"]').click();
-    await page.locator('.chat .msg.check.left b', { hasText: '1 thing left as it is' }).waitFor();
-    expect(await page.locator('[data-check]').count()).toBe(0);
+    // Leave them: another task leaves one; it stays as it is
+    await post('log/_tykerf/tasks/add', { block: 'main', text: 'And a second link' });
+    replies.push(
+      message([{ type: 'tool_use', id: 'b1', name: 'set_content', input: { id: 'main', html: '<p>Rome</p><a href="/log/">Read on</a> <a href="#">More</a>' } }]) as any,
+      message([{ type: 'tool_use', id: 'b2', name: 'close_task', input: { n: 2, reply: 'Added a second link.' } }]) as any,
+      message([{ type: 'text', text: 'added more' }], 'end_turn') as any,
+    );
+    await page.locator('.tray .card[data-card="2"]').waitFor();
+    await post('log/_tykerf/taskrun/start', { tasks: [2] });
+    const left2 = page.locator('.card[data-card="2"] .left');
+    await left2.locator('[data-card-act="leave-left"]').click({ timeout: 15_000 });
+    await expect.poll(() => left2.locator('b').textContent()).toBe('1 thing left as it is');
+
+    // her conversation on the block: every task on it, and what she left
+    await page.locator('.card[data-card="2"] [data-card-act="convo"]').click();
+    await page.locator('.convo .msg.ai', { hasText: 'added more' }).waitFor();
+    expect(await page.locator('.convo h2').textContent()).toBe('Kaity on main');
+    expect(await page.locator('.convo .msg.check b').allTextContents()).toContain('1 thing left as it is');
+    expect(await page.locator('.convo .msg.user .pics img').count()).toBe(1); // the task's picture, as she got it
   });
 });
 

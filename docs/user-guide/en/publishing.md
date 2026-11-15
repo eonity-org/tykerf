@@ -62,7 +62,7 @@ Click **Publish**. TYKERF says how many files are new, changed and removed, with
 
 ## Export
 
-Click the **Site** button in the editor (between the TYKERF logo and the page name) and choose **Export the site…** or **Export this page…**. See [Exporting](exporting.md) for the options and what to check.
+**Publish**, at the bottom of the site's sidebar, also exports: **Export the site**, or only the page you came from. See [Exporting](exporting.md) for the options and what to check.
 
 ## Serve it with TYKERF
 

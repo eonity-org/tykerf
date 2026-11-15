@@ -7,7 +7,7 @@
 # The AI and MCP
 
 TYKERF never lets a model rewrite a page. A model gets TYKERF's **MCP tools**: validated moves on the tree, plus reading and writing box code, all limited to one block. Every AI path goes through the same tools:
-- the editor's AI tab;
+- the editor's Kaity (tasks, a page she builds, the whole site);
 - Claude Desktop;
 - any MCP client.
 
@@ -148,7 +148,7 @@ interface Runner {
 4. starts `ai.ask(root, prompt, undefined, images, BUILD_BRIEF, context)` (`context` goes to the model after the prompt, not into the chat);
 5. answers with the root's name.
 
-The New page screen (`newScreen` in `public/shell/screens.js`) then opens the page in the shell, where the build shows as the page's job in the bar and the tray; the whole conversation is the root's, in the full editor's AI tab.
+The New page screen (`newScreen` in `public/shell/screens.js`) then opens the page in the shell, where the build shows as the page's job in the bar and the tray; the whole conversation is the root's (the shell shows a block's conversation with `?conversation=<block>`, and a task's card links to it).
 
 ## The Claude Desktop extension
 

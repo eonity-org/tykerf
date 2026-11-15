@@ -131,6 +131,42 @@ button, input, textarea, select { font: inherit; color: inherit; }
 .state.answered { background: var(--bar); color: #fff; }
 .state.failed { background: #FBE4E1; color: var(--problem); }
 
+/* a task's pictures (R2): in the task box, on its card, in her conversation */
+.pics { display: flex; flex-wrap: wrap; gap: 6px; }
+.pics[hidden] { display: none; }
+.taskbox .attach { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 8px; }
+.pics .thumb { position: relative; display: block; width: 64px; height: 48px; border: 1px solid var(--line); border-radius: 6px; overflow: hidden; background: var(--ground); }
+.pics .thumb img { display: block; width: 100%; height: 100%; object-fit: cover; }
+.pics .thumb button { position: absolute; top: 2px; right: 2px; width: 20px; height: 20px; padding: 0; border: 0; border-radius: 50%; background: rgb(16 48 63 / .8); color: #fff; font-size: 14px; line-height: 20px; cursor: pointer; }
+.taskbox.drop { outline: 3px dashed var(--task); outline-offset: 2px; }
+
+/* what she left unfinished in a task (R5), and her conversation on a block (read only) */
+.card .left { padding: 10px 12px; border: 1px solid var(--ask-line); border-radius: 8px; background: var(--ask); font-size: 14px; }
+.card .left.left { border-color: var(--line); background: var(--ground); }
+.card .left ul { margin: 6px 0 0; padding-left: 18px; }
+.card .left .row { margin-top: 8px; }
+.card .link, .convo .link { align-self: center; }
+.convo { width: min(720px, calc(100vw - 32px)); max-height: calc(100vh - 32px); padding: 20px 22px; border: 1px solid var(--line-strong); border-radius: 12px; color: var(--ink); }
+.convo[open] { display: flex; flex-direction: column; }
+.convo::backdrop { background: rgb(16 48 63 / .45); }
+.convo h2 { margin: 0 0 4px; font-size: 20px; }
+.convo .note { margin: 0 0 12px; color: var(--ink-2); font-size: 14px; }
+.convo .log { flex: 1; min-height: 0; overflow: auto; display: flex; flex-direction: column; gap: 10px; padding: 4px 2px 8px; }
+.convo .msg { padding: 10px 12px; border-radius: 10px; background: var(--ground); overflow-wrap: anywhere; }
+.convo .msg p { margin: 0; white-space: pre-wrap; }
+.convo .msg.user { align-self: flex-end; max-width: 85%; background: var(--selected); }
+.convo .msg.ai { background: #fff; border: 1px solid var(--line); }
+.convo .msg.error { background: #FBE4E1; color: var(--problem); }
+.convo .msg.check { background: var(--ask); border: 1px solid var(--ask-line); font-size: 14px; }
+.convo .msg.check ul { margin: 6px 0 0; padding-left: 18px; }
+.convo .who { display: flex; align-items: center; gap: 6px; margin-bottom: 4px; font-size: 13px; font-weight: 600; color: var(--ink-2); }
+.convo .msg .pics { margin-bottom: 6px; }
+.convo .md > :first-child { margin-top: 0; }
+.convo .md > :last-child { margin-bottom: 0; }
+.convo details.steps { font-size: 13px; color: var(--ink-2); }
+.convo details.steps div { padding: 2px 0 2px 14px; }
+.convo .row { display: flex; justify-content: flex-end; padding-top: 10px; }
+
 /* the page switcher's menu (the site sidebar takes its place later) */
 .menu { position: fixed; z-index: 40; min-width: 260px; max-width: calc(100vw - 24px); max-height: 70vh; overflow: auto; padding: 6px; border: 1px solid var(--line-strong); border-radius: 10px; background: #fff; box-shadow: 0 12px 32px rgb(16 48 63 / .2); }
 .menu a { display: flex; align-items: baseline; gap: 8px; padding: 8px 10px; border-radius: 6px; color: var(--ink); text-decoration: none; font-size: 15px; }
@@ -156,7 +192,12 @@ button, input, textarea, select { font: inherit; color: inherit; }
 .sidebar { position: absolute; z-index: 25; left: 0; top: 0; bottom: 0; width: min(400px, 100%); overflow: auto; padding: 16px 18px 20px; background: var(--ground); border-right: 1px solid var(--line-strong); box-shadow: 8px 0 24px rgb(16 48 63 / .14); }
 .sidebar.docked { position: sticky; top: 0; height: 100%; box-shadow: none; }
 .sidebar h2 { margin: 0; font-size: 13px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-2); }
-.sidebar .sbtop { display: flex; justify-content: flex-end; margin-bottom: 10px; }
+.sidebar .sbtop { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 6px; margin-bottom: 10px; }
+.sidebar .sbtop .modesw { margin-right: auto; }
+/* folded: only its edge, with › to open it again */
+.sidebar.folded { width: 22px; padding: 0; overflow: hidden; box-shadow: 2px 0 8px rgb(16 48 63 / .12); }
+.sidebar .sbunfold { display: grid; place-items: start center; width: 100%; height: 100%; padding: 14px 0 0; border: 0; background: var(--ground); color: var(--bar); font-size: 20px; font-weight: 600; line-height: 1; cursor: pointer; }
+.sidebar .sbunfold:hover, .sidebar .sbunfold:focus-visible { background: var(--selected); outline: none; }
 .sidebar .loading { color: var(--ink-2); }
 .askk { display: grid; grid-template-columns: auto 1fr auto; grid-template-areas: "mark label ." "mark input button"; align-items: center; gap: 2px 10px; padding: 12px 14px; margin-bottom: 18px; border: 1px solid var(--line-strong); border-radius: 12px; background: #fff; }
 .askk .kaity { grid-area: mark; }
@@ -305,25 +346,15 @@ button, input, textarea, select { font: inherit; color: inherit; }
 .fxlabel { margin-top: 6px; font-size: 14px; font-weight: 600; }
 .fxform input, .fxform select, .fxform textarea { width: 100%; padding: 7px 10px; border: 1px solid var(--line-strong); border-radius: 8px; font-size: 16px; }
 .fxform input:focus-visible, .fxform select:focus-visible, .fxform textarea:focus-visible { outline: none; border: 2px solid var(--bar); padding: 6px 9px; }
-.fxcode textarea { font: 13px/1.5 var(--mono); }
 .fxfile { justify-self: start; margin-top: 4px; }
 .fxmore { margin: 18px -18px 0; border-top: 1px solid var(--line); padding: 12px 18px 0; }
 .fxmore h3 { margin: 0 0 6px; font-size: 12px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-2); }
 .fxmore ul { margin: 0; padding: 0; list-style: none; }
 .fxmore li + li { border-top: 1px solid var(--line); }
-.fxmore button { display: flex; width: 100%; justify-content: space-between; gap: 10px; padding: 10px 2px; border: 0; background: none; font-size: 15px; color: var(--ink); text-align: left; cursor: pointer; }
-.fxmore button:hover, .fxmore button:focus-visible { color: var(--bar); outline: none; text-decoration: underline; }
+.fxmore .fxsub { margin: 0 0 4px; font-size: 13px; }
+.fxmore a { display: flex; width: 100%; justify-content: space-between; gap: 10px; padding: 10px 2px; font-size: 15px; color: var(--ink); text-decoration: none; }
+.fxmore a:hover, .fxmore a:focus-visible { color: var(--bar); outline: none; text-decoration: underline; }
 .fxfoot { margin: auto -18px 0; padding: 14px 18px 0; border-top: 1px solid var(--line); }
-.link.back { margin: 0 0 12px; justify-self: start; }
-.fxtree { margin: 0 0 14px; padding: 0; list-style: none; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
-.fxtree li + li { border-top: 1px solid var(--line); }
-.fxtree button { display: flex; align-items: center; gap: 8px; width: 100%; padding: 8px 10px; border: 0; background: #fff; color: var(--ink); text-align: left; cursor: pointer; }
-.fxtree li[aria-selected=true] button { background: var(--selected); box-shadow: inset 4px 0 0 var(--bar); }
-.fxtree .bname { font-size: 16px; font-weight: 600; }
-.fxtree .kind { font-size: 13px; color: var(--ink-2); }
-.fxtree .num { margin-left: auto; }
-.fxsel h3 { margin: 0 0 8px; font-size: 19px; }
-.fxsel .tabsrow { margin-top: 10px; }
 
 /* ---------- New page (R10): a screen of its own ---------- */
 .bar .switcher.static { cursor: default; }

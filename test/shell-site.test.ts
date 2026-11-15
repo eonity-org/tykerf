@@ -95,9 +95,30 @@ describe('the site in the v3 editor', () => {
     await sb.locator('.pcard[data-page="second"] [data-pact="home"]').click();
     await expect.poll(() => readSite(site).home).toBe('second');
     await sb.locator('.pcard[data-page="second"] .hometag').waitFor();
-    // Escape closes it
-    await page.keyboard.press('Escape');
-    expect(await sb.isHidden()).toBe(true);
+    // it stays until the person closes it: a click on the page leaves a task, and the sidebar is still there
+    await page.frameLocator('.frame').locator('[data-sw="hero"] h1').click();
+    await page.locator('.taskbox').waitFor();
+    expect(await sb.isVisible()).toBe(true);
+    await page.keyboard.press('Escape'); // the task box goes, the sidebar stays
+    expect(await page.locator('.taskbox').count()).toBe(0);
+    expect(await sb.isVisible()).toBe(true);
+    // from one page to the next, to look at them all
+    await sb.locator('.pcard[data-page="second"] a.popen').click();
+    await page.waitForURL(`${base}/_tykerf/edit/second/`);
+    await page.locator('.sidebar .pcard.current[data-page="second"]').waitFor();
+    // folded: only its edge, and › opens it again; folded it stays folded on the next page
+    await page.locator('.sidebar [data-sb="fold"]').click();
+    expect(await page.locator('.sidebar.folded .sbunfold').isVisible()).toBe(true);
+    expect(await page.locator('.sidebar').evaluate((e) => e.getBoundingClientRect().width)).toBeLessThan(30);
+    await page.goto(`${base}/_tykerf/edit/first/`);
+    await page.locator('.sidebar.folded .sbunfold').click();
+    await page.locator('.sidebar:not(.folded) .pcard').first().waitFor();
+    // Close closes it, for the next pages too
+    await page.locator('.sidebar [data-sb="collapse"]').click();
+    expect(await page.locator('.sidebar').isHidden()).toBe(true);
+    await page.reload();
+    await page.frameLocator('.frame').locator('[data-sw="hero"]').waitFor();
+    expect(await page.locator('.sidebar').isHidden()).toBe(true);
   });
 
   it('shows the site\'s screens beside it, docked, and goes from one to another', async () => {

@@ -297,6 +297,61 @@ describe('Kaity working through the tasks', () => {
     expect(() => run.start([9])).toThrow(/no task 9/);
   });
 
+  it('takes a task\'s pictures to her, and reports what it left unfinished: Fix them goes under the task, Leave them keeps it', async () => {
+    const ws = landing();
+    const cta = ws.content('cta');
+    const { runner, reqs } = scripted({
+      'Task 1:': async (t) => {
+        await t.call('set_content', { id: 'cta', html: '<p>Go</p><a href="#">Read on</a>' });
+        await t.call('close_task', { n: 1, reply: 'Added a link.' });
+      },
+      'Fix what was left': async (t) => void (await t.call('set_content', { id: 'cta', html: '<p>Go</p><a href="#sw-hero">Read on</a>' })),
+      'Task 2:': async (t) => {
+        await t.call('set_content', { id: 'cta', html: '<p>Go</p><a href="#sw-hero">Read on</a> <a href="#">More</a>' });
+        await t.call('close_task', { n: 2 });
+      },
+    });
+    const ai = new AI(ws, () => {}, runner);
+    const png = Buffer.from('89504e470d0a1a0a0000000d49484452000000010000000108060000001f15c4890000000d49444154789c6360000002000154a24f5d0000000049454e44ae426082', 'hex').toString('base64');
+    const pic = ai.keepImage({ mediaType: 'image/png', data: png });
+    addTask(ws, { block: 'cta', text: 'Add a link', images: [pic] });
+    expect(sayTask(tasks(ws)[0])).toBe(`#1 on cta: Add a link (1 picture attached: ${pic})`);
+    expect(() => addTask(ws, { block: 'cta', text: 'x', images: Array(6).fill(pic) })).toThrow(/at most 5 pictures/);
+    expect(() => addTask(ws, { block: 'cta', text: 'x', images: ['../secret.png'] })).toThrow(/bad picture names/);
+    const run = new TaskRun(ws, ai, () => {}, { shots: false });
+    run.start([1]);
+    await until(() => !run.state()!.running);
+    // the picture went with the task
+    expect(reqs[0].images).toEqual([{ mediaType: 'image/png', data: png }]);
+    const t1 = run.state()!.tasks[0];
+    expect(t1).toMatchObject({ state: 'done', left: { state: 'open', items: [{ text: 'cta: the link "Read on" goes nowhere' }] } });
+    expect(() => run.leaveLeft(9)).toThrow(/not in Kaity's list/);
+
+    // Fix them: one more request on the block, tagged with the task; then nothing is left
+    run.fix(1);
+    await until(() => !run.state()!.running);
+    expect(reqs.at(-1)!.prompt).toMatch(/^Fix what was left unfinished/);
+    expect(reqs.at(-1)!.tag).toBe(reqs[0].tag);
+    expect(run.state()!.tasks[0].state).toBe('done');
+    expect(run.state()!.tasks[0].left).toBeUndefined();
+    expect(() => run.fix(1)).toThrow(/nothing is waiting/);
+    expect(ai.chat('cta').messages.find((m) => m.role === 'check')?.state).toBe('fixing');
+
+    // Leave them: kept as it is, and not reported again
+    addTask(ws, { block: 'cta', text: 'One more link' });
+    run.start([2]);
+    await until(() => !run.state()!.running);
+    expect(run.state()!.tasks[1].left?.items.map((i) => i.text)).toEqual(['cta: the link "More" goes nowhere']);
+    run.leaveLeft(2);
+    expect(run.state()!.tasks[1].left?.state).toBe('left');
+    expect(JSON.parse(ws.store.read('.tykerf/kept.json')!)).toHaveLength(1);
+
+    // her work is the tasks' and the fix's: Undo all takes all of it (task 1 alone is refused: task 2 changed cta after it)
+    expect(() => run.undoTask(1)).toThrow(/undo that first/);
+    run.undoAll();
+    expect(ws.content('cta')).toBe(cta);
+  });
+
   it('closes the review once the person has seen everything in it', async () => {
     const ws = landing();
     addTask(ws, { block: 'hero', text: 'How tall is it?', question: true });

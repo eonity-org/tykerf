@@ -10,7 +10,7 @@
 
 import { askFile } from '../mcp/tools.js';
 import { type TaskNow, sayTask, tasks } from '../tasks.js';
-import type { AI } from './ai.js';
+import type { AI, Attachment, RunEnd } from './ai.js';
 import { runId } from './kaity-log.js';
 import type { Workspace } from '../workspace.js';
 
@@ -30,6 +30,9 @@ export interface RunTask {
   before?: string; // picture files in .tykerf/runs/<run>/
   after?: string;
   undone?: true; // her work on it was taken back
+  /** What she left unfinished in it (src/check.ts), as the block's conversation has it: Fix them / Leave them. */
+  left?: { at: string; items: { key: string; text: string }[]; state: 'open' | 'fixing' | 'left' };
+  fix?: true; // waiting to fix what she left (Fix them): the task is done already
   seen?: true; // the person has seen the result (Got it): the review doesn't show it any more
 }
 
@@ -164,6 +167,7 @@ export class TaskRun {
       return this.save();
     }
     const x = tasks(this.ws).find((y) => y.n === t.n);
+    if (t.fix) return this.fixLeft(t, x);
     if (!x || x.done || x.gone) {
       Object.assign(t, { state: x?.done ? (t.question ? 'answered' : 'done') : 'failed', summary: x?.done?.reply ?? (x ? `the block ${x.block} is gone` : 'the task was removed') });
       this.save();
@@ -180,7 +184,7 @@ export class TaskRun {
     const tag = this.tag(t.n);
     this.ws.store.remove(askFile(tag));
     try {
-      this.ai.ask(x.block, `${t.question ? 'Question' : 'Task'} ${x.n}: ${x.text}${t.answer ? `\n\n${t.answer}` : ''}`, undefined, [], undefined, taskPrompt(x, t), {
+      this.ai.ask(x.block, `${t.question ? 'Question' : 'Task'} ${x.n}: ${x.text}${t.answer ? `\n\n${t.answer}` : ''}`, undefined, this.pictures(x), undefined, taskPrompt(x, t), {
         tag,
         readOnly: !!t.question,
         queued: true,
@@ -197,6 +201,55 @@ export class TaskRun {
     }
   }
 
+  /** The task's pictures, for her request (one that is gone is left out). */
+  private pictures(x: TaskNow): Attachment[] {
+    return (x.images ?? []).map((name) => this.ai.attachment(name)).filter((a): a is Attachment => !!a);
+  }
+
+  /** Fix them: she finishes what she left in a done task, under the task's tag (Undo this one takes it too). */
+  private fixLeft(t: RunTask, x: TaskNow | undefined) {
+    const back = (summary?: string) => {
+      delete t.fix;
+      t.state = 'done';
+      if (t.left) t.left.state = 'open';
+      if (summary) t.summary = summary;
+      this.save();
+      return this.next();
+    };
+    if (!x || x.gone || !t.left) return back();
+    if (this.cur!.stopping) return back();
+    Object.assign(t, { state: 'now', steps: 0 });
+    t.left.state = 'fixing';
+    this.save();
+    try {
+      this.ai.fix(x.block, t.left.at, {
+        tag: this.tag(t.n),
+        queued: true,
+        onStep: (text) => {
+          t.step = text;
+          t.steps++;
+          this.save();
+        },
+        onEnd: (r) => void setTimeout(() => this.fixed(t, x, r).catch((e) => this.fail(t, e))),
+      });
+    } catch (e) {
+      return back((e as Error).message);
+    }
+  }
+
+  private async fixed(t: RunTask, x: TaskNow, r: RunEnd) {
+    delete t.fix;
+    delete t.step;
+    t.state = 'done';
+    if (r.stopped) this.cur!.stopping = true;
+    if (r.check) t.left = { ...r.check, state: 'open' };
+    else if (r.failed || r.stopped) t.left!.state = 'open';
+    else delete t.left;
+    t.after = (await this.shot(x, 'after')) ?? t.after;
+    this.save();
+    return this.next();
+  }
+
   private fail(t: RunTask, e: unknown) {
     Object.assign(t, { state: 'failed', summary: (e as Error).message });
     delete t.step;
@@ -205,7 +258,7 @@ export class TaskRun {
   }
 
   /** Her request for one task ended: done, answered, waiting for the person, stopped or failed. */
-  private async ended(t: RunTask, r: { answer: string; error: string; failed: boolean; stopped: boolean }) {
+  private async ended(t: RunTask, r: RunEnd) {
     const file = askFile(this.tag(t.n));
     const asked = (() => {
       try {
@@ -229,6 +282,7 @@ export class TaskRun {
     else if (r.failed || !x) Object.assign(t, { state: 'failed', summary: r.error || 'the task was removed' });
     // she neither closed it nor asked: what she said is what she needs from the person
     else Object.assign(t, { state: 'needs-you', asked: r.answer });
+    if (t.state === 'done' && r.check) t.left = { ...r.check, state: 'open' };
     if (t.state === 'done' && x) t.after = (await this.shot(x, 'after')) ?? undefined;
     this.save();
     return this.next();
@@ -261,11 +315,37 @@ export class TaskRun {
     this.ai.cancel();
   }
 
-  /** Take a waiting task off her list. */
+  /** Take a waiting task off her list (a fix still waiting: the task stays done, its check open). */
   skip(n: number) {
     const t = this.task(n);
     if (t.state !== 'waiting') throw new Error(`task ${n} is not waiting`);
-    t.state = 'off';
+    if (t.fix) {
+      delete t.fix;
+      t.state = 'done';
+    } else t.state = 'off';
+    this.save();
+  }
+
+  /** Fix them: she finishes what she left unfinished in a done task (at the end of her list, if she is working). */
+  fix(n: number) {
+    const t = this.task(n);
+    if (t.state !== 'done' || t.undone || t.left?.state !== 'open') throw new Error(`nothing is waiting to be fixed in task ${n}`);
+    if (!this.cur!.running && this.ai.running()) throw new Error(`Kaity is working on "${this.ai.running()!.id}"; wait until she is done`);
+    Object.assign(t, { state: 'waiting', fix: true });
+    delete t.seen;
+    if (this.cur!.running) return this.save();
+    this.cur!.running = true;
+    delete this.cur!.stopped;
+    this.save();
+    void this.next();
+  }
+
+  /** Leave them: what she left in a task stays as it is, and isn't reported again (.tykerf/kept.json). */
+  leaveLeft(n: number) {
+    const t = this.task(n);
+    if (t.left?.state !== 'open') throw new Error(`nothing is waiting in task ${n}`);
+    this.ai.leave(t.block, t.left.at);
+    t.left.state = 'left';
     this.save();
   }
 

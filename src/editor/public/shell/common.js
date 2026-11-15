@@ -114,3 +114,19 @@ export function watchVersion() {
   document.addEventListener('visibilitychange', () => document.visibilityState === 'visible' && check());
   addEventListener('focus', check);
 }
+
+/**
+ * Read a picture for Kaity, scaled down so its long side is at most 1568 px (larger ones are scaled down by the
+ * model anyway and only cost more): { mediaType, data (base64) }.
+ */
+export async function shrinkImage(file) {
+  const bmp = await createImageBitmap(file).catch(() => {
+    throw new Error(file.name ? t('Could not read {name}', { name: file.name }) : t('Could not read the image'));
+  });
+  const k = Math.min(1, 1568 / Math.max(bmp.width, bmp.height));
+  const c = Object.assign(document.createElement('canvas'), { width: Math.round(bmp.width * k), height: Math.round(bmp.height * k) });
+  c.getContext('2d').drawImage(bmp, 0, 0, c.width, c.height);
+  const mediaType = file.type === 'image/jpeg' ? 'image/jpeg' : 'image/png';
+  const url = c.toDataURL(mediaType, 0.9);
+  return { mediaType, data: url.slice(url.indexOf(',') + 1) };
+}

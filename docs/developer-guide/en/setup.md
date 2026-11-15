@@ -31,7 +31,7 @@ npm run cli -- layouts                      # the command line (outline, render,
 
 The editor edits the folder in place, so try changes on a copy, or on a new folder, rather than on `examples/`.
 
-AI settings come from `.env` (copy `.env.example`): `TYKERF_RUNNER`, `TYKERF_MODEL` and the keys. Without it, the AI tab runs your Claude Code.
+AI settings come from `.env` (copy `.env.example`): `TYKERF_RUNNER`, `TYKERF_MODEL` and the keys. Without it, Kaity runs your Claude Code.
 
 ## Tests
 

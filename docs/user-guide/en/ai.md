@@ -10,7 +10,7 @@
 
 Kaity changes your page the same way you do: through named, validated moves on the tree, plus the code of each box. She never rewrites the whole page, she can't touch files or run commands, and every change she makes shows up in the history and can be undone.
 
-There are two ways to ask her. **Tasks** come first, because they are the quickest: point at anything on the page, say what should change, and hand your tasks over ([below](#tasks-point-say-hand-over)). For a longer conversation about one block there is its **Kaity tab**. This page explains what Kaity does and how to set her up. For how to write requests that get good results, and recipes for common jobs, read [Getting good results from Kaity](asking-kaity.md).
+You ask her with **tasks**: point at anything on the page, say what should change, and hand your tasks over ([below](#tasks-point-say-hand-over)). Each task continues the conversation of its block, so she remembers what was asked there before; for the whole site there is [Kaity for the whole site](#kaity-for-the-whole-site). This page explains what Kaity does and how to set her up. For how to write requests that get good results, and recipes for common jobs, read [Getting good results from Kaity](asking-kaity.md).
 
 ## Start a page with Kaity
 
@@ -31,31 +31,24 @@ On **New page** (a new site opens on it; later, **+ Page** in the site's sidebar
 
 ## Tasks: point, say, hand over
 
-The editor starts in the **Tasks** mode. Click anything on the page, write what should change, and when you have them all press **Give Kaity every task**: she works through them, with each task's block, element and window width, and answers each one. The page follows her while she works. **Edit** is the whole editor, with the Kaity tab below for talking to her block by block. See [Tasks](editor.md#tasks).
+The editor opens every page in **Tasks**. Click anything on the page, write what should change, and when you have them all press **Give them to Kaity**: she works through them one at a time, each in its block, at the window width it was written at, and the tray shows each task as she goes. See [Tasks](editor.md#tasks).
 
 - **Loose or exact.** A task can be as loose as "make the illustration more colorful" or as exact as "make the title six words at most". She looks at the page, decides, and tells you what she did. See [Writing a task](asking-kaity.md#writing-a-task).
-- **Every task, or one block's.** **Give Kaity every task** is one run over the whole page. *Give only these to Kaity* is a run for one block's tasks, where she can only change that block.
-- **She answers each task** and closes it, and says what she checked and what she didn't. The answers stay in the page's [handbook](editor.md#the-handbook).
-- **Every run is a normal request.** It is in the page's conversation word for word, in [Kaity's work](sites.md#kaitys-work), and every step she takes is one undo step.
-- **Not only for Kaity.** **Copy all** gives the open tasks as text for any AI agent, and MCP clients read and close them too (`list_tasks`, `close_task`).
-
-## The Kaity tab
-
-For a longer talk about one block, switch to the **Edit** mode, select the block and open its **Kaity** tab. (For quick changes, tasks are simpler.) A line above the text box says which block Kaity works on and which model answers; **Ask Kaity** sends it.
-
-- **One conversation per block.** Kaity remembers what was said about this block; *New conversation* starts over.
-- **She only changes the selected block** and what is inside it. Changes elsewhere are refused.
-- **The theme** (colours, fonts, spacing of the whole page) can be changed by Kaity only when the top block, `page`, is selected: "make the accent pink", "use a serif font for headings". She can change the theme's values but nothing else in the page head, and never load fonts or files from other servers.
-- **Images:** paste, drop or *Add image* (screenshots, sketches, reference designs; up to 5 per message). They are sent with your request and stay in the conversation. Kaity can also put one on the page ("use this photo in the banner"): it goes to the page's `assets/`.
-- **Pictures on the page:** Kaity can't download pictures from the internet. She draws illustrations, icons and patterns as SVG, places pictures you attach, or says which picture is needed so you add it with the picture tool in the Text tab. She's told at once when a box points at a file the page doesn't have, and *what she leaves unfinished* lists it.
-- **Where she is:** while Kaity works on a block, the block carries her pulsing balls in the tree, and the Kaity tab of any other block says where she is, with **Go there**. The site's **Kaity's work** lists what she's doing on every page.
-- **She looks at her work.** Kaity takes screenshots of the block at desktop (1440 px) and phone (375 px) widths and fixes what looks wrong.
-- Her changes appear on the page as she works. *Stop* cancels the run; ⌘Z undoes a change.
-- **What she leaves unfinished is listed.** After each request, TYKERF checks what the request added: sample text and pictures from layouts and components, and links that go nowhere or to a section or page that doesn't exist. Only what this request left is listed, never what you had already left that way. **Fix them** asks Kaity to finish them; **Leave them as they are** keeps them, and they aren't listed again. When Kaity builds a whole page, she gets one pass over the list herself before she finishes.
+- **Pictures with a task:** *Add a picture* in the task box, or paste or drop one there (screenshots, sketches, reference designs; up to 5 per task). They go to Kaity with the task and show on its card. Kaity can also put one on the page ("use this photo in the banner"): it goes to the page's `assets/`.
+- **Questions:** tick *This is a question* (a question mark at the end suggests it): she answers and changes nothing.
+- **She changes only the task's block** and what is inside it. Changes elsewhere are refused.
+- **The theme** (colours, fonts, spacing of the whole page) changes only for a task on the top block, `page`: "make the accent pink", "use a serif font for headings". She can change the theme's values but nothing else in the page head, and never load fonts or files from other servers.
+- **Pictures on the page:** Kaity can't download pictures from the internet. She draws illustrations, icons and patterns as SVG, places pictures you attach, or says which picture is needed so you add it by hand. She's told at once when a box points at a file the page doesn't have, and *what she leaves unfinished* lists it.
+- **She looks at her work.** Kaity takes screenshots of the block at desktop (1440 px) and phone (375 px) widths and fixes what looks wrong. Her changes appear on the page as she works; **Stop Kaity** stops her.
+- **The review.** Each task's card says what she changed, with *Before and after*, a way to check it (on a phone, by trying the link), *Undo this one* and *Ask for more*. **Undo all she did** takes the whole run back as one step.
+- **What she leaves unfinished is listed on the card.** After each task, TYKERF checks what it added: sample text and pictures from layouts and components, and links that go nowhere or to a section or page that doesn't exist. Only what this task left is listed, never what you had already left that way. **Fix them** asks Kaity to finish them, as part of the task (so *Undo this one* takes both); **Leave them as they are** keeps them, and they aren't listed again. When Kaity builds a whole page, she gets one pass over the list herself before she finishes.
+- **Her conversation:** *See her conversation on …* on a card shows everything asked on that block, her steps and answers, to read. Every task on the block continues it.
 - **A page like another one:** ask for it ("make this page like rome", or for the whole site: "a page about Munich with the same layout as Rome"). Kaity knows the site's other pages and copies the one you name (`use_page`): its blocks, code and images, and its look if you ask; then she rewrites the text.
 - **Links to pages that don't exist yet:** Kaity doesn't make up their addresses. She asks you whether those pages will be made, and the links stay in the list until you decide.
-- **While she works, her block is locked:** you can keep editing the rest of the page, but changes to that block, and undo and redo, wait until Kaity is done (or you stop her).
-- **Check the scripts she writes.** A `<script>` in a box runs in the editor with the same access as the editor itself, outside Kaity's scope. Look at the box's *Code* tab before reopening the page, or forbid scripts with a box type. See [SECURITY.md](../../../SECURITY.md).
+- **While she works, her block is locked:** you can look around, but changes to that block, and undo and redo, wait until Kaity is done (or you stop her). The site's **Kaity's work** lists what she's doing on every page; in the full editor, her block carries her pulsing balls in the tree.
+- **Every task is a normal request.** It is in the block's conversation word for word, in [Kaity's work](sites.md#kaitys-work), and every step she takes is one undo step.
+- **Not only for Kaity.** *Copy all for another agent* gives the open tasks as text for any AI agent, and MCP clients read and close them too (`list_tasks`, `close_task`).
+- **Check the scripts she writes.** A `<script>` in a box runs in the editor with the same access as the editor itself, outside Kaity's scope. Look at the box's *Code* tab in the full editor before reopening the page, or forbid scripts with a box type. See [SECURITY.md](../../../SECURITY.md).
 
 ## Kaity for the whole site
 
@@ -71,7 +64,7 @@ For a longer talk about one block, switch to the **Edit** mode, select the block
 
 ## Which AI answers
 
-The Kaity tab can use one of three runners, chosen with `TYKERF_RUNNER` in a `.env` file. TYKERF reads `.env` from the folder you start it in, then from the page or site folder; copy [.env.example](../../../.env.example) to start. The keys stay on your computer: they are never sent to the browser or written anywhere else. The line above the text box in the Kaity tab shows which runner and model answer.
+Kaity can use one of three runners, chosen with `TYKERF_RUNNER` in a `.env` file. TYKERF reads `.env` from the folder you start it in, then from the page or site folder; copy [.env.example](../../../.env.example) to start. The keys stay on your computer: they are never sent to the browser or written anywhere else.
 
 | `TYKERF_RUNNER` | What answers | What it needs |
 |---|---|---|
@@ -79,7 +72,7 @@ The Kaity tab can use one of three runners, chosen with `TYKERF_RUNNER` in a `.e
 | `anthropic` | The Anthropic API, or any Anthropic-compatible endpoint (a proxy, or another provider's compatible API) | `TYKERF_API_KEY` (or `ANTHROPIC_API_KEY`); `TYKERF_AUTH_TOKEN` instead for endpoints that want a Bearer token; `TYKERF_API_BASE_URL` for an endpoint other than Anthropic's |
 | `gemini` | Google's Gemini API | `GEMINI_API_KEY`; optionally `GEMINI_BASE_URL` |
 
-**Site → Kaity status…** shows which runner and model answer, whether it's ready (Claude Code installed, or a key set), and what Kaity is working on now in any page. **Test** sends one short request, so a wrong key, address or model shows up before a real request fails.
+**Kaity status**, on the site's *Head code, icon & language* screen (in the site sidebar), shows which runner and model answer and whether it's ready (Claude Code installed, or a key set); **Kaity's work** shows what she is working on now in any page. **Test it** sends one short request, so a wrong key, address or model shows up before a real request fails.
 
 `TYKERF_MODEL` picks the model. The defaults are `claude-sonnet-5-5` for `anthropic`, `gemini-pro-latest` for `gemini`, and Claude Code's own choice for `claude-code`. With a compatible endpoint, use the model names that endpoint offers.
 
@@ -87,7 +80,7 @@ Every runner gets the same tools, the same limit to the selected block, the same
 
 - **claude-code:** TYKERF passes its environment on to Claude Code. So `ANTHROPIC_BASE_URL` and `ANTHROPIC_AUTH_TOKEN` in `.env` also send Claude Code to that endpoint (a proxy, for example). Use the `TYKERF_*` names when only the `anthropic` runner should use a key.
 - **anthropic and gemini:** TYKERF runs the conversation itself and keeps the model's side of it per block, in `.tykerf/chats/<block>.api.json`. Old screenshots are dropped once the model has seen them, and the oldest requests go when the conversation grows long. A request stops after 40 steps; ask again to continue.
-- **Changing runner:** after a change of `TYKERF_RUNNER`, a block's next request starts a fresh conversation for the model. What you see in the tab stays.
+- **Changing runner:** after a change of `TYKERF_RUNNER`, a block's next request starts a fresh conversation for the model. The conversation you read stays.
 
 A hosted TYKERF server will use these runners with its own key; see the [roadmap](../../../ROADMAP.md).
 

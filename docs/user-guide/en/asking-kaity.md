@@ -18,8 +18,8 @@
 
 Three things decide what Kaity does, before she reads a single word:
 
-- **The block you selected.** Kaity changes that block and what is inside it, nothing else. A request about the footer sent from the hero is refused, however it is worded. Select the block first, or select `page` for something that spans the page.
-- **The conversation of that block.** In the full editor's Kaity tab, each block keeps its own. Kaity remembers what you said about the hero when you ask about the hero again, but not what you said about the pricing table. *New conversation* starts over. A **task** carries its block, the element and the window width with it, so Kaity doesn't need you to select anything first.
+- **The task's block.** Kaity changes the block the task is on and what is inside it, nothing else. A task about the footer left on the hero is refused, however it is worded. Leave it on the thing you mean, or on `page` for something that spans the page. A task carries its block, the element and the window width with it, so she knows exactly where to look.
+- **The conversation of that block.** Each block keeps its own, and every task on it continues it: Kaity remembers what was asked about the hero when a new task is about the hero, but not what was asked about the pricing table. *See her conversation on …*, on a task's card, shows it.
 - **What she can see.** Kaity reads the page as a tree of named blocks and their code, and she takes screenshots at desktop and phone width. She can't browse the web or download pictures: what she knows about your business is what you write or attach.
 
 ## Writing a request
@@ -58,9 +58,9 @@ After the first build, most of your requests will be **tasks**: you click an ele
 The fastest way to a good page is two passes:
 
 1. **The whole page, once.** On **New page**, describe it, show it, or both, with everything you know. Kaity picks a layout, builds every section, checks the result at desktop and phone width and goes once over what she left unfinished.
-2. **Then tasks.** Look at the page and click what you'd change, one task each. Small, specific ones: "the title is too long, keep it under six words", "make this a dark band", "add a fourth card about the earthquake of 1755". Give them to Kaity all at once, or one with *Kaity, do it now*; review each, and answer her when she asks. To talk about one block at length, select it in the full editor and use its Kaity tab.
+2. **Then tasks.** Look at the page and click what you'd change, one task each. Small, specific ones: "the title is too long, keep it under six words", "make this a dark band", "add a fourth card about the earthquake of 1755". Give them to Kaity all at once, or one with *Kaity, do it now*; review each, and answer her when she asks. To go on about one block, *Ask for more* on its card: the new task continues the same conversation.
 
-Undo is your friend: every step Kaity takes is a separate undo step, so if one change goes wrong you don't lose the others. ⌘Z goes back one step; the Kaity tab shows each step she took.
+Undo is your friend: every step Kaity takes is a separate undo step, so if one change goes wrong you don't lose the others. ⌘Z goes back one step; *Undo this one* on a task's card takes back that task's work; her conversation on the block shows each step she took.
 
 ## Check her work
 

@@ -55,14 +55,8 @@ const S = {
   buffer: [], // code taken out with Remove, newest first
   lastChange: null,
   nextRedo: null, // the label of the step redo would bring back
-  per: new Map(), // per block: { tab, codeTab, box, text, code, sheet, aiDraft }
+  per: new Map(), // per block: { tab, codeTab, box, text, code, sheet }
   tasks: [], // tasks left on the page (src/tasks.ts), every one, done too
-  tasksText: '', // the open ones in words, for copying to any agent
-  mode: 'edit', // the full editor: every block in detail (tasks are the shell's; the old Tasks mode stays out of sight)
-  taskMode: false, // a click on the page adds a task there (on in the Tasks mode)
-  lastRun: null, // Kaity's last answer, shown in the Tasks mode once she's done: { id, text }
-  showPins: store.get('pins', true),
-  taskAt: null, // in task mode, what the pointer is on: { el, block }
   taskTarget: null, // the element whose task is being written
   kit: { site: false, blocks: [], tags: {}, classes: [], scripts: [], behaviours: [], fonts: [], users: {} }, // (fonts: the site's own, kit/fonts.json) // the site kit: shared blocks (and the pages that show them), the site's own tags, its class styles
 };
@@ -141,7 +135,7 @@ const stillMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
 const kaityMark = (working = false) => `<span class="kaity${working ? ' working' : ''}" aria-hidden="true"><svg viewBox="-0.25 -0.125 20.5 10.25">${KAITY_BALLS.map(([cx, r, delay], i) =>
   `<circle cx="${cx}" cy="5" r="${r}" fill="${(working ? KAITY_WORKING : KAITY_REST)[i]}">${working && !stillMotion
     ? `<animate attributeName="fill-opacity" values="1;1;0.4;1" dur="1s" begin="${delay}" repeatCount="indefinite"/><animate attributeName="r" values="${r};${(+r * 1.07).toFixed(2)};${r}" dur="1s" begin="${delay}" repeatCount="indefinite"/>` : ''}</circle>`).join('')}</svg></span>`;
-const TAB_ICON = { text: 'text', code: 'code', size: 'size', ai: 'ai', blocks: 'blocks', page: 'page' };
+const TAB_ICON = { text: 'text', code: 'code', size: 'size', blocks: 'blocks', page: 'page' };
 
 // a page open in the editor shows TYKERF's mark in its tab (visitors get the site's own icon)
 for (const l of document.querySelectorAll('link[rel~="icon"]')) l.remove();
@@ -177,39 +171,28 @@ ui.innerHTML = `
   <div class="kwork" aria-hidden="true"></div>
 </div>
 <div class="dock">
-  <a class="managebtn" href="/_tykerf/site/" hidden title="${t('Manage the site: its pages, home page, styles and trash')}">${ic('site')}<span>${t('Manage the site')}</span></a>
   <button class="toggle" title="${t('TYKERF: edit this page with people and Kaity')}">${ICON.tykerf}<span>${t('Edit with TYKERF')}</span></button>
 </div>
 <div class="outdated" role="alert" hidden><span>${t('TYKERF was updated while this editor was running. Restart it to use the new version: Ctrl+C in its terminal, then npm start again.')}</span><button class="reload" hidden>${t('Reload')}</button><button class="close" aria-label="${t('Close')}">×</button></div>
 <section class="panel" role="dialog" aria-label="TYKERF">
   <header class="head">
     <span class="brand" title="TYKERF">${ICON.tykerf}<span class="wordmark">tykerf</span></span>
-    <a class="backtasks" href="${SHELL}" title="${t('Leave tasks on the page and give them to Kaity')}">← ${t('Tasks')}</a>
-    <div class="modesw" role="radiogroup" aria-label="${t('Mode')}" hidden>
-      <button data-mode="tasks" role="radio" title="${t('Tasks: click anything on the page to leave a task there, then give your tasks to Kaity')}">${ic('task')}<span class="label">${t('Tasks')}</span><span class="count" hidden></span></button>
-      <button data-mode="edit" role="radio" title="${t('Edit: every block in detail, its text, code, sizes and look')}">${ic('edit')}<span class="label">${t('Edit')}</span></button>
-    </div>
-    <button class="sitebtn" aria-haspopup="menu" title="${t('Site: export and Kaity')}" aria-label="${t('Site')}">${ic('site')}</button>
-    <button class="pagesw" hidden aria-haspopup="menu" title="${t('The pages of this site')}"></button>
     <nav class="path" aria-label="${t('path')}"></nav>
     <div class="head-tools">
       <div class="seg" role="radiogroup" aria-label="${t('outside the selection')}">
         <button data-view="dim" title="${t('Darken everything outside the selection')}">${t('Dim')}</button>
         <button data-view="blur" title="${t('Blur everything outside the selection (for colourful pages)')}">${t('Blur')}</button>
       </div>
-      <button class="tabsbtn" aria-pressed="true" title="${t('Show or hide the task tabs on the page')}">${ic('eye')}<span class="label">${t('Tabs')}</span></button>
-      <button class="copybtn" title="${t('Copy the open tasks as text, to give them to any AI agent or a colleague')}">${ic('copy')}<span class="label">${t('Copy all')}</span></button>
       <button class="undo" title="${t('Undo the last change (⌘Z)')}" aria-label="${t('Undo')}">${ic('undo')}<span class="label">${t('Undo')}</span></button>
       <button class="redo" title="${t('Redo (⇧⌘Z)')}" aria-label="${t('Redo')}">${ic('redo')}<span class="label">${t('Redo')}</span></button>
       <button class="minimize" aria-expanded="true"></button>
-      <button class="closebtn" title="${t('Close the editor (your tasks and changes stay)')}" aria-label="${t('Close the editor')}">×</button>
+      <button class="closebtn" title="${t('Close the full editor and go back to Tasks')}" aria-label="${t('Close the full editor')}">×</button>
     </div>
   </header>
   <div class="body">
     <nav class="tree" aria-label="${t('page tree')}"></nav>
     <main class="work"></main>
   </div>
-  <section class="taskpanel" aria-label="${t('Tasks')}" hidden></section>
   <div class="toast" role="status"></div>
 </section>
 <div class="menu" role="menu" hidden></div>
@@ -268,7 +251,7 @@ function draw() {
   layer.dataset.view = S.view;
   const isRoot = S.sel === S.tree?.id;
   // in task mode the whole page is for pointing: no shade, no selection
-  const r = S.sel && !isRoot && !S.taskMode ? rectOf(S.sel) : null;
+  const r = S.sel && !isRoot ? rectOf(S.sel) : null;
   const shade = (k, x, y, w, h) => Object.assign(layer.querySelector(`[data-s="${k}"]`).style, { left: `${x}px`, top: `${y}px`, width: `${Math.max(0, w)}px`, height: `${Math.max(0, h)}px` });
   if (r) {
     shade('t', 0, 0, W, r.y);
@@ -278,7 +261,7 @@ function draw() {
   } else for (const k of 'tblr') shade(k, 0, 0, 0, 0);
   placeFrame($('.frame.sel'), r);
   const hv = $('.hover');
-  const hr = S.hover && S.hover !== S.sel && !S.taskMode ? rectOf(S.hover) : null;
+  const hr = S.hover && S.hover !== S.sel ? rectOf(S.hover) : null;
   hv.style.display = hr ? 'block' : 'none';
   if (hr) {
     Object.assign(hv.style, { left: `${hr.x}px`, top: `${hr.y}px`, width: `${hr.w}px`, height: `${hr.h}px` });
@@ -346,7 +329,7 @@ async function commitWeights(row, ws) {
 
 const handlesEl = layer.querySelector('.handles');
 function drawHandles() {
-  const row = S.on && S.sel && !S.taskMode ? sizingRow(S.sel) : null;
+  const row = S.on && S.sel ? sizingRow(S.sel) : null;
   const els = row ? row.children.map((c) => childEl(row.id, c.id)?.getBoundingClientRect()) : [];
   const want = Math.max(0, els.length - 1);
   while (handlesEl.children.length > want) handlesEl.lastChild.remove();
@@ -423,7 +406,7 @@ async function commitHeight(id, px) {
 
 const hHandlesEl = layer.querySelector('.hhandles');
 function drawHeightHandles() {
-  const col = S.on && S.sel && !S.taskMode ? sizingColumn(S.sel) : null;
+  const col = S.on && S.sel ? sizingColumn(S.sel) : null;
   const kids = col ? col.children : [];
   while (hHandlesEl.children.length > kids.length) hHandlesEl.lastChild.remove();
   while (hHandlesEl.children.length < kids.length) hHandlesEl.insertAdjacentHTML('beforeend', `<div class="hhandle" title="${t('Drag to make it taller · double-click: height follows the content')}"><i></i><span></span></div>`);
@@ -492,7 +475,7 @@ async function commitWidth(id, px) {
 
 const wHandle = layer.querySelector('.whandle');
 function drawWidthHandle() {
-  const id = S.on && !S.taskMode ? widthBlock() : null;
+  const id = S.on ? widthBlock() : null;
   const r = id && elOf(id)?.getBoundingClientRect();
   if (!r || !r.width) return (wHandle.style.display = 'none');
   // on a full-width block the right edge is the window's: keep the whole handle inside it
@@ -644,9 +627,9 @@ $('.tree').addEventListener('pointerleave', () => {
 
 // ---------- work area ----------
 
-const BOX_TABS = [['text', () => t('Text')], ['code', () => t('Code')], ['size', () => t('Size & look')], ['ai', () => t('Kaity')]];
-const CONTAINER_TABS = [['blocks', () => t('Blocks')], ['size', () => t('Size & look')], ['ai', () => t('Kaity')]];
-const ROOT_TABS = [['blocks', () => t('Blocks')], ['page', () => t('Page')], ['size', () => t('Size & look')], ['ai', () => t('Kaity')]];
+const BOX_TABS = [['text', () => t('Text')], ['code', () => t('Code')], ['size', () => t('Size & look')]];
+const CONTAINER_TABS = [['blocks', () => t('Blocks')], ['size', () => t('Size & look')]];
+const ROOT_TABS = [['blocks', () => t('Blocks')], ['page', () => t('Page')], ['size', () => t('Size & look')]];
 
 function renderWork() {
   const w = $('.work');
@@ -687,8 +670,6 @@ function renderWork() {
     : t('This box shows the shared block {name}: a change here changes it on every page that shows it.', { name: `<b>${esc(n.shared)}</b>` })}
     <a href="${kitHref}" target="_blank" class="kit-link">${t('Open in the site kit')}</a></span><button data-act="unlink" title="${t('This page gets its own copy of the block, which stops following the shared one')}">${t('Make this page\'s own copy')}</button></p>` : '';
 
-  const old = $('.work .tab-body');
-  const keep = p.tab === 'ai' && old?.dataset.pane === 'ai' && old.dataset.id === id ? old : null;
   w.innerHTML = `
     <div class="w-head">
       <input class="w-name" value="${esc(id)}" spellcheck="false" aria-label="${t('name')}" title="${t('Rename (Enter)')}">
@@ -697,11 +678,8 @@ function renderWork() {
     <div class="actions">${actions}</div>
     ${sharedExplanation}
     <div class="sheet" hidden></div>
-    <div class="tabs" role="tablist">${tabs.map(([k, l]) => `<button role="tab" data-tab="${k}" aria-selected="${p.tab === k}">${k === 'ai' ? kaityMark(S.ai?.id === id) : ic(TAB_ICON[k])}${l()}</button>`).join('')}</div>
+    <div class="tabs" role="tablist">${tabs.map(([k, l]) => `<button role="tab" data-tab="${k}" aria-selected="${p.tab === k}">${ic(TAB_ICON[k])}${l()}</button>`).join('')}</div>
     <div class="tab-body"></div>`;
-  // the AI tab loads its chat before drawing it: until then the chat already shown stays, with its scroll
-  // (a refresh as Kaity ends would otherwise blank it for a moment, and lose the reader's place)
-  if (keep) $('.work .tab-body').replaceWith(keep);
   renderSheet();
   renderTab();
 }
@@ -716,7 +694,6 @@ function renderTab() {
   body.onclick = body.oninput = body.onchange = body.onkeydown = body.onpointerover = null;
   if (p.tab === 'text') return renderText(body, id);
   if (p.tab === 'code') return renderCode(body, id);
-  if (p.tab === 'ai') return renderAI(body, id);
   if (p.tab === 'blocks') return renderBlocks(body, id);
   if (p.tab === 'size') return renderSize(body, id);
   if (p.tab === 'page') return renderPage(body);
@@ -1022,11 +999,16 @@ async function renderText(body, id) {
   if (box.shared && box.slots?.length) return renderSlots(body, id, box);
   const parsed = textFields(box.html);
   if (!parsed.fields.length) {
-    body.innerHTML = `<p class="muted">${box.html ? t('This box has no text to edit. Use Code, or ask Kaity.') : t('This box is empty. Write its code, or ask Kaity to fill it.')}</p>
-      <div class="row">${box.html ? '' : `<button data-pick-component>${ic('component')}${t('Use a component')}</button><button data-act="import">${ic('import')}${t('Import a section')}</button>`}<button data-goto="code">${t('Write code')}</button><button data-goto="ai">${t('Ask Kaity')}</button></div>`;
+    body.innerHTML = `<p class="muted">${box.html ? t('This box has no text to edit. Use Code, or leave a task for Kaity.') : t('This box is empty. Write its code, or leave a task for Kaity to fill it.')}</p>
+      <div class="row">${box.html ? '' : `<button data-pick-component>${ic('component')}${t('Use a component')}</button><button data-act="import">${ic('import')}${t('Import a section')}</button>`}<button data-goto="code">${t('Write code')}</button><button data-task-here>${ic('task')}${t('Leave a task for Kaity')}</button></div>`;
     body.onclick = (e) => {
       const g = e.target.closest('[data-goto]');
       if (g) act('tab', id, { tab: g.dataset.goto });
+      const tk = e.target.closest('[data-task-here]');
+      if (tk) {
+        const r = tk.getBoundingClientRect();
+        openTaskForm(r.left, r.bottom, { block: id, el: elOf(id), path: null, label: '' }, { forKaity: true });
+      }
       if (e.target.closest('[data-pick-component]')) renderComponents(body, id);
     };
     return;
@@ -1150,7 +1132,7 @@ async function renderComponents(body, id) {
   body.innerHTML = `<p class="muted">${t('Loading…')}</p>`;
   const { components } = await loadLibrary();
   if (S.sel !== id) return;
-  body.innerHTML = `<p class="hint">${t('Pick a component for {id}. Its text and images are placeholders: replace them in the Text tab, or ask Kaity.', { id: `<b>${esc(id)}</b>` })}</p>
+  body.innerHTML = `<p class="hint">${t('Pick a component for {id}. Its text and images are placeholders: replace them in the Text tab, or leave a task for Kaity.', { id: `<b>${esc(id)}</b>` })}</p>
     <div class="components">${components.map((c) => `<button data-component="${esc(c.name)}"><b>${esc(t(c.label))}</b><span>${esc(t(c.description))}</span></button>`).join('')}</div>
     <div class="row"><button data-back>${t('Cancel')}</button></div>`;
   body.onclick = async (e) => {
@@ -1451,31 +1433,6 @@ async function uploadFiles(files, send, list) {
   }
 }
 
-/** The export's address: the whole site (or lone page), or one page of the site. */
-const exportURL = (path, q) => `/_tykerf/${path}${(q = new URLSearchParams(q)).size ? `?${q}` : ''}`;
-
-/** Download the page (or the whole site, or one page of it) as a .zip of plain files, and say what the export found. */
-async function exportZip(files, page, inlineKit = false) {
-  try {
-    const r = await fetch(exportURL('export.zip', { ...(files && { links: 'files' }), ...(page && { page }), ...(inlineKit && { kit: 'inline' }) }));
-    if (!r.ok) throw new Error((await r.json().catch(() => null))?.error || `HTTP ${r.status}`);
-    const name = /filename="([^"]+)"/.exec(r.headers.get('content-disposition') ?? '')?.[1] ?? 'export.zip';
-    const report = JSON.parse(r.headers.get('x-tykerf-report') ?? '{}');
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(await r.blob());
-    a.download = name;
-    a.click();
-    setTimeout(() => URL.revokeObjectURL(a.href), 10_000);
-    const details = [
-      report.broken ? (page ? t('{n} links lead to other pages of the site, which aren\'t in this export.', { n: report.broken }) : t('{n} links point at pages that don\'t exist.', { n: report.broken })) : '',
-      report.remote ? t('{n} images, fonts or files still load from other servers; copy the ones you may use into the page before publishing.', { n: report.remote }) : '',
-    ].filter(Boolean).join(' ');
-    toast(`${t('Exported {pages} pages ({kb} KB).', { pages: report.pages ?? 1, kb: Math.round((report.bytes ?? 0) / 1024) })}${details ? ` ${details}` : ''}`, !!report.broken);
-  } catch (err) {
-    toast(err.message, true);
-  }
-}
-
 // ---------- Code tab: content, style, or both ----------
 
 const CODE_TABS = [['html', () => t('Content')], ['css', () => t('Style')], ['full', () => t('Full code')]];
@@ -1706,368 +1663,14 @@ function renderBlocks(body, id) {
   };
 }
 
-// ---------- AI tab: one conversation per block ----------
+// ---------- the site's own endpoints (the Page tab: the shared theme, the title) ----------
 
-const RUNNER_LABEL = { 'claude-code': () => t('Claude Code'), anthropic: () => t('Anthropic API'), gemini: () => t('Gemini API') };
-
-/** What a request left unfinished (src/check.ts): Kaity's own pass over it, or the person's choice to fix or keep it. */
-function checkMessage(m, busy) {
-  const items = m.items ?? [], n = items.length;
-  const head = {
-    auto: n === 1 ? t('Kaity checks the 1 thing she left unfinished') : t('Kaity checks the {n} things she left unfinished', { n }),
-    open: n === 1 ? t('Kaity left 1 thing unfinished') : t('Kaity left {n} things unfinished', { n }),
-    fixing: n === 1 ? t('Kaity was asked to finish 1 thing') : t('Kaity was asked to finish {n} things', { n }),
-    left: n === 1 ? t('1 thing left as it is') : t('{n} things left as they are', { n }),
-  }[m.state] ?? esc(m.text);
-  const shown = m.state === 'open' ? 8 : 3;
-  const list = `<ul>${items.slice(0, shown).map((i) => `<li>${esc(i.text)}</li>`).join('')}${n > shown ? `<li class="more">${t('and {n} more', { n: n - shown })}</li>` : ''}</ul>`;
-  const actions = m.state === 'open' ? `<div class="row"><button data-check="fix" class="primary" ${busy ? 'disabled' : ''}>${t('Fix them')}</button><button data-check="leave" ${busy ? 'disabled' : ''}>${t('Leave them as they are')}</button></div>` : '';
-  return `<div class="msg check ${esc(m.state ?? '')}"><b>${head}</b>${list}${actions}</div>`;
-}
-
-async function renderAI(body, id) {
-  const p = per(id);
-  const chat = await api(`/chat?id=${encodeURIComponent(id)}`).catch(() => ({ messages: [] }));
-  if (S.sel !== id || p.tab !== 'ai') return;
-  const busyHere = S.ai?.id === id, busyElsewhere = S.ai && !busyHere;
-  const msgs = [];
-  for (const m of chat.messages) {
-    if (m.role === 'step' && msgs.at(-1)?.role === 'steps') msgs.at(-1).items.push(m.text);
-    else if (m.role === 'step') msgs.push({ role: 'steps', items: [m.text] });
-    else msgs.push(m);
-  }
-  // the chat is drawn again on every step: keep the reader's place, and follow the end only from the end
-  const old = $('.chat', body);
-  const atEnd = !old || old.scrollHeight - old.scrollTop - old.clientHeight < 40;
-  const was = old?.scrollTop ?? 0;
-  // a step list stays as the person left it; the one of a run in progress is open, so its steps can be followed
-  p.stepsOpen ??= {};
-  const open = (i) => p.stepsOpen[i] ?? (busyHere && i === msgs.length - 1);
-  body.innerHTML = `
-    <div class="chat">${msgs.length ? msgs.map((m, i) => m.role === 'check' ? checkMessage(m, busyHere || busyElsewhere) : m.role === 'steps'
-      ? `<details class="steps" data-steps="${i}" ${open(i) ? 'open' : ''}><summary>${m.items.length === 1 ? t('1 step') : t('{n} steps', { n: m.items.length })}</summary>${m.items.map((s) => `<div>${esc(s)}</div>`).join('')}</details>`
-      : `<div class="msg ${m.role}">${m.role === 'ai' ? `<span class="who">${kaityMark()}Kaity</span>` : ''}${m.images?.length ? `<div class="pics">${m.images.map((f) => `<a href="${API}/image/${esc(f)}" target="_blank"><img src="${API}/image/${esc(f)}" alt="${t('attached image')}"></a>`).join('')}</div>` : ''}${m.role === 'ai' ? `<div class="md">${markdown(m.text)}</div>` : esc(m.text)}</div>`).join('')
-      : `<p class="muted">${isBox(id) ? t('Ask Kaity about {id}. It can only change this box, and it remembers this conversation.', { id: `<b>${esc(id)}</b>` }) : t('Ask Kaity about {id}. It can only change this block and what is inside it, and it remembers this conversation.', { id: `<b>${esc(id)}</b>` })}</p>`}
-      ${busyHere ? `<div class="msg working">${kaityMark(true)}${t('Kaity is working')}<span class="dots"></span></div>` : ''}</div>
-    <div class="composer">
-      ${busyElsewhere ? `<p class="elsewhere">${kaityMark(true)}<span>${t('Kaity is working on {id}.', { id: `<b>${esc(S.ai.id)}</b>` })}</span><button data-ai="goto">${t('Go there')}</button></p>` : ''}
-      <div class="kaity-head">${kaityMark(busyHere)}<b>Kaity</b><span>${isBox(id) ? t('works on {id} only', { id: `<b>${esc(id)}</b>` }) : t('works on {id} and what is inside it', { id: `<b>${esc(id)}</b>` })}</span>${S.aiRunner ? `<span class="runner" title="${t('The model Kaity uses. Set with TYKERF_RUNNER and TYKERF_MODEL; see the guide to Kaity.')}">${esc(RUNNER_LABEL[S.aiRunner.runner]?.() ?? S.aiRunner.runner)}${S.aiRunner.model && S.aiRunner.runner !== 'claude-code' ? ` · ${esc(S.aiRunner.model)}` : ''}</span>` : ''}</div>
-      <div class="attach" hidden></div>
-      <textarea rows="2" placeholder="${busyElsewhere ? t('Kaity is working on {id}…', { id: esc(S.ai.id) }) : isBox(id) ? t('e.g. make the title shorter and add a button') : t('e.g. make these three cards the same height')}" ${busyElsewhere ? 'disabled' : ''}>${esc(p.aiDraft ?? '')}</textarea>
-      <div class="row">
-        <button data-ai="pick" ${busyElsewhere ? 'disabled' : ''} title="${t('Attach a screenshot, sketch or reference design (you can also paste or drop one)')}">${ic('image')}${t('Add image')}</button>
-        ${chat.messages.length && !busyHere ? `<button data-ai="reset" class="link">${t('New conversation')}</button>` : ''}
-        <span class="spacer"></span>
-        ${busyHere ? `<button data-ai="stop">${t('Stop')}</button>` : `<button data-ai="send" class="primary" ${busyElsewhere ? 'disabled' : ''}>${t('Ask Kaity')}</button>`}
-      </div>
-    </div>`;
-  const log = $('.chat', body);
-  log.scrollTop = atEnd ? log.scrollHeight : was;
-  // remember a list the person opens or closes (a click on its summary, before the details toggles)
-  for (const d of log.querySelectorAll('details.steps')) $('summary', d).onclick = () => (p.stepsOpen[d.dataset.steps] = !d.open);
-  const ta = $('.composer textarea', body);
-  ta.oninput = () => (p.aiDraft = ta.value);
-  p.images ??= [];
-  const strip = $('.attach', body);
-  const showImages = () => {
-    strip.hidden = !p.images.length;
-    strip.innerHTML = p.images.map((im, i) => `<span class="thumb"><img src="data:${im.mediaType};base64,${im.data}" alt=""><button data-unattach="${i}" title="${t('Remove')}">×</button></span>`).join('');
-  };
-  const attach = async (files) => {
-    for (const f of files) {
-      if (!f.type.startsWith('image/')) continue;
-      if (p.images.length >= 5) return toast(t('At most 5 images per message'), true);
-      try {
-        p.images.push(await shrinkImage(f));
-      } catch (err) {
-        toast(err.message, true);
-      }
-    }
-    showImages();
-  };
-  showImages();
-  ta.onpaste = (e) => {
-    const files = [...(e.clipboardData?.files ?? [])].filter((f) => f.type.startsWith('image/'));
-    if (files.length) {
-      e.preventDefault();
-      attach(files);
-    }
-  };
-  const composer = $('.composer', body);
-  composer.ondragover = (e) => {
-    e.preventDefault();
-    composer.classList.add('drop');
-  };
-  composer.ondragleave = () => composer.classList.remove('drop');
-  composer.ondrop = (e) => {
-    e.preventDefault();
-    composer.classList.remove('drop');
-    attach([...(e.dataTransfer?.files ?? [])]);
-  };
-  ta.onkeydown = (e) => {
-    if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) {
-      e.preventDefault();
-      send();
-    }
-  };
-  const send = async () => {
-    const prompt = ta.value.trim();
-    if (!prompt || S.ai) return;
-    const r = rectOf(id);
-    try {
-      await api('/ask', { id, prompt, size: r ? `${Math.round(r.w)}×${Math.round(r.h)} px` : undefined, images: p.images.map(({ mediaType, data }) => ({ mediaType, data })) });
-      p.aiDraft = '';
-      p.images = [];
-      S.ai = { id };
-    } catch (err) {
-      toast(err.message, true);
-    }
-  };
-  body.onclick = async (e) => {
-    const un = e.target.closest('[data-unattach]');
-    if (un) {
-      p.images.splice(+un.dataset.unattach, 1);
-      return showImages();
-    }
-    const check = e.target.closest('[data-check]')?.dataset.check;
-    if (check) {
-      await api(`/check/${check}`, { id }).catch((err) => toast(err.message, true));
-      return renderAI(body, id);
-    }
-    const a = e.target.closest('[data-ai]')?.dataset.ai;
-    if (a === 'pick') {
-      const input = Object.assign(document.createElement('input'), { type: 'file', accept: 'image/png,image/jpeg,image/gif,image/webp', multiple: true });
-      input.onchange = () => attach([...input.files]);
-      return input.click();
-    }
-    if (a === 'goto' && S.ai) return select(S.ai.id, { scroll: true, tab: 'ai' });
-    if (a === 'send') send();
-    if (a === 'stop') api('/ask/cancel', {}).catch(() => {});
-    if (a === 'reset') {
-      await api('/chat/reset', { id }).catch((err) => toast(err.message, true));
-      p.stepsOpen = {};
-      renderAI(body, id);
-    }
-  };
-  if (!busyElsewhere && document.activeElement === host) ta.focus();
-}
-
-/**
- * Read an image file for the AI, scaled down so its long side is at most 1568 px (larger images
- * are scaled down by the model anyway and only cost more). Returns { mediaType, data (base64) }.
- */
-async function shrinkImage(file) {
-  const bmp = await createImageBitmap(file).catch(() => {
-    throw new Error(file.name ? t('Could not read {name}', { name: file.name }) : t('Could not read the image'));
-  });
-  const k = Math.min(1, 1568 / Math.max(bmp.width, bmp.height));
-  const c = Object.assign(document.createElement('canvas'), { width: Math.round(bmp.width * k), height: Math.round(bmp.height * k) });
-  c.getContext('2d').drawImage(bmp, 0, 0, c.width, c.height);
-  const mediaType = file.type === 'image/jpeg' ? 'image/jpeg' : 'image/png';
-  const url = c.toDataURL(mediaType, 0.9);
-  return { mediaType, data: url.slice(url.indexOf(',') + 1) };
-}
-
-// ---------- the site: its pages, and new ones ----------
-// In a site (a folder of pages) the header shows the current page; it lists the others and makes
-// new ones on the shell's New page screen.
-
-const pageSwitch = $('.pagesw');
-function renderSwitcher() {
-  pageSwitch.hidden = !S.site;
-  $('.managebtn').hidden = !S.site; // the site manager, next to Edit with TYKERF
-  if (S.site) pageSwitch.innerHTML = `<span>${esc(S.site.current)}</span>${ICON.chevron}`;
-}
-pageSwitch.addEventListener('click', () => openPages());
-/** The site's pages to switch to; the current one has small Rename and Remove buttons; All pages (the site's home) and New page… end the list. */
-function openPages() {
-  const r = pageSwitch.getBoundingClientRect();
-  popover(r.left, r.bottom + 6, `<nav class="pages" aria-label="${t('Pages')}">${S.site.pages.map((p) => p === S.site.current
-    ? `<div class="page-row" aria-current="page"><a href="${full(p)}" aria-current="page">${esc(p)}</a>
-        <button class="mini" data-pg="rename" title="${t('Rename this page…')}" aria-label="${t('Rename this page…')}">${ic('name')}</button>
-        <button class="mini danger" data-pg="remove" title="${t('Remove this page…')}" aria-label="${t('Remove this page…')}">${ic('delete')}</button></div>`
-    : `<a href="${full(p)}">${esc(p)}</a>`).join('')}</nav>
-    <a class="newpage-btn" href="/_tykerf/edit/_site/tasks?from=${encodeURIComponent(PAGE_NAME)}">${ic('site')}${t('All pages')}</a>
-    <button class="newpage-btn" data-pg="new">${ic('inside')}${t('New page…')}</button>`);
-  pop.onclick = (e) => {
-    const b = e.target.closest('[data-pg]')?.dataset.pg;
-    if (b === 'new') closePop(), openNewPage();
-    if (b === 'rename') renamePagePrompt();
-    if (b === 'remove') removePagePrompt();
-  };
-}
-
-// ---------- the Site menu: what acts on the whole site or on TYKERF itself ----------
-// Export and the AI's status. Only things that act on the whole site or on TYKERF itself belong here:
-// pages are managed in the page list, a page's own theme and head in its Page tab.
-
-const siteBtn = $('.sitebtn');
-const anchor = () => siteBtn.getBoundingClientRect();
-siteBtn.addEventListener('click', () => openSiteMenu());
-function openSiteMenu() {
-  const r = anchor();
-  const entry = (act, icon, label, cls = '') => `<button data-site="${act}" class="${cls}">${ic(icon)}${label}</button>`;
-  popover(r.left, r.bottom + 6, `<div class="sitemenu" role="menu">
-    ${S.site ? entry('manage', 'site', t('Manage the site…')) : ''}
-    ${entry('export', 'download', S.site ? t('Export the site…') : t('Export the page…'))}
-    ${S.site?.current ? entry('export-page', 'download', t('Export this page…')) : ''}
-    ${S.site ? entry('work', 'ai', t("Kaity's work across the site…")) : ''}
-    ${entry('ai', 'ai', t('Kaity status…'))}
-  </div>`);
-  pop.querySelector('[data-site]')?.focus();
-  pop.onclick = (e) => {
-    const b = e.target.closest('[data-site]')?.dataset.site;
-    if (b === 'manage') go(`/_tykerf/edit/_site/tasks?from=${encodeURIComponent(PAGE_NAME)}`);
-    if (b === 'work') go(`/_tykerf/edit/_site/kaity?from=${encodeURIComponent(PAGE_NAME)}`);
-    if (b === 'export') exportPrompt();
-    if (b === 'export-page') exportPrompt(S.site.current);
-    if (b === 'ai') aiStatus();
-  };
-}
-
-/** Export: what it will hold and what to check, then the download (exportZip). `page`: one page of the site. */
-async function exportPrompt(page) {
-  const r = anchor();
-  popover(r.left, r.bottom + 6, `<p class="muted">${t('Loading…')}</p>`);
-  let report;
-  try {
-    const j = await (await fetch(exportURL('export/report', page ? { page } : {}))).json();
-    if (!j.ok) throw new Error(j.error);
-    ({ report } = j);
-  } catch (err) {
-    return toast(err.message, true);
-  }
-  const kb = Math.round(report.bytes / 1024);
-  const hosts = [...new Set(report.remote.map((x) => { try { return new URL(x.url, location.href).host; } catch { return x.url; } }))];
-  const whole = S.site && !page;
-  popover(r.left, r.bottom + 6, `<p><b>${whole ? t('Export the site') : page ? t('Export this page') : t('Export the page')}</b></p>
-    <p class="hint">${page ? t('The page {page} ({kb} KB) as plain files in a .zip, with the site\'s theme and fonts. Its links to other pages of the site lead nowhere until those pages are next to it. TYKERF, its history and the conversations with Kaity stay out.', { page: esc(page), kb }) : whole ? t('Every page of the site, {n} in all ({kb} KB), as plain files in a .zip: links between pages and images keep working wherever you put them. TYKERF, its history and the conversations with Kaity stay out.', { n: report.pages.length, kb }) : t('This page ({kb} KB) as plain files in a .zip. TYKERF, its history and the conversations with Kaity stay out.', { kb })}</p>
-    ${report.broken.length ? `<div class="report${page ? '' : ' bad'}"><b>${page ? t('Links to other pages') : t('Links to pages that don\'t exist')}</b>${report.broken.map((b) => `<div>${esc(b.page)} → <code>${esc(b.href)}</code></div>`).join('')}</div>` : ''}
-    ${Object.keys(report.check ?? {}).length ? `<div class="report"><b>${t('The site\'s check')}</b><div>${t('{n} things to look at before publishing: see Check the site in the site manager.', { n: Object.values(report.check).reduce((a, b) => a + b, 0) })}</div></div>` : ''}
-    ${report.unlicensed?.length ? `<div class="report"><b>${t('Fonts without a licence noted')}</b><div>${t('{fonts}: make sure the site may publish them (the site kit\'s Fonts).', { fonts: esc(report.unlicensed.join(', ')) })}</div></div>` : ''}
-    ${report.remote.length ? `<div class="report"><b>${t('Still loaded from other servers')}</b><div>${t('{n} images, fonts or files from {hosts}. Copy the ones you may use into the page before publishing.', { n: report.remote.length, hosts: esc(hosts.join(', ')) })}</div></div>` : ''}
-    <div class="choices">
-      <button data-x="web" class="choice"><b>${ic('download')}${t('For a web server')}</b><span>${t('Links end in a folder (../about/), as web hosts serve them.')}</span></button>
-      <button data-x="files" class="choice"><b>${ic('download')}${t('To open from disk')}</b><span>${t('Links end in index.html, so you can double-click the files without a web server.')}</span></button>
-    </div>
-    ${S.site ? `<label class="check inline-kit"><input type="checkbox" name="inlineKit"> ${t('Inline the site\'s styles in every page')}</label><p class="hint">${t('Instead of one stylesheet every page links (kit/site.css): for hosts where one more request matters.')}</p>` : ''}`);
-  pop.onclick = (e) => {
-    const x = e.target.closest('[data-x]')?.dataset.x;
-    if (!x) return;
-    const inline = !!pop.querySelector('input[name=inlineKit]')?.checked;
-    closePop();
-    exportZip(x === 'files', page, inline);
-  };
-}
-
-const RUNNER_HELP = {
-  'claude-code': () => t('Your own Claude Code, signed in with your Claude account.'),
-  anthropic: () => t('The Anthropic API or a compatible endpoint, with the key in .env.'),
-  gemini: () => t('Google\'s Gemini API, with the key in .env.'),
-};
-
-/** Which AI answers, whether it is ready, a test request, and what is running now. */
-async function aiStatus() {
-  const r = anchor();
-  let st;
-  try {
-    st = await (await fetch('/_tykerf/ai/status')).json();
-  } catch (err) {
-    return toast(err.message, true);
-  }
-  const running = st.running.map((x) => (x.page ? t('{id} in the page {page}', { id: `<b>${esc(x.id)}</b>`, page: esc(x.page) }) : `<b>${esc(x.id)}</b>`));
-  popover(r.left, r.bottom + 6, `<p class="kaity-title">${kaityMark(st.running.length > 0)}<b>Kaity</b> <span class="runner">${esc(RUNNER_LABEL[st.runner]?.() ?? st.runner)}${st.model ? ` · ${esc(st.model)}` : ''}</span></p>
-    <p class="hint">${RUNNER_HELP[st.runner]?.() ?? ''}</p>
-    <p class="status-line ${st.ready ? 'ok' : 'bad'}">${st.ready ? '●' : '○'} ${esc(st.task)}</p>
-    <p class="hint">${running.length ? t('Working now on {what}.', { what: running.join(', ') }) : t('Not working on anything now.')}</p>
-    <p class="hint">${t('Change the runner and the model with TYKERF_RUNNER and TYKERF_MODEL in .env (see .env.example), then restart TYKERF.')}</p>
-    <div class="test-result" hidden></div>
-    <div class="row">${st.testable ? `<button data-t="test" class="primary" ${st.ready ? '' : 'disabled'}>${t('Test')}</button>` : ''}</div>`);
-  pop.onclick = async (e) => {
-    const b = e.target.closest('[data-t="test"]');
-    if (!b) return;
-    const out = $('.pop .test-result');
-    b.disabled = true;
-    out.hidden = false;
-    out.className = 'test-result';
-    out.textContent = t('Sending a short request…');
-    try {
-      const j = await (await fetch('/_tykerf/ai/test', { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}' })).json();
-      out.className = `test-result ${j.ok ? 'ok' : 'bad'}`;
-      out.textContent = j.ok ? t('It answered "{answer}" in {s} s.', { answer: j.answer, s: (j.ms / 1000).toFixed(1) }) : j.error;
-    } catch (err) {
-      out.className = 'test-result bad';
-      out.textContent = err.message;
-    } finally {
-      b.disabled = false;
-    }
-  };
-}
-
-/** The site's own API (pages, renames), at the site root whatever page is open. */
 async function siteApi(path, body) {
   const r = await fetch(`/_tykerf/site${path}`, body === undefined ? {} : { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) });
   const j = await r.json().catch(() => ({ ok: false, error: `HTTP ${r.status}` }));
   if (!r.ok || j.ok === false) throw new Error(j.error || `HTTP ${r.status}`);
   return j;
 }
-
-function renamePagePrompt() {
-  const r = pageSwitch.getBoundingClientRect();
-  const name = S.site.current;
-  popover(r.left, r.bottom + 6, `<label class="pop-field"><span>${t('New name for this page')}</span><input class="pgname" value="${esc(name)}" spellcheck="false" autocomplete="off"></label>
-    <p class="hint">${t('Links to it from the other pages of the site change too.')}</p>
-    <div class="row"><button data-r="cancel">${t('Cancel')}</button><button data-r="ok" class="primary">${t('Rename')}</button></div>`);
-  const input = $('.pop .pgname');
-  input.focus();
-  input.select();
-  const go = async () => {
-    const to = input.value.trim();
-    if (!to || to === name) return closePop();
-    try {
-      const j = await siteApi('/rename', { name, to });
-      closePop();
-      go(full(j.url.replace(/^\/|\/$/g, '')));
-    } catch (err) {
-      toast(err.message, true);
-    }
-  };
-  pop.onclick = (e) => {
-    const b = e.target.closest('[data-r]')?.dataset.r;
-    if (b === 'cancel') closePop();
-    if (b === 'ok') go();
-  };
-  input.onkeydown = (e) => {
-    if (e.key === 'Enter') e.preventDefault(), go();
-    if (e.key === 'Escape') e.preventDefault(), closePop();
-  };
-}
-
-async function removePagePrompt() {
-  const r = pageSwitch.getBoundingClientRect();
-  const name = S.site.current;
-  const { links } = await siteApi('/links').catch(() => ({ links: [] }));
-  const from = new Set(links.filter((l) => l.to === name && l.page !== name).map((l) => l.page));
-  const n = links.filter((l) => l.to === name && l.page !== name).length;
-  popover(r.left, r.bottom + 6, `<p><b>${t('Remove the page {page} from the site?', { page: esc(name) })}</b></p>
-    <p class="hint">${n === 1 ? t('One link to it from {pages} will point nowhere.', { pages: esc([...from].join(', ')) }) : n ? t('{n} links to it from {pages} will point nowhere.', { n, pages: esc([...from].join(', ')) }) : t('No other page links to it.')} ${t('Nothing is deleted: the page is kept in the site\'s .trash folder.')}</p>
-    <div class="row"><button data-r="cancel">${t('Cancel')}</button><button data-r="ok" class="danger">${t('Remove')}</button></div>`);
-  pop.onclick = async (e) => {
-    const b = e.target.closest('[data-r]')?.dataset.r;
-    if (b === 'cancel') closePop();
-    if (b !== 'ok') return;
-    try {
-      const j = await siteApi('/remove', { name });
-      closePop();
-      location.replace(j.url);
-    } catch (err) {
-      toast(err.message, true);
-    }
-  };
-}
-
-/** New page… is the shell's New page screen (public/shell/screens.js), which comes back to the new page. */
-const openNewPage = () => go(`/_tykerf/edit/_site/new?from=${encodeURIComponent(PAGE_NAME)}`);
 
 // ---------- a page being made: the job's progress, then how to go on ----------
 // The AI building a new page, or a copy of a website, runs on the server while this modal shows each
@@ -2122,13 +1725,13 @@ function renderJob(job) {
     : t('Something went wrong');
   const lead = running
     ? (ai ? t('Watch it work, step by step. You can stop it at any time, and everything it does can be undone.') : t('TYKERF is opening the site, measuring it and cutting it into blocks. This usually takes under a minute.'))
-    : job.state === 'stopped' ? (ai ? t('What Kaity built so far stays. Undo any step, or ask it to go on in the Kaity tab.') : t('This unfinished page is being removed.'))
+    : job.state === 'stopped' ? (ai ? t('What Kaity built so far stays. Undo any step, or leave her tasks on the page.') : t('This unfinished page is being removed.'))
     : job.state === 'failed' ? `${esc(job.error ?? '')} ${ai ? t('What Kaity built before that stays.') : t('The page stays empty: remove it from the page list, or try another address.')}`
     : '';
   const guide = `<ul class="job-guide">
       <li>${t('Click a block on the page, or in the tree, to select it.')}</li>
       <li>${t('Double-click text or a picture to change it where it is.')}</li>
-      <li>${t('Open the Kaity tab of a block to ask for changes to that block only.')}</li>
+      <li>${t('Right-click anything to add a task for Kaity there: she changes only that block.')}</li>
       <li>${t('The Page tab of the top block changes colours and fonts for the whole site. Undo goes back one step at a time.')}</li></ul>`;
   const ended = !running && !(job.state === 'stopped' && !ai);
   // Kaity never shows without TYKERF (BRAND.md): the TYKERF logo heads the window, above Kaity's symbol and name
@@ -2162,14 +1765,7 @@ function renderJob(job) {
       $('.dock').hidden = EMBEDDED && S.on;
       if (a === 'editor') {
         setOn(true);
-        // the Tasks mode shows Kaity's answer above the (still empty) tasks: the next step is to point at what should change
-        if (S.mode === 'tasks' && ai && job.answer) {
-          S.lastRun = { id: job.select && info(job.select) ? job.select : S.tree.id, text: job.answer };
-          renderTaskPanel();
-        } else if (job.select && info(job.select)) {
-          if (ai) per(job.select).tab = 'ai';
-          select(job.select);
-        }
+        if (job.select && info(job.select)) select(job.select);
       } else {
         setOn(false);
         // show where the editor is, for later
@@ -2784,8 +2380,6 @@ function closeTool() {
 // or for Kaity. A task keeps its block, the element inside it (its element path) and the window
 // width it was written at (src/tasks.ts). Open tasks show as numbered tabs that follow their element.
 
-const modeSw = $('.modesw');
-const taskPanel = $('.taskpanel');
 const pinsEl = $('.pins');
 
 /** The site kit as the panel needs it: the shared blocks (with the pages that show them) and the site's own tags. */
@@ -2798,21 +2392,10 @@ async function loadTasks() {
   const r = await api('/tasks').catch(() => null);
   if (!r) return;
   S.tasks = r.tasks;
-  S.tasksText = r.text;
-  renderTasksCount();
-  renderTaskPanel();
   redraw();
 }
 
 const openTasks = () => S.tasks.filter((x) => !x.done);
-
-function renderTasksCount() {
-  const n = openTasks().length;
-  const count = $('[data-mode="tasks"] .count', modeSw);
-  count.hidden = !n;
-  count.textContent = n;
-  $('.tabsbtn').setAttribute('aria-pressed', S.showPins);
-}
 
 /** The element a task is on, on the page now: its block, then the element inside it (the block itself when the element is gone). */
 function taskEl(x) {
@@ -2844,8 +2427,8 @@ function taskSpot(el) {
 function drawTasks() {
   // the element under the pointer (or the one whose task is being written): outlined, with its place in words
   const nh = $('.nhover');
-  // (the element a task is being written for shows outside task mode too: the context menu's Add a task for Kaity here…)
-  const at = S.taskTarget ?? (S.taskMode ? S.taskAt : null);
+  // (the context menu's Add a task for Kaity here…)
+  const at = S.taskTarget;
   const ar = at?.el.isConnected ? at.el.getBoundingClientRect() : null;
   nh.style.display = ar ? 'block' : 'none';
   if (ar) {
@@ -2855,8 +2438,7 @@ function drawTasks() {
   }
   // one tab per open task, on its element's top-right corner (sharp corner on the element; the outline's label keeps the
   // top left); tabs on the same element line up leftwards
-  const show = S.showPins || S.taskMode;
-  const shown = show ? openTasks().filter((x) => !x.gone) : [];
+  const shown = openTasks().filter((x) => !x.gone);
   const taken = new Map();
   pinsEl.innerHTML = shown.map((x) => {
     const el = taskEl(x);
@@ -2939,120 +2521,6 @@ function followKaity(block) {
   el.scrollIntoView({ block: r.height > innerHeight * 0.8 ? 'start' : 'center', behavior: still ? 'auto' : 'smooth' });
 }
 
-/** A click on the page adds a task there (the Tasks mode), or selects a block (the Edit mode). */
-function setTaskMode(v) {
-  if (v) finishEdit(true);
-  S.taskMode = v;
-  S.taskAt = S.taskTarget = null;
-  host.classList.toggle('task-mode', v);
-  document.documentElement.style.cursor = v ? 'crosshair' : '';
-  closePop();
-  renderTasksCount();
-  redraw();
-}
-
-// ---------- the two modes: Tasks and Edit ----------
-// Tasks is for everyone: point at anything on the page, say what should change, and give the tasks
-// to Kaity; the panel shows only the tasks and what Kaity is doing. Edit is the whole editor: the
-// tree, each block's text, code, sizes and look, and Kaity block by block.
-
-function setMode(m, { keep = true } = {}) {
-  S.mode = m;
-  if (keep) store.set('mode', m);
-  for (const b of modeSw.children) b.setAttribute('aria-checked', b.dataset.mode === m);
-  panel.classList.toggle('tasks-mode', m === 'tasks');
-  $('.body').hidden = m === 'tasks';
-  taskPanel.hidden = m !== 'tasks';
-  setTaskMode(m === 'tasks' && S.on);
-  if (m === 'tasks') renderTaskPanel();
-  else if (S.on && S.tree) select(S.sel && info(S.sel) ? S.sel : S.tree.id);
-}
-modeSw.addEventListener('click', (e) => {
-  const b = e.target.closest('[data-mode]');
-  if (!b) return;
-  // a compact panel opens: choosing Tasks means wanting to see them
-  if (S.min) setMin(false);
-  if (b.dataset.mode !== S.mode) setMode(b.dataset.mode);
-});
-$('.tabsbtn').addEventListener('click', () => {
-  S.showPins = !S.showPins;
-  store.set('pins', S.showPins);
-  renderTasksCount();
-  redraw();
-});
-$('.copybtn').addEventListener('click', () => copyTasks());
-
-/** What Kaity is doing (her block and latest step, with Stop), or what she answered last; '' when there's neither. */
-function kaityStatus() {
-  if (S.ai) {
-    const where = S.ai.id === S.tree?.id ? t('Kaity is working on the page') : t('Kaity is working on {id}', { id: `<b>${esc(S.ai.id)}</b>` });
-    return `<div class="tp-kaity working">${kaityMark(true)}<div><p>${where}</p><p class="tp-step">${esc(S.aiStep ?? t('Starting…'))}</p></div><button data-tp="stop">${t('Stop')}</button></div>`;
-  }
-  if (S.lastRun) return `<div class="tp-kaity done">${kaityMark()}<div><p>${S.lastRun.id === S.tree?.id ? t('Kaity is done') : t('Kaity is done with {id}', { id: `<b>${esc(S.lastRun.id)}</b>` })}</p><div class="md">${markdown(S.lastRun.text)}</div><button class="link" data-tp="chat">${t('See the whole conversation')}</button></div><button class="mini" data-tp="dismiss" aria-label="${t('Close')}">×</button></div>`;
-  return '';
-}
-
-/** The Tasks mode's panel: what Kaity is doing, then every task by block (the open ones, then the ones that are done). */
-function renderTaskPanel() {
-  if (S.mode !== 'tasks' || !S.tree) return;
-  const open = openTasks(), done = S.tasks.filter((x) => x.done);
-  const blocks = [...new Set(open.map((x) => x.block))];
-  const all = open.filter((x) => !x.gone).length;
-  const row = (x) => `<li><button class="task-row" data-open="${x.n}"><span class="pin static${x.done ? ' done' : ''}">${x.n}</span><span><span class="task-place">${x.label ? esc(x.label) : esc(x.block)}</span><span class="task-text">${esc(x.text)}</span>${x.done?.reply ? `<span class="task-done">${ic('check')}${esc(x.done.reply)}</span>` : ''}</span></button></li>`;
-  const was = taskPanel.scrollTop;
-  taskPanel.innerHTML = `${kaityStatus()}
-    <div class="tasklist">
-      ${open.length ? `<p class="tp-intro">${t('Click anything on the page to leave another task there.')}</p>` : `<div class="tp-empty">${ic('task')}<p><b>${t('Point at anything on the page and say what should change.')}</b></p><p>${t('Each task stays on its spot. When you have them all, give them to Kaity: she works through them, and you see her at work on the page.')}</p></div>`}
-      ${all ? `<button class="primary ask-all" data-ask="${esc(S.tree.id)}" ${S.ai ? 'disabled' : ''} title="${t('One run from the top block: Kaity works through every open task on the page')}">${kaityMark()}${all === 1 ? t('Give Kaity the task') : t('Give Kaity every task ({n})', { n: all })}</button>` : ''}
-      ${blocks.map((b) => {
-        const mine = open.filter((x) => x.block === b);
-        const gone = mine[0].gone;
-        return `<section><header><b>${esc(b)}</b>${gone ? `<span class="muted">${t('gone')}</span>` : all > mine.length ? `<button class="link" data-ask="${esc(b)}" ${S.ai ? 'disabled' : ''}>${mine.length === 1 ? t('Give only this one to Kaity') : t('Give only these {n} to Kaity', { n: mine.length })}</button>` : ''}</header><ol>${mine.map(row).join('')}</ol></section>`;
-      }).join('')}
-      ${done.length ? `<details><summary>${done.length === 1 ? t('1 task done') : t('{n} tasks done', { n: done.length })}</summary><ol>${done.map(row).join('')}</ol><div class="row"><button data-clear>${t('Remove the tasks that are done')}</button></div></details>` : ''}
-      <a class="handbook-link" href="${API}/handbook" target="_blank" rel="noopener">${ic('blocks')}<span>${t('Every task in the handbook, with the page\'s theme and blocks')}</span>${ic('right')}</a>
-    </div>`;
-  taskPanel.scrollTop = was;
-}
-
-/** Only the line with Kaity's latest step changes while she works: the list keeps its place. */
-function renderKaityStep() {
-  const el = taskPanel.querySelector('.tp-step');
-  if (el) el.textContent = S.aiStep ?? t('Starting…');
-  else renderTaskPanel();
-}
-
-taskPanel.addEventListener('click', async (e) => {
-  const o = e.target.closest('[data-open]');
-  if (o) {
-    const task = S.tasks.find((z) => z.n === +o.dataset.open);
-    const el = task && !task.gone ? taskEl(task) : null;
-    el?.scrollIntoView({ block: 'center', behavior: stillMotion ? 'auto' : 'smooth' });
-    const show = () => {
-      const r = el?.getBoundingClientRect() ?? o.getBoundingClientRect();
-      openTask(+o.dataset.open, Math.min(r.right + 8, innerWidth - 330), Math.max(8, r.top));
-    };
-    return setTimeout(show, el ? 350 : 0);
-  }
-  const a = e.target.closest('[data-ask]');
-  if (a) return askTasks(a.dataset.ask);
-  if (e.target.closest('[data-clear]')) {
-    await api('/tasks/clear', {}).catch((err) => toast(err.message, true));
-    return loadTasks();
-  }
-  const tp = e.target.closest('[data-tp]')?.dataset.tp;
-  if (tp === 'stop') api('/ask/cancel', {}).catch(() => {});
-  if (tp === 'dismiss') {
-    S.lastRun = null;
-    renderTaskPanel();
-  }
-  if (tp === 'chat' && S.lastRun) {
-    const id = S.lastRun.id;
-    setMode('edit');
-    if (info(id)) select(id, { scroll: true, tab: 'ai' });
-  }
-});
-
 const when = (iso) => new Date(iso).toLocaleString(LANG, { dateStyle: 'medium', timeStyle: 'short' });
 const placeOf = (x) => `<b>${esc(x.block)}</b>${x.label ? ` › ${esc(x.label)}` : ''}`;
 
@@ -3081,7 +2549,7 @@ function openTaskForm(x, y, spot, { forKaity = false } = {}) {
     try {
       const r = await api('/tasks/add', { block: spot.block, path: spot.path, label: spot.label, width, text });
       await loadTasks();
-      if (how === 'ask') return askTasks(spot.block);
+      if (how === 'ask') return askTasks([r.result.n]);
       toast(t('Task {n} added on {id}', { n: r.result.n, id: spot.block }));
     } catch (err) {
       toast(err.message, true);
@@ -3110,7 +2578,7 @@ function openTask(n, x, y) {
     <div class="row">
       <button data-n="remove" class="danger">${t('Remove')}</button><span class="spacer"></span>
       ${task.done ? `<button data-n="reopen">${t('Open again')}</button>`
-        : `${task.gone ? '' : `<button data-n="ask" ${busy ? 'disabled' : ''} title="${busy ? t('Kaity is working on {id}', { id: esc(S.ai.id) }) : t('Kaity works through the open tasks on {id}', { id: esc(task.block) })}">${kaityMark()}${t('Give it to Kaity')}</button>`}<button data-n="close" class="primary">${ic('check')}${t('Done')}</button>`}
+        : `${task.gone ? '' : `<button data-n="ask" ${busy ? 'disabled' : ''} title="${busy ? t('Kaity is working on {id}', { id: esc(S.ai.id) }) : t('Kaity does this task, and you follow her in Tasks')}">${kaityMark()}${t('Give it to Kaity')}</button>`}<button data-n="close" class="primary">${ic('check')}${t('Done')}</button>`}
     </div>
   </div>`);
   pop.onclick = async (e) => {
@@ -3118,7 +2586,7 @@ function openTask(n, x, y) {
     if (!b) return;
     closePop();
     try {
-      if (b.dataset.n === 'ask') return askTasks(task.block);
+      if (b.dataset.n === 'ask') return askTasks([task.n]);
       await api(`/tasks/${b.dataset.n}`, { n });
       await loadTasks();
     } catch (err) {
@@ -3127,28 +2595,13 @@ function openTask(n, x, y) {
   };
 }
 
-/** Kaity works through the open tasks on a block (and inside it), in that block's conversation. */
-async function askTasks(block) {
+/** Give these tasks to Kaity: she works through them one at a time (the task run), followed in the Tasks mode. */
+async function askTasks(ns) {
   try {
-    const r = await api('/tasks/ask', { id: block });
-    S.ai = { id: block, tasks: r.result };
-    S.lastRun = null;
-    if (S.mode === 'tasks') renderTaskPanel();
-    else select(block, { scroll: true, tab: 'ai' });
+    await api('/taskrun/start', { tasks: ns });
+    go(SHELL);
   } catch (err) {
     toast(err.message, true);
-  }
-}
-
-async function copyTasks() {
-  if (!S.tasksText) return toast(t('No open tasks to copy'), true);
-  const name = S.site?.current ?? document.title;
-  const text = `${t('Tasks on the page {name}, from the TYKERF editor. Each names the block, the element inside it and the window width it was written at:', { name })}\n${S.tasksText}\n`;
-  try {
-    await navigator.clipboard.writeText(text);
-    toast(t('Copied: paste them into any AI agent or a message'));
-  } catch {
-    toast(t('Could not copy to the clipboard'), true);
   }
 }
 
@@ -3179,7 +2632,6 @@ function openMenu(x, y, id, target = null) {
     here.text ? item('edit-here', 'text', t('Edit this text')) : n.kind === 'box' ? item('tab', 'text', t('Edit text'), 'data-tab="text"') : '',
     here.img ? item('image-here', 'image', t('Edit image…')) : '',
     n.kind === 'box' ? item('tab', 'code', t('Edit code'), 'data-tab="code"') : '',
-    item('tab', 'ai', t('Ask Kaity here…'), 'data-tab="ai"'),
     item('task-here', 'task', t('Add a task for Kaity here…')),
     n.kind === 'box' ? item('import', 'import', t('Import a section…')) : '',
     '<hr>',
@@ -3245,14 +2697,6 @@ const boxAt = (el) => {
 
 addEventListener('pointermove', (e) => {
   if (!S.on || fromUI(e)) return;
-  if (S.taskMode) {
-    const spot = S.taskTarget ? null : taskSpot(e.target);
-    if (spot?.el !== S.taskAt?.el) {
-      S.taskAt = spot;
-      redraw();
-    }
-    return;
-  }
   const id = boxAt(e.target);
   if (id !== S.hover) {
     S.hover = id;
@@ -3282,12 +2726,6 @@ for (const type of ['click', 'dblclick', 'auxclick', 'mousedown', 'mouseup', 'po
     if (editing && type === 'pointerdown') finishEdit(true);
     e.preventDefault();
     e.stopImmediatePropagation();
-    // task mode: a click adds a task where it lands; nothing else happens on the page
-    if (S.taskMode) {
-      const spot = type === 'click' && e.button === 0 && taskSpot(e.target);
-      if (spot) openTaskForm(e.clientX, e.clientY, spot);
-      return;
-    }
     if (type === 'click' && e.button === 0) {
       closeMenu();
       const id = boxAt(e.target) ?? blockAt(e.target);
@@ -3401,21 +2839,8 @@ function setMin(v) {
   keepPanelOnScreen();
 }
 $('.minimize').addEventListener('click', () => setMin(!S.min));
-
-// closing asks first, next to the button: the tasks and the changes stay, and Kaity keeps working
-$('.closebtn').addEventListener('click', (e) => {
-  const r = e.currentTarget.getBoundingClientRect();
-  popover(r.right - 320, r.bottom + 8, `<p><b>${t('Close the editor?')}</b></p>
-    <p class="muted">${S.ai ? t('Kaity keeps working; your tasks and changes stay. Edit with TYKERF, at the bottom right, opens it again.') : t('Your tasks and changes stay. Edit with TYKERF, at the bottom right, opens it again.')}</p>
-    <div class="row"><button data-c="stay">${t('Stay')}</button><button data-c="close" class="primary">${t('Close')}</button></div>`);
-  pop.querySelector('[data-c="close"]').focus();
-  pop.onclick = (ev) => {
-    const c = ev.target.closest('[data-c]')?.dataset.c;
-    if (!c) return;
-    closePop();
-    if (c === 'close') setOn(false);
-  };
-});
+// × leaves the full editor for Tasks (the shell's other mode); what was changed stays
+$('.closebtn').addEventListener('click', () => go(SHELL));
 
 $('.seg').addEventListener('click', (e) => {
   const b = e.target.closest('[data-view]');
@@ -3469,8 +2894,6 @@ function setOn(v) {
   // in the shell, the corner button is only the way back to a closed panel (Hide tykerf is the shell's)
   if (EMBEDDED) $('.dock').hidden = v;
   if (!v) {
-    if (S.taskMode) setTaskMode(false);
-    S.lastRun = null;
     finishEdit(true);
     closePop();
     if (tool) closeTool();
@@ -3479,7 +2902,6 @@ function setOn(v) {
   } else {
     setMin(S.min);
     select(S.sel && info(S.sel) ? S.sel : S.tree.id);
-    setMode(S.mode, { keep: false });
   }
   redraw();
 }
@@ -3537,8 +2959,6 @@ async function loadState() {
   }
   headVersion = st.head;
   S.site = st.site;
-  S.aiRunner = st.aiRunner ?? null;
-  renderSwitcher();
   // the AI renamed the block it works on: the selection, its tab and drafts follow the block
   if (S.ai && st.ai && st.ai.id !== S.ai.id) {
     if (S.per.has(S.ai.id) && !S.per.has(st.ai.id)) S.per.set(st.ai.id, S.per.get(S.ai.id));
@@ -3637,15 +3057,8 @@ events.addEventListener('ai', (e) => {
   if (m.role === 'step' && m.text) S.aiStep = m.text.replace(/^refused: /, '');
   if (m.role === 'step' && stepBlock(m.where)) followKaity(stepBlock(m.where));
   if (['start', 'end', 'step'].includes(m.role)) redraw();
-  if (S.mode === 'tasks') {
-    if (m.role === 'start') S.lastRun = null;
-    if (m.role === 'step') renderKaityStep();
-    if (m.role === 'ai' && m.text) S.lastRun = { id: m.id, text: m.text };
-    if (m.role === 'start' || m.role === 'end' || m.role === 'ai') renderTaskPanel();
-  }
   if (m.role === 'start' || m.role === 'end') renderTree(); // her balls on the block she works on
   if (m.role === 'end' && m.id !== S.sel) toast(t('Kaity finished on {id}', { id: m.id }));
-  if (S.sel && per(S.sel).tab === 'ai' && (m.id === S.sel || m.role === 'start' || m.role === 'end')) renderAI($('.work .tab-body'), S.sel);
 });
 
 await loadState();
@@ -3672,10 +3085,9 @@ if (asked.has('block')) {
   const id = asked.get('block');
   if (info(id)) {
     S.sel = id;
-    if (['text', 'code', 'size', 'ai', 'blocks', 'page'].includes(asked.get('tab'))) per(id).tab = asked.get('tab');
+    if (['text', 'code', 'size', 'blocks', 'page'].includes(asked.get('tab'))) per(id).tab = asked.get('tab');
     for (const a of ancestors(id)) S.open.add(a);
     S.on = true;
-    S.mode = 'edit';
     S.min = false; // brought here to work on this block: the panel opens on it, however it was left
   }
   history.replaceState(null, '', FULL_HERE);

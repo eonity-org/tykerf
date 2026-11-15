@@ -207,14 +207,14 @@ describe('a new site', () => {
     await pick.waitFor(); // the Text tab loads the box first
     expect(await pick.locator('option').allTextContents()).toEqual(['Link to a page…', 'about', 'home', 'team']);
 
-    // rename "about" from its own page: the tab follows, and home's link points at the new name
-    await page.goto(`${url}about/?tykerf=full-frame`);
-    await page.locator('.pagesw').click();
-    await page.locator('.pop [data-pg="rename"]').click();
-    await page.locator('.pop .pgname').fill('about-us');
-    await page.locator('.pop [data-r="ok"]').click();
+    // rename "about" from its own page, in the site sidebar: the tab follows, and home's link points at the new name
+    await page.goto(`${url}_tykerf/edit/about/`);
+    await page.locator('[data-bar="pages"]').click();
+    await page.locator('.sidebar .pcard[data-page="about"] [data-pact="name"]').click();
+    await page.locator('.sidebar .pform [name="to"]').fill('about-us');
+    await page.locator('.sidebar .pform [type="submit"]').click();
     // the tab goes to the new address twice (after the rename, and on the "moved" event): one may cut the other short
-    await expect.poll(() => page.url(), { timeout: 8000 }).toBe(`${url}_tykerf/edit/about-us/?mode=full`);
+    await expect.poll(() => page.url(), { timeout: 8000 }).toBe(`${url}_tykerf/edit/about-us/`);
     await page.waitForLoadState();
     expect(existsSync(join(site, 'about'))).toBe(false);
     // (home's first box is the site's shared navigation: the link follows there, for every page)
@@ -235,12 +235,14 @@ describe('a new site', () => {
     const foreign = await fetch(`${url}_tykerf/site/remove`, { method: 'POST', headers: { 'content-type': 'application/json', origin: 'http://evil.example' }, body: JSON.stringify({ name: 'home' }) });
     expect(foreign.status).toBe(403);
 
-    await page.goto(`${url}about-us/?tykerf=full-frame`);
-    await page.locator('.pagesw').click();
-    await page.locator('.pop [data-pg="remove"]').click();
+    await page.goto(`${url}_tykerf/edit/about-us/`);
+    // the sidebar stays open from page to page (it was left open on the last one)
+    await page.frameLocator('.frame').locator('[data-sw]').first().waitFor();
+    if (!(await page.locator('.sidebar').isVisible())) await page.locator('[data-bar="pages"]').click();
+    await page.locator('.sidebar .pcard[data-page="about-us"] [data-pact="remove"]').click();
     // the link is in the shared navigation, so on every page that shows it
-    expect(await page.locator('.pop .hint').textContent()).toMatch(/2 links to it from home, team will point nowhere/);
-    await page.locator('.pop [data-r="ok"]').click();
+    expect(await page.locator('.sidebar .confirm .hint').textContent()).toMatch(/2 links to it from home, team will point nowhere/);
+    await page.locator('.sidebar [data-pact="remove-yes"]').click();
     // the tab goes to the site's screens, with the pages left
     await expect.poll(() => page.url(), { timeout: 8000 }).toBe(`${url}_tykerf/edit/_site/tasks`);
     await expect.poll(() => page.locator('.sidebar .pname').allTextContents(), { timeout: 8000 }).toEqual(['home', 'team']);
@@ -267,47 +269,21 @@ describe('a new site', () => {
     for (const bad of ['nope', '..', '.trash']) expect((await fetch(`${url}_tykerf/export.zip?page=${bad}`)).status).toBe(404);
   });
 
-  it('manages pages in the full editor\'s page list, and puts export and the AI in its Site menu', async () => {
+  it('keeps only editing in the full editor\'s header: the pages, the site, export and Kaity status are the shell\'s', async () => {
     await page.goto(`${url}home/?tykerf=full-frame`);
     await page.locator('section.panel').waitFor();
-    await page.locator('.pagesw').click();
-    expect(await page.locator('.pop [data-pg]').evaluateAll((b) => b.map((x) => (x as HTMLElement).dataset.pg))).toEqual(['rename', 'remove', 'new']);
-    expect(await page.locator('.pop .page-row a').textContent()).toBe('home');
-    // the pages stay in the full editor; All pages and New page… are the site's screens
-    expect(await page.locator('.pop .pages a', { hasText: 'team' }).getAttribute('href')).toBe('/_tykerf/edit/team/?mode=full');
-    expect(await page.locator('.pop a.newpage-btn').getAttribute('href')).toBe('/_tykerf/edit/_site/tasks?from=home');
-    await page.keyboard.press('Escape');
-
-    await page.locator('.sitebtn').click();
-    expect(await page.locator('.pop .sitemenu [data-site]').evaluateAll((b) => b.map((x) => (x as HTMLElement).dataset.site))).toEqual(['manage', 'export', 'export-page', 'work', 'ai']);
-    await page.locator('.pop [data-site="export-page"]').click();
-    await page.locator('.pop .choices').waitFor();
-    expect(await page.locator('.pop').textContent()).toMatch(/Export this page[\s\S]*The page home/);
-    expect(await page.locator('.pop .report').first().textContent()).toMatch(/Links to other pages/);
-    const one = page.waitForEvent('download');
-    await page.locator('.pop [data-x="web"]').click();
-    expect((await one).suggestedFilename()).toMatch(/^home-.*\.zip$/);
-
-    await page.locator('.sitebtn').click();
-    await page.locator('.pop [data-site="export"]').click();
-    await page.locator('.pop [data-x="files"]').waitFor();
-    expect(await page.locator('.pop .report.bad').textContent()).toMatch(/home → \/about-us\//);
-    const download = page.waitForEvent('download');
-    await page.locator('.pop [data-x="files"]').click();
-    expect((await download).suggestedFilename()).toMatch(/^my-site-.*\.zip$/);
-
-    await page.locator('.sitebtn').click();
-    await page.locator('.pop [data-site="ai"]').click();
-    await page.locator('.pop .status-line').waitFor();
-    expect(await page.locator('.pop .runner').textContent()).toMatch(/^Claude Code/);
-    expect(await page.locator('.pop').textContent()).toMatch(/Not working on anything now/);
-    // the Page tab is about this page only now
-    await page.keyboard.press('Escape');
+    // the breadcrumb, Dim / Blur, Undo / Redo, Compact (R9)
+    const head = page.locator('section.panel .head .head-tools');
+    expect(await head.locator('button').evaluateAll((b) => b.map((x) => x.className || (x as HTMLElement).dataset.view))).toEqual(['dim', 'blur', 'undo', 'redo', 'minimize', 'closebtn']);
+    for (const gone of ['.pagesw', '.sitebtn', '.backtasks', '.modesw', '.tabsbtn', '.copybtn', '.managebtn', '.taskpanel']) expect(await page.locator(gone).count()).toBe(0);
+    // no Kaity tab: tasks are how she is asked
+    expect(await page.locator('.work .tabs [role=tab]').evaluateAll((b) => b.map((x) => (x as HTMLElement).dataset.tab))).toEqual(['blocks', 'page', 'size']);
     await page.locator('.work .tabs [data-tab="page"]').click();
     await page.locator('.head-code').waitFor();
     expect(await page.locator('[data-page^="export"]').count()).toBe(0);
-    // ← Tasks goes back to the shell
-    expect(await page.locator('.backtasks').getAttribute('href')).toBe('/_tykerf/edit/home/');
+    // export and Kaity status are on the site's screens
+    await page.goto(`${url}_tykerf/edit/_site/publish?from=home`);
+    await page.locator('a[href="/_tykerf/export.zip?page=home"]').waitFor();
   });
 
   it('tells which AI answers, never its key', async () => {
@@ -346,7 +322,8 @@ describe('a new site', () => {
 
     // removing asks first
     await card('journal').locator('[data-pact="remove"]').click();
-    expect(await sb.locator('.confirm p').textContent()).toBe("Remove journal? It goes to the site's trash, and links to it stop working.");
+    expect(await sb.locator('.confirm p').first().textContent()).toBe("Remove journal? It goes to the site's trash, and links to it stop working.");
+    expect(await sb.locator('.confirm .hint').textContent()).toBe('No other page links to it.');
     await sb.locator('[data-pact="remove-yes"]').click();
     await expect.poll(() => sb.locator('.pname').allTextContents()).not.toContain('journal');
     expect(existsSync(join(site, 'journal'))).toBe(false);
@@ -579,7 +556,7 @@ describe('a new site', () => {
     await post('_tykerf/site/new', { name: 'draft', layout: 'blank' });
     // the full editor follows it
     await page.goto(`${url}draft/?tykerf=full-frame`);
-    await page.locator('.pagesw').waitFor();
+    await page.locator('section.panel').waitFor();
     await page.waitForTimeout(500); // its event stream, which brings the move, is open by then
     renamePage(site, 'draft', 'madrid'); // as MCP rename_page does, outside the editor
     await page.waitForURL(`${url}_tykerf/edit/madrid/?mode=full`);
@@ -603,7 +580,7 @@ describe('a new site', () => {
     const [site_, home] = [page.locator('.runs .run').nth(0), page.locator('.runs .run').nth(1)];
     expect(await site_.locator('.state').textContent()).toBe('Cut short: TYKERF stopped while she worked'); // no run going on now
     expect(await site_.locator('.rhead b').textContent()).toBe('The whole site');
-    expect(await home.locator('.rhead a').getAttribute('href')).toBe('/_tykerf/edit/home/?mode=full&block=hero&tab=ai');
+    expect(await home.locator('.rhead a').getAttribute('href')).toBe('/_tykerf/edit/home/?conversation=hero');
     expect(await home.locator('.state').textContent()).toBe('Done');
     expect(await home.locator('.md strong').textContent()).toBe('shorter');
     expect(await home.locator('.rhead .note').textContent()).toContain('4 steps');

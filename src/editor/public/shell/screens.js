@@ -394,7 +394,7 @@ const kaityScreen = {
     const pages = [...new Set(work.runs.map((r) => r.page).filter(Boolean))];
     const runs = work.runs.filter((r) => workFilter === 'all' || (workFilter === 'site' ? !r.page : r.page === workFilter));
     const going = work.runs.filter((r) => r.state === 'working').length;
-    const where = (r) => (r.page ? `<a href="/_tykerf/edit/${encodeURIComponent(r.page)}/?mode=full${r.block ? `&block=${encodeURIComponent(r.block)}&tab=ai` : ''}">${esc(r.page)}${r.block ? ` · ${esc(r.block)}` : ''}</a>` : `<b>${esc(t('The whole site'))}</b>`);
+    const where = (r) => (r.page ? `<a href="/_tykerf/edit/${encodeURIComponent(r.page)}/${r.block ? `?conversation=${encodeURIComponent(r.block)}` : ''}" ${r.block ? `title="${esc(t('Her conversation on {block}', { block: r.block }))}"` : ''}>${esc(r.page)}${r.block ? ` · ${esc(r.block)}` : ''}</a>` : `<b>${esc(t('The whole site'))}</b>`);
     main.innerHTML = `
       <h1>${esc(t('Kaity\'s work'))}</h1>
       <section class="convo">
@@ -581,10 +581,20 @@ const publishScreen = {
       <section class="setting">
         <h2>${esc(t('Export'))}</h2>
         <p class="note">${esc(t('The site as plain files for any web host, in a ZIP file.'))}</p>
-        <div class="row"><a class="btn" href="/_tykerf/export.zip" download>${esc(t('Export the site'))}</a>
+        <div class="row exports"><a class="btn" href="/_tykerf/export.zip" download>${esc(t('Export the site'))}</a>
         ${ctx.from ? `<a class="btn" href="/_tykerf/export.zip?page=${encodeURIComponent(ctx.from)}" download>${esc(t('Export {page} only', { page: ctx.from }))}</a>` : ''}
         <a class="btn" href="/_tykerf/export.zip?links=files" download>${esc(t('Export to open from disk'))}</a></div>
+        <label class="check"><input type="checkbox" data-p="inline"> ${esc(t('Inline the site\'s styles in every page (one request less for each page, on a host where that matters)'))}</label>
       </section>`;
+    // the kit's styles in each page instead of the one stylesheet they all link
+    main.querySelector('[data-p="inline"]').onchange = (e) => {
+      for (const a of main.querySelectorAll('.exports a')) {
+        const u = new URL(a.href);
+        if (e.target.checked) u.searchParams.set('kit', 'inline');
+        else u.searchParams.delete('kit');
+        a.href = u.pathname + u.search;
+      }
+    };
     main.onsubmit = async (e) => {
       e.preventDefault();
       const f = e.target;

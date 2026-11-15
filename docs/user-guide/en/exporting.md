@@ -10,16 +10,15 @@ An export is the page, or every page of the site, as plain files you can put on 
 
 ## From the editor
 
-Click the **Site** button (between the TYKERF logo and the page name) and choose **Export the site…** (**Export the page…** for a folder that is one page). TYKERF first shows what the export will hold: the number of pages, the size, links to pages that don't exist, and files still loaded from other servers. Then choose:
+**Publish**, at the bottom of the site's sidebar, has an **Export** section. Choose:
 
-- **For a web server**: links between pages end in a folder (`../about/`), as web hosts serve them.
-- **To open from disk**: links between pages end in `index.html` (`../about/index.html`), so you can double-click `index.html` and browse the export without a web server. It works on a web host too, with less tidy addresses.
+- **Export the site**: every page, so links between pages keep working. Links between pages end in a folder (`../about/`), as web hosts serve them.
+- **Export to open from disk**: links between pages end in `index.html` (`../about/index.html`), so you can double-click `index.html` and browse the export without a web server. It works on a web host too, with less tidy addresses.
+- **Export … only** (when you came from a page): only that page, with the site's theme and fonts, in a `.zip` named after the page. Its links to other pages of the site lead nowhere until those pages are next to it.
 
-The editor downloads a `.zip` named after the folder and the date. **Export the site…** holds every page, so links between pages keep working.
+The editor downloads a `.zip` named after the folder (or the page) and the date. **Inline the site's styles in every page** puts the kit's styles in each page's head instead of one stylesheet they all link (`kit/site.css`): for a host where one more request matters.
 
-In a site, **Inline the site's styles in every page** puts the kit's styles in each page's head instead of one stylesheet they all link (`kit/site.css`): for a host where one more request matters.
-
-**Export this page…** (in a site) holds only the page you're on, with the site's theme and fonts, in a `.zip` named after the page. Its links to other pages of the site are listed before you download: they lead nowhere until those pages are next to it.
+Before you export, the site's **Check** lists links to pages that don't exist and files still loaded from other servers.
 
 ## Publishing instead
 

@@ -669,8 +669,13 @@ export class Workspace {
       if (first < 0 || !targets.length) throw new Error('nothing of that is left in the page\'s history');
       if (targets.some((e) => e.kind === 'site'))
         throw new Error('it changed a shared block on every page that shows it: undo that in the site manager');
-      const touched = new Set(targets.flatMap(touches));
-      const later = all.slice(first + 1).filter((e) => !mine(e) && touches(e).some((t) => touched.has(t)));
+      // a step of someone else's conflicts only with tagged changes to the same part made before it (a task
+      // added after her first change, which she then closed, is hers to take back, not in the way)
+      const since = new Map<string, number>();
+      all.forEach((e, i) => {
+        if (mine(e) && e.kind !== 'group') for (const t of touches(e)) if (!since.has(t)) since.set(t, i);
+      });
+      const later = all.filter((e, i) => !mine(e) && touches(e).some((t) => (since.get(t) ?? Infinity) < i));
       if (later.length) {
         const labels = [...new Set(later.map((e) => `"${e.label}"`))];
         throw new Error(`what came after it changed the same part of the page (${labels.slice(0, 3).join(', ')}${labels.length > 3 ? '…' : ''}): undo that first`);

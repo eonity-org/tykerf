@@ -5,10 +5,11 @@
 // Everything tykerf draws over the page (outlines, pins, the task box) is in the shell's own document, over the
 // frame; the page itself is untouched.
 
-import { $, CHEVRON, MARK, esc, failed, kaityMark, plainLabel, request, stillMotion, store, t, toast, watchVersion } from './common.js';
+import { $, CHEVRON, MARK, esc, failed, kaityMark, plainLabel, request, shrinkImage, stillMotion, store, t, toast, watchVersion } from './common.js';
 import { createFixPanel } from './fix.js';
 import { createFrame } from './frame.js';
 import { createSidebar } from './site.js';
+import { markdown } from '../markdown.js';
 
 const PAGE = decodeURIComponent(location.pathname.match(/^\/_tykerf\/edit\/([^/]+)\//)?.[1] ?? '');
 const API = `/${encodeURIComponent(PAGE)}/_tykerf`;
@@ -71,7 +72,6 @@ const frame = createFrame($('.frame'), {
     },
     pick(spot) {
       if (!ctxMenu.hidden) return closeCtx();
-      if (sidebar.isOpen()) return closeMenu();
       // fixing by hand: a click picks the next thing to fix
       if (fix.isOpen()) return void fix.open(spot);
       // a task being written stays where it is; an empty one moves to what was clicked
@@ -99,8 +99,8 @@ function frameSrc() {
   return `/${encodeURIComponent(PAGE)}/?tykerf=full-frame${block ? `&block=${encodeURIComponent(block)}${tab ? `&tab=${encodeURIComponent(tab)}` : ''}` : ''}`;
 }
 if (FULL && (firstAsk.has('block') || firstAsk.has('tab'))) window.history.replaceState(null, '', shellOf(PAGE));
-/** The full editor (the expert way: every block in detail), on a block when one is given. */
-const fullEditor = (block) => `${shellOf(PAGE, true)}${block ? `&block=${encodeURIComponent(block)}&tab=text` : ''}`;
+/** The full editor (the expert way: every block in detail), on a block when one is given, at that tab ('': the block's own). */
+const fullEditor = (block, tab = 'text') => `${shellOf(PAGE, true)}${block ? `&block=${encodeURIComponent(block)}${tab ? `&tab=${encodeURIComponent(tab)}` : ''}` : ''}`;
 
 // ---------- what tykerf draws over the page: outlines, pins, Kaity, the task box ----------
 
@@ -171,8 +171,7 @@ function followKaity() {
 // ---------- the task box: what should change here, or a question ----------
 
 function openBox(spot) {
-  closeMenu();
-  S.box = { block: spot.block, path: spot.path, label: spot.label, draft: '', question: false, touched: false };
+  S.box = { block: spot.block, path: spot.path, label: spot.label, draft: '', question: false, touched: false, images: [] };
   renderBox();
   draw();
   $('.taskbox textarea').focus();
@@ -198,6 +197,8 @@ function renderBox() {
     <p class="where"><span class="num${b.question ? ' q' : ''}">${b.question ? esc(t('Question')) : S.next}</span><b>${esc(b.block)}</b><span>${esc(plainLabel(b.label))} · ${esc(t('seen at {w} px', { w: frame.width }))}</span></p>
     <label class="ask" for="task-text">${esc(t('What should change here, or what do you want to ask?'))}</label>
     <textarea id="task-text" rows="2">${esc(b.draft)}</textarea>
+    <div class="attach"><div class="pics" ${b.images.length ? '' : 'hidden'}>${b.images.map((im, i) => `<span class="thumb"><img src="data:${im.mediaType};base64,${im.data}" alt="${esc(t('Picture {n}', { n: i + 1 }))}"><button type="button" data-unpic="${i}" aria-label="${esc(t('Remove picture {n}', { n: i + 1 }))}">×</button></span>`).join('')}</div>
+      ${b.images.length >= 5 ? '' : `<button type="button" class="link" data-box="pic" title="${esc(t('A screenshot, a sketch or a design to follow (up to 5; you can also paste or drop them here)'))}">${esc(b.images.length ? t('Add another picture') : t('Add a picture'))}</button>`}</div>
     <label class="question"><input type="checkbox" ${b.question ? 'checked' : ''}> ${esc(t('This is a question: Kaity answers it and changes nothing'))}</label>
     <div class="row">
       <button type="button" class="link" data-box="hand">${esc(t('Fix it by hand'))}</button>
@@ -224,6 +225,17 @@ function renderBox() {
     if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) (e.preventDefault(), addTask(false));
     if (e.key === 'Escape') (e.preventDefault(), closeBox());
   };
+  ta.onpaste = (e) => {
+    const files = [...(e.clipboardData?.files ?? [])].filter((f) => f.type.startsWith('image/'));
+    if (files.length) (e.preventDefault(), attachPictures(files));
+  };
+  el.ondragover = (e) => (e.preventDefault(), el.classList.add('drop'));
+  el.ondragleave = () => el.classList.remove('drop');
+  el.ondrop = (e) => {
+    e.preventDefault();
+    el.classList.remove('drop');
+    attachPictures([...(e.dataTransfer?.files ?? [])]);
+  };
   $('input[type=checkbox]', el).onchange = (e) => {
     b.touched = true;
     b.question = e.target.checked;
@@ -234,6 +246,16 @@ function renderBox() {
     if (act === 'cancel') closeBox();
     if (act === 'add') addTask(false);
     if (act === 'now') addTask(true);
+    if (act === 'pic') {
+      const input = Object.assign(document.createElement('input'), { type: 'file', accept: 'image/png,image/jpeg,image/gif,image/webp', multiple: true });
+      input.onchange = () => attachPictures([...input.files]);
+      return input.click();
+    }
+    const un = e.target.closest('[data-unpic]');
+    if (un) {
+      b.images.splice(Number(un.dataset.unpic), 1);
+      return keepTyping();
+    }
     if (act === 'hand') {
       const spot = { block: b.block, path: b.path, label: b.label };
       closeBox();
@@ -242,6 +264,34 @@ function renderBox() {
   };
   const r = frame.rect(frame.taskEl(b.block, b.path));
   if (r) placeBox(el, r);
+}
+
+/** Redraw the box, keeping the place in what is being typed. */
+function keepTyping() {
+  const at = $('.taskbox textarea')?.selectionStart ?? S.box.draft.length;
+  renderBox();
+  const ta = $('.taskbox textarea');
+  ta.focus();
+  ta.setSelectionRange(at, at);
+}
+
+/** Pictures for the task (pick, paste or drop): at most five, scaled down as Kaity's are. */
+async function attachPictures(files) {
+  const b = S.box;
+  if (!b) return;
+  for (const f of files) {
+    if (!f.type.startsWith('image/')) continue;
+    if (b.images.length >= 5) {
+      toast(t('At most 5 pictures per task'), true);
+      break;
+    }
+    try {
+      b.images.push(await shrinkImage(f));
+    } catch (err) {
+      failed(err);
+    }
+  }
+  if (S.box === b) keepTyping();
 }
 
 /** Below the element when there is room, else above it, inside the page's viewport. */
@@ -258,7 +308,7 @@ async function addTask(now) {
   const b = S.box;
   if (!b?.draft.trim()) return void $('.taskbox textarea')?.focus();
   try {
-    const { result } = await api('/tasks/add', { block: b.block, path: b.path, label: b.label, width: frame.width, text: b.draft, question: b.question });
+    const { result } = await api('/tasks/add', { block: b.block, path: b.path, label: b.label, width: frame.width, text: b.draft, question: b.question, images: b.images });
     closeBox();
     await loadTasks();
     if (now) await giveKaity([result.n]);
@@ -342,6 +392,11 @@ const STATE_WORDS = {
 
 const where = (x, badge) => `<p class="where">${badge}<b>${esc(x.block)}</b><span>${esc(plainLabel(x.label))}</span></p>`;
 const numBadge = (x) => `<span class="num${x.kind === 'question' ? ' q' : ''}">${x.kind === 'question' ? esc(t('Question')) : x.n}</span>`;
+/** Her conversation on the task's block, to read (the Kaity tab's, without asking from it). */
+const convoBtn = (x) => `<button type="button" class="link" data-card-act="convo">${esc(t('See her conversation on {block}', { block: x.block }))}</button>`;
+
+/** A task's pictures, small, each opening at full size. */
+const pics = (x) => (x.images?.length ? `<div class="pics">${x.images.map((name, i) => `<a class="thumb" href="${API}/image/${encodeURIComponent(name)}" target="_blank" rel="noopener"><img src="${API}/image/${encodeURIComponent(name)}" alt="${esc(t('Picture {n} of task {task}', { n: i + 1, task: x.n }))}"></a>`).join('')}</div>` : '');
 const btn = (act, label, cls = '', extra = '') => `<button type="button" class="btn small ${cls}" data-card-act="${act}" ${extra}>${esc(label)}</button>`;
 
 /** A task not given to Kaity (or before she starts): the person's own card. */
@@ -349,7 +404,7 @@ function plainCard(x) {
   const q = x.kind === 'question';
   return `<article class="card${S.lit === x.n ? ' lit' : ''}" data-card="${x.n}">
     ${where(x, numBadge(x))}
-    <p class="text">${esc(x.text)}</p>
+    <p class="text">${esc(x.text)}</p>${pics(x)}
     ${q ? `<p class="note">${esc(t('Kaity answers here when she works through the list. She changes nothing for a question.'))}</p>` : ''}
     <div class="row">${btn('show', t('Show on the page'))}${q ? '' : btn('done', t('Mark done'))}${btn('remove', t('Remove'), 'danger')}</div>
   </article>`;
@@ -361,6 +416,20 @@ function check(x) {
   if ((x.width && x.width < 700) || /\b(phone|mobile|small screen|narrow)\b/i.test(x.text)) return btn('phone', t('See it on a phone'), 'primary');
   if (tag === 'a' || tag === 'button') return btn('try', tag === 'a' ? t('Try the link') : t('Try the button'), 'primary');
   return btn('show', t('Show on the page'), 'primary');
+}
+
+/** What she left unfinished in a task (src/check.ts), and the person's choice: she finishes it, or it stays. */
+function leftNote(r) {
+  const items = r.left.items ?? [], n = items.length;
+  const head = {
+    open: n === 1 ? t('Kaity left 1 thing unfinished') : t('Kaity left {n} things unfinished', { n }),
+    fixing: n === 1 ? t('Kaity was asked to finish 1 thing') : t('Kaity was asked to finish {n} things', { n }),
+    left: n === 1 ? t('1 thing left as it is') : t('{n} things left as they are', { n }),
+  }[r.left.state];
+  const shown = r.left.state === 'open' ? 8 : 3;
+  return `<div class="left ${esc(r.left.state)}"><b>${esc(head)}</b>
+    <ul>${items.slice(0, shown).map((i) => `<li>${esc(i.text)}</li>`).join('')}${n > shown ? `<li class="more">${esc(t('and {n} more', { n: n - shown }))}</li>` : ''}</ul>
+    ${r.left.state === 'open' ? `<div class="row">${btn('fix-left', t('Fix them'), 'primary')}${btn('leave-left', t('Leave them as they are'))}</div>` : ''}</div>`;
 }
 
 /** A task in Kaity's run: what she is doing, did, or needs; and what the person can do about it. */
@@ -382,21 +451,21 @@ function runCard(r) {
     body = q ? `<p class="note">${esc(t('She answers after the tasks.'))}</p>` : r.answer ? `<p class="note">${esc(t('Your answer: {a}', { a: r.answer }))}</p>` : '';
     actions = btn('skip', t('Take it off her list'));
   } else if (r.state === 'done') {
-    body = r.undone ? `<p class="note">${esc(t('Her work on it was undone.'))}</p>` : `<p class="note">${esc(r.summary ?? '')}</p>`;
+    body = r.undone ? `<p class="note">${esc(t('Her work on it was undone.'))}</p>` : `<p class="note">${esc(r.summary ?? '')}</p>${r.left ? leftNote(r) : ''}`;
     actions = r.undone ? btn('again', t('Give it to her again'))
-      : `${check(x)}${r.before && r.after ? btn('compare', busy ? t('See before and after') : t('Before and after')) : ''}${btn('undo', t('Undo this one'), '', busy ? `disabled title="${esc(t('When she is done'))}"` : '')}${btn('more', t('Ask for more'))}`;
+      : `${check(x)}${r.before && r.after ? btn('compare', busy ? t('See before and after') : t('Before and after')) : ''}${btn('undo', t('Undo this one'), '', busy ? `disabled title="${esc(t('When she is done'))}"` : '')}${btn('more', t('Ask for more'))}${convoBtn(x)}`;
   } else if (r.state === 'answered') {
     return `<article class="card" data-card="${r.n}">
       ${where(x, badge)}
-      <p class="youasked">${esc(t('You asked: {q}', { q: x.text }))}</p>
+      <p class="youasked">${esc(t('You asked: {q}', { q: x.text }))}</p>${pics(x)}
       <p class="answer">${esc(r.summary ?? '')}</p>
       ${more}
-      <div class="row">${S.more?.n === r.n ? '' : btn('more', t('Ask a follow-up'))}${btn('seen', t('Got it'))}</div>
+      <div class="row">${S.more?.n === r.n ? '' : btn('more', t('Ask a follow-up'))}${btn('seen', t('Got it'))}${convoBtn(x)}</div>
     </article>`;
   } else if (r.state === 'needs-you') {
     return `<article class="card needs" data-card="${r.n}">
       ${where(x, badge)}
-      <p class="text">${esc(x.text)}</p>
+      <p class="text">${esc(x.text)}</p>${pics(x)}
       <p class="asked">${esc(t('Kaity asks: {q}', { q: r.asked ?? '' }))}</p>
       <textarea data-answer aria-label="${esc(t('Your answer to Kaity'))}" placeholder="${esc(t('Write the answer, or say how to work it out'))}">${esc(S.answers[r.n] ?? '')}</textarea>
       <div class="row">${btn('answer', t('Answer and continue'), 'primary')}${btn('leave', t('Leave it for later'))}</div>
@@ -411,7 +480,7 @@ function runCard(r) {
   const cls = ['card', r.state === 'now' ? 'now' : '', S.lit === r.n ? 'lit' : ''].join(' ');
   return `<article class="${cls}" data-card="${r.n}">
     ${where(x, badge)}
-    <p class="text">${esc(x.text)}</p>
+    <p class="text">${esc(x.text)}</p>${pics(x)}
     ${body}${more}
     <div class="row">${S.more?.n === r.n ? '' : actions}</div>
   </article>`;
@@ -483,6 +552,9 @@ tray.addEventListener('click', async (e) => {
     if (act === 'phone') return seeOnPhone(x);
     if (act === 'try') return tryIt(x);
     if (act === 'compare') return compare(n);
+    if (act === 'convo') return conversation(S.run?.tasks.find((y) => y.n === n)?.block ?? x?.block);
+    if (act === 'fix-left') return runAct('/taskrun/fix', { n });
+    if (act === 'leave-left') return runAct('/taskrun/leave-left', { n });
     if (act === 'more') return (S.more = { n, draft: '' }), renderTray(), $(`.card[data-card="${n}"] [data-more]`)?.focus();
     if (act === 'more-cancel') return (S.more = null), renderTray();
     if (act === 'more-give') return askMore(x);
@@ -596,6 +668,44 @@ function compare(n) {
   d.showModal();
 }
 
+/** Read Kaity's conversation on a block: what was asked, her steps and answers, what she left. Nothing to ask from here. */
+async function conversation(block) {
+  if (!block) return;
+  const d = $('.convo');
+  let chat;
+  try {
+    chat = await api(`/chat?id=${encodeURIComponent(block)}`);
+  } catch (e) {
+    return failed(e);
+  }
+  const msgs = [];
+  for (const m of chat.messages ?? []) {
+    if (m.role === 'step' && msgs.at(-1)?.role === 'steps') msgs.at(-1).items.push(m.text);
+    else if (m.role === 'step') msgs.push({ role: 'steps', items: [m.text] });
+    else msgs.push(m);
+  }
+  const img = (f) => `${API}/image/${encodeURIComponent(f)}`;
+  const one = (m) => {
+    if (m.role === 'steps') return `<details class="steps"><summary>${esc(m.items.length === 1 ? t('1 step') : t('{n} steps', { n: m.items.length }))}</summary>${m.items.map((x) => `<div>${esc(x)}</div>`).join('')}</details>`;
+    if (m.role === 'check') {
+      const n = m.items?.length ?? 0;
+      const head = { auto: n === 1 ? t('Kaity checks the 1 thing she left unfinished') : t('Kaity checks the {n} things she left unfinished', { n }), open: n === 1 ? t('Kaity left 1 thing unfinished') : t('Kaity left {n} things unfinished', { n }), fixing: n === 1 ? t('Kaity was asked to finish 1 thing') : t('Kaity was asked to finish {n} things', { n }), left: n === 1 ? t('1 thing left as it is') : t('{n} things left as they are', { n }) }[m.state] ?? m.text;
+      return `<div class="msg check"><b>${esc(head)}</b><ul>${(m.items ?? []).map((i) => `<li>${esc(i.text)}</li>`).join('')}</ul></div>`;
+    }
+    const who = m.role === 'ai' ? `<span class="who">${kaityMark()}Kaity</span>` : m.role === 'user' ? `<span class="who">${esc(t('Asked'))}</span>` : '';
+    const pics = m.images?.length ? `<div class="pics">${m.images.map((f) => `<a class="thumb" href="${img(f)}" target="_blank" rel="noopener"><img src="${img(f)}" alt="${esc(t('attached image'))}"></a>`).join('')}</div>` : '';
+    return `<div class="msg ${esc(m.role)}">${who}${pics}${m.role === 'ai' ? `<div class="md">${markdown(m.text)}</div>` : `<p>${esc(m.text)}</p>`}</div>`;
+  };
+  d.innerHTML = `<h2>${esc(t('Kaity on {block}', { block }))}</h2>
+    <p class="note">${esc(t('Every task on {block} continues this conversation, so she remembers what was asked before.', { block }))}</p>
+    <div class="log">${msgs.length ? msgs.map(one).join('') : `<p class="empty">${esc(t('Nothing was asked on {block} yet.', { block }))}</p>`}</div>
+    <div class="row"><button type="button" class="btn primary" data-close>${esc(t('Close'))}</button></div>`;
+  d.querySelector('[data-close]').onclick = () => d.close();
+  d.showModal();
+  const log = d.querySelector('.log');
+  log.scrollTop = log.scrollHeight;
+}
+
 async function copyAll() {
   try {
     await navigator.clipboard.writeText(S.tasksText);
@@ -652,13 +762,14 @@ function renderBar() {
   const switcher = `<button type="button" class="switcher" data-bar="pages" aria-expanded="${sidebar?.isOpen() ?? false}" aria-label="${esc(t('Pages of the site: {page} is open', { page: PAGE }))}">${MARK}<span class="name">${esc(PAGE)}</span><span class="addr">/${esc(PAGE)}/</span>${CHEVRON}</button>`;
   const hideBtn = `<button type="button" class="btn" data-bar="hide" aria-label="${esc(t('Hide tykerf'))}" title="${esc(t('See the page as a visitor does (Alt+Shift+T)'))}">${esc(t('Hide tykerf'))}</button>`;
   // Tasks | Full editor: the shell's two modes (the fix in hand goes along to the full editor)
-  const modes = `<nav class="modes" aria-label="${esc(t('Mode'))}"><a href="${shellOf(PAGE, false)}" ${FULL ? '' : 'aria-current="page"'}>${esc(t('Tasks'))}</a><a href="${fullEditor(!FULL ? fix?.selected : null)}" ${FULL ? 'aria-current="page"' : ''} aria-label="${esc(t('Full editor'))}" title="${esc(t('Every block in detail: text, code, sizes, look, Kaity block by block'))}">${esc(t('Full editor'))}</a></nav>`;
+  const modes = `<nav class="modes" aria-label="${esc(t('Mode'))}"><a href="${shellOf(PAGE, false)}" ${FULL ? '' : 'aria-current="page"'}>${esc(t('Tasks'))}</a><a href="${fullEditor(!FULL ? fix?.selected : null)}" ${FULL ? 'aria-current="page"' : ''} aria-label="${esc(t('Full editor'))}" title="${esc(t('Every block in detail: the box tree, text, code, sizes, look and the page\'s theme'))}">${esc(t('Full editor'))}</a></nav>`;
   const stepsBtn = `<button type="button" class="btn" data-bar="tray" aria-expanded="${S.tray}">${esc(S.tray ? t('Hide the steps') : t('Show the steps'))}</button>`;
   let middle, actions;
   const zoom = S.zoom && S.zoom < 0.999 ? `<span class="zoom" title="${esc(t('The page is laid out at its real width and shrunk to fit beside the panel'))}">${esc(t('{n} %', { n: Math.round(S.zoom * 100) }))}</span>` : '';
   if (FULL && !running()) {
     middle = `<p class="hint">${esc(t('Every block in detail: select one on the page or in the tree.'))}</p>${zoom}`;
-    actions = `<button type="button" class="btn${S.tray ? ' on' : ''}" data-bar="tray" aria-expanded="${S.tray}">${esc(S.tray ? t('{count} · close', { count }) : count)}</button>${hideBtn}`;
+    // the tray is Tasks' own (R9): from here the count leads there
+    actions = `<a class="btn" href="${shellOf(PAGE, false)}" title="${esc(t('Your tasks are in Tasks'))}">${esc(count)}</a>${hideBtn}`;
   } else if (fix?.isOpen()) {
     middle = `<div class="status" role="status"><span>${esc(t('Fixing by hand · {what}', { what: fix.what() }))}</span>${zoom}<button type="button" class="btn main" data-bar="done-fixing">${esc(t('Done, back to tasks'))}</button></div>`;
     actions = `<button type="button" class="btn" data-bar="tray" aria-expanded="${S.tray}">${esc(count)}</button>
@@ -754,7 +865,7 @@ function setMode(m) {
  */
 function layoutStage() {
   const vp = $('.viewport'), stage = $('.stage');
-  const panel = sidebar.isOpen() ? sidebar.el : fix?.isOpen() ? fix.el : null;
+  const panel = fix?.isOpen() ? fix.el : sidebar.isShown() ? sidebar.el : null;
   const shrink = panel && S.mode === 'shrink' && !S.phone;
   if (!shrink) {
     vp.style.cssText = '';
@@ -768,10 +879,9 @@ function layoutStage() {
   draw();
 }
 
-const sidebar = createSidebar({ page: PAGE, onChange: () => layoutStage(), modeSwitch, setMode, pageHref: (p) => shellOf(p) });
-const closeMenu = () => sidebar.isOpen() && sidebar.close();
+const sidebar = createSidebar({ page: PAGE, onChange: () => layoutStage(), modeSwitch, setMode, pageHref: (p) => shellOf(p, false) }); // a page always opens in Tasks (R1)
 
-// ---------- fixing one thing by hand, and the box tree (fix.js) ----------
+// ---------- fixing one thing by hand (fix.js) ----------
 
 const fix = createFixPanel({
   api,
@@ -780,26 +890,21 @@ const fix = createFixPanel({
   tree: () => S.tree,
   blocks: () => [...S.blocks],
   pages: () => S.site?.pages ?? [PAGE],
-  tasks: openTasks,
   siteKit: () => S.kit,
+  fullEditor,
   modeSwitch,
   setMode,
   onChange: () => layoutStage(),
-  onClose: () => layoutStage(),
+  onClose: () => (sidebar.resume(), layoutStage()),
   toTask: (spot) => {
     const el = frame.taskEl(spot.block, spot.path);
     if (el) openBox({ ...spot, el });
   },
-  select(block) {
-    const el = frame.blockEl(block);
-    if (el) frame.show(el, 0);
-    draw();
-  },
-  refreshTree: () => loadState(),
 });
 
 async function openFix(spot) {
-  closeMenu();
+  // the fix panel takes the left: the sidebar steps aside, and comes back as it was when the fix is done
+  sidebar.suspend();
   closeBox();
   if (S.tray) closeTray();
   S.kit ??= await request('/_tykerf/site/kit').catch(() => null);
@@ -812,7 +917,6 @@ function keys(e) {
   const inField = /^(INPUT|TEXTAREA|SELECT)$/.test(e.target?.nodeName ?? '') || e.target?.isContentEditable;
   if (e.altKey && e.shiftKey && e.code === 'KeyT') return e.preventDefault(), hide();
   if (e.key === 'Escape') {
-    if (sidebar.isOpen()) return closeMenu();
     if (S.box) return closeBox();
     if (fix.isOpen()) return fix.close();
     if (S.trying) return doneTrying();
@@ -895,7 +999,6 @@ let menuSpot = null;
 
 function openMenu(spot, x, y) {
   closeBox();
-  closeMenu();
   menuSpot = spot;
   const what = spot.path ? plainLabel(spot.label) : t('the {block} box', { block: spot.block });
   const item = (act, label) => `<button type="button" role="menuitem" data-ctx="${act}">${esc(label)}</button>`;
@@ -922,7 +1025,7 @@ ctxMenu.addEventListener('click', (e) => {
   const el = frame.taskEl(spot.block, spot.path);
   if (act === 'task' && el) openBox({ ...spot, el });
   if (act === 'hand') openFix(spot);
-  if (act === 'tree') openFix(spot).then(() => fix.tree(spot.block));
+  if (act === 'tree') location.assign(fullEditor(spot.block, ''));
   if (act === 'full') location.assign(fullEditor(spot.block));
   if (act === 'hide') hide();
 });
@@ -939,9 +1042,11 @@ document.addEventListener('pointerdown', (e) => !ctxMenu.hidden && !ctxMenu.cont
 function arrive() {
   if (FULL) return;
   const q = new URLSearchParams(location.search);
-  const show = q.get('show'), task = q.get('task');
-  if (!show && !task) return;
+  const show = q.get('show'), task = q.get('task'), talk = q.get('conversation');
+  if (!show && !task && !talk) return;
   window.history.replaceState(null, '', location.pathname);
+  // from Kaity's work: her conversation on that block (on the page or not: the conversation stays)
+  if (talk) return void conversation(talk);
   const block = show ?? task;
   const el = frame.blockEl(block);
   if (!el) return toast(t('{block} is not on this page', { block }), true);
@@ -956,3 +1061,5 @@ await loadState();
 await loadTasks();
 setJob((await api('/job').catch(() => ({ job: null }))).job, { arriving: true });
 frame.load(frameSrc());
+// the sidebar as the person left it on the last page: it stays until they close it
+void sidebar.restore();

@@ -53,7 +53,7 @@ Page names are lowercase letters, digits and `-`: they are folder names and addr
 
 ## The site's screens
 
-The page's name at the left of the editor's bar opens **the site** from the left: over the page, or with the page shrunk to fit beside it (the switch at its top; TYKERF remembers it). On the site's own screens there is no page behind it, so it sits beside them. `http://localhost:4400/_tykerf/edit/_site/tasks` opens them directly (the old `/_tykerf/site/` leads there too), and so do *Manage the site…* and *All pages* in the full editor.
+The page's name at the left of the editor's bar opens **the site** from the left: over the page, or with the page shrunk to fit beside it (the switch at its top; TYKERF remembers it). It stays open while you work on the page and go from page to page, so you can look at them all, until you **Close** it; **‹** folds it to its edge, and **›** there opens it again. TYKERF remembers whether you left it open, folded or closed. On the site's own screens there is no page behind it, so it sits beside them. `http://localhost:4400/_tykerf/edit/_site/tasks` opens them directly (the old `/_tykerf/site/` leads there too).
 
 From top to bottom:
 
@@ -85,15 +85,15 @@ Pages made meanwhile by Kaity, Claude Desktop or the command line appear when yo
 
 ### Where Kaity is working
 
-While Kaity works, the sidebar's **Kaity's work** says *working now*, and that screen lists what she is doing at the top. On a page, the bar says what she is doing; in the full editor, the block she works on carries her balls in the tree, and any other block's Kaity tab says where she is, with **Go there**.
+While Kaity works, the sidebar's **Kaity's work** says *working now*, and that screen lists what she is doing at the top. On a page, the bar says what she is doing; in the full editor, the block she works on carries her balls in the tree.
 
 A page Kaity is working on waits: it can't be renamed, removed or duplicated until she finishes. Nor can a page it links to be renamed, so those links can follow the new name. Every other page can.
 
 ### Kaity's work
 
-Kaity can work on several pages at once, a block on each, so on a site of many pages you need one place to see it all. **Kaity's work** (also *Kaity's work across the site…* in the full editor's Site menu) starts with your conversation with Kaity about the whole site, then lists every request she had, newest first, with the ones going on now at the top:
+Kaity can work on several pages at once, a block on each, so on a site of many pages you need one place to see it all. **Kaity's work** (in the site's sidebar) starts with your conversation with Kaity about the whole site, then lists every request she had, newest first, with the ones going on now at the top:
 
-- where: the page and its block, or **The whole site**; each opens the full editor on that block's Kaity tab, with the whole conversation;
+- where: the page and its block, or **The whole site**; a block opens its page with her whole conversation on that block;
 - what you asked, word for word (tasks included), and when;
 - how it ended: **Done**, **Failed** (with what went wrong), **Stopped**, or **Cut short** when TYKERF stopped while she worked; while she works, what she is doing right now;
 - her answer, and how many steps she took.

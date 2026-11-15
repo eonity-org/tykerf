@@ -273,8 +273,12 @@ export interface RunOptions {
   readOnly?: boolean; // a question: only the tools that look
   queued?: boolean; // started by the task run, which otherwise keeps every other request out
   onStep?(text: string): void;
-  onEnd?(r: { answer: string; error: string; failed: boolean; stopped: boolean }): void;
+  onEnd?(r: RunEnd): void;
 }
+
+/** What a request left unfinished (a check in the block's conversation, found again by its time). */
+export interface CheckNote { at: string; items: { key: string; text: string }[] }
+export interface RunEnd { answer: string; error: string; failed: boolean; stopped: boolean; check?: CheckNote }
 
 export class AI {
   private run: { cancel(): void; id: string; since: string; key: string; steps: number; step?: string; stopped?: boolean } | null = null;
@@ -355,8 +359,16 @@ export class AI {
     return IMAGE_FILE.test(name) ? this.store.readBytes(`.tykerf/images/${name}`) : null;
   }
 
-  /** Keep an attached picture (by content hash) so the conversation can show it again. */
-  private keepImage(a: Attachment): string {
+  /** A kept picture as an attachment again (a task's pictures, when Kaity takes the task); null when it is gone. */
+  attachment(name: string): Attachment | null {
+    const bytes = this.image(name);
+    const ext = name.split('.').pop()!;
+    const mediaType = Object.keys(IMAGE_TYPES).find((k) => IMAGE_TYPES[k] === ext);
+    return bytes && mediaType ? { mediaType, data: Buffer.from(bytes).toString('base64') } : null;
+  }
+
+  /** Keep an attached picture (by content hash) so the conversation (or a task) can show it again. */
+  keepImage(a: Attachment): string {
     const ext = IMAGE_TYPES[a.mediaType];
     if (!ext) throw new Error(`images must be PNG, JPEG, GIF or WebP (got ${a.mediaType})`);
     const buf = Buffer.from(a.data, 'base64');
@@ -453,22 +465,23 @@ export class AI {
           if (done) return;
           done = true;
           const last = this.follow();
-          // the site run's pages are checked by check_page; a task's result is reviewed with the task (TaskRun)
-          const left = failed || site || opts.tag ? [] : this.left(before);
+          // the site run's pages are checked by check_page; a question changes nothing
+          const left = failed || site || opts.readOnly ? [] : this.left(before);
           // a whole page built in this request gets one pass over what it left, before the run ends
-          if (left.length && !reviewed && (brief || this.usedLayout(run.since))) {
+          if (left.length && !reviewed && !opts.tag && (brief || this.usedLayout(run.since))) {
             reviewed = true;
             this.addCheck(last, left, 'auto');
             return start(fixPrompt(left), []);
           }
-          if (left.length) this.addCheck(last, left, 'open');
+          // a task's check goes to its card in the review too (TaskRun)
+          const check = left.length ? this.addCheck(last, left, 'open') : null;
           ended = true;
           unlock();
           if (logSite) logEnd(logSite, { run: run.key, end: run.stopped ? 'stopped' : failed ? 'failed' : 'done', block: site ? null : last, ...(answer ? { answer } : {}), ...(problem ? { error: problem } : {}), steps: run.steps });
           this.run = null;
           this.runTasks = null;
           this.emit('ai', { id: last, role: 'end' });
-          opts.onEnd?.({ answer, error: problem, failed, stopped: !!run.stopped });
+          opts.onEnd?.({ answer, error: problem, failed, stopped: !!run.stopped, ...(check ? { check } : {}) });
         },
       }).cancel;
     };
@@ -537,12 +550,14 @@ export class AI {
     return this.ws.history(50).some((h) => (h.at ?? '') >= since && /^use (layout|page) /.test(h.label));
   }
 
-  private addCheck(id: string, left: Leftover[], state: 'auto' | 'open') {
+  private addCheck(id: string, left: Leftover[], state: 'auto' | 'open'): CheckNote {
     const c = this.chat(id);
     const text = state === 'auto' ? `checking ${left.length} things left unfinished` : `${left.length} things left unfinished`;
-    c.messages.push({ role: 'check', text, at: new Date().toISOString(), state, items: left.map((l) => ({ key: leftoverKey(l), text: say(l) })) });
+    const note = { at: new Date().toISOString(), items: left.map((l) => ({ key: leftoverKey(l), text: say(l) })) };
+    c.messages.push({ role: 'check', text, state, ...note });
     this.save(id, c);
     this.emit('ai', { id, role: 'check', text, state });
+    return note;
   }
 
   /** What the person chose to keep as it is (.tykerf/kept.json), so it isn't reported again. */
@@ -551,10 +566,12 @@ export class AI {
     return raw ? JSON.parse(raw) : [];
   }
 
-  /** The block's last check that still waits for the person, if any. */
-  private openCheck(id: string): { chat: Chat; check: ChatMessage } | null {
+  /** The block's last check that still waits for the person, if any; with `at`, that check (a task's, in the review). */
+  private openCheck(id: string, at?: string): { chat: Chat; check: ChatMessage } | null {
     const chat = this.chat(id);
-    const check = chat.messages.at(-1)?.role === 'check' && chat.messages.at(-1)?.state === 'open' ? chat.messages.at(-1)! : null;
+    const last = chat.messages.at(-1);
+    const check = at ? chat.messages.find((m) => m.role === 'check' && m.at === at && m.state === 'open') ?? null
+      : last?.role === 'check' && last.state === 'open' ? last : null;
     return check ? { chat, check } : null;
   }
 
@@ -580,11 +597,11 @@ export class AI {
   }
 
   /** "Fix them": ask Kaity to finish what her last request left. */
-  fix(id: string) {
-    const open = this.openCheck(id);
+  fix(id: string, at?: string, opts: RunOptions = {}) {
+    const open = this.openCheck(id, at);
     if (!open) throw new Error('nothing is waiting to be fixed');
     const items = open.check.items ?? [];
-    this.ask(id, 'Fix what was left unfinished.', undefined, [], undefined, fixPrompt(items.map((i) => i.text)));
+    this.ask(id, 'Fix what was left unfinished.', undefined, [], undefined, fixPrompt(items.map((i) => i.text)), opts);
     open.check.state = 'fixing';
     const c = this.chat(id);
     c.messages[open.chat.messages.indexOf(open.check)] = open.check;
@@ -592,8 +609,8 @@ export class AI {
   }
 
   /** "Leave them": keep what the last request left as it is, and don't report it again. */
-  leave(id: string) {
-    const open = this.openCheck(id);
+  leave(id: string, at?: string) {
+    const open = this.openCheck(id, at);
     if (!open) throw new Error('nothing is waiting');
     this.store.write('.tykerf/kept.json', JSON.stringify([...new Set([...this.kept(), ...(open.check.items ?? []).map((i) => i.key)])]));
     open.check.state = 'left';

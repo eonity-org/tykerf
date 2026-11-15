@@ -129,7 +129,7 @@ Every change she makes is a step you can undo. See [Tasks](editor.md#tasks).
 ## What next
 
 - **[Tasks and the editor](editor.md):** tasks first; fixing one thing by hand; and the **full editor**, for exact changes to any block (select blocks, edit text and images where they are, resize, move, undo anything).
-- **[Getting good results from Kaity](asking-kaity.md):** how to write a task or a request, and recipes. For one block's own conversation, see [the Kaity tab](ai.md#the-kaity-tab).
+- **[Getting good results from Kaity](asking-kaity.md):** how to write a task or a request, and recipes.
 - **[Manage the site](sites.md):** the page's name at the left of the bar opens the site: its pages to open, rename, duplicate or remove, the home page and titles, the tasks of every page, the site kit (a navigation and a footer shared by every page), the site's check, media, links between pages and its icon. The link box (⌘K) lists the site's pages, and renaming a page updates every link to it.
 - **[Put it online](publishing.md):** **Publish**, at the bottom of the site's sidebar, sends the site to GitHub Pages, Cloudflare Pages or Netlify; **Export the site** there gives a .zip of plain files for any web host.
 

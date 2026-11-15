@@ -19,6 +19,8 @@ export interface Task {
   text: string;
   /** A question: Kaity answers it (close_task's reply) and changes nothing. Absent for a task. */
   kind?: 'question';
+  /** Pictures the person attached (up to 5), file names in .tykerf/images (editor/ai.ts keeps them). */
+  images?: string[];
   by: string; // user | ai
   at: string;
   done?: { by: string; at: string; reply?: string };
@@ -28,6 +30,16 @@ export interface Task {
 export type TaskNow = Task & { gone?: true };
 
 const MAX_TEXT = 4000;
+const MAX_IMAGES = 5;
+const IMAGE_NAME = /^[a-f0-9]{40}\.(png|jpg|gif|webp)$/;
+
+/** A task's pictures, checked: kept file names, at most five. */
+function imageList(images: unknown): string[] {
+  if (images == null) return [];
+  if (!Array.isArray(images) || !images.every((x) => typeof x === 'string' && IMAGE_NAME.test(x))) throw new Error('bad picture names');
+  if (images.length > MAX_IMAGES) throw new Error(`at most ${MAX_IMAGES} pictures per task`);
+  return [...new Set(images as string[])];
+}
 
 interface TasksFile { next: number; tasks: Task[] }
 
@@ -58,7 +70,7 @@ export function tasks(ws: Workspace, { open, within }: { open?: boolean; within?
 /** The number the next task will get (numbers are never used again). */
 export const nextTask = (ws: Workspace) => load(ws).next;
 
-export interface NewTask { block: string; text: string; path?: number[] | null; label?: string; width?: number | null; by?: string; question?: boolean }
+export interface NewTask { block: string; text: string; path?: number[] | null; label?: string; width?: number | null; by?: string; question?: boolean; images?: string[] }
 
 export function addTask(ws: Workspace, a: NewTask): Task {
   const text = String(a.text ?? '').trim();
@@ -68,11 +80,12 @@ export function addTask(ws: Workspace, a: NewTask): Task {
   if (path && (!Array.isArray(path) || path.length > 64 || !path.every((i) => Number.isInteger(i) && i >= 0))) throw new Error('bad element path');
   const width = a.width == null ? null : Math.round(Number(a.width));
   if (width !== null && !(width > 0 && width < 20000)) throw new Error('bad width');
+  const images = imageList(a.images);
   return ws.transaction(() => {
     if (!find(ws.load().root, a.block)) throw new Error(`no block "${a.block}"`);
     const f = load(ws);
     const at = new Date().toISOString();
-    const task: Task = { n: f.next, block: a.block, since: at, path, label: String(a.label ?? '').slice(0, 200), width, text, ...(a.question ? { kind: 'question' as const } : {}), by: a.by ?? 'user', at };
+    const task: Task = { n: f.next, block: a.block, since: at, path, label: String(a.label ?? '').slice(0, 200), width, text, ...(a.question ? { kind: 'question' as const } : {}), ...(images.length ? { images } : {}), by: a.by ?? 'user', at };
     f.tasks.push(task);
     f.next++;
     save(ws, f, `add ${a.question ? 'question' : 'task'} ${task.n}`, task.by);
@@ -115,15 +128,18 @@ export function removeTask(ws: Workspace, n: number, by = 'user'): void {
   });
 }
 
-/** Change what a task says, or whether it is a question. */
-export function editTask(ws: Workspace, n: number, change: { text?: string; question?: boolean }, by = 'user'): TaskNow {
+/** Change what a task says, whether it is a question, or its pictures. */
+export function editTask(ws: Workspace, n: number, change: { text?: string; question?: boolean; images?: string[] }, by = 'user'): TaskNow {
   const text = change.text === undefined ? undefined : String(change.text).trim();
+  const images = change.images === undefined ? undefined : imageList(change.images);
   if (text === '') throw new Error('write the task first');
   if (text && text.length > MAX_TEXT) throw new Error(`a task is at most ${MAX_TEXT} characters`);
   return update(ws, n, 'change task #', by, (x) => {
     if (text !== undefined) x.text = text;
     if (change.question === true) x.kind = 'question';
     if (change.question === false) delete x.kind;
+    if (images?.length) x.images = images;
+    else if (images) delete x.images;
   });
 }
 
@@ -144,5 +160,6 @@ export function sayTask(x: TaskNow): string {
   const where = `${x.block}${x.label ? ` › ${x.label}` : ''}${x.path?.length ? ` (element ${x.path.join('.')})` : ''}`;
   const seen = x.width ? `, seen ${x.width} px wide` : '';
   const end = x.done ? ` [done${x.done.reply ? `: ${x.done.reply}` : ''}]` : '';
-  return `${x.kind === 'question' ? 'question ' : ''}#${x.n} on ${where}${seen}${x.gone ? ' (that block is gone)' : ''}: ${x.text}${end}`;
+  const pics = x.images?.length ? ` (${x.images.length === 1 ? '1 picture' : `${x.images.length} pictures`} attached: ${x.images.join(', ')})` : '';
+  return `${x.kind === 'question' ? 'question ' : ''}#${x.n} on ${where}${seen}${x.gone ? ' (that block is gone)' : ''}: ${x.text}${pics}${end}`;
 }

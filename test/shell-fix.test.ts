@@ -1,6 +1,6 @@
 // Fixing one thing by hand in the v3 editor (shell/fix.js): only the element clicked, saved into its box's code;
-// the wider editors one step away (all the text, the code, size and look); the box tree; and the page shrunk to
-// fit beside the panel at its real width.
+// the bigger fixes in the full editor, on the box and the tab for them (R8, R9); and the page shrunk to fit beside
+// the panel at its real width.
 
 import { type ChildProcess, spawn } from 'node:child_process';
 import { mkdtempSync } from 'node:fs';
@@ -65,44 +65,30 @@ describe('fixing by hand in the v3 editor', () => {
     await expect.poll(() => ws.content('hero')).toContain('Get started free');
   });
 
-  it('goes one step further: all the box\'s text, its code, its size and look', async () => {
-    await panel().locator('[data-view="text"]').click();
-    const fields = panel().locator('.fxtext input, .fxtext textarea');
-    expect(await fields.count()).toBeGreaterThan(3);
-    await panel().locator('[data-view="element"]').click();
-    await panel().locator('[data-view="look"]').click();
-    await panel().locator('[name="w"]').fill('900');
-    await panel().locator('[name="tone"]').selectOption('soft');
-    await panel().locator('.fxlook [type="submit"]').click();
-    await expect.poll(() => (find(ws.load().root, 'hero')?.node as { maxW?: number }).maxW).toBe(900);
-    expect((find(ws.load().root, 'hero')?.node as { tags?: string[] }).tags).toContain('tone-soft');
-    await panel().locator('[data-view="element"]').click();
-    await panel().locator('[data-view="code"]').click();
-    expect(await panel().locator('[name="html"]').inputValue()).toContain('Get started free');
+  it('leads to the full editor for a bigger fix: the box selected, at the tab for it', async () => {
+    const full = '/_tykerf/edit/first/?mode=full&block=hero';
+    expect(await panel().locator('.fxmore a').evaluateAll((a) => a.map((x) => x.getAttribute('href')))).toEqual([`${full}&tab=size`, `${full}&tab=text`, `${full}&tab=code`, full]);
+    await panel().locator('[data-full="code"]').click();
+    await page.waitForURL(/\/_tykerf\/edit\/first\/\?mode=full$/);
+    await expect.poll(() => frame().locator('.work .w-name').inputValue()).toBe('hero');
+    expect(await frame().locator('.work .tabs [data-tab="code"]').getAttribute('aria-selected')).toBe('true');
+    // the quick fix has no copies of those editors
+    await page.locator('.bar .modes a', { hasText: 'Tasks' }).click();
+    await page.waitForURL(/\/_tykerf\/edit\/first\/$/);
+    await frame().locator('[data-sw="hero"]').waitFor();
   });
 
-  it('moves, adds and deletes boxes in the tree, with the page shrunk to fit at its real width', async () => {
-    await panel().locator('[data-view="element"]').click();
-    await panel().locator('[data-view="tree"]').click();
-    await panel().locator('[data-box="pricing"]').click();
+  it('shrinks the page to fit beside the panel, at its real width', async () => {
+    await frame().locator('[data-sw="hero"] h1').click();
+    await page.locator('.taskbox [data-box="hand"]').click();
+    await panel().locator('.fxtitle').waitFor();
+    expect(await panel().locator('[data-view]').count()).toBe(0);
     await panel().locator('[data-mode="shrink"]').click();
     // the page keeps its width; it is scaled to fit beside the panel, and the bar says how much
     expect(await page.locator('.frame').evaluate((f: HTMLIFrameElement) => f.contentWindow!.innerWidth)).toBe(1440);
     expect(await page.locator('.viewport').evaluate((v) => getComputedStyle(v).transform)).toMatch(/^matrix\(0\.7/);
     expect(await page.locator('.bar .zoom').textContent()).toMatch(/^7\d %$/);
-    const order = () => (ws.load().root as { children: { id: string }[] }).children.map((c) => c.id);
-    const before = order().indexOf('pricing'), boxes = order().length;
-    await panel().locator('[data-op="up"]').click();
-    await expect.poll(() => order().indexOf('pricing')).toBe(before - 1);
-    await panel().locator('[data-op="below"]').click();
-    await expect.poll(() => order().length).toBe(boxes + 1);
-    const added = order()[order().indexOf('pricing') + 1];
-    expect(added).not.toBe('testimonials');
-    await expect.poll(() => panel().locator('li[aria-selected="true"] .bname').textContent()).toBe(added);
-    await panel().locator('[data-op="delete"]').click();
-    await panel().locator('[data-op="delete-yes"]').click();
-    await expect.poll(() => order().includes(added)).toBe(false);
-    // the choice is remembered; over the page, the page is as it was
+    // over the page, the page is as it was
     await panel().locator('[data-mode="over"]').click();
     expect(await page.locator('.viewport').evaluate((v) => getComputedStyle(v).transform)).toBe('none');
   });
