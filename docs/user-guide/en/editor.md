@@ -101,7 +101,7 @@ The full editor is the expert way, beside tasks, for long manual work: restructu
 
 ### The panel
 
-Drag it by its header and resize it from its corner; it remembers where you left it. **Compact** makes it small, only its header; **See more** opens it again. **×** closes the full editor and goes back to Tasks. On phones it docks at the bottom.
+Drag it by its header and resize it from its corner; it remembers where you left it. **Compact** makes it small, only its header; **See more** opens it again. **×** closes the full editor and goes back to Tasks. On phones it docks at the bottom. Its header is light, under the bar, with the tykerf mark so it never looks like part of the page. While [the site](sites.md#the-sites-screens) is open on the left, the editor makes itself compact beside it (*Compacted while the site is open*), so the page stays in view; closing the site brings it back as it was. **See more** opens it anyway.
 
 | Zone | What it shows |
 |---|---|

@@ -75,7 +75,7 @@ export function createSidebar({ page = null, docked = false, go, screen = () => 
     const nTasks = info.tasks?.pages?.find((x) => x.page === p)?.tasks.length ?? 0;
     const nCheck = info.check?.findings?.filter((f) => f.page === p).length ?? 0;
     const state = [
-      p === page ? t('Open now') : '',
+      p === page ? (new URLSearchParams(location.search).get('mode') === 'full' ? t('Open now in the full editor') : t('Open now')) : '',
       nTasks ? (nTasks === 1 ? t('1 task') : t('{n} tasks', { n: nTasks })) : '',
       nCheck ? (nCheck === 1 ? t('1 thing to check') : t('{n} things to check', { n: nCheck })) : '',
     ].filter(Boolean).join(' · ');

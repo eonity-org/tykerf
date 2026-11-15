@@ -178,6 +178,7 @@ ui.innerHTML = `
   <header class="head">
     <span class="brand" title="TYKERF">${ICON.tykerf}<span class="wordmark">tykerf</span></span>
     <nav class="path" aria-label="${t('path')}"></nav>
+    <span class="compacted-note" hidden>${t('Compacted while the site is open')}</span>
     <div class="head-tools">
       <div class="seg" role="radiogroup" aria-label="${t('outside the selection')}">
         <button data-view="dim" title="${t('Darken everything outside the selection')}">${t('Dim')}</button>
@@ -2779,6 +2780,8 @@ addEventListener('keydown', (e) => {
 // ---------- panel: drag, collapse, toggle ----------
 
 let panelPos = store.get('panel', null);
+/** While the shell's site sidebar is open: how the panel was before it compacted for it (see siteSidebar). */
+let bySite = null;
 
 function keepPanelOnScreen() {
   const r = panel.getBoundingClientRect();
@@ -2810,6 +2813,7 @@ $('.head').addEventListener('pointerdown', (e) => {
     head.removeEventListener('pointerup', end);
     head.removeEventListener('lostpointercapture', end);
     store.set('panel', panelPos);
+    if (bySite) bySite.pos = panelPos; // moved by the person: it stays there when the sidebar closes
   };
   head.addEventListener('pointermove', move);
   head.addEventListener('pointerup', end);
@@ -2827,10 +2831,16 @@ if (size) Object.assign(panel.style, { width: `${size.w}px`, height: `${size.h}p
 function showPanel() {
   if (S.min) setMin(false);
 }
-/** Compact: the panel shows only its header (Edit), or a few lines of the tasks (Tasks); See more opens it again. */
-function setMin(v) {
+/**
+ * Compact: the panel shows only its header; See more opens it again. `save` false: for a while only (the shell's site
+ * sidebar), so the person's own choice stays remembered; theirs (save) ends that while.
+ */
+function setMin(v, save = true) {
   S.min = v;
-  store.set('min', v);
+  if (save) {
+    store.set('min', v);
+    if (bySite) (bySite = null), ($('.compacted-note').hidden = true);
+  }
   panel.classList.toggle('min', v);
   const b = $('.minimize');
   b.innerHTML = v ? `${ic('down')}<span class="label">${t('See more')}</span>` : `${ic('up')}<span class="label">${t('Compact')}</span>`;
@@ -2839,6 +2849,29 @@ function setMin(v) {
   keepPanelOnScreen();
 }
 $('.minimize').addEventListener('click', () => setMin(!S.min));
+
+/**
+ * The shell's site sidebar (Full editor mode), open up to `edge` px from the left of this window, or closed (null):
+ * open, the panel compacts to its header beside it, so the page stays in view (one panel at a time); closed, it goes
+ * back as it was. See more, or anything that opens the panel, is the person's choice and ends this.
+ */
+function siteSidebar(edge) {
+  if (edge != null && !bySite && S.on) {
+    bySite = { min: S.min, pos: panelPos };
+    setMin(true, false);
+  }
+  if (edge != null && bySite && panel.getBoundingClientRect().left < edge + 16) {
+    panelPos = { x: edge + 16, y: panelPos?.y ?? panel.getBoundingClientRect().top };
+    keepPanelOnScreen();
+  }
+  if (edge == null && bySite) {
+    const was = bySite;
+    bySite = null;
+    panelPos = was.pos;
+    setMin(was.min, false);
+  }
+  $('.compacted-note').hidden = !bySite;
+}
 // × leaves the full editor for Tasks (the shell's other mode); what was changed stays
 $('.closebtn').addEventListener('click', () => go(SHELL));
 
@@ -3096,6 +3129,12 @@ renderView();
 panel.hidden = true;
 setOn(S.on);
 keepPanelOnScreen();
+// the shell says when its site sidebar opens and closes; a page opened while it is open starts compacted, unless it
+// was opened to work on a block
+if (EMBEDDED) {
+  window.tykerfSidebar = siteSidebar;
+  if (!asked.get('block')) siteSidebar(window.top.tykerfSidebarEdge?.() ?? null);
+}
 // a page that is still being made (the AI building it, a copy) opens with its progress
 api('/job').then((j) => renderJob(j.job)).catch(() => {});
 loadTasks();

@@ -286,6 +286,43 @@ describe('a new site', () => {
     await page.locator('a[href="/_tykerf/export.zip?page=home"]').waitFor();
   });
 
+  it('in the shell, has a light header with the tykerf sign, and compacts while the site\'s sidebar is open', async () => {
+    // on its own, the full editor keeps its dark header
+    await page.goto(`${url}home/?tykerf=full-frame`);
+    await page.locator('section.panel').waitFor();
+    const dark = await page.locator('section.panel .head').evaluate((h) => getComputedStyle(h).backgroundColor);
+    expect(dark).toBe('rgb(10, 84, 117)');
+    // the editor open, the sidebar closed
+    await page.evaluate(() => (localStorage.setItem('tykerf.min', 'false'), localStorage.setItem('tykerf.sidebar', '"closed"')));
+    await page.goto(`${url}_tykerf/edit/home/?mode=full`);
+    const fr = page.frameLocator('.frame');
+    await fr.locator('section.panel').waitFor();
+    expect(await fr.locator('section.panel .head').evaluate((h) => getComputedStyle(h).backgroundColor)).toBe('rgb(242, 247, 249)');
+    expect(await fr.locator('section.panel .head .brand').isVisible()).toBe(true);
+    const saved = () => page.evaluate(() => localStorage.getItem('tykerf.min'));
+    const before = await saved();
+    expect(await fr.locator('section.panel').evaluate((p) => p.classList.contains('min'))).toBe(false);
+    // the sidebar opens: the editor shows only its header, out of the sidebar's way, and says why
+    await page.locator('[data-bar="pages"]').click();
+    await page.locator('.sidebar .pcard.current .pstate', { hasText: 'Open now in the full editor' }).waitFor();
+    await expect.poll(() => fr.locator('section.panel').evaluate((p) => p.classList.contains('min'))).toBe(true);
+    expect(await fr.locator('.compacted-note').textContent()).toBe('Compacted while the site is open');
+    const side = (await page.locator('.sidebar').boundingBox())!;
+    expect((await fr.locator('section.panel').boundingBox())!.x).toBeGreaterThanOrEqual(side.x + side.width);
+    // closed: back as it was, and the person's own Compact choice was never touched
+    await page.locator('.sidebar [data-sb="collapse"]').click();
+    await expect.poll(() => fr.locator('section.panel').evaluate((p) => p.classList.contains('min'))).toBe(false);
+    expect(await fr.locator('.compacted-note').isHidden()).toBe(true);
+    expect(await saved()).toBe(before);
+    // See more while it is open is the person's choice: it stays open when the sidebar closes
+    await page.locator('[data-bar="pages"]').click();
+    await expect.poll(() => fr.locator('section.panel').evaluate((p) => p.classList.contains('min'))).toBe(true);
+    await fr.locator('.minimize').click();
+    expect(await fr.locator('.compacted-note').isHidden()).toBe(true);
+    await page.locator('.sidebar [data-sb="collapse"]').click();
+    expect(await fr.locator('section.panel').evaluate((p) => p.classList.contains('min'))).toBe(false);
+  });
+
   it('tells which AI answers, never its key', async () => {
     const st = await fetch(`${url}_tykerf/ai/status`).then((r) => r.json());
     expect(st).toMatchObject({ ok: true, runner: 'claude-code', testable: true, running: [] });

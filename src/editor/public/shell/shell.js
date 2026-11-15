@@ -961,9 +961,20 @@ function layoutStage() {
   }
   // the tray comes down beside the sidebar (open or folded), never under it
   $('.tray').style.left = sidebar.isShown() ? `${sidebar.el.offsetWidth}px` : '';
+  // the full editor compacts beside the open sidebar, and comes back as it was when it closes (tykerf.js siteSidebar)
+  try {
+    $('.frame').contentWindow?.tykerfSidebar?.(sidebarEdge());
+  } catch {}
   renderBar();
   draw();
 }
+
+/** Where the open site sidebar ends, in the frame's own pixels, in Full editor mode (null: closed, folded, or Tasks). */
+function sidebarEdge() {
+  if (!FULL || !sidebar?.isOpen()) return null;
+  return Math.round(sidebar.el.getBoundingClientRect().right - $('.frame').getBoundingClientRect().left);
+}
+window.tykerfSidebarEdge = sidebarEdge;
 
 const sidebar = createSidebar({ page: PAGE, onChange: () => layoutStage(), modeSwitch, setMode, pageHref: (p) => shellOf(p, false) }); // a page always opens in Tasks (R1)
 
