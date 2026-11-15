@@ -64,10 +64,26 @@ describe('the v3 editor', () => {
     await h1.click();
     const box = page.locator('.taskbox');
     await box.waitFor();
-    expect(await box.locator('.where').textContent()).toMatch(/^1hero\s*the heading ".+" · seen at 1280 px$/);
-    expect(await box.locator('.scope').textContent()).toBe('Kaity changes only hero for it.');
+    // one line: the number, the box (its tooltip says Kaity changes only it), the element; no width at full width
+    expect(await box.locator('.where .num').textContent()).toBe('1');
+    expect(await box.locator('.where b').textContent()).toBe('hero');
+    expect(await box.locator('.where b').getAttribute('title')).toBe('Kaity changes only hero for it.');
+    expect(await box.locator('.where .what').textContent()).toMatch(/^› the heading ".+"$/);
+    expect(await box.locator('.where .chip').count()).toBe(0);
+    expect(await box.locator('textarea').getAttribute('placeholder')).toBe('What should change here? End with ? to ask.');
+    expect(await box.locator('button').evaluateAll((b) => b.map((x) => (x as HTMLElement).dataset.box))).toEqual(['q', 'cancel', 'pic', 'menu', 'now', 'add']);
     await box.locator('textarea').fill('Make the headline fit on two lines on a phone');
-    expect(await box.locator('input[type=checkbox]').isChecked()).toBe(false);
+    // More… opens the right-click menu from the box, which stays with what is written in it
+    expect(await box.locator('[data-box="menu"]').textContent()).toBe('More… or right-click');
+    await box.locator('[data-box="menu"]').click();
+    const menu = page.locator('.ctxmenu');
+    await menu.locator('[role=menuitem]').first().waitFor();
+    expect(await menu.locator('[data-ctx="task"], [data-ctx="question"]').count()).toBe(0);
+    expect(await menu.locator('[data-ctx="hand"]').count()).toBe(1);
+    await page.keyboard.press('Escape');
+    expect(await menu.isHidden()).toBe(true);
+    expect(await box.locator('textarea').inputValue()).toBe('Make the headline fit on two lines on a phone');
+    expect(await box.locator('.num').getAttribute('aria-pressed')).toBe('false');
     await box.locator('[data-box="add"]').click();
     await page.locator('.pin[data-pin="1"]').waitFor();
     expect(await page.locator('.taskbox').count()).toBe(0);
@@ -83,8 +99,14 @@ describe('the v3 editor', () => {
     await link.click();
     const box = page.locator('.taskbox');
     await box.locator('textarea').pressSequentially('Where does this lead?');
-    expect(await box.locator('input[type=checkbox]').isChecked()).toBe(true);
+    expect(await box.locator('.num').getAttribute('aria-pressed')).toBe('true'); // the number became Question
+    expect(await box.locator('.num').textContent()).toBe('Question');
     expect(await box.locator('[data-box="add"]').textContent()).toBe('Add question');
+    // a click on it makes it a task, and again a question
+    await box.locator('.num').click();
+    expect(await box.locator('[data-box="add"]').textContent()).toBe('Add task');
+    await box.locator('.num').click();
+    expect(await box.locator('textarea').inputValue()).toBe('Where does this lead?');
     await box.locator('[data-box="add"]').click();
     await page.locator('.pin.question').waitFor();
     expect(tasks(ws).at(-1)).toMatchObject({ kind: 'question', text: 'Where does this lead?' });
@@ -151,7 +173,7 @@ describe('the v3 editor', () => {
     await page.locator('.bar [data-device="phone"]').click();
     await expect.poll(width).toBe(375);
     await frame().locator('[data-sw="hero"] h1').click();
-    expect(await page.locator('.taskbox .where').textContent()).toContain('seen at 375 px');
+    expect(await page.locator('.taskbox .where .chip').textContent()).toBe('375 px');
     await page.keyboard.press('Escape'); // the task box
     await page.keyboard.press('Escape'); // then the full width again
     await expect.poll(width).toBe(1280);

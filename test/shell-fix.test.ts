@@ -47,8 +47,9 @@ describe('fixing by hand in the v3 editor', () => {
   const panel = () => page.locator('.fixbar');
 
   it('shows only the element clicked: a link\'s words and where it leads, saved into the box', async () => {
-    await frame().locator('[data-sw="hero"] a', { hasText: 'Get started' }).first().click();
-    await page.locator('.taskbox [data-box="hand"]').click();
+    // Fix it by hand is in the right-click menu (the task box keeps to the task)
+    await frame().locator('[data-sw="hero"] a', { hasText: 'Get started' }).first().click({ button: 'right' });
+    await page.locator('.ctxmenu [data-ctx="hand"]').click();
     await panel().locator('.fxtitle').waitFor();
     expect(await panel().locator('.fxtitle').textContent()).toBe('the link "Get started free"');
     expect(await page.locator('.bar .status').textContent()).toContain('Fixing by hand · the link "Get started free"');
@@ -79,8 +80,8 @@ describe('fixing by hand in the v3 editor', () => {
   });
 
   it('shrinks the page to fit beside the panel, at its real width', async () => {
-    await frame().locator('[data-sw="hero"] h1').click();
-    await page.locator('.taskbox [data-box="hand"]').click();
+    await frame().locator('[data-sw="hero"] h1').click({ button: 'right' });
+    await page.locator('.ctxmenu [data-ctx="hand"]').click();
     await panel().locator('.fxtitle').waitFor();
     expect(await panel().locator('[data-view]').count()).toBe(0);
     await panel().locator('[data-mode="shrink"]').click();
@@ -113,8 +114,8 @@ describe('fixing by hand in the v3 editor', () => {
     await page.locator('.sidebar [data-sb="collapse"]').click();
     await page.goto(url);
     await frame().locator('[data-sw="hero"]').waitFor();
-    await frame().locator('[data-sw="hero"] h1').click();
-    await page.locator('.taskbox [data-box="hand"]').click();
+    await frame().locator('[data-sw="hero"] h1').click({ button: 'right' });
+    await page.locator('.ctxmenu [data-ctx="hand"]').click();
     await panel().locator('.fxtitle').waitFor();
     expect(await page.locator('.viewport').evaluate((v) => getComputedStyle(v).transform)).toMatch(/^matrix\(0\.7/);
     await panel().locator('[data-mode="over"]').click();
@@ -159,7 +160,7 @@ describe('fixing by hand in the v3 editor', () => {
       await menu.locator('[role=menuitem]').first().waitFor();
     };
     await open();
-    expect(await menu.locator('[role=menuitem]').allTextContents()).toEqual(['Leave a task here…', 'Edit this text', 'Fix it by hand', 'Add a box below…', 'Add a box beside…', 'Delete this box…', 'Open hero in the full editor', 'Hide tykerf']);
+    expect(await menu.locator('[role=menuitem]').allTextContents()).toEqual(['Leave a task here…', 'Ask a question here…', 'Edit this text', 'Fix it by hand', 'Add a box below…', 'Add a box beside…', 'Delete this box…', 'Open hero in the full editor', 'Hide tykerf']);
 
     // the words, right on the page: Enter keeps them (one step), Escape puts them back
     await menu.locator('[data-ctx="text"]').click();
@@ -194,7 +195,7 @@ describe('fixing by hand in the v3 editor', () => {
     await expect.poll(() => order().length).toBe(n + 1);
     const added = order()[order().indexOf('hero') + 1];
     await page.locator('.taskbox').waitFor();
-    expect(await page.locator('.taskbox label.ask').textContent()).toBe('What should go in this new box? Kaity fills it, or leave it empty.');
+    expect(await page.locator('.taskbox textarea').getAttribute('placeholder')).toBe('What should go in this new box? Kaity fills it, or leave it empty.');
     expect(await page.locator('.taskbox .where b').textContent()).toBe(added);
     await page.keyboard.press('Escape');
 

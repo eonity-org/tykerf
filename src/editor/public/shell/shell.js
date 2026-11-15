@@ -181,7 +181,7 @@ function followKaity() {
 
 function openBox(spot) {
   // fresh: a box just added, empty (nothing to point at on the page: the task box sits by the box it came from, `near`)
-  S.box = { block: spot.block, path: spot.path, label: spot.label, draft: '', question: false, touched: false, images: [], fresh: !!spot.fresh, near: spot.near ?? null };
+  S.box = { block: spot.block, path: spot.path, label: spot.label, draft: '', question: !!spot.question, touched: !!spot.question, images: [], fresh: !!spot.fresh, near: spot.near ?? null };
   renderBox();
   draw();
   $('.taskbox textarea').focus();
@@ -203,21 +203,23 @@ function renderBox() {
     $('.viewport').append(el);
   }
   el.setAttribute('aria-label', t('A task for {what}', { what: plainLabel(b.label) }));
+  const isQ = b.question;
+  // one line: the number (a click makes it a question, or a task again), the box and the element, × to cancel;
+  // the width only when the page isn't at its own (the bar's width buttons say it otherwise)
+  const narrow = S.device !== 'full' ? `<span class="chip">${esc(t('{w} px', { w: frame.width }))}</span>` : '';
+  const numTitle = isQ ? t('A question: Kaity answers it and changes nothing. Click to make it a task.') : t('Click to make it a question: Kaity answers it and changes nothing.');
   el.innerHTML = `
-    <p class="where"><span class="num${b.question ? ' q' : ''}">${b.question ? esc(t('Question')) : S.next}</span><b>${esc(b.block)}</b><span>${esc(plainLabel(b.label))} · ${esc(t('seen at {w} px', { w: frame.width }))}</span></p>
-    <label class="ask" for="task-text">${esc(b.fresh ? t('What should go in this new box? Kaity fills it, or leave it empty.') : t('What should change here, or what do you want to ask?'))}</label>
-    <textarea id="task-text" rows="2">${esc(b.draft)}</textarea>
-    <div class="attach"><div class="pics" ${b.images.length ? '' : 'hidden'}>${b.images.map((im, i) => `<span class="thumb"><img src="data:${im.mediaType};base64,${im.data}" alt="${esc(t('Picture {n}', { n: i + 1 }))}"><button type="button" data-unpic="${i}" aria-label="${esc(t('Remove picture {n}', { n: i + 1 }))}">×</button></span>`).join('')}</div>
-      ${b.images.length >= 5 ? '' : `<button type="button" class="link" data-box="pic" title="${esc(t('A screenshot, a sketch or a design to follow (up to 5; you can also paste or drop them here)'))}">${esc(b.images.length ? t('Add another picture') : t('Add a picture'))}</button>`}</div>
-    <label class="question"><input type="checkbox" ${b.question ? 'checked' : ''}> ${esc(t('This is a question: Kaity answers it and changes nothing'))}</label>
-    <div class="row">
-      <button type="button" class="link" data-box="hand">${esc(t('Fix it by hand'))}</button>
-      <span class="spacer"></span>
-      <button type="button" class="btn" data-box="cancel">${esc(t('Cancel'))}</button>
-      <button type="button" class="btn" data-box="now">${esc(b.question ? t('Kaity, answer it now') : t('Kaity, do it now'))}</button>
-      <button type="button" class="btn primary" data-box="add">${esc(b.question ? t('Add question') : t('Add task'))}</button>
+    <p class="where"><button type="button" class="num${isQ ? ' q' : ''}" data-box="q" aria-pressed="${isQ}" title="${esc(numTitle)}" aria-label="${esc(numTitle)}">${isQ ? esc(t('Question')) : S.next}</button><b title="${esc(t('Kaity changes only {block} for it.', { block: b.block }))}">${esc(b.block)}</b>${b.label ? `<span class="what">› ${esc(plainLabel(b.label))}</span>` : ''}${narrow}<button type="button" class="x" data-box="cancel" aria-label="${esc(t('Cancel'))}" title="${esc(t('Cancel (Esc)'))}">×</button></p>
+    <div class="field">
+      <textarea id="task-text" rows="2" aria-label="${esc(t('The task'))}" placeholder="${esc(b.fresh ? t('What should go in this new box? Kaity fills it, or leave it empty.') : t('What should change here? End with ? to ask.'))}">${esc(b.draft)}</textarea>
+      ${b.images.length >= 5 ? '' : `<button type="button" class="addpic" data-box="pic" aria-label="${esc(t('Add a picture'))}" title="${esc(t('Add a picture: a screenshot, a sketch or a design to follow (up to 5; you can also paste or drop them here)'))}"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="9" cy="10" r="1.6"/><path d="m4 18 5-5 4 4 3-3 4 4"/></svg></button>`}
     </div>
-    <p class="scope">${esc(t('Kaity changes only {block} for it.', { block: b.block }))}</p>`;
+    ${b.images.length ? `<div class="pics">${b.images.map((im, i) => `<span class="thumb"><img src="data:${im.mediaType};base64,${im.data}" alt="${esc(t('Picture {n}', { n: i + 1 }))}"><button type="button" data-unpic="${i}" aria-label="${esc(t('Remove picture {n}', { n: i + 1 }))}">×</button></span>`).join('')}</div>` : ''}
+    <div class="row">
+      <button type="button" class="link more" data-box="menu" aria-haspopup="menu" title="${esc(t('Fix it by hand, edit its words, add or delete boxes… (the same as a right-click on the page)'))}">${esc(t('More…'))} <span class="hint">${esc(t('or right-click'))}</span></button>
+      <button type="button" class="btn" data-box="now">${esc(isQ ? t('Kaity, answer it now') : t('Kaity, do it now'))}</button>
+      <button type="button" class="btn primary" data-box="add" title="${esc(t('⌘↵ / Ctrl+↵'))}">${esc(isQ ? t('Add question') : t('Add task'))}</button>
+    </div>`;
   const ta = $('textarea', el);
   ta.oninput = () => {
     b.draft = ta.value;
@@ -246,14 +248,18 @@ function renderBox() {
     el.classList.remove('drop');
     attachPictures([...(e.dataTransfer?.files ?? [])]);
   };
-  $('input[type=checkbox]', el).onchange = (e) => {
-    b.touched = true;
-    b.question = e.target.checked;
-    renderBox();
-  };
   el.onclick = (e) => {
     const act = e.target.closest('[data-box]')?.dataset.box;
     if (act === 'cancel') closeBox();
+    if (act === 'menu') {
+      const r = e.target.closest('[data-box]').getBoundingClientRect();
+      return openMenu({ block: b.block, path: b.path, label: b.label }, 0, 0, { at: { x: r.left, y: r.bottom + 4, above: r.top - 4 } });
+    }
+    if (act === 'q') {
+      b.touched = true;
+      b.question = !b.question;
+      return keepTyping();
+    }
     if (act === 'add') addTask(false);
     if (act === 'now') addTask(true);
     if (act === 'pic') {
@@ -265,11 +271,6 @@ function renderBox() {
     if (un) {
       b.images.splice(Number(un.dataset.unpic), 1);
       return keepTyping();
-    }
-    if (act === 'hand') {
-      const spot = { block: b.block, path: b.path, label: b.label };
-      closeBox();
-      openFix(spot);
     }
   };
   const r = frame.rect(frame.taskEl(b.block, b.path)) ?? (b.near ? frame.rect(frame.blockEl(b.near)) : null);
@@ -1037,15 +1038,21 @@ let menuSpot = null;
 /** An element whose words can be edited right on the page: text only, nothing else inside it. */
 const textOnly = (el) => !!el && el.children.length === 0 && !!el.textContent.trim() && !/^(SCRIPT|STYLE|TEMPLATE|TEXTAREA|INPUT|SELECT|SVG)$/i.test(el.nodeName);
 
-function openMenu(spot, x, y) {
-  closeBox();
+/** What the menu acts on, as its header: the box, then the element in words. */
+const ctxHead = (spot) => `<div class="ctxhead"><b>${esc(spot.block)}</b><span>${esc(spot.path ? plainLabel(spot.label) : t('the {block} box', { block: spot.block }))}</span></div>`;
+
+/**
+ * The menu for an element: from the second button (x, y in the frame), or from the task box's More… (`at`: a point in
+ * the window; the box stays, with what is written in it, and the menu leaves out the task and the question).
+ */
+function openMenu(spot, x, y, { at = null } = {}) {
+  if (!at) closeBox();
   menuSpot = spot;
-  const what = spot.path ? plainLabel(spot.label) : t('the {block} box', { block: spot.block });
   const item = (act, label, cls = '') => `<button type="button" role="menuitem" data-ctx="${act}" ${cls ? `class="${cls}"` : ''}>${esc(label)}</button>`;
   const el = frame.taskEl(spot.block, spot.path);
   const isPage = spot.block === S.tree?.id; // the page itself has nothing beside or below it, and isn't deleted
-  ctxMenu.innerHTML = `<p class="ctxhead"><b>${esc(spot.block)}</b> ${esc(what)}</p>
-    ${item('task', t('Leave a task here…'))}
+  ctxMenu.innerHTML = `${ctxHead(spot)}
+    ${at ? '' : `${item('task', t('Leave a task here…'))}${item('question', t('Ask a question here…'))}`}
     ${spot.path && textOnly(el) ? item('text', t('Edit this text')) : ''}
     ${item('hand', t('Fix it by hand'))}
     ${isPage ? '' : `<hr>${item('below', t('Add a box below…'))}${item('beside', t('Add a box beside…'))}${item('delete', t('Delete this box…'), 'danger')}`}
@@ -1054,7 +1061,10 @@ function openMenu(spot, x, y) {
   // where the pointer is, in the window: the frame's place on the stage, at the page's zoom
   const f = $('.frame').getBoundingClientRect(), k = S.zoom || 1;
   ctxMenu.hidden = false;
-  const left = Math.min(f.left + x * k, innerWidth - ctxMenu.offsetWidth - 8), top = Math.min(f.top + y * k, innerHeight - ctxMenu.offsetHeight - 8);
+  const px = at ? at.x : f.left + x * k;
+  // from More…: below the link, or above it when there is no room below
+  const py = at ? (at.y + ctxMenu.offsetHeight > innerHeight - 8 && at.above - ctxMenu.offsetHeight >= 8 ? at.above - ctxMenu.offsetHeight : at.y) : f.top + y * k;
+  const left = Math.min(px, innerWidth - ctxMenu.offsetWidth - 8), top = Math.min(py, innerHeight - ctxMenu.offsetHeight - 8);
   Object.assign(ctxMenu.style, { left: `${Math.max(8, left)}px`, top: `${Math.max(8, top)}px` });
   $('[role=menuitem]', ctxMenu).focus();
 }
@@ -1068,8 +1078,9 @@ ctxMenu.addEventListener('click', (e) => {
   if (act === 'delete-yes') return void deleteBox(spot.block);
   const el = frame.taskEl(spot.block, spot.path);
   if (act === 'task' && el) openBox({ ...spot, el });
+  if (act === 'question' && el) openBox({ ...spot, el, question: true });
   if (act === 'hand') openFix(spot);
-  if (act === 'text' && el) editInPlace(spot, el);
+  if (act === 'text' && el) (closeBox(), editInPlace(spot, el));
   if (act === 'below' || act === 'beside') addBox(spot, act === 'below' ? 'column' : 'row');
   if (act === 'delete') confirmDelete(spot);
   if (act === 'full') location.assign(fullEditor(spot.block));
@@ -1119,7 +1130,7 @@ async function addBox(spot, as) {
 /** Delete asks first, in the menu: the box's code goes into the box before it, and Undo brings it back. */
 function confirmDelete(spot) {
   menuSpot = spot;
-  ctxMenu.innerHTML = `<div class="ctxconfirm" role="alert"><p>${esc(t('Delete {block}? Its code goes into the box before it, and Undo brings it back.', { block: spot.block }))}</p>
+  ctxMenu.innerHTML = `${ctxHead(spot)}<div class="ctxconfirm" role="alert"><p>${esc(t('Delete {block}? Its code goes into the box before it, and Undo brings it back.', { block: spot.block }))}</p>
     <div class="row"><button type="button" role="menuitem" class="btn small danger" data-ctx="delete-yes">${esc(t('Delete {block}', { block: spot.block }))}</button><button type="button" role="menuitem" class="btn small" data-ctx="cancel">${esc(t('Cancel'))}</button></div></div>`;
   ctxMenu.hidden = false;
   $('[data-ctx="cancel"]', ctxMenu).focus();
@@ -1138,7 +1149,8 @@ ctxMenu.addEventListener('keydown', (e) => {
   const i = items.indexOf(document.activeElement);
   if (e.key === 'ArrowDown') (e.preventDefault(), items[(i + 1) % items.length].focus());
   if (e.key === 'ArrowUp') (e.preventDefault(), items[(i - 1 + items.length) % items.length].focus());
-  if (e.key === 'Escape') closeCtx();
+  // Escape closes only the menu: a task box under it (its More…) stays, with what is written in it
+  if (e.key === 'Escape') (e.preventDefault(), e.stopPropagation(), closeCtx(), $('.taskbox textarea')?.focus());
 });
 document.addEventListener('pointerdown', (e) => !ctxMenu.hidden && !ctxMenu.contains(e.target) && closeCtx());
 

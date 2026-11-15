@@ -93,16 +93,26 @@ button, input, textarea, select { font: inherit; color: inherit; }
 
 /* the task box, anchored to the element it is about */
 .taskbox { position: absolute; width: min(440px, calc(100% - 24px)); padding: 14px 16px 16px; border: 1px solid var(--line-strong); border-radius: 12px; background: #fff; box-shadow: 0 12px 32px rgb(16 48 63 / .18); pointer-events: auto; }
-.taskbox .where { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 8px; margin: 0 0 10px; font-size: 14px; color: var(--ink-2); }
-.taskbox .where b { color: var(--ink); font-size: 15px; }
+.taskbox .where { display: flex; align-items: center; gap: 8px; margin: 0 0 10px; font-size: 14px; color: var(--ink-2); }
+.taskbox .where b { flex: none; color: var(--ink); font-size: 15px; }
+.taskbox .where .what { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.taskbox .where .chip { flex: none; padding: 0 6px; border-radius: 4px; background: var(--tag); color: var(--ink); font-size: 12px; font-weight: 600; line-height: 20px; }
+.taskbox .where button.num { flex: none; border: 0; cursor: pointer; }
+.taskbox .where button.num.q { border: 1px solid var(--bar); }
+.taskbox .where button.num:focus-visible { outline: 3px solid var(--bar); outline-offset: 1px; }
+.taskbox .where .x { flex: none; margin-left: auto; width: 28px; height: 28px; padding: 0; border: 0; border-radius: 6px; background: none; color: var(--ink-2); font-size: 20px; line-height: 1; cursor: pointer; }
+.taskbox .where .x:hover, .taskbox .where .x:focus-visible { background: var(--selected); color: var(--ink); outline: none; }
+.taskbox .field { position: relative; }
+.taskbox .addpic { position: absolute; right: 22px; bottom: 6px; display: grid; place-items: center; width: 30px; height: 30px; padding: 0; border: 0; border-radius: 6px; background: #fff; color: var(--ink-2); cursor: pointer; }
+.taskbox .addpic:hover, .taskbox .addpic:focus-visible { background: var(--selected); color: var(--bar); outline: none; }
+.taskbox .addpic svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linejoin: round; }
 .num { display: inline-block; min-width: 24px; padding: 0 6px; border-radius: 4px; background: var(--task); color: var(--task-ink); font-size: 13px; font-weight: 600; line-height: 22px; text-align: center; }
 .num.q { background: #fff; border: 1px solid var(--bar); color: var(--bar); line-height: 20px; }
-.taskbox label.ask { display: block; margin-bottom: 6px; font-size: 14px; font-weight: 600; }
-.taskbox textarea { display: block; width: 100%; min-height: 64px; padding: 8px 10px; border: 2px solid var(--bar); border-radius: 8px; font-size: 16px; resize: vertical; }
-.taskbox .question { display: flex; align-items: center; gap: 8px; margin: 10px 0 0; font-size: 14px; }
-.taskbox .row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 12px; }
-.taskbox .row .spacer { flex: 1; }
-.taskbox .scope { margin: 10px 0 0; font-size: 13px; color: var(--ink-2); }
+.taskbox textarea { display: block; width: 100%; min-height: 64px; padding: 8px 56px 8px 10px; border: 2px solid var(--bar); border-radius: 8px; font-size: 16px; resize: vertical; }
+.taskbox .row { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 8px; margin-top: 12px; }
+.taskbox .row .more { margin-right: auto; text-decoration: none; font-weight: 600; }
+.taskbox .row .more:hover, .taskbox .row .more:focus-visible { text-decoration: underline; }
+.taskbox .row .more .hint { font-weight: 400; color: var(--ink-2); }
 
 /* the tray: every open task of the page, under the bar, over the page */
 .tray { position: absolute; left: 0; right: 0; top: 0; z-index: 20; max-height: min(70%, 520px); overflow: auto; padding: 16px 24px 20px; background: var(--ground); border-bottom: 1px solid var(--line-strong); box-shadow: 0 10px 24px rgb(16 48 63 / .14); }
@@ -136,7 +146,7 @@ button, input, textarea, select { font: inherit; color: inherit; }
 /* a task's pictures (R2): in the task box, on its card, in her conversation */
 .pics { display: flex; flex-wrap: wrap; gap: 6px; }
 .pics[hidden] { display: none; }
-.taskbox .attach { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 8px; }
+.taskbox .pics { margin-top: 8px; }
 .pics .thumb { position: relative; display: block; width: 64px; height: 48px; border: 1px solid var(--line); border-radius: 6px; overflow: hidden; background: var(--ground); }
 .pics .thumb img { display: block; width: 100%; height: 100%; object-fit: cover; }
 .pics .thumb button { position: absolute; top: 2px; right: 2px; width: 20px; height: 20px; padding: 0; border: 0; border-radius: 50%; background: rgb(16 48 63 / .8); color: #fff; font-size: 14px; line-height: 20px; cursor: pointer; }
@@ -403,8 +413,9 @@ body.full-screen .layout { grid-template-columns: minmax(0, 1fr); }
 
 /* the second button's menu, on the page */
 .ctxmenu { position: fixed; z-index: 45; min-width: 240px; max-width: 360px; padding: 6px; border: 1px solid var(--line-strong); border-radius: 10px; background: #fff; box-shadow: 0 12px 32px rgb(16 48 63 / .22); }
-.ctxmenu .ctxhead { margin: 2px 8px 6px; font-size: 13px; color: var(--ink-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.ctxmenu .ctxhead b { color: var(--ink); }
+.ctxmenu .ctxhead { display: grid; gap: 1px; margin: 0 0 6px; padding: 6px 10px 9px; border-bottom: 1px solid var(--line); }
+.ctxmenu .ctxhead b { font-size: 15px; color: var(--ink); }
+.ctxmenu .ctxhead span { font-size: 14px; color: var(--ink-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .ctxmenu [role=menuitem] { display: block; width: 100%; padding: 8px 10px; border: 0; border-radius: 6px; background: none; font-size: 15px; text-align: left; color: var(--ink); cursor: pointer; }
 .ctxmenu [role=menuitem]:hover, .ctxmenu [role=menuitem]:focus-visible { background: var(--selected); outline: none; }
 .ctxmenu hr { margin: 4px 6px; border: 0; border-top: 1px solid var(--line); }

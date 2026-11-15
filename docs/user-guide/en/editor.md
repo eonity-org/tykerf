@@ -18,8 +18,8 @@ From left to right: the **page switcher** (the TYKERF mark, the page's name and 
 
 Leaving tasks for Kaity is the normal way to work. A task is something to be done, left on the exact place on the page it is about: a change to make, or a question.
 
-- **Click anything on the page.** The element under the pointer is outlined in orange; a click opens the task box by it, with the task's number, the box it is in, the element in words (*the button "Get started free"*) and the width the page is seen at. Write what should change and press **Add task** (⌘↵ / Ctrl+↵), or **Kaity, do it now** to hand over this one at once. *Add a picture* (or paste or drop one on the box) sends up to five pictures with the task: a screenshot, a sketch, a design to follow. Nothing on the page reacts to clicks: links don't go anywhere, buttons don't press.
-- **A question** is marked *This is a question*: it ticks itself when what you write ends with `?`, and you can untick it. Kaity answers a question and changes nothing.
+- **Click anything on the page.** The element under the pointer is outlined in orange; a click opens the task box by it. Its top line has the task's number, the box it is in (point at it: Kaity changes only that box) and the element in words (*the button "Get started free"*); at a tablet's or a phone's width, that width too; **×** (or Esc) cancels. Write what should change and press **Add task** (⌘↵ / Ctrl+↵), or **Kaity, do it now** to hand over this one at once. The picture button in the corner of the field (or a paste or drop on the box) sends up to five pictures with the task: a screenshot, a sketch, a design to follow. For anything else, **More…** at the bottom left of the box (or a right-click on the page) opens the menu: fixing it by hand, editing its words, adding or deleting boxes. Nothing on the page reacts to clicks: links don't go anywhere, buttons don't press.
+- **A question:** end what you write with `?` and the number turns into **Question**; a click on it switches between task and question. Right-click → *Ask a question here…* opens the box as a question. Kaity answers a question and changes nothing.
 - Each open task leaves a **numbered pin** on its element (a question shows `?`). A pin opens the tray on its task.
 - **The tray** (the number of tasks in the bar) lists every open task and question as a card: *Show on the page*, *Mark done* and *Remove*. *Copy all for another agent* copies them as text, for any AI agent or a message; *Open the handbook* opens [the handbook](#the-handbook).
 - A task remembers **how wide the window was** when you wrote it, so whoever does it looks at the page at that width ("too big on a phone").
@@ -54,7 +54,7 @@ When she stops, the bar sums it up (*Kaity stopped · 2 done, 1 answered, 1 need
 
 ## Fixing one thing by hand
 
-When it is quicker to do it yourself, **Fix it by hand** in the task box (or right-click the element) opens a narrow panel on the left with **only that element**: a button's or link's words and where it leads (nowhere yet, a box of this page, a page of the site, or another address), a heading's or paragraph's words, a picture's description and *Choose another picture…*. **Save** writes it into the box; **Revert** puts back what is there. One line says whether the box is the same on another page (the fix stays on this one unless you share the box) or is a shared block (the fix reaches every page that shows it).
+When it is quicker to do it yourself, right-click the element and choose **Fix it by hand**: it opens a narrow panel on the left with **only that element**: a button's or link's words and where it leads (nowhere yet, a box of this page, a page of the site, or another address), a heading's or paragraph's words, a picture's description and *Choose another picture…*. **Save** writes it into the box; **Revert** puts back what is there. One line says whether the box is the same on another page (the fix stays on this one unless you share the box) or is a shared block (the fix reaches every page that shows it).
 
 While the panel is open, a click on the page picks the next thing to fix, and the bar says *Fixing by hand · …* with **Done, back to tasks**. **More, if the fix is bigger** opens [the full editor](#the-full-editor) on the box, at the tab for it: its size and look, all its text, its code, or the box itself to move, add or delete boxes. *Too much to fix by hand?* leaves it as a task for Kaity instead.
 
@@ -68,7 +68,7 @@ The panels on the left (the site, fixing by hand) open **over the page**: the pa
 
 **Right-click** anything on the page for what can be done there:
 
-- *Leave a task here…* and *Fix it by hand*;
+- *Leave a task here…*, *Ask a question here…* and *Fix it by hand*;
 - *Edit this text*, for a heading, a paragraph, a link or a button that holds only words: type the new words right on the page; **Enter** keeps them, **Esc** puts them back. **Double-click** the words does the same, as in the full editor;
 - *Add a box below…* or *Add a box beside…*: a new empty box, and the task box opens on it to say what should go there (Kaity fills it), or leave it empty;
 - *Delete this box…*, asked first: its code goes into the box before it;
