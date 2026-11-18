@@ -410,7 +410,7 @@ function closeTray() {
 
 const STATE_WORDS = {
   waiting: () => t('waiting'), now: () => t('now'), done: () => t('done'), answered: () => t('answered'),
-  'needs-you': () => t('needs you'), failed: () => t('not done'), off: () => t('off her list'),
+  'needs-you': () => t('needs you'), failed: () => t('not done'), unfinished: () => t('unfinished'), off: () => t('off her list'),
 };
 
 const where = (x, badge) => `<p class="where">${badge}<b>${esc(x.block)}</b><span>${esc(plainLabel(x.label))}</span></p>`;
@@ -515,6 +515,10 @@ function runCard(r) {
   } else if (r.state === 'failed') {
     body = `<p class="note">${esc(r.summary ?? '')}</p>`;
     actions = `${btn('again', t('Give it to her again'))}${btn('show', t('Show on the page'))}`;
+  } else if (r.state === 'unfinished') {
+    // she stopped for a passing reason and couldn't go on by herself: what she did stays, and she knows it
+    body = `<p class="note">${esc(t('Kaity stopped before she finished: {why}. What she did so far stays.', { why: plainStop(r.summary) }))}</p>`;
+    actions = `${btn('again', t('Continue'), 'primary')}${btn('show', t('Show on the page'))}`;
   } else {
     body = `<p class="note">${esc(r.undone ? t('Her work on it was undone.') : t('Off her list: the task stays open.'))}</p>`;
     actions = taskOf(r.n) && !taskOf(r.n).done ? btn('again', t('Give it to her again')) : '';
@@ -547,6 +551,7 @@ function renderTray() {
       ? (ai ? t('Watch it work, step by step. You can stop it at any time, and everything it does can be undone.') : t('TYKERF is opening the site, measuring it and cutting it into blocks. This usually takes under a minute.'))
       : S.job.state === 'stopped' ? (ai ? t('What Kaity built so far stays. Undo any step, or leave her tasks on the page.') : t('This unfinished page is being removed.'))
       : S.job.state === 'failed' ? `${S.job.error ?? ''} ${ai ? t('What Kaity built before that stays.') : t('The page stays empty: remove it, or try another address.')}`
+      : S.job.state === 'unfinished' ? t('Kaity stopped before she finished: {why}. What she built so far stays: Continue lets her go on.', { why: plainStop(S.job.error) })
       : ai ? (S.job.answer ?? '') : t('The copy is ready: click anything on it and say what should change.');
     tray.innerHTML = `<div class="head"><h2>${esc(jobTitle(S.job))}</h2><p class="how">${esc(sub)}</p></div>
       <ol class="jobsteps">${S.job.steps.map((s, i) => `<li class="${s.refused ? 'refused' : ''}${i === S.job.steps.length - 1 && S.job.state === 'running' ? ' now' : ''}">${s.refused ? `<b>${esc(t('Refused:'))}</b> ` : ''}${esc(ai ? s.text : t(s.text, s.vars ?? {}))}</li>`).join('') || `<li>${esc(t('Starting…'))}</li>`}</ol>`;
@@ -785,12 +790,16 @@ async function copyAll() {
   }
 }
 
+/** Why Kaity stopped, without the runner's "ask again" (the card or the bar has Continue). */
+const plainStop = (why) => String(why ?? '').replace(/; ask again to continue\.?$/, '');
+
 /** What the page's job is doing, or how it ended, in a few words. */
 function jobTitle(job) {
   const ai = job.kind === 'ai';
   return job.state === 'running' ? (ai ? t('Kaity is building {page}', { page: PAGE }) : t('Copying {site}', { site: job.site ?? '' }))
     : job.state === 'done' ? t('Your page is ready')
     : job.state === 'stopped' ? (ai ? t('Stopped') : t('Copy stopped'))
+    : job.state === 'unfinished' ? t('{page} is not finished', { page: PAGE })
     : t('Something went wrong');
 }
 
@@ -814,12 +823,13 @@ const bar = $('.bar');
 /** What Kaity's finished run comes to, in a few words: "2 done, 1 answered, 1 needs you". */
 function runSum(run) {
   const n = (s) => run.tasks.filter((x) => x.state === s && !x.undone && !x.seen).length;
-  const needs = n('needs-you'), failedN = n('failed'), waiting = n('waiting');
+  const needs = n('needs-you'), failedN = n('failed'), unfinishedN = n('unfinished'), waiting = n('waiting');
   return [
     n('done') && t('{n} done', { n: n('done') }),
     n('answered') && t('{n} answered', { n: n('answered') }),
     needs && (needs === 1 ? t('1 needs you') : t('{n} need you', { n: needs })),
     failedN && t('{n} not done', { n: failedN }),
+    unfinishedN && t('{n} unfinished', { n: unfinishedN }),
     waiting && t('{n} still waiting', { n: waiting }),
   ].filter(Boolean).join(', ') || t('nothing left to review');
 }
@@ -848,7 +858,8 @@ function renderBar() {
     const last = S.job.steps.at(-1);
     const step = last ? (ai ? last.text : t(last.text, last.vars ?? {})) : '';
     middle = `<div class="status" role="status">${kaityMark(going && ai)}<span>${esc(jobTitle(S.job))}</span>${going && step ? `<span class="chip">${esc(step)}</span>` : ''}</div>`;
-    actions = `${going ? `<button type="button" class="btn on" data-bar="job-stop">${esc(ai ? t('Stop Kaity') : t('Stop the copy'))}</button>` : `<button type="button" class="btn main" data-bar="job-seen">${esc(t('Got it'))}</button>`}
+    const goOn = S.job.state === 'unfinished' ? `<button type="button" class="btn main" data-bar="job-continue">${esc(t('Continue'))}</button>` : '';
+    actions = `${going ? `<button type="button" class="btn on" data-bar="job-stop">${esc(ai ? t('Stop Kaity') : t('Stop the copy'))}</button>` : `${goOn}<button type="button" class="btn${goOn ? '' : ' main'}" data-bar="job-seen">${esc(t('Got it'))}</button>`}
       <button type="button" class="btn" data-bar="tray" aria-expanded="${S.tray}">${esc(S.tray ? t('Hide the steps') : t('Show the steps'))}</button>${hideBtn}`;
   } else if (S.trying) {
     middle = `<div class="status" role="status"><span>${esc(t('Trying the page: it works as for a visitor. Links to other pages only say where they lead.'))}</span></div>`;
@@ -897,6 +908,7 @@ bar.addEventListener('click', async (e) => {
   if (act === 'done-trying') return doneTrying();
   if (act === 'done-fixing') return fix.close();
   if (act === 'job-stop') return api('/job/stop', {}).catch(failed);
+  if (act === 'job-continue') return api('/job/continue', {}).catch(failed);
   if (act === 'job-seen') {
     await api('/job/seen', {}).catch(failed);
     S.job = null;

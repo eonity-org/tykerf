@@ -95,7 +95,7 @@ describe('show or describe it', () => {
     expect(await page.locator('.convo .msg.check b').first().textContent()).toMatch(/^Kaity checks the \d+ things she left unfinished$/);
     expect(await page.locator('.convo .msg.user').textContent()).toContain('A page for our bakery in Murcia');
     expect(await page.locator('.convo [data-close]').count()).toBe(1); // to read: nothing is asked from here
-    expect(readFileSync(join(site, 'bakery', 'boxes', 'main.html'), 'utf8')).toContain('The short promise of your product');
+    expect(readFileSync(join(site, 'bakery', 'boxes', 'main.html'), 'utf8')).toContain('The main idea, in a few words');
     // Kaity started from an empty page: two boxes with no code, no sample text
     expect(readFileSync(join(site, 'bakery', 'layout.slice'), 'utf8')).toMatch(/^header\[role=header\] main\[role=main\]/);
     expect(readFileSync(join(site, 'bakery', 'boxes', 'header.html'), 'utf8').trim()).toBe('');
@@ -103,14 +103,15 @@ describe('show or describe it', () => {
     // what the model got: the words, the picture, and the brief for building a whole page
     const first = got[0];
     expect(first.system).toMatch(/This page was just made for this request/);
-    expect(first.system).toMatch(/list_layouts, then use_layout/);
+    expect(first.system).toMatch(/read list_layouts: pick the purpose whose description matches the page/);
+    expect(first.system).toMatch(/use_layout with purpose, frame, why .* and keep/);
     expect(first.system).toMatch(/The user left the theme to you/);
     expect(first.messages[0].content.map((c: any) => c.type)).toEqual(['text', 'image']);
     expect(first.messages[0].content[1].source.media_type).toBe('image/png');
     // and the pass over what the build left: the hero's sample text
     const fix = got[2].messages.at(-1).content[0].text;
     expect(fix).toMatch(/^These were left unfinished on the page:/);
-    expect(fix).toContain('main: placeholder text "The short promise of your product"');
+    expect(fix).toContain('main: placeholder text "The main idea, in a few words"');
   });
 
   it('builds the page from a design exported as a ZIP file: its pictures attached, its text files as reference', async () => {
@@ -163,6 +164,25 @@ describe('show or describe it', () => {
     await page.locator('[data-bar="job-stop"]').click();
     await expect.poll(() => page.locator('.bar .status').textContent(), { timeout: 10_000 }).toContain('Stopped');
     expect(await page.locator('.tray .how').textContent()).toMatch(/What Kaity built so far stays/);
+  });
+
+  it('says a page is not finished when the model stopped answering, and Continue lets her go on', async () => {
+    const { url } = await editor({ TYKERF_RUNNER: 'anthropic', TYKERF_API_KEY: 'k', TYKERF_API_BASE_URL: `http://127.0.0.1:${(api.address() as { port: number }).port}`, TYKERF_TURN_TIMEOUT: '0.5', TYKERF_RETRY_WAITS: '' });
+    replies.push({ ...message([{ type: 'text', text: 'too late' }], 'end_turn'), delay: 3000 } as any, message([{ type: 'text', text: 'All built.' }], 'end_turn'));
+    const r = await fetch(`${url}_tykerf/site/new`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ name: 'later', prompt: 'a page about later' }) }).then((x) => x.json());
+    expect(r.ok).toBe(true);
+    const page = await browser.newPage({ viewport: { width: 1280, height: 800 } });
+    await page.goto(`${url}_tykerf/edit/later/`);
+    await expect.poll(() => page.locator('.bar .status').textContent(), { timeout: 10_000 }).toContain('later is not finished');
+    expect(await page.locator('.tray .how').textContent()).toBe('Kaity stopped before she finished: the model did not answer within 1 second. What she built so far stays: Continue lets her go on.');
+    const asked = got.length;
+    await page.locator('[data-bar="job-continue"]').click();
+    await expect.poll(() => page.locator('.bar .status').textContent(), { timeout: 10_000 }).toContain('Your page is ready');
+    expect(await page.locator('.tray .how').textContent()).toBe('All built.');
+    // she went on with the same instructions (the build brief) and knew she had been stopped
+    expect(got[asked].system).toMatch(/This page was just made for this request/);
+    expect(JSON.stringify(got[asked].messages)).toContain('I was stopped here');
+    expect((await fetch(`${url}later/_tykerf/job/continue`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}' })).status).toBe(409);
   });
 
   it('shows where Kaity works: on the site\'s Kaity screen, and on the block in the full editor\'s tree', async () => {
@@ -316,7 +336,7 @@ describe('a page Kaity builds', () => {
     const call = (id: string, name: string, input: unknown) => ({ ...message([{ type: 'tool_use', id, name, input }]), delay: 1500 }) as any;
     replies.splice(0);
     replies.push(
-      call('b1', 'use_layout', { name: 'blank' }),
+      call('b1', 'use_layout', { name: 'blank', why: 'a test page' }),
       call('b2', 'set_content', { id: 'text', html: '<h1>Fresh bread every morning</h1>' }),
       call('b3', 'set_content', { id: 'nav', html: '<nav><a href="#">Page one</a></nav>' }),
       { ...message([{ type: 'text', text: 'built' }], 'end_turn'), delay: 1500 } as any,

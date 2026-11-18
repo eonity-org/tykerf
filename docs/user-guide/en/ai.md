@@ -79,7 +79,7 @@ Kaity can use one of three runners, chosen with `TYKERF_RUNNER` in a `.env` file
 Every runner gets the same tools, the same limit to the selected block, the same history and undo, and screenshots of its work. Notes on each:
 
 - **claude-code:** TYKERF passes its environment on to Claude Code. So `ANTHROPIC_BASE_URL` and `ANTHROPIC_AUTH_TOKEN` in `.env` also send Claude Code to that endpoint (a proxy, for example). Use the `TYKERF_*` names when only the `anthropic` runner should use a key.
-- **anthropic and gemini:** TYKERF runs the conversation itself and keeps the model's side of it per block, in `.tykerf/chats/<block>.api.json`. Old screenshots are dropped once the model has seen them, and the oldest requests go when the conversation grows long. A request stops after 40 steps; ask again to continue.
+- **anthropic and gemini:** TYKERF runs the conversation itself and keeps the model's side of it per block, in `.tykerf/chats/<block>.api.json`. Old screenshots are dropped once the model has seen them, and the oldest requests go when the conversation grows long. A request that stops (after 40 steps, or because the model service is slow or busy) goes on by itself while she is getting somewhere; otherwise it ends unfinished, and **Continue** lets her go on.
 - **Changing runner:** after a change of `TYKERF_RUNNER`, a block's next request starts a fresh conversation for the model. The conversation you read stays.
 
 A hosted TYKERF server will use these runners with its own key; see the [roadmap](../../../ROADMAP.md).

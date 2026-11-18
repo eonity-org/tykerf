@@ -390,7 +390,7 @@ const kaityScreen = {
     const [chat, work] = await Promise.all([request('/_tykerf/site/chat'), request('/_tykerf/site/kaity')]);
     const msgs = chat.messages.filter((m) => m.role !== 'step').slice(-12);
     const steps = chat.messages.filter((m) => m.role === 'step');
-    const runWord = { working: t('Working'), done: t('Done'), failed: t('Failed'), stopped: t('Stopped'), 'cut short': t('Cut short: TYKERF stopped while she worked') };
+    const runWord = { working: t('Working'), done: t('Done'), failed: t('Failed'), stopped: t('Stopped'), unfinished: t('Unfinished: ask her to continue'), 'cut short': t('Cut short: TYKERF stopped while she worked') };
     const pages = [...new Set(work.runs.map((r) => r.page).filter(Boolean))];
     const runs = work.runs.filter((r) => workFilter === 'all' || (workFilter === 'site' ? !r.page : r.page === workFilter));
     const going = work.runs.filter((r) => r.state === 'working').length;
@@ -641,7 +641,7 @@ const newScreen = {
     // Like a page: the page the screen was opened from, else the home page
     const from = new URLSearchParams(location.search).get('from');
     const likeFirst = taken.includes(from) ? from : taken.includes(site.home) ? site.home : taken[0] ?? '';
-    draft ??= { like: likeFirst, name: `page-${n}`, prompt: '', images: [], zip: null, layout: layouts.some((l) => l.name === 'launch') ? 'launch' : layouts[0].name, url: '', structureOnly: false, shared: true, theme: themes.some((x) => x.name === 'studio') ? 'studio' : themes[0].name };
+    draft ??= { like: likeFirst, name: `page-${n}`, prompt: '', images: [], zip: null, layout: layouts[0].name, url: '', structureOnly: false, shared: true, theme: themes.some((x) => x.name === 'studio') ? 'studio' : themes[0].name };
     if (!taken.includes(draft.like)) draft.like = likeFirst;
     const L = () => layouts.find((l) => l.name === draft.layout);
     const draw = () => {
@@ -653,7 +653,7 @@ const newScreen = {
         <div class="np-top">
           <form class="np-kaity" data-np="kaity">
             <label class="fxlabel" for="np-prompt">${esc(t('Describe it'))}</label>
-            <textarea id="np-prompt" name="prompt" rows="4" placeholder="${esc(t('e.g. A launch page for our bakery in Murcia: warm and simple, our three best breads, opening hours and a map'))}">${esc(draft.prompt)}</textarea>
+            <textarea id="np-prompt" name="prompt" rows="4" placeholder="${esc(t('e.g. A page for our bakery in Murcia: warm and simple, our three best breads, opening hours and a map'))}">${esc(draft.prompt)}</textarea>
             <div class="np-drop" tabindex="0" role="button" aria-label="${esc(t('Add images'))}">
               <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2.5"/><circle cx="9" cy="10" r="1.8"/><path d="m4 18 5-5 4 4 3-3 4 4"/></svg>
               <p><b>${esc(t('Show it.'))}</b> ${esc(t('Drop or paste up to 3 images (a screenshot of a page you like, a sketch, a mock-up) or a design exported as a ZIP file.'))}</p>

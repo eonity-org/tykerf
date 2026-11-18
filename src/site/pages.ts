@@ -8,7 +8,7 @@ import { type Layout, type Node, find, isOp, walk } from '../model.js';
 import * as M from '../moves.js';
 import { serializeSlice } from '../notation.js';
 import { FolderStore } from '../store.js';
-import { DEFAULT_THEME, componentCode, copyBehaviours, createPage, hasTheme, pageLayouts, readTheme, themes, withFonts, withOverrides } from '../library.js';
+import { DEFAULT_THEME, EMPTY_LAYOUT, componentCode, copyBehaviours, createPage, hasTheme, layoutShared, pageLayout, pageLayouts, readTheme, themes, withFonts, withOverrides } from '../library.js';
 import { Workspace } from '../workspace.js';
 import { kitList, kitRead, kitWrite } from '../kit.js';
 import { readSite, writeSite, setHome, pageTitle } from './settings.js';
@@ -88,14 +88,16 @@ export function pageNameError(dir: string, name: string): string | null {
  * sharing the preset's theme with this first page; an older site whose pages each have their own
  * theme gets one more page with its own. The site's first page becomes its home page.
  */
-export function newSitePage(dir: string, name: string, layout = 'blank', themeName = DEFAULT_THEME, opts: { shared?: boolean } = {}): Workspace {
+export function newSitePage(dir: string, name: string, layout = 'blank', themeName = DEFAULT_THEME, opts: { shared?: boolean; keep?: string[] } = {}): Workspace {
   const err = pageNameError(dir, name);
   if (err) throw new Error(err);
+  // a layout or sections that don't exist: refused before anything is written
+  if (layout !== EMPTY_LAYOUT) pageLayout(layout, opts.keep);
   const first = !sitePages(dir).length;
   const fresh = first && !siteStore(dir).exists(SITE_HEAD);
   const ws = pageWorkspace(dir, name);
   const shared = hasTheme(siteHead(dir)) || fresh;
-  createPage(ws, layout, themeName, { ownTheme: !shared });
+  createPage(ws, layout, themeName, { ownTheme: !shared, keep: opts.keep });
   if (fresh) startSiteTheme(dir, themeName);
   // a site's first page is its home: the site's address opens it
   if (first && !readSite(dir).home) setHome(dir, name);
@@ -112,7 +114,7 @@ export function newSitePage(dir: string, name: string, layout = 'blank', themeNa
  * Written as the page's starting point: a new page starts with nothing to undo. Returns the blocks linked.
  */
 function linkSharedBoxes(dir: string, ws: Workspace, layout: string): string[] {
-  const declared = new Set(pageLayouts().find((p) => p.name === layout)?.shared ?? []);
+  const declared = new Set(layoutShared(layout));
   const blocks = new Set(kitList(dir).blocks);
   const start = ws.load();
   let l = start;

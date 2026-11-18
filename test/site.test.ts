@@ -151,13 +151,29 @@ describe('sites', () => {
     // Kaity's new_page says which blocks the page shows; shared: false, none
     const { openTools } = await import('../src/editor/tools-client.js');
     const run = await openTools(home, '', dir);
-    expect((await run.call('new_page', { name: 'shop', layout: 'catalogue' })).text).toMatch(/^ok: new page "shop" from the catalogue layout, it uses the theme the site's pages share; it shows the site's shared blocks nav, footer, the same on every page/);
-    expect((await run.call('new_page', { name: 'shop2', layout: 'catalogue', shared: false })).text).not.toMatch(/shared block/);
+    expect((await run.call('new_page', { name: 'shop', layout: 'catalogue', why: 'a test page' })).text).toMatch(/^ok: new page "shop" from the catalogue layout, it uses the theme the site's pages share; it shows the site's shared blocks nav, footer, the same on every page/);
+    expect((await run.call('new_page', { name: 'shop2', layout: 'catalogue', why: 'a test page', shared: false })).text).not.toMatch(/shared block/);
     // use_layout on a page of the site: its navigation and footer show the site's blocks, in the same undo step
     await run.call('open_page', { name: 'own' });
-    expect((await run.call('use_layout', { name: 'launch' })).text).toMatch(/^ok: the page now follows the launch layout; nav, footer show the site's shared blocks of that name/);
+    expect((await run.call('use_layout', { name: 'launch', why: 'a test page' })).text).toMatch(/^ok: the page now follows the launch layout; nav, footer show the site's shared blocks of that name/);
     expect([pageWorkspace(dir, 'own').sharedBlock('nav'), pageWorkspace(dir, 'own').sharedBlock('footer')]).toEqual(['nav', 'footer']);
     expect(pageWorkspace(dir, 'own').history(1)[0].label).toBe('use layout launch');
+    await run.close();
+  });
+
+  it('a preset Kaity applies to the site\'s only page becomes the site theme, named after the preset', async () => {
+    const dir = tmp();
+    const home = newSitePage(dir, 'home', 'empty', 'studio');
+    expect(siteHead(dir)).toMatch(/data-tykerf-preset="studio"/);
+    const { openTools } = await import('../src/editor/tools-client.js');
+    const run = await openTools(home, home.load().root.id);
+    // with the layout, as New page builds do: the values and the name the Page tab shows both follow
+    expect((await run.call('use_layout', { name: 'blank', why: 'a test page', theme: 'warm' })).text).toMatch(/^ok: the page now follows the blank layout; the site theme now follows the warm preset/);
+    expect(readTheme(siteHead(dir))['--font-heading']).toBe('"Playfair Display", Georgia, serif');
+    expect(siteHead(dir)).toMatch(/data-tykerf-preset="warm"/);
+    // and with use_theme
+    expect((await run.call('use_theme', { name: 'ivory' })).text).toMatch(/^site theme now follows the ivory preset/);
+    expect(siteHead(dir)).toMatch(/data-tykerf-preset="ivory"/);
     await run.close();
   });
 

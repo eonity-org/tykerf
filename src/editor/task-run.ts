@@ -14,7 +14,8 @@ import type { AI, Attachment, RunEnd } from './ai.js';
 import { runId } from './kaity-log.js';
 import type { Workspace } from '../workspace.js';
 
-export type TaskState = 'waiting' | 'now' | 'done' | 'answered' | 'needs-you' | 'failed' | 'off';
+/** `unfinished`: she stopped for a passing reason (too many steps, a slow or busy model) and couldn't go on by herself; Continue gives it back to her. */
+export type TaskState = 'waiting' | 'now' | 'done' | 'answered' | 'needs-you' | 'failed' | 'unfinished' | 'off';
 
 export interface RunTask {
   n: number;
@@ -141,7 +142,7 @@ export class TaskRun {
     const run = this.cur ?? { key: runId(), since: new Date().toISOString(), running: false, tasks: [] };
     for (const x of given) {
       const t = run.tasks.find((y) => y.n === x.n);
-      if (t && t.state !== 'off' && t.state !== 'failed' && !t.undone) continue;
+      if (t && t.state !== 'off' && t.state !== 'failed' && t.state !== 'unfinished' && !t.undone) continue;
       const fresh: RunTask = { n: x.n, state: 'waiting', block: x.block, text: x.text, ...(x.kind === 'question' ? { question: true as const } : {}), steps: 0 };
       if (t) run.tasks.splice(run.tasks.indexOf(t), 1);
       run.tasks.push(fresh);
@@ -281,6 +282,7 @@ export class TaskRun {
       delete t.asked;
       delete t.answer;
     } else if (asked) Object.assign(t, { state: 'needs-you', asked });
+    else if (r.unfinished && x) Object.assign(t, { state: 'unfinished', summary: r.error });
     else if (r.failed || !x) Object.assign(t, { state: 'failed', summary: r.error || 'the task was removed' });
     // she neither closed it nor asked: what she said is what she needs from the person
     else Object.assign(t, { state: 'needs-you', asked: r.answer });

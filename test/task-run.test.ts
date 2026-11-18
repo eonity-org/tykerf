@@ -3,7 +3,7 @@
 // task's work back on its own (Workspace.revertTagged), and the MCP tools' tag, read-only mode and ask_person.
 
 import { describe, expect, it, vi } from 'vitest';
-import { AI, type RunEvents, type RunRequest, type Runner } from '../src/editor/ai.js';
+import { AI, type RunEvents, type RunRequest, type Runner, type StopReason } from '../src/editor/ai.js';
 import { TaskRun } from '../src/editor/task-run.js';
 import { type Tools, openTools } from '../src/editor/tools-client.js';
 import { createPage } from '../src/library.js';
@@ -154,7 +154,7 @@ describe('the MCP tools in a task run', () => {
  * A runner that does what the script says for each request ("Task 1:", "Question 3:"…), through the real tools of
  * the run (its scope, tag and read-only mode), then answers. A script that waits for `stopped` runs until cancelled.
  */
-function scripted(scripts: Record<string, (t: Tools, stopped: Promise<void>) => Promise<string | void>>) {
+function scripted(scripts: Record<string, (t: Tools, stopped: Promise<void>) => Promise<string | void | { stop: StopReason; text: string }>>) {
   const reqs: RunRequest[] = [];
   const runner: Runner = {
     start(req: RunRequest, on: RunEvents) {
@@ -169,6 +169,7 @@ function scripted(scripts: Record<string, (t: Tools, stopped: Promise<void>) => 
           on.step('get layout');
           const answer = key ? await scripts[key](tools, stopped) : undefined;
           if (cancelled) on.error('stopped');
+          else if (answer && typeof answer === 'object') on.error(answer.text, answer.stop);
           else on.answer(answer || 'done');
         } finally {
           await tools.close();
@@ -282,6 +283,33 @@ describe('Kaity working through the tasks', () => {
     await until(() => !run2.state()!.running);
     expect(reqs.map((r) => r.prompt.split(':')[0])).toEqual(['Task 1', 'Task 2']);
     expect(tasks(ws, { open: true })).toEqual([]);
+  });
+
+  it('marks a task she stopped on without getting anywhere as unfinished; Continue gives it back and she finishes', async () => {
+    const ws = landing();
+    addTask(ws, { block: 'hero', text: 'Rewrite the hero' });
+    addTask(ws, { block: 'cta', text: 'Then the call to action' });
+    let tries = 0;
+    const { runner, reqs } = scripted({
+      'Task 1:': async (t) => {
+        if (tries++ === 0) return { stop: 'timeout', text: 'the model did not answer within 3 minutes; ask again to continue' };
+        await t.call('set_content', { id: 'hero', html: '<h1>New</h1>' });
+        await t.call('close_task', { n: 1, reply: 'Rewrote it.' });
+      },
+      'Task 2:': async (t) => void (await t.call('close_task', { n: 2, reply: 'Done too.' })),
+    });
+    const run = new TaskRun(ws, new AI(ws, () => {}, runner), () => {}, { shots: false });
+    run.start([1, 2]);
+    await until(() => !run.state()!.running);
+    // nothing changed in that stretch, so she didn't go on by herself; the next task went on
+    expect(run.state()!.tasks.map((t) => [t.n, t.state, t.summary])).toEqual([
+      [1, 'unfinished', 'the model did not answer within 3 minutes; ask again to continue'],
+      [2, 'done', 'Done too.'],
+    ]);
+    run.start([1]);
+    await until(() => !run.state()!.running);
+    expect(run.state()!.tasks.find((t) => t.n === 1)).toMatchObject({ state: 'done', summary: 'Rewrote it.' });
+    expect(reqs.map((r) => r.prompt.split(':')[0])).toEqual(['Task 1', 'Task 2', 'Task 1']);
   });
 
   it('marks a task she neither closed nor asked about as needing the person, with what she said', async () => {

@@ -7,7 +7,7 @@
 // has seen them), and the oldest exchanges go when the conversation grows too long, so a block's
 // conversation can go on for a long time without growing without bound.
 
-import type { Attachment, RunEvents, RunRequest } from '../ai.js';
+import type { Attachment, RunEvents, RunRequest, StopReason } from '../ai.js';
 import { step, stepAt } from '../ai.js';
 import { type ToolDef, type ToolOutput, type Tools, openTools } from '../tools-client.js';
 
@@ -24,6 +24,35 @@ export const TURN_TIMEOUT = 180_000;
 
 /** The turn limit from the environment (TYKERF_TURN_TIMEOUT, in seconds), or the default. */
 export const turnTimeout = (env: NodeJS.ProcessEnv) => Number(env.TYKERF_TURN_TIMEOUT) * 1000 || TURN_TIMEOUT;
+
+/** How long to wait before each new try of a turn that failed for a passing reason (a timeout, a busy or unreachable API). */
+export const RETRY_WAITS = [10_000, 30_000, 90_000];
+/** The waits from the environment (TYKERF_RETRY_WAITS, seconds separated by commas; "0" or "" = no retries), or the default. */
+export function retryWaits(env: NodeJS.ProcessEnv): number[] {
+  const raw = env.TYKERF_RETRY_WAITS;
+  if (raw === undefined) return RETRY_WAITS;
+  return raw.split(',').map((x) => Number(x.trim()) * 1000).filter((ms) => ms > 0);
+}
+/** The longest wait a service may ask for (Retry-After) that is honoured; past it, the run stops and continues later. */
+const MAX_WAIT = 120_000;
+
+/** What the model is told it said when a run stopped before it finished: the conversation stays valid, and it knows. */
+export const STOPPED_HERE = '(I was stopped here, before I finished the request.)';
+
+/** A run that stopped, with why: the editor continues it on its own when the reason passes (ai.ts). */
+class Stop extends Error {
+  constructor(message: string, readonly reason: StopReason) {
+    super(message);
+  }
+}
+
+/** Wait, unless the run is stopped meanwhile. */
+const pause = (ms: number, signal: AbortSignal) => new Promise<void>((ok, fail) => {
+  if (signal.aborted) return fail(new DOMException('stopped', 'AbortError'));
+  const timer = setTimeout(() => (signal.removeEventListener('abort', off), ok()), ms);
+  const off = () => (clearTimeout(timer), fail(new DOMException('stopped', 'AbortError')));
+  signal.addEventListener('abort', off, { once: true });
+});
 
 /** What the chat says when the model took longer than the limit. */
 export function timedOut(ms: number): string {
@@ -50,6 +79,10 @@ export interface Wire<M> {
   withoutImages(m: M): M;
   /** A readable message for a failed request (wrong key, rate limit, no network). */
   error(e: unknown): string;
+  /** Whether a failed request may work if tried again (busy, rate-limited, unreachable): null when it won't (a refused key, an unknown model); `wait` is what the service asked for (ms). */
+  retry(e: unknown): { wait?: number } | null;
+  /** A message in the model's own voice (used to close a conversation that was stopped). */
+  assistant(text: string): M;
 }
 
 interface Memory<M> {
@@ -64,34 +97,37 @@ export function trim<M>(exchanges: M[][], max = MAX_MEMORY): M[][] {
   return out;
 }
 
-export function runLoop<M>(runner: string, wire: Wire<M>, req: RunRequest, on: RunEvents, limit = TURN_TIMEOUT): { cancel(): void } {
+export function runLoop<M>(runner: string, wire: Wire<M>, req: RunRequest, on: RunEvents, limit = TURN_TIMEOUT, waits = RETRY_WAITS): { cancel(): void } {
   const abort = new AbortController();
   (async () => {
     let tools: Tools | null = null;
-    let late: AbortSignal | null = null;
+    // what has been said so far, kept whatever ends the run: a run stopped half-way is continued knowing what it did
+    let kept: (() => void) | null = null;
     try {
       tools = await openTools(req.ws, req.scope, req.home, { tag: req.tag, readOnly: req.readOnly });
       const saved = req.memory.load() as Memory<M> | null;
       const past = saved?.runner === runner ? saved.exchanges : [];
       const now: M[] = [wire.user(req.prompt, req.images)];
-      const keep = () => req.memory.save({ runner, exchanges: trim([...past, now.map((m) => wire.withoutImages(m))]) } satisfies Memory<M>);
+      const save = (exchange: M[]) => req.memory.save({ runner, exchanges: trim([...past, exchange.map((m) => wire.withoutImages(m))]) } satisfies Memory<M>);
+      const keep = () => save(now);
+      // up to the last whole round (never calls without their results), closed by the model saying it was stopped
+      let whole = now.length;
+      kept = () => save([...now.slice(0, whole), wire.assistant(STOPPED_HERE)]);
+      kept();
       let steps = 0;
       for (;;) {
-        late = AbortSignal.timeout(limit);
-        const r = await wire.turn([...past.flat(), ...now], req.system, tools.list, AbortSignal.any([abort.signal, late]));
-        late = null;
+        const r = await turn(wire, [...past.flat(), ...now], req.system, tools.list, abort.signal, limit, waits, on);
         now.push(r.message);
         if (!r.calls.length) {
           keep();
+          kept = null;
           on.answer(r.text.trim() || '(done)');
           break;
         }
         if (steps + r.calls.length > MAX_STEPS) {
           // the conversation must not end on calls without results: keep it up to the last answer
           now.pop();
-          keep();
-          on.error(`stopped after ${steps} steps; ask again to continue`);
-          break;
+          throw new Stop(`stopped after ${steps} steps; ask again to continue`, 'limit');
         }
         // a reply cut off at the length limit: its last call is incomplete (its arguments may be missing). Every call
         // gets the reason back instead of running, so the model can do it in smaller pieces
@@ -111,13 +147,40 @@ export function runLoop<M>(runner: string, wire: Wire<M>, req: RunRequest, on: R
         }
         steps += r.calls.length;
         now.push(...wire.results(r.calls, outputs));
+        whole = now.length;
+        kept();
       }
     } catch (e) {
-      on.error(abort.signal.aborted ? 'stopped' : late?.aborted ? timedOut(limit) : wire.error(e));
+      kept?.();
+      if (abort.signal.aborted) on.error('stopped', 'stopped');
+      else if (e instanceof Stop) on.error(e.message, e.reason);
+      else on.error(wire.error(e), wire.retry(e) ? 'transient' : 'permanent');
     } finally {
       await tools?.close().catch(() => {});
       on.end();
     }
   })();
   return { cancel: () => abort.abort() };
+}
+
+/**
+ * One model turn, tried again after a wait when it fails for a passing reason (no answer in time, a busy or
+ * rate-limited service, no connection): each new try is said in the conversation, so people see why it waits.
+ */
+async function turn<M>(wire: Wire<M>, history: M[], system: string, tools: ToolDef[], stop: AbortSignal, limit: number, waits: number[], on: RunEvents) {
+  for (let tried = 0; ; tried++) {
+    const late = AbortSignal.timeout(limit);
+    try {
+      return await wire.turn(history, system, tools, AbortSignal.any([stop, late]));
+    } catch (e) {
+      if (stop.aborted) throw e;
+      const slow = late.aborted;
+      const again = slow ? {} : wire.retry(e);
+      if (!again) throw e;
+      if (tried >= waits.length) throw slow ? new Stop(timedOut(limit), 'timeout') : new Stop(wire.error(e), 'transient');
+      const wait = Math.min(Math.max(waits[tried], again.wait ?? 0), MAX_WAIT);
+      on.retry?.(`${slow ? 'the model did not answer in time' : wire.error(e)}; trying again in ${Math.round(wait / 1000)} s (${tried + 1} of ${waits.length})`);
+      await pause(wait, stop);
+    }
+  }
 }

@@ -19,7 +19,7 @@ import { SUGGESTIONS, type Suggestion, closeTask, sayTask, tasks } from '../task
 import { type KitKind, blockSlots, kitClasses, kitFonts, kitLibraryScripts, kitList, kitRead, kitTags, kitWarning, kitWrite } from '../kit.js';
 import { removeMediaFile, siteMedia } from '../site.js';
 import { HOME_PAGE, blockUsers, linkBlock, newSitePage, pageTitle, pagesWithOwnTheme, pageWorkspace, readSite, setLang, setTitle, shareTheme, removePage, renamePage, shareBlock, movedFiles, siteHead, siteKind, unlinkBlock, unsafeSVG, siteOf, sitePages, usePage } from '../site.js';
-import { DEFAULT_THEME, behavioursIn, componentCode, copyBehaviours, components, createPage, fontWarning, hasTheme, libraryBehaviours, pageLayouts, readOverrides, readTheme, setTheme, themeTarget, themes, useComponent, useLayout } from '../library.js';
+import { DEFAULT_THEME, behavioursIn, componentCode, copyBehaviours, components, createPage, fontWarning, hasTheme, DEFAULT_FRAME, frames, layoutSections, layoutShared, libraryBehaviours, pageLayout, pageLayouts, purposes, readOverrides, readTheme, setTheme, themeTarget, themes, useComponent, useLayout } from '../library.js';
 import { FolderStore, MemoryStore } from '../store.js';
 import { Workspace } from '../workspace.js';
 import { addFile, readSource } from '../files.js';
@@ -150,6 +150,43 @@ function linkedBoxes(ws: Workspace): [string, string][] {
 }
 
 /** The shared blocks a page shows, for a reply: "" or "; it shows the site's shared blocks nav, footer (…)". */
+/** What a layout is, for list_layouts: its description, then its sections from its components (so the list can't drift from the layout). */
+function layoutEntry(p: ReturnType<typeof pageLayouts>[number]): string {
+  const about = new Map(components().map((c) => [c.name, c.description]));
+  const sections = layoutSections(p).map((b) => `${b} (${about.get(p.boxes[b]) ?? p.boxes[b]})`);
+  return [`${p.name}: ${p.label}. ${p.description}`, `  sections: ${sections.join('; ')}`, ...(p.shared?.length ? [`  on every page of a site: ${p.shared.join(', ')}`] : [])].join('\n');
+}
+/** What a frame or a purpose is, for list_layouts. */
+function frameEntry(f: ReturnType<typeof frames>[number]): string {
+  const t = pageLayout(f.name);
+  const own = layoutSections(t).filter((b) => b !== 'body');
+  return [`${f.name}: ${f.label}. ${f.description}`, `  around the body: ${own.length ? own.join(', ') : 'nothing'}${t.shared?.length ? `; on every page of a site: ${t.shared.join(', ')}` : ''}`].join('\n');
+}
+function purposeEntry(p: ReturnType<typeof purposes>[number]): string {
+  const about = new Map(components().map((c) => [c.name, c.description]));
+  return [`${p.name}: ${p.label}. ${p.description}`, `  sections: ${p.sections.map((s) => `${s.box} (${about.get(s.component) ?? s.component})`).join('; ')}`].join('\n');
+}
+/** A layout named by frame and purpose (use_layout, new_page), or by its own name. */
+function layoutName(a: { name?: string; frame?: string; purpose?: string }): string {
+  if (a.name && (a.frame || a.purpose)) throw new Error('give a layout name, or a frame and a purpose, not both');
+  if (a.name) return a.name;
+  if (!a.frame && !a.purpose) throw new Error(`give a purpose (list_layouts), with a frame (default ${DEFAULT_FRAME}), or a layout name`);
+  return a.purpose ? `${a.frame ?? DEFAULT_FRAME}+${a.purpose}` : a.frame!;
+}
+
+/** The inputs that make a layout a choice: why it fits, and which of its sections the page needs. */
+const LAYOUT_CHOICE = {
+  keep: z.array(z.string()).optional().describe('the layout\'s sections this page needs (list_layouts lists them); the others are not made, and the shared navigation and footer always stay. Leave out a section the request doesn\'t call for rather than filling it with made-up content. Without keep, every section is made'),
+};
+const WHY = 'why this layout fits: who the page is for, what a visitor should do there, and which sections the request needs';
+/** What a layout made with keep left out, for the reply. */
+function leftOut(name: string, keep?: string[]): string {
+  if (!keep) return '';
+  const all = layoutSections(pageLayout(name));
+  const out = all.filter((s) => !keep.includes(s));
+  return out.length ? ` (left out: ${out.join(', ')})` : '';
+}
+
 function sharedSay(linked: [string, string][]): string {
   if (!linked.length) return '';
   const names = linked.map(([box, use]) => (box === use ? box : `${use} (in ${box})`)).join(', ');
@@ -163,7 +200,7 @@ function sharedSay(linked: [string, string][]): string {
 function shareLayoutBoxes(site: string, ws: Workspace, layout: string, author: string): string {
   const blocks = new Set(kitList(site).blocks);
   const linked: string[] = [], made: string[] = [];
-  for (const box of pageLayouts().find((p) => p.name === layout)?.shared ?? []) {
+  for (const box of layoutShared(layout)) {
     const n = find(ws.load().root, box)?.node;
     if (n?.type !== 'leaf' || n.use) continue;
     if (blocks.has(box)) linkBlock(site, ws, box, box, author), linked.push(box);
@@ -410,20 +447,31 @@ export function createTykerfServer(start: Workspace | null, opts: TykerfServerOp
     const p = themes().find((t) => t.name === name);
     if (!p) throw new Error(`unknown theme "${name}" (known: ${themes().map((t) => t.name).join(', ')})`);
     const where = themeTarget(ws);
-    const changed = setTheme(ws, p.values, 'ai');
+    const changed = setTheme(ws, p.values, 'ai', name);
     const n = Object.keys(changed).length;
     return n ? `${where === 'site' ? 'site theme' : where === 'override' ? 'this page\'s own theme values' : 'theme'} now follows the ${name} preset (${n} values changed)` : `the theme already follows the ${name} preset`;
   })));
 
-  server.registerTool('list_layouts', { title: 'List page layouts', annotations: READ, description: 'Page layouts: whole ready-made pages (a tree of blocks, each filled with a component and placeholder text), for starting or restarting a page with use_layout.' },
-    guard(() => pageLayouts().map((p) => `${p.name}: ${p.label}. ${p.description}`).join('\n')));
+  server.registerTool('list_layouts', { title: 'List page layouts', annotations: READ, description: 'How to start or restart a page with use_layout. Purposes: the sections a kind of page needs (a place, a person, an event...). Frames: what holds the page (a navigation bar, a side menu, a footer). A page is a purpose in a frame. Each says what it is for and not for: choose by the page the request describes, not by how much one has. Then the older ready-made layouts.' },
+    guard(() => ['Purposes (use_layout purpose):', ...purposes().map(purposeEntry), '', `Frames (use_layout frame; default ${DEFAULT_FRAME}):`, ...frames().map(frameEntry), '', 'Ready-made layouts (use_layout name):', ...pageLayouts().map(layoutEntry)].join('\n')));
 
   server.registerTool('use_layout', {
     title: 'Replace the page with a layout', annotations: REPLACE,
     description: 'Replace the WHOLE page with a page layout (see list_layouts): its blocks, each with a component and placeholder text to rewrite. Everything the page held is replaced (the theme stays); undo brings it back. Only when the scope is the whole page. One undo step. ' +
+      'First decide what the page is for and which sections it needs; say why the layout fits (why), and keep only those sections (keep). ' +
       `In an empty or new folder, it starts a site there with this page as its home page ("${HOME_PAGE}"), with the theme given (see list_themes).`,
-    inputSchema: { name: z.string().describe('layout name from list_layouts'), theme: z.string().optional().describe(`theme preset from list_themes, for a new page only (default ${DEFAULT_THEME})`) },
-  }, guard(({ name, theme: themeName }: { name: string; theme?: string }) => {
+    inputSchema: {
+      purpose: z.string().optional().describe('purpose from list_layouts: the sections this kind of page needs'),
+      frame: z.string().optional().describe(`frame from list_layouts: what holds the page (default ${DEFAULT_FRAME})`),
+      name: z.string().optional().describe('a ready-made layout from list_layouts, instead of a purpose and a frame'),
+      why: z.string().describe(WHY), ...LAYOUT_CHOICE,
+      theme: z.string().optional().describe(`theme preset from list_themes (a new page: default ${DEFAULT_THEME}; an existing page: applied as use_theme does, in the same undo step)`),
+    },
+  }, guard((a: { name?: string; frame?: string; purpose?: string; why: string; keep?: string[]; theme?: string }) => {
+    const { keep, theme: themeName } = a;
+    const name = layoutName(a);
+    pageLayout(name, keep); // an unknown layout or section: refused before anything changes
+    const left = leftOut(name, keep);
     if (!ws.store.exists('layout.slice')) {
       if (runScope) throw new Error('refused: there is no page here yet, and this run may only change one block of one');
       // a page right in a site folder would hide the site's pages
@@ -433,25 +481,31 @@ export function createTykerfServer(start: Workspace | null, opts: TykerfServerOp
         // every page is in a site: the folder becomes one, and this page its home
         const site = ws.dir;
         mkdirSync(site, { recursive: true });
-        ws = newSitePage(site, HOME_PAGE, name, themeName ?? DEFAULT_THEME);
+        ws = newSitePage(site, HOME_PAGE, name, themeName ?? DEFAULT_THEME, { keep });
         if (!runScope) home = site;
-        return `ok: a new site in ${site}, with its home page "${HOME_PAGE}" from the ${name} layout with the ${themeName ?? DEFAULT_THEME} theme${sharedSay(linkedBoxes(ws))}; the page is open. Rewrite every box's placeholder text for this page\n\n${outline(ws.load())}`;
+        return `ok: a new site in ${site}, with its home page "${HOME_PAGE}" from the ${name} layout${left} with the ${themeName ?? DEFAULT_THEME} theme${sharedSay(linkedBoxes(ws))}; the page is open. Rewrite every box's placeholder text for this page\n\n${outline(ws.load())}`;
       }
       return ws.transaction(() => {
-        createPage(ws, name, themeName ?? DEFAULT_THEME);
-        return `ok: a new page from the ${name} layout with the ${themeName ?? DEFAULT_THEME} theme; rewrite every box's placeholder text for this page\n\n${outline(ws.load())}`;
+        createPage(ws, name, themeName ?? DEFAULT_THEME, { keep });
+        return `ok: a new page from the ${name} layout${left} with the ${themeName ?? DEFAULT_THEME} theme; rewrite every box's placeholder text for this page\n\n${outline(ws.load())}`;
       });
     }
     return ws.transaction(() => {
       const l = ws.load();
       const sc = scope(l);
       if (sc && sc !== l.root.id) throw new Error(`refused: a layout replaces the whole page, and the scope is "${sc}". Ask the user to select the page block ("${l.root.id}").`);
+      // a theme given here is applied too (models pass it rather than calling use_theme after)
+      const preset = themeName ? themes().find((t) => t.name === themeName) : undefined;
+      if (themeName && !preset) throw new Error(`unknown theme "${themeName}" (known: ${themes().map((t) => t.name).join(', ')})`);
+      const where = preset ? themeTarget(ws) : null;
       // on a page of a site, the layout's navigation and footer are the site's: linked, or made shared (one step)
       const said = ws.group(`use layout ${name}`, 'ai', () => {
-        useLayout(ws, name, 'ai');
+        useLayout(ws, name, 'ai', keep);
+        if (preset) setTheme(ws, preset.values, 'ai', preset.name);
         return ws.site ? shareLayoutBoxes(ws.site.dir, ws, name, 'ai') : '';
       });
-      return `ok: the page now follows the ${name} layout${said}; rewrite every box's placeholder text for this page\n\n${outline(ws.load())}`;
+      const look = preset ? `; ${where === 'site' ? 'the site theme' : where === 'override' ? 'this page\'s own theme values' : 'the theme'} now follow${where === 'override' ? '' : 's'} the ${themeName} preset` : '';
+      return `ok: the page now follows the ${name} layout${left}${look}${said}; rewrite every box's placeholder text for this page\n\n${outline(ws.load())}`;
     });
   }));
 
@@ -1054,23 +1108,29 @@ export function createTykerfServer(start: Workspace | null, opts: TykerfServerOp
         'The layout\'s navigation and footer are the site\'s shared blocks: the page shows them (the site\'s first page makes them); with shared false it gets copies of its own instead. ' +
         'Name: lowercase letters, digits and -. Links between pages are written /<name>/.',
       inputSchema: {
-        name: z.string(), layout: z.string().optional().describe('layout name from list_layouts (default blank)'), theme: z.string().optional().describe(`theme preset from list_themes (default ${DEFAULT_THEME})`),
+        name: z.string(), purpose: z.string().optional().describe('purpose from list_layouts'), frame: z.string().optional().describe(`frame from list_layouts (default ${DEFAULT_FRAME})`),
+        layout: z.string().optional().describe('a ready-made layout from list_layouts, instead of a purpose and a frame (default blank)'),
+        why: z.string().optional().describe(`with a layout: ${WHY}`), ...LAYOUT_CHOICE,
+        theme: z.string().optional().describe(`theme preset from list_themes (default ${DEFAULT_THEME})`),
         copy: z.string().optional().describe('another page to copy instead of a layout: its blocks, code, images and (unless the pages share one) its theme'),
         shared: z.boolean().optional().describe('show the site\'s shared navigation and footer (default true); false: copies of its own'),
       },
-    }, guard(({ name, layout, theme: themeName, copy, shared: linkShared }: { name: string; layout?: string; theme?: string; copy?: string; shared?: boolean }) => {
+    }, guard(({ name, layout: given, frame, purpose, why, keep, theme: themeName, copy, shared: linkShared }: { name: string; layout?: string; frame?: string; purpose?: string; why?: string; keep?: string[]; theme?: string; copy?: string; shared?: boolean }) => {
       const site = siteOnly();
+      const layout = given || frame || purpose ? layoutName({ name: given, frame, purpose }) : undefined;
+      if (layout && !copy && !why?.trim()) throw new Error(`say why the ${layout} layout fits (why): ${WHY}`);
+      if (keep && (copy || !layout)) throw new Error('keep chooses the sections of a layout: give the layout too');
       if (copy && !sitePages(site).includes(copy)) throw new Error(`there is no page "${copy}" to copy (pages: ${sitePages(site).join(', ') || 'none yet'})`);
       mkdirSync(site, { recursive: true });
       const shared = hasTheme(siteHead(site));
-      ws = newSitePage(site, name, layout ?? 'blank', themeName ?? DEFAULT_THEME, { shared: linkShared !== false });
+      ws = newSitePage(site, name, layout ?? 'blank', themeName ?? DEFAULT_THEME, { shared: linkShared !== false, keep });
       if (copy) {
         const files = usePage(ws, site, copy, { theme: !shared, author: 'ai' });
         const theirs = files.site.length ? `; ${files.site.length} of its files the site already has, so it uses those (not copied)` : '';
         return `ok: new page "${name}", a copy of "${copy}"${theirs}; it is open now. Rewrite its text for this page.\n\n${outline(ws.load())}`;
       }
       const look = shared ? 'it uses the theme the site\'s pages share' : `with the ${themeName ?? DEFAULT_THEME} theme`;
-      return `ok: new page "${name}" from the ${layout ?? 'blank'} layout, ${look}${sharedSay(linkedBoxes(ws))}; it is open now. Rewrite every box's placeholder text for this page.\n\n${outline(ws.load())}`;
+      return `ok: new page "${name}" from the ${layout ?? 'blank'} layout${layout ? leftOut(layout, keep) : ''}, ${look}${sharedSay(linkedBoxes(ws))}; it is open now. Rewrite every box's placeholder text for this page.\n\n${outline(ws.load())}`;
     }));
     server.registerTool('rename_page', {
       title: 'Rename a page', annotations: CHANGE,

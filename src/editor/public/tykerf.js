@@ -2151,8 +2151,9 @@ function renderTool() {
     <div class="picks" hidden></div>
     <div class="row"><button data-i="cancel">${t('Cancel')}</button><button data-i="apply" class="primary">${t('Apply')}</button></div>`;
   imgtool.hidden = false;
-  placeTool();
+  // the crop canvas sets the tool's height: draw it before placing the tool, so all of it fits the window
   if (crop) drawStage();
+  placeTool();
 }
 
 function placeTool() {

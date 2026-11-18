@@ -9,7 +9,7 @@
 
 import Anthropic from '@anthropic-ai/sdk';
 import type { RunEvents, RunRequest, Runner } from '../ai.js';
-import { type Wire, runLoop, turnTimeout } from './loop.js';
+import { type Wire, retryWaits, runLoop, turnTimeout } from './loop.js';
 
 export const ANTHROPIC_MODEL = 'claude-sonnet-5-5';
 
@@ -25,10 +25,12 @@ export class AnthropicRunner implements Runner {
   private client: Anthropic | null = null;
   private config: { apiKey: string | null; authToken: string | null; baseURL: string | null };
   private limit: number;
+  private waits: number[];
 
   constructor(env: NodeJS.ProcessEnv = process.env) {
     this.model = env.TYKERF_MODEL || ANTHROPIC_MODEL;
     this.limit = turnTimeout(env);
+    this.waits = retryWaits(env);
     this.config = {
       apiKey: env.TYKERF_API_KEY || env.ANTHROPIC_API_KEY || null,
       authToken: env.TYKERF_AUTH_TOKEN || env.ANTHROPIC_AUTH_TOKEN || null,
@@ -38,7 +40,7 @@ export class AnthropicRunner implements Runner {
 
   private api(): Anthropic {
     if (!this.config.apiKey && !this.config.authToken) throw new Error('no API key: set TYKERF_API_KEY (or ANTHROPIC_API_KEY) in .env, then restart TYKERF');
-    this.client ??= new Anthropic({ ...this.config, maxRetries: 2 });
+    this.client ??= new Anthropic({ ...this.config, maxRetries: 0 }); // the loop tries again itself, and says so (loop.ts)
     return this.client;
   }
 
@@ -69,6 +71,19 @@ export class AnthropicRunner implements Runner {
       return `the API answered ${e.status ?? 'with an error'}: ${e.message}`;
     }
     return (e as Error).message ?? String(e);
+  }
+
+  /** Whether a failed request may work later: a connection that failed, a busy or rate-limited service (with how long it asked to wait). */
+  retryable(e: unknown): { wait?: number } | null {
+    if (e instanceof Anthropic.APIConnectionError) return {};
+    if (e instanceof Anthropic.APIError) {
+      const s = e.status ?? 0;
+      if (!(s === 408 || s === 409 || s === 429 || s >= 500)) return null;
+      const h = e.headers as unknown as { get?(n: string): string | null } & Record<string, string | undefined> | undefined;
+      const after = Number(h?.get?.('retry-after') ?? h?.['retry-after']);
+      return after > 0 ? { wait: after * 1000 } : {};
+    }
+    return null;
   }
 
   start(req: RunRequest, on: RunEvents) {
@@ -105,7 +120,9 @@ export class AnthropicRunner implements Runner {
         return { ...m, content: m.content.map(strip) };
       },
       error: (e) => this.describe(e),
+      retry: (e) => this.retryable(e),
+      assistant: (text) => ({ role: 'assistant', content: [{ type: 'text', text }] }),
     };
-    return runLoop(this.name, wire, req, on, this.limit);
+    return runLoop(this.name, wire, req, on, this.limit, this.waits);
   }
 }

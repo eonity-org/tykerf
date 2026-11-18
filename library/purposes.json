@@ -1,0 +1,233 @@
+{
+  "place": {
+    "label": "Place",
+    "description": "A place people visit: a shop, a bakery, a restaurant, a studio, a venue. What it is, what it offers (prices optional), pictures, when it is open and where, and how to get in touch. Not for selling online, or for an event on one date.",
+    "sections": [
+      {
+        "box": "intro",
+        "component": "hero-split"
+      },
+      {
+        "box": "offer",
+        "component": "offer-list",
+        "tags": [
+          "tone-alt"
+        ]
+      },
+      {
+        "box": "gallery",
+        "component": "gallery"
+      },
+      {
+        "box": "visit",
+        "component": "hours-location",
+        "tags": [
+          "tone-soft"
+        ]
+      },
+      {
+        "box": "contact",
+        "component": "contact"
+      }
+    ]
+  },
+  "person": {
+    "label": "Person",
+    "description": "One person: a CV, a freelancer, an artist, a professional. Who they are, what they did, their work and how to reach them. Not for a company, a team or a shop.",
+    "sections": [
+      {
+        "box": "intro",
+        "component": "hero-split"
+      },
+      {
+        "box": "about",
+        "component": "feature",
+        "tags": [
+          "tone-alt",
+          "reverse"
+        ]
+      },
+      {
+        "box": "path",
+        "component": "timeline"
+      },
+      {
+        "box": "work",
+        "component": "gallery",
+        "tags": [
+          "tone-alt"
+        ]
+      },
+      {
+        "box": "contact",
+        "component": "contact"
+      }
+    ]
+  },
+  "event": {
+    "label": "Event",
+    "description": "Something that happens on a date: a wedding, a concert, a workshop, a conference, a celebration. What it is, the programme, the people, when and where, questions, and a form to sign up or confirm. Not for a place that is always open.",
+    "sections": [
+      {
+        "box": "intro",
+        "component": "hero"
+      },
+      {
+        "box": "programme",
+        "component": "programme",
+        "tags": [
+          "tone-alt"
+        ]
+      },
+      {
+        "box": "people",
+        "component": "people"
+      },
+      {
+        "box": "venue",
+        "component": "hours-location",
+        "tags": [
+          "tone-soft"
+        ]
+      },
+      {
+        "box": "questions",
+        "component": "faq"
+      },
+      {
+        "box": "signup",
+        "component": "contact",
+        "tags": [
+          "tone-alt"
+        ]
+      }
+    ]
+  },
+  "organization": {
+    "label": "Organisation",
+    "description": "A group with a purpose: an association, a club, a school, a charity, a council. What it stands for, what it does, its people, a few figures, and how to join or take part. Not for selling a product.",
+    "sections": [
+      {
+        "box": "intro",
+        "component": "statement"
+      },
+      {
+        "box": "what",
+        "component": "features",
+        "tags": [
+          "tone-alt"
+        ]
+      },
+      {
+        "box": "people",
+        "component": "people"
+      },
+      {
+        "box": "figures",
+        "component": "stats",
+        "tags": [
+          "tone-soft"
+        ]
+      },
+      {
+        "box": "join",
+        "component": "cta"
+      },
+      {
+        "box": "contact",
+        "component": "contact",
+        "tags": [
+          "tone-alt"
+        ]
+      }
+    ]
+  },
+  "concept": {
+    "label": "Concept",
+    "description": "A product, an idea or a project you want people to try or back: what it is, what it does, how it works, a closer look, prices if there are any, questions, and the next step. Not for a place, a person or an event.",
+    "sections": [
+      {
+        "box": "intro",
+        "component": "hero"
+      },
+      {
+        "box": "what",
+        "component": "features",
+        "tags": [
+          "tone-alt"
+        ]
+      },
+      {
+        "box": "how",
+        "component": "steps-rail"
+      },
+      {
+        "box": "detail",
+        "component": "feature"
+      },
+      {
+        "box": "pricing",
+        "component": "pricing",
+        "tags": [
+          "tone-alt"
+        ]
+      },
+      {
+        "box": "questions",
+        "component": "faq"
+      },
+      {
+        "box": "next",
+        "component": "cta",
+        "tags": [
+          "tone-soft"
+        ]
+      }
+    ]
+  },
+  "post": {
+    "label": "Post",
+    "description": "Something to read: an article, a story, news, a notice. A title, the text with pictures, and more to read. Not for a page people mainly act on.",
+    "sections": [
+      {
+        "box": "article",
+        "component": "article"
+      },
+      {
+        "box": "more",
+        "component": "updates",
+        "tags": [
+          "tone-alt"
+        ]
+      }
+    ]
+  },
+  "guide": {
+    "label": "Guide",
+    "description": "Something to follow or look up: a how-to, a recipe, a help page, documentation. What it is for, the steps, the details and the questions people ask. Not for news or a story.",
+    "sections": [
+      {
+        "box": "intro",
+        "component": "text"
+      },
+      {
+        "box": "steps",
+        "component": "steps-rail",
+        "tags": [
+          "tone-alt"
+        ]
+      },
+      {
+        "box": "detail",
+        "component": "docs-content"
+      },
+      {
+        "box": "questions",
+        "component": "faq",
+        "tags": [
+          "tone-alt"
+        ]
+      }
+    ]
+  }
+}

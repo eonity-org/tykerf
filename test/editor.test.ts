@@ -121,7 +121,7 @@ describe('editing text in place', () => {
     await page.keyboard.type('Bread from Murcia');
     await page.keyboard.press('Enter');
     const after = await until(() => ws.content('hero')!, (c) => c !== before);
-    expect(after).toBe(before.replace('The short promise of your product', 'Bread from Murcia'));
+    expect(after).toBe(before.replace('The main idea, in a few words', 'Bread from Murcia'));
     expect(ws.history(1)[0]).toMatchObject({ author: 'user', kind: 'content' });
     await page.waitForTimeout(300);
     await page.keyboard.press('ControlOrMeta+z');

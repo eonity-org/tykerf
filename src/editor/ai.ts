@@ -78,12 +78,22 @@ export interface RunRequest {
   readOnly?: boolean;
 }
 
+/**
+ * Why a run stopped before it answered. `limit` (too many steps), `timeout` (the model didn't answer in time) and
+ * `transient` (a busy, rate-limited or unreachable service) pass: the editor continues the run on its own (AI.ask).
+ * `permanent` (a refused key, an unknown model) and `stopped` (the person stopped it) don't.
+ */
+export type StopReason = 'limit' | 'timeout' | 'transient' | 'permanent' | 'stopped';
+const PASSING: StopReason[] = ['limit', 'timeout', 'transient'];
+
 /** What a run reports while it works. `end` comes last, once. */
 export interface RunEvents {
   session(id: string): void;
   step(text: string, at?: StepAt): void; // a tool call (and where on the page it is), or a refused one
   answer(text: string): void;
-  error(text: string): void;
+  error(text: string, reason?: StopReason): void;
+  /** A turn that failed for a passing reason is tried again after a wait: why, and which try. */
+  retry?(text: string): void;
   end(): void;
 }
 
@@ -217,8 +227,8 @@ export class ClaudeCodeRunner implements Runner {
           answered = true;
           const text = String(e.result ?? '').trim();
           if (e.is_error && /authenticat|log ?in|oauth|api key/i.test(text))
-            on.error('Claude Code is not logged in. Run `claude` in a terminal, then /login, and ask again.');
-          else if (e.is_error) on.error(text || 'the AI stopped with an error');
+            on.error('Claude Code is not logged in. Run `claude` in a terminal, then /login, and ask again.', 'permanent');
+          else if (e.is_error) on.error(text || 'the AI stopped with an error', passing(text));
           else on.answer(text || '(done)');
         }
       }
@@ -228,17 +238,22 @@ export class ClaudeCodeRunner implements Runner {
     child.on('error', (err) => on.error(`could not start claude: ${err.message}`));
     child.on('close', (code, signal) => {
       // claude handles SIGTERM itself and exits with 143 (128 + 15), so a stop is known by the flag, not the signal
-      if (cancelled || signal) on.error('stopped');
+      if (cancelled || signal) on.error('stopped', 'stopped');
       else if (!answered) {
         const err = stderr.split('\n').filter((l) => l.trim() && !/no stdin data/.test(l)).join(' ').slice(0, 300);
-        if (err) on.error(err);
-        else if (code === 143 || code === 137) on.error(`Claude Code was stopped from outside TYKERF (exit code ${code}: the system or another program ended it). Ask again.`);
+        if (err) on.error(err, passing(err));
+        else if (code === 143 || code === 137) on.error(`Claude Code was stopped from outside TYKERF (exit code ${code}: the system or another program ended it). Ask again.`, 'transient');
         else on.error(`claude exited with code ${code}`);
       }
       on.end();
     });
     return { cancel: () => ((cancelled = true), child.kill('SIGTERM')) };
   }
+}
+
+/** Whether a Claude Code error reads like a service that is busy or out of reach for a while (it says only words). */
+function passing(text: string): StopReason | undefined {
+  return /overloaded|rate.?limit|too many requests|\b(429|500|502|503|504|529)\b|timed? ?out|ECONNRESET|ETIMEDOUT|socket hang up|network/i.test(text) ? 'transient' : undefined;
 }
 
 /**
@@ -278,7 +293,22 @@ export interface RunOptions {
 
 /** What a request left unfinished (a check in the block's conversation, found again by its time). */
 export interface CheckNote { at: string; items: { key: string; text: string }[] }
-export interface RunEnd { answer: string; error: string; failed: boolean; stopped: boolean; check?: CheckNote }
+/** `unfinished`: it stopped for a passing reason (too many steps, a slow or busy model) and couldn't go on by itself: Continue picks it up. */
+export interface RunEnd { answer: string; error: string; failed: boolean; stopped: boolean; unfinished?: boolean; check?: CheckNote }
+
+/** How many times a run that stopped for a passing reason goes on by itself (TYKERF_CONTINUES; 0: never). */
+export function maxContinues(env: NodeJS.ProcessEnv = process.env): number {
+  const n = Number(env.TYKERF_CONTINUES ?? 3);
+  return Number.isFinite(n) && n >= 0 ? Math.floor(n) : 3;
+}
+
+/** What Kaity hears when she goes on after a stop. */
+function continuePrompt(why: string): string {
+  return `You were stopped before you finished (${why.replace(/; ask again to continue$/, '')}). Everything you did so far is on the page. Go on from where you stopped: finish what was asked, check it as asked, then answer.`;
+}
+
+/** Steps that only look (read, list, check, look at): a stretch of only these changed nothing. */
+const LOOKING = /^(refused: |get |list |resolve|estimate|screenshot|evaluate|check |render|focus|unfocus)/;
 
 export class AI {
   private run: { cancel(): void; id: string; since: string; key: string; steps: number; step?: string; stopped?: boolean } | null = null;
@@ -286,6 +316,8 @@ export class AI {
   private runTasks: number[] | null = null;
   /** Kaity working through tasks one by one (task-run.ts), between her runs too. */
   taskRun: { active(): boolean; block(): string | null } | null = null;
+  /** The brief each block's last request had (a page to build, say), so Continue goes on with the same instructions. */
+  private briefs = new Map<string, string>();
 
   /**
    * `site`: Kaity for the whole site (the site manager), on `ws` over the site folder: one conversation
@@ -427,6 +459,15 @@ export class AI {
     const logSite = site ?? this.ws.site?.dir ?? null;
     if (logSite) logStart(logSite, { run: run.key, page: site ? null : (this.ws.pageName ?? null), block: site ? null : id, request: prompt.trim(), ...(this.runTasks ? { tasks: this.runTasks } : {}) });
     let answer = '', problem = '';
+    if (brief) this.briefs.set(id, brief);
+    else this.briefs.delete(id);
+    // a stop for a passing reason: she goes on by itself while each stretch changes something (maxContinues)
+    let reason: StopReason | undefined;
+    let continued = 0;
+    const continues = maxContinues();
+    let stretch = run.since;
+    let changes = 0;
+    let unfinished = false;
     // a block is locked for the editor while Kaity works on it; a run on the whole site has no block
     const unlock = site ? () => {} : this.ws.addGuard(lockBlock(() => this.follow()));
     let ended = false;
@@ -449,22 +490,43 @@ export class AI {
         step: (t, at) => {
           run.steps++;
           run.step = t;
+          if (!LOOKING.test(t)) changes++;
           this.add(now(), 'step', t, undefined, at);
           opts.onStep?.(t);
         },
+        retry: (t) => this.add(now(), 'step', t),
         answer: (t) => {
           answer = t;
           this.add(now(), 'ai', t);
         },
-        error: (t) => {
+        error: (t, why) => {
           failed = true;
           problem = t;
-          this.add(now(), 'error', t);
+          reason = why;
+          // a passing stop is said when the run ends: as a step when she goes on, as the error when she can't
+          if (!why || !PASSING.includes(why)) this.add(now(), 'error', t);
         },
         end: () => {
           if (done) return;
           done = true;
           const last = this.follow();
+          if (failed && reason && PASSING.includes(reason) && !run.stopped) {
+            // her own changes since the last stretch began (the page's history; a site run counts its steps)
+            const moved = site ? changes > 0 : this.ws.history(100).some((h) => h.author === 'ai' && (h.at ?? '') >= stretch);
+            if (continued < continues && moved) {
+              continued++;
+              this.add(last, 'step', `${problem.replace(/; ask again to continue$/, '')}: Kaity goes on (${continued} of ${continues})`);
+              const why = problem;
+              failed = false;
+              problem = '';
+              reason = undefined;
+              stretch = new Date().toISOString();
+              changes = 0;
+              return start(continuePrompt(why), []);
+            }
+            unfinished = true;
+            this.add(last, 'error', problem);
+          }
           // the site run's pages are checked by check_page; a question changes nothing
           const left = failed || site || opts.readOnly ? [] : this.left(before);
           // a whole page built in this request gets one pass over what it left, before the run ends
@@ -477,11 +539,11 @@ export class AI {
           const check = left.length ? this.addCheck(last, left, 'open') : null;
           ended = true;
           unlock();
-          if (logSite) logEnd(logSite, { run: run.key, end: run.stopped ? 'stopped' : failed ? 'failed' : 'done', block: site ? null : last, ...(answer ? { answer } : {}), ...(problem ? { error: problem } : {}), steps: run.steps });
+          if (logSite) logEnd(logSite, { run: run.key, end: run.stopped ? 'stopped' : unfinished ? 'unfinished' : failed ? 'failed' : 'done', block: site ? null : last, ...(answer ? { answer } : {}), ...(problem ? { error: problem } : {}), steps: run.steps });
           this.run = null;
           this.runTasks = null;
-          this.emit('ai', { id: last, role: 'end' });
-          opts.onEnd?.({ answer, error: problem, failed, stopped: !!run.stopped, ...(check ? { check } : {}) });
+          this.emit('ai', { id: last, role: 'end', ...(unfinished ? { unfinished: true } : {}) });
+          opts.onEnd?.({ answer, error: problem, failed, stopped: !!run.stopped, ...(unfinished ? { unfinished: true } : {}), ...(check ? { check } : {}) });
         },
       }).cancel;
     };
@@ -594,6 +656,12 @@ export class AI {
       throw e;
     }
     return given;
+  }
+
+  /** Continue: Kaity goes on with a block's last request where it stopped, with the same instructions (its brief). */
+  resume(id: string, opts: RunOptions = {}) {
+    const key = this.opts.site ? SITE_CHAT : id;
+    this.ask(id, 'Go on from where you stopped, and finish what was asked.', undefined, [], this.briefs.get(key), undefined, opts);
   }
 
   /** "Fix them": ask Kaity to finish what her last request left. */

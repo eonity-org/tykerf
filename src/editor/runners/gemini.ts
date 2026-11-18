@@ -8,7 +8,7 @@
 
 import { ApiError, type Content, type FunctionCall, GoogleGenAI, type Part } from '@google/genai';
 import type { RunEvents, RunRequest, Runner } from '../ai.js';
-import { type Wire, runLoop, turnTimeout } from './loop.js';
+import { type Wire, retryWaits, runLoop, turnTimeout } from './loop.js';
 
 export const GEMINI_MODEL = 'gemini-pro-latest';
 
@@ -25,10 +25,12 @@ export class GeminiRunner implements Runner {
   private apiKey: string | null;
   private baseUrl: string | null;
   private limit: number;
+  private waits: number[];
 
   constructor(env: NodeJS.ProcessEnv = process.env) {
     this.model = env.TYKERF_MODEL || GEMINI_MODEL;
     this.limit = turnTimeout(env);
+    this.waits = retryWaits(env);
     this.apiKey = env.GEMINI_API_KEY || env.GOOGLE_API_KEY || null;
     this.baseUrl = env.GEMINI_BASE_URL || null;
   }
@@ -68,6 +70,13 @@ export class GeminiRunner implements Runner {
     return (e as Error).message ?? String(e);
   }
 
+  /** Whether a failed request may work later: no connection, a busy or rate-limited service. */
+  retryable(e: unknown): { wait?: number } | null {
+    if (e instanceof ApiError) return e.status === 408 || e.status === 429 || e.status >= 500 ? {} : null;
+    if (e instanceof TypeError && /fetch/i.test(e.message)) return {};
+    return null;
+  }
+
   start(req: RunRequest, on: RunEvents) {
     const wire: Wire<Content> = {
       turn: async (history, system, tools, signal) => {
@@ -99,7 +108,9 @@ export class GeminiRunner implements Runner {
       }],
       withoutImages: (m) => ({ ...m, parts: (m.parts ?? []).map((p) => (p.inlineData ? { text: '[picture]' } : p)) }),
       error: (e) => this.describe(e),
+      retry: (e) => this.retryable(e),
+      assistant: (text) => ({ role: 'model', parts: [{ text }] }),
     };
-    return runLoop(this.name, wire, req, on, this.limit);
+    return runLoop(this.name, wire, req, on, this.limit, this.waits);
   }
 }

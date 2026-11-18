@@ -172,12 +172,14 @@ const pageRun = () => [...hosts].find(([, h]) => h.ai.running())?.[0] ?? null;
 /** What the AI is told when it builds a new page from the user's words and pictures. */
 const BUILD_BRIEF = [
   'This page was just made for this request: it holds only two empty boxes, header and main, on the theme\'s background. Build the whole page the request describes (and the attached pictures show).',
-  'When the request asks for a page like another page of the site (its layout, its look), start with use_page from that page instead of a layout, and rewrite its text. Otherwise, first pick the page layout that fits the request best (list_layouts, then use_layout, which replaces the page with that layout\'s blocks); only when none fits, build the sections in header and main yourself (split, use_component). A layout is a start, not the goal: drop the sections the request doesn\'t need, add the ones it does.',
+  'Before any tool, decide from the request (and the pictures): what a visitor does on this page (decides and acts, as on a shop, a venue or an event page; reads and understands, as in an article or a guide; looks at the work itself, as in a portfolio; or completes a task), what kind of page it is, who it is for, the one thing a visitor should do there, the sections it needs (the ones the request names or clearly implies), and its tone (warm, formal, playful, technical...). Most pages are not product launches: don\'t add pricing, customer logos, testimonials, figures or a sign-up call unless the request asks for them.',
+  'When the request asks for a page like another page of the site (its layout, its look), start with use_page from that page instead of a layout, and rewrite its text. Otherwise read list_layouts: pick the purpose whose description matches the page you decided on (not the one with the most sections), and the frame for what holds it (a footer, a side menu: most pages want basic without its side menu). Call use_layout with purpose, frame, why (who the page is for and what a visitor should do) and keep (only the sections you decided on, and side or aside only if the page needs them): a section left out is better than one filled with made-up content. When no purpose fits, use the simple frame alone and build the sections in its body yourself (split, use_component). Add the sections the page needs that the purpose lacks.',
   'Plan the sections. Start with the navigation bar: its brand name and links for the sections you plan (#ids you then give those sections), so the page is the user\'s from the first moment. Link only to pages the site has; when the request names pages that don\'t exist yet, ask in your answer whether they will be made, instead of making up their addresses. Then add boxes for the sections (split, add_leaf), start each from a ready-made component (list_components, use_component) or write its code, and rename boxes after what they hold.',
-  'Components come with placeholder text for a product site (Site name, Page one, Section one, Your headline, Product, Pricing, Get started...): replace all of it with the request\'s content as soon as you place each one (set_content or edit_content), and drop the parts the page doesn\'t need. Before you finish, run check_page and fix what it lists: no placeholder text, placeholder picture or link without a target may be left.',
+  'Components come with sample text that says what goes in each place (Site name, Page one, The main idea, The main action, What the first figure counts...): replace all of it with the request\'s content as soon as you place each one (set_content or edit_content), and drop the parts the page doesn\'t need. Before you finish, run check_page and fix what it lists: no placeholder text, placeholder picture or link without a target may be left.',
   'Alternate the sections with the band tones: tag a section #tone-alt or #tone-soft, and the footer #tone-dark.',
+  'Craft: a heading speaks for itself, so drop the small label above section titles unless the request wants one; more space above a heading than below it; body text no wider than about 70 characters; text readable on every band (at least 4.5:1, 3:1 for large text); a page of identical cards is not a structure: vary the sections.',
   'When the pictures show a design, follow its layout, spacing and mood with the theme\'s variables.',
-  'Look at the page at 1440 and 375 px before you finish, fix what looks wrong, then say in two or three sentences what you built.',
+  'Look at the page at 1440 and 375 px before you finish, fix what looks wrong, then say in two or three sentences what you built: which layout and theme you started from and why, and which of the layout\'s sections you left out.',
 ].join('\n');
 
 /** Whether the site's pages share one theme (the site's head.html has it). */
@@ -325,7 +327,7 @@ async function serveGlobal(req: IncomingMessage, res: ServerResponse, p: string,
     return true;
   }
   // a layout with a theme, rendered in memory, for a preview (New page's Preview at full size)
-  const pv = req.method === 'GET' ? /^\/_tykerf\/preview\/([a-z0-9-]+)\/([a-z0-9-]+)\/(.*)$/.exec(p) : null;
+  const pv = req.method === 'GET' ? /^\/_tykerf\/preview\/([a-z0-9+-]+)\/([a-z0-9-]+)\/(.*)$/.exec(p) : null;
   if (pv) {
     const [, tpl, th, rest] = pv;
     if (rest === '') {
@@ -442,7 +444,7 @@ async function serveGlobal(req: IncomingMessage, res: ServerResponse, p: string,
       const chosen = a.theme ? String(a.theme) : null;
       const themeBrief = shared ? 'The page uses the theme the site\'s pages share: keep it unless the request asks for other colours or fonts.'
         : chosen ? `The user chose the ${chosen} theme: keep it unless the request asks for other colours or fonts.`
-        : 'The user left the theme to you: pick the preset that fits the request best (list_themes, use_theme), or give the theme the design\'s own colours and fonts (set_theme), before you write the sections.';
+        : 'The user left the theme to you: pick the preset whose description matches the tone you decided on (list_themes, use_theme), not the first one, or give the theme the design\'s own colours and fonts (set_theme), before you write the sections.';
       // the site's navigation and footer: shared blocks, the same on every page (use_layout links or makes them)
       const blocks = kitList(dir).blocks.filter((b) => b === 'nav' || b === 'footer');
       const sharedBrief = blocks.length

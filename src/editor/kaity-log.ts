@@ -9,7 +9,7 @@ const LOG = '.tykerf/kaity.jsonl';
 /** The log keeps about this many runs: past twice as many lines, the oldest go. */
 const KEEP = 500;
 
-export type RunEnd = 'done' | 'failed' | 'stopped';
+export type RunEnd = 'done' | 'failed' | 'stopped' | 'unfinished';
 
 export interface RunStart {
   run: string;

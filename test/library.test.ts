@@ -6,7 +6,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { validate } from '../src/model.js';
 import { serializeSlice } from '../src/notation.js';
 import { MemoryStore } from '../src/store.js';
-import { componentCode, components, createPage, hasTheme, pageLayouts, readTheme, theme, themeValueError, themeVariables, themes, useComponent, useLayout, withThemeValues } from '../src/library.js';
+import { componentCode, components, composeLayout, createPage, demoteTitle, frames, hasTheme, layoutSections, pageLayout, pageLayouts, purposes, readTheme, theme, themeValueError, themeVariables, themes, useComponent, useLayout, withThemeValues } from '../src/library.js';
 import { Workspace } from '../src/workspace.js';
 
 // relative to this file, so the tests also run from another folder
@@ -24,7 +24,7 @@ describe('the library', () => {
     // Image fills a box sized by hand (its handles): a building block for pages people compose themselves; the page
     // banner is shared by every page of a site, each filling its slots: a block for sites, not for one layout
     const BUILDING_BLOCKS = ['image', 'page-banner'];
-    const used = new Set(pageLayouts().flatMap((p) => Object.values(p.boxes)));
+    const used = new Set([...pageLayouts(), ...frames()].flatMap((p) => Object.values(p.boxes)).concat(purposes().flatMap((p) => p.sections.map((x) => x.component))));
     expect(components().map((c) => c.name).filter((c) => !used.has(c) && !BUILDING_BLOCKS.includes(c))).toEqual([]);
   });
 
@@ -116,11 +116,11 @@ describe('using a page layout', () => {
     // Kaity: only with the whole page in scope; and theme presets through use_theme
     const { openTools } = await import('../src/editor/tools-client.js');
     const narrow = await openTools(ws, 'text');
-    expect((await narrow.call('use_layout', { name: 'docs' })).text).toMatch(/refused: a layout replaces the whole page/);
+    expect((await narrow.call('use_layout', { name: 'docs', why: 'a test page' })).text).toMatch(/refused: a layout replaces the whole page/);
     await narrow.close();
     const tools = await openTools(ws, 'page');
     expect((await tools.call('list_layouts', {})).text).toMatch(/^blank: Blank\./m);
-    expect((await tools.call('use_layout', { name: 'docs' })).text).toMatch(/^ok: the page now follows the docs layout/);
+    expect((await tools.call('use_layout', { name: 'docs', why: 'a test page' })).text).toMatch(/^ok: the page now follows the docs layout/);
     expect((await tools.call('list_themes', {})).text).toMatch(/^warm: Warm\./m);
     expect((await tools.call('use_theme', { name: 'warm' })).text).toMatch(/^theme now follows the warm preset/);
     expect(readTheme(ws.head())['--font-heading']).toBe('"Playfair Display", Georgia, serif');
@@ -130,12 +130,121 @@ describe('using a page layout', () => {
   });
 });
 
+describe('frames and purposes', () => {
+  it('make a valid page for every frame alone and every purpose in every frame, with one h1 at most', () => {
+    for (const f of frames()) {
+      expect(Object.keys(f.boxes), f.name).toContain('body');
+      for (const p of [undefined, ...purposes()]) {
+        const t = composeLayout(f.name, p?.name);
+        const ws = fresh();
+        createPage(ws, t.name);
+        expect(validate(ws.load()), t.name).toMatchObject({ ok: true });
+        expect(Object.keys(ws.contents()).sort(), t.name).toEqual(Object.keys(t.boxes).sort());
+        for (const [, file] of Object.values(ws.contents()).join('\n').matchAll(/assets\/([\w.-]+)/g)) expect(ws.store.exists(`assets/${file}`), `${t.name}: ${file}`).toBe(true);
+        expect(Object.values(ws.contents()).join('\n').match(/<h1\b/g)?.length ?? 0, `${t.name}: h1`).toBeLessThanOrEqual(1);
+        if (p) expect(Object.keys(t.boxes).filter((b) => p.sections.some((x) => x.box === b)), t.name).toEqual(p.sections.map((x) => x.box));
+      }
+    }
+    for (const p of purposes()) expect(p.label && p.description && p.sections.length, p.name).toBeTruthy();
+  });
+
+  it('name a layout as frame+purpose, a purpose alone in the default frame, and keep what is kept', () => {
+    expect(pageLayout('place').name).toBe('basic+place');
+    expect(pageLayout('basic+place').shared).toEqual(['nav', 'footer']);
+    expect(() => pageLayout('basic+nope')).toThrow(/unknown layout "basic\+nope" \(layouts: .*; frames: simple, basic, full; purposes: place, person, event, organization, concept, post, guide; or <frame>\+<purpose>\)/);
+    // the side menu is optional: kept out, its row goes and the sections are the page's body
+    const t = pageLayout('basic+place', ['intro', 'visit']);
+    expect(Object.keys(t.boxes)).toEqual(['nav', 'intro', 'visit', 'footer']);
+    expect(t.layout).not.toMatch(/side|rule/);
+    // a frame with a page title: the sections' own titles go one level down, looking the same
+    expect(pageLayout('full+event').demote).toEqual(['intro']);
+    expect(pageLayout('basic+event').demote).toBeUndefined();
+    const hero = demoteTitle(componentCode('hero'));
+    expect(hero).not.toMatch(/<h1|\bh1\b/);
+    expect(hero).toMatch(/<h2 data-title[^>]*>/);
+    expect(hero).toMatch(/h2\[data-title\] \{ font-size: var\(--text-hero\)/);
+  });
+
+  it('are what list_layouts offers first, and what use_layout and new_page take', async () => {
+    const ws = new Workspace(new MemoryStore('memory:', { 'layout.slice': 'a b H@page\n' }));
+    const { openTools } = await import('../src/editor/tools-client.js');
+    const tools = await openTools(ws, 'page');
+    const list = (await tools.call('list_layouts', {})).text;
+    expect(list).toMatch(/^Purposes \(use_layout purpose\):\nplace: Place\. A place people visit/);
+    expect(list).toMatch(/^  sections: intro \(Headline and buttons beside a picture\); offer \(What a place offers/m);
+    expect(list).toMatch(/^Frames \(use_layout frame; default basic\):\nsimple: Simple\./m);
+    expect(list).toMatch(/^  around the body: side; on every page of a site: nav, footer$/m);
+    expect(list).toMatch(/^Ready-made layouts \(use_layout name\):\nblank: Blank\./m);
+    expect((await tools.call('use_layout', { purpose: 'place', name: 'blank', why: 'x' })).text).toMatch(/not both/);
+    expect((await tools.call('use_layout', { why: 'x' })).text).toMatch(/give a purpose/);
+    expect((await tools.call('use_layout', { purpose: 'place', why: 'a bakery for neighbours', keep: ['intro', 'offer', 'visit'], theme: 'warm' })).text)
+      .toMatch(/^ok: the page now follows the basic\+place layout \(left out: side, gallery, contact\); the theme now follows the warm preset/);
+    expect(ws.boxIds().sort()).toEqual(['footer', 'intro', 'nav', 'offer', 'visit']);
+    await tools.close();
+  });
+});
+
+describe('choosing a layout', () => {
+  it('makes only the sections kept, and always the shared navigation and footer', () => {
+    const launch = pageLayouts().find((p) => p.name === 'launch')!;
+    expect(layoutSections(launch)).not.toContain('nav');
+    const t = pageLayout('launch', ['hero', 'faq']);
+    expect(Object.keys(t.boxes)).toEqual(['nav', 'hero', 'faq', 'footer']);
+    const ws = new Workspace(new MemoryStore('memory:'));
+    createPage(ws, 'launch', 'studio', { keep: ['hero', 'faq'] });
+    const l = ws.load();
+    expect(validate(l)).toEqual({ ok: true, errors: [] });
+    expect(serializeSlice(l)).not.toMatch(/pricing|logos/);
+    expect(ws.boxIds().sort()).toEqual(['faq', 'footer', 'hero', 'nav']);
+    // a row left with one block becomes that block, and the rule on the row goes with it
+    const magazine = pageLayout('magazine', ['stories']);
+    expect(magazine.layout).not.toMatch(/latest|rule/);
+    useLayout(ws, 'magazine', 'user', ['stories', 'cta']);
+    expect(ws.boxIds().sort()).toEqual(['cta', 'footer', 'nav', 'stories']);
+    expect(ws.load().rules ?? []).toEqual([]);
+    // without keep, the whole layout
+    expect(pageLayout('launch')).toEqual(launch);
+  });
+
+  it('refuses sections the layout doesn\'t have, and keeping none', () => {
+    expect(() => pageLayout('launch', ['hero', 'menu'])).toThrow(/the launch layout has no section "menu" \(its sections: hero, logos, .*; nav, footer always stay\)/);
+    expect(() => pageLayout('launch', ['nav'])).toThrow(/no section "nav"/);
+    expect(() => pageLayout('launch', [])).toThrow(/keep at least one of the launch layout's sections/);
+  });
+
+  it('asks the model why a layout fits, lists each layout\'s sections, and says what it left out', async () => {
+    const ws = new Workspace(new MemoryStore('memory:', { 'layout.slice': 'a b H@page\n' }));
+    const { openTools } = await import('../src/editor/tools-client.js');
+    const tools = await openTools(ws, 'page');
+    const list = (await tools.call('list_layouts', {})).text;
+    expect(list).toMatch(/^launch: .*\n  sections: hero \(A big centred headline[^)]*\); logos \(/m);
+    expect(list).toMatch(/^  on every page of a site: nav, footer$/m);
+    expect((await tools.call('use_layout', { name: 'launch' })).text).toMatch(/expected string, received undefined at why/);
+    expect((await tools.call('use_layout', { name: 'launch', why: 'x', keep: ['menu'] })).text).toMatch(/the launch layout has no section "menu"/);
+    expect(ws.load().root.type).toBe('op'); // nothing changed
+    expect(ws.boxIds()).toEqual([]);
+    const done = (await tools.call('use_layout', { name: 'launch', why: 'a bakery\'s page for neighbours: find us and come in', keep: ['hero', 'faq'] })).text;
+    expect(done).toMatch(/^ok: the page now follows the launch layout \(left out: logos, features, feature, feature2, stats, testimonials, pricing, cta\)/);
+    expect(ws.boxIds().sort()).toEqual(['faq', 'footer', 'hero', 'nav']);
+    // a theme given with the layout is applied on an existing page too (it used to be dropped without a word)
+    expect((await tools.call('use_layout', { name: 'blank', why: 'x', theme: 'nope' })).text).toMatch(/unknown theme "nope"/);
+    expect(ws.boxIds().sort()).toEqual(['faq', 'footer', 'hero', 'nav']);
+    expect((await tools.call('use_layout', { name: 'blank', why: 'x', theme: 'warm' })).text).toMatch(/^ok: the page now follows the blank layout; the theme now follows the warm preset/);
+    expect(readTheme(ws.head())['--font-heading']).toBe('"Playfair Display", Georgia, serif');
+    expect(ws.head()).toMatch(/data-tykerf-preset="warm"/);
+    ws.undo();
+    expect(ws.boxIds().sort()).toEqual(['faq', 'footer', 'hero', 'nav']); // one undo step takes both back
+    expect(readTheme(ws.head())['--font-heading']).not.toBe('"Playfair Display", Georgia, serif');
+    await tools.close();
+  });
+});
+
 describe('using a component', () => {
   it('fills a box, brings its images and the theme variables, in one undo step', () => {
     const ws = new Workspace(new MemoryStore('memory:', { 'layout.slice': 'header main H\n', 'head.html': '<style>body{color:red}</style>\n' }));
     useComponent(ws, 'main', 'hero');
-    expect(ws.content('main')).toContain('The short promise of your product');
-    expect(ws.store.exists('assets/mockup-app.svg')).toBe(true);
+    expect(ws.content('main')).toContain('The main idea, in a few words');
+    expect(ws.store.exists('assets/placeholder-wide.svg')).toBe(true);
     expect(ws.store.exists('assets/inter-latin-wght-normal.woff2')).toBe(true); // the theme's fonts come along
     // the page keeps its own look; only the variables are added
     expect(ws.head()).toContain('body{color:red}');

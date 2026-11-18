@@ -1,0 +1,47 @@
+{
+  "simple": {
+    "label": "Simple",
+    "description": "Only a navigation bar over the page, and room for any sections. For a page you or Kaity build section by section. Not for a site that wants the same footer or side menu on every page.",
+    "layout": "nav[role=header] body[role=main] H@page",
+    "shared": [
+      "nav"
+    ],
+    "boxes": {
+      "nav": "nav",
+      "body": "text"
+    }
+  },
+  "basic": {
+    "label": "Basic",
+    "description": "A navigation bar, the page, and a footer, with a side menu beside the page if you want one (it can be left out). For most pages of most sites. Not for a page that needs a title, a menu and notes around it on every page.",
+    "layout": "nav[role=header] side[role=nav] body[role=main] V@main{1:3 maxw=1320} footer[role=footer #tone-dark] H3@page\nrule r1 below=800 flip main",
+    "shared": [
+      "nav",
+      "footer"
+    ],
+    "boxes": {
+      "nav": "nav",
+      "side": "side-nav",
+      "body": "text",
+      "footer": "footer"
+    }
+  },
+  "full": {
+    "label": "Full",
+    "description": "A navigation bar, a page title shared by every page, a side menu, the page, an aside with key facts, and a footer; the side menu and the aside can be left out. For sites with many pages: guides, documentation, an organisation's pages. Not for a one-page site.",
+    "layout": "nav[role=header] banner side[role=nav] body[role=main] aside[role=aside] V3@main{1:3:1 maxw=1440} footer[role=footer #tone-dark] H4@page\nrule r1 below=1000 flip main",
+    "shared": [
+      "nav",
+      "banner",
+      "footer"
+    ],
+    "boxes": {
+      "nav": "nav",
+      "banner": "page-banner",
+      "side": "side-nav",
+      "body": "text",
+      "aside": "side-note",
+      "footer": "footer"
+    }
+  }
+}

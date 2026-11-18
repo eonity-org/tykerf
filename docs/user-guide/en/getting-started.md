@@ -39,10 +39,10 @@ The quickest way, and the first choice when Kaity is ready.
 
 1. **Show it:** drop, paste or choose up to three pictures: a screenshot of a page you like, a sketch on paper, a mock-up. You can also drop a design exported as a ZIP file (from Google Stitch, for example): Kaity gets its pictures and reads its text files (the design notes, the page's HTML and CSS) to follow its colours, fonts and sections.
 2. **Describe it:** write what the page should be. Be concrete about who it is for, what it must say, and the feel:
-   > A launch page for our bakery in Murcia: warm and simple, our three best breads, opening hours and a map.
+   > A page for our bakery in Murcia: warm and simple, our three best breads, opening hours and a map.
 
    Either one is enough; both together work best.
-3. Choose **Build it with Kaity**. She picks the theme that fits, or takes the colours and fonts of your design.
+3. Choose **Build it with Kaity**. She works out what the page is for, starts from the layout that fits it with only the sections it needs, and says which and why. She picks the theme that fits, or takes the colours and fonts of your design.
 
 The page starts empty. Kaity starts from the page layout that fits your request best (a launch page, a magazine, a portfolio, a data page…), then shapes it and rewrites all its text for you.
 

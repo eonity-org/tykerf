@@ -28,7 +28,7 @@ A good request says **what**, **for whom**, **what it must contain** and **how i
 
 | | Vague | Clear |
 |---|---|---|
-| What | "A page about our bakery" | "A launch page for our bakery" |
+| What | "A page about our bakery" | "The home page of our bakery" |
 | For whom | | "for neighbours who walk past and tourists looking for breakfast" |
 | Contents | | "our three best breads, opening hours, a map, and a line about the wood oven" |
 | Feel | "nice" | "warm and simple, like a handwritten sign" |

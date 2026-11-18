@@ -11,7 +11,7 @@ import { AI, type ChatMessage, claudeEnv, step, stepAt } from '../src/editor/ai.
 import { AnthropicRunner } from '../src/editor/runners/anthropic.js';
 import { GeminiRunner, geminiSchema } from '../src/editor/runners/gemini.js';
 import { runnerFromEnv } from '../src/editor/runners/index.js';
-import { timedOut, trim } from '../src/editor/runners/loop.js';
+import { STOPPED_HERE, retryWaits, timedOut, trim } from '../src/editor/runners/loop.js';
 import { openTools } from '../src/editor/tools-client.js';
 import { Workspace } from '../src/workspace.js';
 import { createPage } from '../src/library.js';
@@ -167,10 +167,17 @@ describe('the Anthropic runner', () => {
     expect((await ask(none, 'a', 'hi')).at(-1)).toMatchObject({ role: 'error', text: expect.stringMatching(/no API key/) });
   });
 
-  it('stops a turn the API never answers, and says so', async () => {
-    const api = await fakeAPI([{ delay: 3000, ...message([{ type: 'text', text: 'late' }], 'end_turn') }]);
-    const ai = new AI(page(), () => {}, new AnthropicRunner({ TYKERF_API_KEY: 'k', TYKERF_API_BASE_URL: api.url, TYKERF_TURN_TIMEOUT: '0.2' }));
-    expect((await ask(ai, 'a', 'hi')).at(-1)).toMatchObject({ role: 'error', text: 'the model did not answer within 1 second; ask again to continue' });
+  it('stops a turn the API never answers, after trying it again, and says so', async () => {
+    const late = () => ({ delay: 3000, ...message([{ type: 'text', text: 'late' }], 'end_turn') });
+    const api = await fakeAPI([late(), late(), late()]);
+    const ai = new AI(page(), () => {}, new AnthropicRunner({ TYKERF_API_KEY: 'k', TYKERF_API_BASE_URL: api.url, TYKERF_TURN_TIMEOUT: '0.2', TYKERF_RETRY_WAITS: '0.01,0.01' }));
+    const chat = await ask(ai, 'a', 'hi');
+    expect(chat.filter((m) => m.role === 'step').map((m) => m.text)).toEqual([
+      'the model did not answer in time; trying again in 0 s (1 of 2)',
+      'the model did not answer in time; trying again in 0 s (2 of 2)',
+    ]);
+    expect(chat.at(-1)).toMatchObject({ role: 'error', text: 'the model did not answer within 1 second; ask again to continue' });
+    expect(api.got).toHaveLength(3);
     expect(timedOut(180_000)).toBe('the model did not answer within 3 minutes; ask again to continue');
   });
 
@@ -181,6 +188,93 @@ describe('the Anthropic runner', () => {
     const chat = await ask(ai, 'a', 'go on forever');
     expect(chat.at(-1)).toMatchObject({ role: 'error', text: 'stopped after 40 steps; ask again to continue' });
     expect(chat.filter((m) => m.role === 'step')).toHaveLength(40);
+  });
+});
+
+describe('a model service that fails for a while', () => {
+  const env = (url: string, more: Record<string, string> = {}) => ({ TYKERF_API_KEY: 'k', TYKERF_API_BASE_URL: url, TYKERF_RETRY_WAITS: '0.01,0.01,0.01', ...more });
+  const busy = (status: number) => ({ status, body: { type: 'error', error: { type: 'overloaded_error', message: 'Overloaded' } } });
+
+  it('tries a turn again after a busy or failing service, and says so in the conversation', async () => {
+    const api = await fakeAPI([busy(529), busy(503), message([{ type: 'text', text: 'Done.' }], 'end_turn')]);
+    const chat = await ask(new AI(page(), () => {}, new AnthropicRunner(env(api.url))), 'a', 'hi');
+    expect(chat.filter((m) => m.role === 'step').map((m) => m.text)).toEqual([
+      'the API answered 529: 529 {"type":"error","error":{"type":"overloaded_error","message":"Overloaded"}}; trying again in 0 s (1 of 3)',
+      'the API answered 503: 503 {"type":"error","error":{"type":"overloaded_error","message":"Overloaded"}}; trying again in 0 s (2 of 3)',
+    ]);
+    expect(chat.at(-1)).toMatchObject({ role: 'ai', text: 'Done.' });
+    // what can't pass isn't tried again: a refused key ends the run at once
+    const refused = await fakeAPI([{ status: 401, body: { type: 'error', error: { type: 'authentication_error', message: 'no' } } }]);
+    expect((await ask(new AI(page(), () => {}, new AnthropicRunner(env(refused.url))), 'a', 'hi')).at(-1)).toMatchObject({ role: 'error', text: expect.stringMatching(/API key was refused/) });
+    expect(refused.got).toHaveLength(1);
+    expect(retryWaits({})).toEqual([10_000, 30_000, 90_000]);
+    expect(retryWaits({ TYKERF_RETRY_WAITS: '0' })).toEqual([]);
+  });
+
+  it('goes on by itself after the step limit while she changes the page, knowing what she did', async () => {
+    // 40 changes, then a 41st call over the limit; the next request is her continuing
+    const work = Array.from({ length: 41 }, (_, i) => message([toolUse(`t${i}`, 'set_content', { id: 'a', html: `<p>A${i}</p>` })]));
+    const api = await fakeAPI([...work, message([{ type: 'text', text: 'Finished.' }], 'end_turn')]);
+    const ws = page();
+    const ai = new AI(ws, () => {}, new AnthropicRunner(env(api.url)));
+    const chat = await ask(ai, 'a', 'rewrite a many times');
+    expect(chat.find((m) => m.text.startsWith('stopped after 40 steps'))).toMatchObject({ role: 'step', text: 'stopped after 40 steps: Kaity goes on (1 of 3)' });
+    expect(chat.at(-1)).toMatchObject({ role: 'ai', text: 'Finished.' });
+    expect(chat.some((m) => m.role === 'error')).toBe(false);
+    expect(ws.content('a')?.trim()).toBe('<p>A39</p>');
+    // the request that goes on has the whole first stretch, closed by her saying she was stopped, then why she goes on
+    const sent = api.got.at(-1)!.body.messages as { role: string; content: { type: string; text?: string }[] }[];
+    expect(sent.filter((m) => m.role === 'assistant' && m.content.some((c) => c.text === STOPPED_HERE))).toHaveLength(1);
+    expect(sent.at(-1)!.content[0].text).toMatch(/^You were stopped before you finished \(stopped after 40 steps\)\. Everything you did so far is on the page\. Go on/);
+    for (let i = 1; i < sent.length; i++) expect(sent[i].role === sent[i - 1].role && sent[i].role === 'assistant').toBe(false);
+  });
+
+  it('ends unfinished when a stretch changed nothing, or going on is off, and Continue picks it up', async () => {
+    const reading = Array.from({ length: 41 }, (_, i) => message([toolUse(`t${i}`, 'get_layout', {})]));
+    const api = await fakeAPI([...reading, message([{ type: 'text', text: 'Finished after all.' }], 'end_turn')]);
+    const ws = page();
+    const ai = new AI(ws, () => {}, new AnthropicRunner(env(api.url)));
+    let end: any = null;
+    let done!: () => void;
+    let ended = new Promise<void>((ok) => (done = ok));
+    (ai as any).emit = (_e: string, d: any) => d.role === 'end' && done();
+    ai.ask('a', 'look forever', undefined, [], 'THE BRIEF', undefined, { onEnd: (r) => (end = r) });
+    await ended;
+    expect(end).toMatchObject({ failed: true, unfinished: true, error: 'stopped after 40 steps; ask again to continue' });
+    expect(ai.chat('a').messages.at(-1)).toMatchObject({ role: 'error', text: 'stopped after 40 steps; ask again to continue' });
+    expect(api.got).toHaveLength(41);
+    // Continue: the same block, the same brief, and she knows what she did
+    ended = new Promise<void>((ok) => (done = ok));
+    ai.resume('a');
+    await ended;
+    expect(ai.chat('a').messages.at(-1)).toMatchObject({ role: 'ai', text: 'Finished after all.' });
+    expect(api.got.at(-1)!.body.system).toContain('THE BRIEF');
+    expect(JSON.stringify(api.got.at(-1)!.body.messages)).toContain(STOPPED_HERE);
+
+    // TYKERF_CONTINUES=0: a stop with changes ends unfinished too
+    const work = Array.from({ length: 41 }, (_, i) => message([toolUse(`w${i}`, 'set_content', { id: 'b', html: `<p>B${i}</p>` })]));
+    const api2 = await fakeAPI(work);
+    const was = process.env.TYKERF_CONTINUES;
+    process.env.TYKERF_CONTINUES = '0';
+    try {
+      const chat = await ask(new AI(page(), () => {}, new AnthropicRunner(env(api2.url))), 'b', 'go');
+      expect(chat.at(-1)).toMatchObject({ role: 'error', text: 'stopped after 40 steps; ask again to continue' });
+      expect(chat.some((m) => /goes on/.test(m.text))).toBe(false);
+    } finally {
+      if (was === undefined) delete process.env.TYKERF_CONTINUES;
+      else process.env.TYKERF_CONTINUES = was;
+    }
+  });
+
+  it('keeps what she did when the service stops answering half-way, so asking again goes on from there', async () => {
+    const api = await fakeAPI([message([toolUse('t1', 'set_content', { id: 'a', html: '<p>new A</p>' })]), busy(500), busy(500), busy(500), busy(500)]);
+    const ws = page();
+    process.env.TYKERF_CONTINUES = '0'; // read when the request starts
+    const chat = await ask(new AI(ws, () => {}, new AnthropicRunner(env(api.url))), 'a', 'change a').finally(() => delete process.env.TYKERF_CONTINUES);
+    expect(chat.at(-1)).toMatchObject({ role: 'error', text: expect.stringMatching(/^the API answered 500/) });
+    const kept = JSON.parse(ws.store.read('.tykerf/chats/a.api.json')!).exchanges.at(-1);
+    expect(kept.map((m: any) => m.role)).toEqual(['user', 'assistant', 'user', 'assistant']);
+    expect(kept.at(-1).content[0].text).toBe(STOPPED_HERE);
   });
 });
 

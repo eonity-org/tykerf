@@ -87,7 +87,7 @@ describe('a new site', () => {
   it('refuses a page name that is taken, then adds a new page in the site theme', async () => {
     await page.goto(`${url}_tykerf/edit/_site/new?from=home`);
     expect(await page.locator('#np-theme').count()).toBe(0); // the site's theme, not a choice
-    expect(await page.locator('[data-np="layout"] a', { hasText: 'Preview at full size' }).getAttribute('href')).toBe('/_tykerf/preview/launch/site/');
+    expect(await page.locator('[data-np="layout"] a', { hasText: 'Preview at full size' }).getAttribute('href')).toBe('/_tykerf/preview/blank/site/');  // no launch by default: the first layout
     await page.locator('#np-name').fill('home');
     await page.locator('[data-np="layout"] [type=submit]').click();
     expect(await page.locator('.np-error').textContent()).toMatch(/already a page called home/);

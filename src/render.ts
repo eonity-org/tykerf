@@ -152,7 +152,9 @@ function columnFlex(w: number, ratios: boolean, root: boolean, minH = false): st
   // An explicit min-height replaces the flex item's automatic minimum (its content height), so a
   // block with minh would be squeezed below its content from a zero basis. Start it from its
   // content (basis auto, no shrinking): its height is max(content, minh), plus its share of spare.
-  return minH ? `flex:${w} 0 auto;` : `flex:${w} 1 0;`;
+  // Without minh, the content is the floor said outright: a box whose code clips (overflow:hidden,
+  // as a hero with a glow) has no automatic minimum, and from a zero basis would shrink to nothing.
+  return minH ? `flex:${w} 0 auto;` : `flex:${w} 1 0;min-height:min-content;`;
 }
 
 const minHOf = (n: Node) => n.type !== 'empty' && n.minH !== undefined;

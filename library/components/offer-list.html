@@ -1,0 +1,38 @@
+<style>
+:scope { background: var(--section-bg, transparent); }
+.wrap { max-width: var(--max-width); margin: 0 auto; padding: var(--space-section) var(--gap); }
+.head { max-width: 40em; margin-bottom: calc(var(--gap) * 1.5); }
+h2 { font-size: var(--text-title); }
+.head p { color: var(--color-muted); font-size: var(--text-lead); margin: 0; }
+.groups { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 340px), 1fr)); gap: calc(var(--gap) * 2) calc(var(--gap) * 3); }
+h3 { font-size: 20px; margin: 0 0 4px; }
+ul { list-style: none; margin: 0; padding: 0; }
+li { display: grid; grid-template-columns: 1fr auto; gap: 4px 16px; padding: 16px 0; border-bottom: 1px solid var(--color-border); }
+li b { font-weight: 600; }
+li em { grid-column: 2; grid-row: 1; font-style: normal; font-weight: 600; font-variant-numeric: tabular-nums; white-space: nowrap; }
+li span { grid-column: 1 / -1; color: var(--color-muted); font-size: 15px; }
+</style>
+<div class="wrap">
+  <div class="head">
+    <h2>What we offer</h2>
+    <p>One sentence on what people find here, and what makes it yours.</p>
+  </div>
+  <div class="groups">
+    <div>
+      <h3>A first group</h3>
+      <ul>
+        <li><b>The first thing</b><em>€ 0.00</em><span>One line about it: what it is, or what it is made of.</span></li>
+        <li><b>The second thing</b><em>€ 0.00</em><span>One line that says why people choose it.</span></li>
+        <li><b>The third thing</b><em>€ 0.00</em><span>One line with a detail worth knowing.</span></li>
+      </ul>
+    </div>
+    <div>
+      <h3>A second group</h3>
+      <ul>
+        <li><b>The fourth thing</b><em>€ 0.00</em><span>One line about it. Leave the price out if there is none.</span></li>
+        <li><b>The fifth thing</b><em>€ 0.00</em><span>One line about who it is for.</span></li>
+        <li><b>The sixth thing</b><em>€ 0.00</em><span>One line about when it is there: every day, or only some days.</span></li>
+      </ul>
+    </div>
+  </div>
+</div>

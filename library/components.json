@@ -166,5 +166,29 @@
   "page-banner": {
     "label": "Page banner",
     "description": "A title and one sentence over each page, shared by every page; each page fills in its own (slots)"
+  },
+  "offer-list": {
+    "label": "Offer list",
+    "description": "What a place offers, in groups: a name, a line and a price (optional) for each"
+  },
+  "hours-location": {
+    "label": "Hours and location",
+    "description": "Opening hours or times beside a picture of the map, the address and a link to a map"
+  },
+  "programme": {
+    "label": "Programme",
+    "description": "What happens when: a time beside each moment of the day, in order"
+  },
+  "people": {
+    "label": "People",
+    "description": "The people behind it: a round picture, a name, a role and one line each"
+  },
+  "side-nav": {
+    "label": "Side menu",
+    "description": "A menu beside the page: the pages of this part of the site, in groups"
+  },
+  "side-note": {
+    "label": "Side note",
+    "description": "Beside the page: the facts people look for first (when, where, who to ask) and related pages"
   }
 }

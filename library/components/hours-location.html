@@ -1,0 +1,35 @@
+<style>
+/* when it is open (or when it happens) beside where it is: a picture of the map, the address and a link to a map */
+:scope { background: var(--section-bg, transparent); }
+.wrap { max-width: var(--max-width); margin: 0 auto; padding: var(--space-section) var(--gap); display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 340px), 1fr)); gap: calc(var(--gap) * 2) calc(var(--gap) * 3); align-items: start; }
+h2 { font-size: var(--text-title); }
+.lead { color: var(--color-muted); font-size: var(--text-lead); margin: 0 0 24px; }
+table { width: 100%; border-collapse: collapse; }
+caption { text-align: left; font-weight: 600; padding-bottom: 8px; }
+th, td { text-align: left; padding: 14px 0; border-bottom: 1px solid var(--color-border); vertical-align: top; }
+th { font-weight: 500; padding-right: 16px; }
+td { color: var(--color-muted); font-variant-numeric: tabular-nums; text-align: right; }
+img { display: block; width: 100%; height: auto; aspect-ratio: 16 / 10; object-fit: cover; border-radius: var(--radius); }
+address { font-style: normal; margin: 20px 0; line-height: 1.6; }
+address b { font-weight: 600; }
+.btn { display: inline-block; padding: 12px 20px; border-radius: var(--radius-button); background: var(--color-accent); color: var(--color-on-accent); font-weight: 600; text-decoration: none; }
+</style>
+<div class="wrap">
+  <div>
+    <h2>When and where</h2>
+    <p class="lead">One line that helps people plan their visit.</p>
+    <table>
+      <caption>Opening hours</caption>
+      <tbody>
+        <tr><th scope="row">Monday to Friday</th><td>9:00 – 14:00 · 17:00 – 20:00</td></tr>
+        <tr><th scope="row">Saturday</th><td>9:00 – 14:00</td></tr>
+        <tr><th scope="row">Sunday</th><td>Closed</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div>
+    <img src="assets/placeholder-wide.svg" alt="A map of where to find us">
+    <address><b>The place's name</b><br>Street and number<br>Postcode and town</address>
+    <a class="btn" href="#">Open it in a map</a>
+  </div>
+</div>

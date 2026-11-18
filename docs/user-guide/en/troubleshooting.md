@@ -41,7 +41,7 @@ Run `claude` in a terminal, then `/login`, and ask again. **Test it** under *Kai
 Use **Test it** under *Kaity status*, on the site's *Head code, icon & language* screen. It sends one short request and shows the answer, so a wrong key, a mistyped `TYKERF_API_BASE_URL` or a model name the service doesn't offer shows up at once. After changing `.env`, restart TYKERF.
 
 **Kaity stopped in the middle of a long request.**
-The API runners stop a request after 40 steps, and a single model turn after 180 seconds (`TYKERF_TURN_TIMEOUT` changes that). What she did so far stays. Ask her to go on in the same conversation.
+Model services are sometimes slow or busy. When a reply doesn't come in time (180 seconds, `TYKERF_TURN_TIMEOUT`) or the service is busy, TYKERF waits and tries again, up to three times; her steps say so. A request also pauses after 40 steps. In both cases she goes on by herself, up to three times (`TYKERF_CONTINUES`), as long as she is getting somewhere. If she still can't finish, the page or the task says it is **unfinished**: what she did so far stays, and **Continue** lets her go on where she stopped.
 
 **Kaity refuses to change something.**
 For a task, she can only change the task's block (and what is inside it). Leave the task on the block you mean, or on `page` (right-click an empty part of the page in the full editor, or a task on the whole page) for something that spans the page. The theme changes only for a task on `page`, and the site's shared head (its head code) is never hers to change.

@@ -48,11 +48,11 @@ describe('fixing by hand in the v3 editor', () => {
 
   it('shows only the element clicked: a link\'s words and where it leads, saved into the box', async () => {
     // Fix it by hand is in the right-click menu (the task box keeps to the task)
-    await frame().locator('[data-sw="hero"] a', { hasText: 'Get started' }).first().click({ button: 'right' });
+    await frame().locator('[data-sw="hero"] a', { hasText: 'The main action' }).first().click({ button: 'right' });
     await page.locator('.ctxmenu [data-ctx="hand"]').click();
     await panel().locator('.fxtitle').waitFor();
-    expect(await panel().locator('.fxtitle').textContent()).toBe('the link "Get started free"');
-    expect(await page.locator('.bar .status').textContent()).toContain('Fixing by hand · the link "Get started free"');
+    expect(await panel().locator('.fxtitle').textContent()).toBe('the link "The main action"');
+    expect(await page.locator('.bar .status').textContent()).toContain('Fixing by hand · the link "The main action"');
     expect(await panel().locator('.fxnote').last().textContent()).toBe('hero is the same on second. This fix stays on first unless you share the box.');
     await panel().locator('[name="text"]').fill('Start for free');
     await panel().locator('[name="href"]').selectOption('#sw-pricing');
@@ -63,7 +63,7 @@ describe('fixing by hand in the v3 editor', () => {
     // one step, which Undo takes back
     expect(ws.peekUndo()?.label).toMatch(/hero/);
     await page.locator('[data-bar="undo"]').click();
-    await expect.poll(() => ws.content('hero')).toContain('Get started free');
+    await expect.poll(() => ws.content('hero')).toContain('The main action');
   });
 
   it('leads to the full editor for a bigger fix: the box selected, at the tab for it', async () => {

@@ -61,7 +61,8 @@ export interface JobStep {
  */
 export interface Job {
   kind: 'ai' | 'copy';
-  state: 'running' | 'done' | 'stopped' | 'failed';
+  /** unfinished: Kaity stopped for a passing reason (too many steps, a slow or busy model) and couldn't go on by herself. */
+  state: 'running' | 'done' | 'stopped' | 'failed' | 'unfinished';
   steps: JobStep[];
   select: string | null; // the block the editor opens on afterwards
   answer?: string; // the AI's last words
@@ -452,7 +453,7 @@ export function createPageHost(ws: Workspace, opts: { name: string; site?: () =>
   };
   // the AI building a new page reports to the job: its steps, its answer, how it ended
   const aiEvents = (event: string, data: unknown) => {
-    const m = data as { role?: string; text?: string; state?: string };
+    const m = data as { role?: string; text?: string; state?: string; unfinished?: boolean };
     if (event === 'ai' && job?.kind === 'ai' && job.state === 'running') {
       if (m.role === 'check' && m.state === 'auto' && m.text) job.steps.push({ text: m.text });
       if (m.role === 'step' && m.text) {
@@ -461,7 +462,7 @@ export function createPageHost(ws: Workspace, opts: { name: string; site?: () =>
       }
       if (m.role === 'ai') job.answer = m.text;
       if (m.role === 'error') job.error = m.text;
-      if (m.role === 'end') job.state = job.error === 'stopped' ? 'stopped' : job.error ? 'failed' : 'done';
+      if (m.role === 'end') job.state = job.error === 'stopped' ? 'stopped' : m.unfinished ? 'unfinished' : job.error ? 'failed' : 'done';
       broadcast('job', publicJob());
     }
     broadcast(event, data);
@@ -688,6 +689,23 @@ export function createPageHost(ws: Workspace, opts: { name: string; site?: () =>
     if (p === '/_tykerf/ask/cancel') return json(res, 200, { ok: ai.cancel() });
     // stop the page's job (the AI stops; a copy is dropped), or forget it once the person has seen how it ended
     if (p === '/_tykerf/job/stop') return json(res, 200, { ok: !!job?.stop && job.state === 'running' && (job.stop(), true) });
+    // Continue: Kaity goes on with an unfinished page where she stopped (her conversation and her brief are kept)
+    if (p === '/_tykerf/job/continue') {
+      if (job?.kind !== 'ai' || job.state !== 'unfinished') return json(res, 409, { ok: false, error: 'there is nothing to continue' });
+      const was = { error: job.error };
+      Object.assign(job, { state: 'running', error: undefined });
+      job.steps.push({ text: 'Continue' });
+      try {
+        ai.resume(ws.load().root.id);
+      } catch (e) {
+        Object.assign(job, { state: 'unfinished', error: was.error });
+        job.steps.pop();
+        broadcast('job', publicJob());
+        return json(res, 409, { ok: false, error: (e as Error).message });
+      }
+      broadcast('job', publicJob());
+      return json(res, 200, { ok: true });
+    }
     if (p === '/_tykerf/job/seen') {
       if (job && job.state !== 'running') job = null;
       return json(res, 200, { ok: true });

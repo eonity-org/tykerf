@@ -68,9 +68,10 @@ function texts(html: string): string[] {
 /** Components' words a finished page keeps as they are: buttons, labels and headings that fit any site. */
 const KEEP = new Set([
   'Show more', 'Read more', 'See all →', 'All stories →', 'Open it', 'Latest news', 'Most read', 'Lead story', 'What we do', 'How it works',
-  'Selected work', 'Most popular', 'Get started', 'Get started free', 'Start free', 'Book a demo', 'Talk to us', 'Write to us', "Let's talk",
+  'Most popular', 'Get started', 'Start free', 'Talk to us', 'Write to us', "Let's talk",
   'Send message', 'Questions, answered', "Can't find yours?", 'Getting started', 'First steps', 'Next steps', 'Made with care', '/ month',
-  'Average rating', 'Human support', 'Community help', 'Priority support',
+  'Community help', 'Priority support',
+  'What we offer', 'When and where', 'Opening hours', 'Monday to Friday', 'Open it in a map', 'The programme', 'In short', 'See also', 'Who to ask',
   'surprising detail', 'about it.', // pieces of a sentence around <em>: the sentence itself is reported
 ]);
 /** Plain figures and reading times: a page's own numbers look the same. */

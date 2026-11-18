@@ -8,7 +8,7 @@ import { fileURLToPath } from 'node:url';
 import { type Browser, chromium } from 'playwright';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { MemoryStore } from '../src/store.js';
-import { createPage, pageLayouts } from '../src/library.js';
+import { createPage, frames, pageLayouts, purposes } from '../src/library.js';
 import { Workspace } from '../src/workspace.js';
 
 vi.setConfig({ testTimeout: 60_000 });
@@ -71,8 +71,11 @@ let browser: Browser;
 beforeAll(async () => { browser = await chromium.launch(); });
 afterAll(async () => { await browser?.close(); });
 
+/** What people and Kaity start from: the layouts, each frame alone, each purpose in the basic frame, and the full frame's page title over sections that had one too. */
+const STARTS = [...pageLayouts().map((t) => t.name), ...frames().map((f) => f.name), ...purposes().map((p) => `basic+${p.name}`), 'full+event', 'full+post'];
+
 describe('every layout in the main presets', () => {
-  for (const t of pageLayouts()) {
+  for (const t of STARTS.map((name) => ({ name }))) {
     it(`${t.name}: readable text on every band, headings in order, no sideways scroll`, async () => {
       for (const theme of PRESETS) {
         const html = page(t.name, theme);

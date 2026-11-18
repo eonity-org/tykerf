@@ -26,8 +26,8 @@ describe('the handbook', () => {
     // the page's own fonts, so the specimens show them
     expect(html).toMatch(/@font-face\s*\{[^}]*Playfair/);
     // the box's words, never its code
-    expect(html).toContain('The short promise of your product');
-    expect(html).not.toMatch(/<h1[^>]*>The short promise/);
+    expect(html).toContain('The main idea, in a few words');
+    expect(html).not.toMatch(/<h1[^>]*>The main idea/);
   });
 
   it('shows the tasks on each block: open ones first, then the done ones with their reply', () => {

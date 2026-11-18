@@ -1,0 +1,25 @@
+<style>
+/* the people behind it: a picture, a name, a role and one line each */
+:scope { background: var(--section-bg, transparent); }
+.wrap { max-width: var(--max-width); margin: 0 auto; padding: var(--space-section) var(--gap); }
+.head { max-width: 40em; margin-bottom: calc(var(--gap) * 1.5); }
+h2 { font-size: var(--text-title); }
+.head p { color: var(--color-muted); font-size: var(--text-lead); margin: 0; }
+ul { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 220px), 1fr)); gap: calc(var(--gap) * 1.5); }
+img { display: block; width: 96px; height: 96px; border-radius: 50%; object-fit: cover; margin-bottom: 16px; }
+li b { display: block; font-size: 19px; font-weight: 600; }
+li span { display: block; color: var(--color-accent); font-weight: 500; margin: 2px 0 10px; }
+li p { color: var(--color-muted); margin: 0; }
+</style>
+<div class="wrap">
+  <div class="head">
+    <h2>The people</h2>
+    <p>One sentence on who they are together.</p>
+  </div>
+  <ul>
+    <li><img src="assets/placeholder-avatar.svg" alt=""><b>A first name</b><span>Their role</span><p>One line about them, in their own words.</p></li>
+    <li><img src="assets/placeholder-avatar.svg" alt=""><b>A second name</b><span>Their role</span><p>One line on what they look after.</p></li>
+    <li><img src="assets/placeholder-avatar.svg" alt=""><b>A third name</b><span>Their role</span><p>One line on what people ask them for.</p></li>
+    <li><img src="assets/placeholder-avatar.svg" alt=""><b>A fourth name</b><span>Their role</span><p>One line with something personal.</p></li>
+  </ul>
+</div>

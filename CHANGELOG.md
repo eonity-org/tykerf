@@ -8,6 +8,18 @@
 
 ## Unreleased
 
+### Kaity chooses a layout for the page you asked for
+
+- **She works out what the page is for first:** what a visitor does there, who it is for, the one thing they should do, the sections it needs and its tone. Then she starts from the layout and theme that match, makes only those sections (a bakery's page gets no pricing, customer logos or figures unless you ask), and says in her answer which layout and theme she started from, why, and what she left out.
+- **Pages start from what they are for.** Kaity (and, soon, New page) starts a page from a *purpose*: place, person, event, organisation, concept, post or guide, each with the sections that kind of page needs, in a *frame*: simple (a navigation bar), basic (with a footer, and a side menu if wanted) or full (with a page title, a side menu and key facts beside the page). New sections for them: an offer list, hours and location, a programme, people, a side menu and a side note.
+- **Fixed:** a section that clips its content (such as the big centred hero) disappeared when it sat in a column beside a side menu; the image tool could open with its Apply button just below the window.
+- **Kaity keeps working when the model service doesn't.** Any model can be slow or busy for a while. A reply that doesn't come in time, or a busy service, is tried again after a wait (her steps say so); a request that stops after 40 steps, or for such a reason, goes on by itself while she is getting somewhere (up to 3 times, `TYKERF_CONTINUES`). She always remembers what she did before a stop. When she still can't finish, the page or the task says **unfinished**, and **Continue** lets her go on.
+- **The theme she picks is the theme you get.** When Kaity named the theme with the layout, it was dropped on a page that already existed (every page she builds), so most of her pages kept the default theme while her answer named another. Now it is applied, in the same undo step as the layout.
+- **New page no longer starts on *Product launch***, and its example is a page, not a launch page.
+- **Sample text that fits any page.** Components no longer read like a software product's page (*Get started free*, *Book a demo*, *Free for 14 days*, *Trusted by teams at*, *How much does it cost?*): their text says what goes in each place (*The main idea, in a few words*, *The main action*, *What the first figure counts*). *Check* still finds every piece left.
+- **Easier to read:** the names in a row of logos and the label on a picture banner now meet the contrast they need.
+- **For other AIs (MCP):** `list_layouts` lists each layout's sections; `use_layout` and `new_page` take `why` (required with a layout) and `keep`, the sections to make.
+
 ### The v3 editor: one bar, the page at its real size, Kaity task by task
 
 - **One editor for the page and the site.** A page opens with one bar on top and the page below it, in a frame at its real width, untouched. Leaving tasks is the normal way to work: click anything, say what should change (or ask: end with `?`), and **Give them to Kaity**. The site manager and the editor's floating toolbar are gone; the page's name at the left of the bar opens the site.

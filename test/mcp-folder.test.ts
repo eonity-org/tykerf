@@ -45,7 +45,7 @@ describe('a server with no folder open (the Claude plugin)', () => {
     const { call, names } = await inProcess(null, { folders: { defaultDir: dir } });
     expect(await names()).toEqual(expect.arrayContaining(['open_folder', 'list_pages', 'new_page']));
     expect(await call('get_layout')).toEqual({ error: true, text: expect.stringContaining(`no folder is open. open_folder opens one (without a path: the default folder, ${dir})`) });
-    expect(await call('use_layout', { name: 'blank' })).toMatchObject({ error: true });
+    expect(await call('use_layout', { name: 'blank', why: 'a test page' })).toMatchObject({ error: true });
     expect(await call('list_layouts')).toMatchObject({ error: false, text: expect.stringContaining('blank:') });
     expect(existsSync(dir)).toBe(false);
   });
@@ -55,7 +55,7 @@ describe('a server with no folder open (the Claude plugin)', () => {
     const { call } = await inProcess(null, { folders: { defaultDir: dir } });
     expect(await call('open_folder')).toEqual({ error: false, text: expect.stringMatching(new RegExp(`^ok: ${dir} is open, a new folder \\(made when something is written\\), which becomes a site: use_layout starts it with its home page`)) });
     expect(existsSync(dir)).toBe(false);
-    expect(await call('use_layout', { name: 'blank' })).toMatchObject({ error: false, text: expect.stringContaining(`ok: a new site in ${dir}, with its home page "home"`) });
+    expect(await call('use_layout', { name: 'blank', why: 'a test page' })).toMatchObject({ error: false, text: expect.stringContaining(`ok: a new site in ${dir}, with its home page "home"`) });
     expect(existsSync(join(dir, 'home', 'layout.slice'))).toBe(true);
     expect(existsSync(join(dir, 'layout.slice'))).toBe(false);
     expect(readSite(dir).home).toBe('home');

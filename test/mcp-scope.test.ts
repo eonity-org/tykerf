@@ -41,17 +41,17 @@ describe('the page folder', () => {
     const call = await connect('--dir', dir);
     expect(await call('get_layout')).toMatchObject({ error: true, text: expect.stringMatching(/no page is open\..* In an empty folder, use_layout starts a site with its home page/) });
     expect((await call('list_layouts')).text).toMatch(/^blank: /m);
-    const made = await call('use_layout', { name: 'factual', theme: 'warm' });
+    const made = await call('use_layout', { name: 'factual', why: 'a test page', theme: 'warm' });
     expect(made).toMatchObject({ error: false, text: expect.stringMatching(/^ok: a new site in .*rome, with its home page "home" from the factual layout with the warm theme/) });
     expect((await call('get_layout')).text).toMatch(/nav leaf/);
     expect(existsSync(join(dir, 'home', 'layout.slice'))).toBe(true);
     expect(readFileSync(join(dir, 'head.html'), 'utf8')).toContain('data-tykerf-preset="warm"'); // the site's theme, shared with its later pages
     // then it is a page like any other: use_layout replaces its blocks, and keeps its theme
-    expect((await call('use_layout', { name: 'blank' })).text).toMatch(/^ok: the page now follows the blank layout/);
+    expect((await call('use_layout', { name: 'blank', why: 'a test page' })).text).toMatch(/^ok: the page now follows the blank layout/);
 
     // a run limited to one block can't start a page
     const scoped = await connect('--dir', join(dir, '..', 'other'), '--scope', 'main');
-    expect(await scoped('use_layout', { name: 'blank' })).toMatchObject({ error: true, text: expect.stringMatching(/refused: there is no page here yet/) });
+    expect(await scoped('use_layout', { name: 'blank', why: 'a test page' })).toMatchObject({ error: true, text: expect.stringMatching(/refused: there is no page here yet/) });
   });
 });
 
@@ -63,7 +63,7 @@ describe('a site of pages', () => {
     expect(await call('get_layout')).toMatchObject({ error: true, text: expect.stringMatching(/no page is open\. In a site, open_page opens one of its pages \(list_pages lists them\)/) });
     expect((await call('list_pages')).text).toBe(`site ${site}\nprague: no title (no heading either: its name stands in)\nrome: no title (no heading either: its name stands in)\nno page is open: open_page opens one`);
     // a page made right in the site folder would hide its pages
-    expect(await call('use_layout', { name: 'blank' })).toMatchObject({ error: true, text: expect.stringMatching(/refused: this folder is a site of pages \(prague, rome\)/) });
+    expect(await call('use_layout', { name: 'blank', why: 'a test page' })).toMatchObject({ error: true, text: expect.stringMatching(/refused: this folder is a site of pages \(prague, rome\)/) });
 
     expect((await call('open_page', { name: 'rome' })).text).toMatch(/^ok: "rome" is open\n\npage column/);
     await call('edit_content', { id: 'nav', old: 'Site name', new: 'Roma' });
@@ -71,7 +71,7 @@ describe('a site of pages', () => {
     expect((await call('list_pages')).text).toContain('rome (open)');
     expect(await call('open_page', { name: 'munich' })).toMatchObject({ error: true, text: expect.stringMatching(/no page "munich" in the site \(pages: prague, rome\)/) });
 
-    const made = await call('new_page', { name: 'munich', layout: 'factual', theme: 'warm' });
+    const made = await call('new_page', { name: 'munich', layout: 'factual', why: 'a test page', theme: 'warm' });
     expect(made.text).toMatch(/^ok: new page "munich" from the factual layout, with the warm theme; it shows the site's shared blocks nav, footer, the same on every page: change them only when the request is about every page; it is open now/);
     expect(readFileSync(join(site, 'munich', 'head.html'), 'utf8')).toContain('data-tykerf-preset="warm"');
     expect((await call('get_layout')).text).toMatch(/intro leaf/);

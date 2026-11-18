@@ -16,8 +16,9 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { find } from './model.js';
-import { parseSlice } from './notation.js';
+import { find, walk } from './model.js';
+import { graft, remove } from './moves.js';
+import { parseSlice, serializeSlice } from './notation.js';
 import type { Store } from './store.js';
 import type { Workspace } from './workspace.js';
 import { mapPageFiles } from './assets.js';
@@ -36,6 +37,19 @@ export interface PageLayout extends ComponentInfo {
   /** The boxes every page of a site shares (its navigation, its footer): a site's page from this layout links them (site/pages.ts). */
   shared?: string[];
   boxes: Record<string, string>; // box name -> component name
+  /** Boxes whose main heading goes one level down (demoteTitle): the frame has a page title of its own. */
+  demote?: string[];
+}
+
+/**
+ * A section's main heading one level down, looking the same: its h1 becomes `<h2 data-title>`, and the section's
+ * own styles for h1 follow it. In a frame with a page title of its own (the page banner), the page keeps one h1.
+ */
+export function demoteTitle(code: string): string {
+  return code
+    .replace(/(<style[^>]*>)([\s\S]*?)(<\/style>)/g, (_m, open: string, css: string, close: string) => open + css.replace(/\bh1\b/g, 'h2[data-title]') + close)
+    .replace(/<h1\b/g, '<h2 data-title')
+    .replace(/<\/h1>/g, '</h2>');
 }
 
 const json = <T>(file: string): T => JSON.parse(readFileSync(join(DIR, file), 'utf8'));
@@ -66,6 +80,91 @@ function preset(name: string): ThemePreset {
 
 export function pageLayouts(): PageLayout[] {
   return Object.entries(json<Record<string, Omit<PageLayout, 'name'>>>('layouts.json')).map(([name, p]) => ({ name, ...p }));
+}
+
+/**
+ * A frame: what holds a page (a navigation bar, a side menu, an aside, a footer), with a `body` box where the
+ * page's own sections go. Its side boxes are optional: `keep` leaves them out like any section.
+ */
+export interface Frame extends ComponentInfo {
+  layout: string;
+  shared?: string[];
+  boxes: Record<string, string>; // box name -> component name; `body` holds plain text when the frame is used alone
+}
+/** A purpose: the sections a kind of page needs (a place, a person, an event…), in order, each with its component. */
+export interface Purpose extends ComponentInfo {
+  sections: { box: string; component: string; tags?: string[] }[];
+}
+/** The frame a purpose goes in when none is named. */
+export const DEFAULT_FRAME = 'basic';
+
+export function frames(): Frame[] {
+  return Object.entries(json<Record<string, Omit<Frame, 'name'>>>('frames.json')).map(([name, f]) => ({ name, ...f }));
+}
+export function purposes(): Purpose[] {
+  return Object.entries(json<Record<string, Omit<Purpose, 'name'>>>('purposes.json')).map(([name, p]) => ({ name, ...p }));
+}
+
+/**
+ * A frame with a purpose's sections in its body, as one page layout named `<frame>+<purpose>`: 21 pages from
+ * 10 entries, none stored. Without a purpose, the frame alone (its body a plain text block).
+ */
+export function composeLayout(frameName: string, purposeName?: string): PageLayout {
+  const f = frames().find((x) => x.name === frameName);
+  if (!f) throw new Error(`unknown frame "${frameName}" (known: ${frames().map((x) => x.name).join(', ')})`);
+  if (!purposeName) return { name: f.name, label: f.label, description: f.description, layout: f.layout, ...(f.shared ? { shared: f.shared } : {}), boxes: f.boxes };
+  const p = purposes().find((x) => x.name === purposeName);
+  if (!p) throw new Error(`unknown purpose "${purposeName}" (known: ${purposes().map((x) => x.name).join(', ')})`);
+  const leaves = p.sections.map((s) => `${s.box}[role=section${(s.tags ?? []).map((t) => ` #${t}`).join('')}]`);
+  const sub = parseSlice(`${leaves.length > 1 ? `${leaves.join(' ')} H${leaves.length > 2 ? leaves.length : ''}@body` : leaves[0]}\n`);
+  const l = graft(parseSlice(f.layout + '\n'), 'body', sub.root);
+  // the boxes in page order: the frame's around the body, the purpose's in it
+  const comp: Record<string, string> = { ...f.boxes, ...Object.fromEntries(p.sections.map((s) => [s.box, s.component])) };
+  const boxes: Record<string, string> = {};
+  walk(l.root, (n) => { if (n.type === 'leaf') boxes[n.id] = comp[n.id]; });
+  // a frame with a page title (an h1 of its own): the sections' main headings go one level down
+  const titled = Object.values(f.boxes).some((c) => /<h1\b/.test(componentCode(c)));
+  const demote = titled ? p.sections.filter((x) => /<h1\b/.test(componentCode(x.component))).map((x) => x.box) : [];
+  return { name: `${f.name}+${p.name}`, label: `${p.label} in ${f.label.toLowerCase()}`, description: p.description, layout: serializeSlice(l).trimEnd(), ...(f.shared ? { shared: f.shared } : {}), boxes, ...(demote.length ? { demote } : {}) };
+}
+
+/** A layout by name: a library layout, a frame, a purpose (in the default frame) or `<frame>+<purpose>`; null when unknown. */
+function findLayout(name: string): PageLayout | null {
+  const own = pageLayouts().find((p) => p.name === name);
+  if (own) return own;
+  const [f, p] = name.includes('+') ? name.split('+', 2) : frames().some((x) => x.name === name) ? [name] : purposes().some((x) => x.name === name) ? [DEFAULT_FRAME, name] : [];
+  if (!f || !frames().some((x) => x.name === f) || (p !== undefined && !purposes().some((x) => x.name === p))) return null;
+  return composeLayout(f, p);
+}
+
+/** The boxes a layout declares shared by every page of a site (navigation, footer…); none for an unknown name. */
+export function layoutShared(name: string): string[] {
+  return findLayout(name)?.shared ?? [];
+}
+
+/** A layout's sections: its boxes less the ones every page of a site shares (navigation, footer), in page order. */
+export function layoutSections(t: PageLayout): string[] {
+  const shared = new Set(t.shared ?? []);
+  return Object.keys(t.boxes).filter((b) => !shared.has(b));
+}
+
+/**
+ * A page layout by name, with only the sections in `keep` (the shared boxes always stay): the others are
+ * not made, so a page starts with what it needs instead of every section the layout has.
+ */
+export function pageLayout(name: string, keep?: string[]): PageLayout {
+  const t = findLayout(name);
+  if (!t) throw new Error(`unknown layout "${name}" (layouts: ${pageLayouts().map((p) => p.name).join(', ')}; frames: ${frames().map((f) => f.name).join(', ')}; purposes: ${purposes().map((p) => p.name).join(', ')}; or <frame>+<purpose>)`);
+  if (!keep) return t;
+  const sections = layoutSections(t);
+  const unknown = keep.filter((k) => !sections.includes(k));
+  if (unknown.length) throw new Error(`the ${name} layout has no section ${unknown.map((k) => `"${k}"`).join(', ')} (its sections: ${sections.join(', ')}; ${(t.shared ?? []).join(', ') || 'none'} always stay)`);
+  if (!keep.length) throw new Error(`keep at least one of the ${name} layout's sections (${sections.join(', ')})`);
+  const drop = sections.filter((s) => !keep.includes(s));
+  if (!drop.length) return t;
+  let l = parseSlice(t.layout + '\n');
+  for (const id of drop) l = remove(l, id);
+  return { ...t, layout: serializeSlice(l).trimEnd(), boxes: Object.fromEntries(Object.entries(t.boxes).filter(([b]) => !drop.includes(b))) };
 }
 
 /** A behaviour the library ships (library/behaviours/<name>.js): a component asks for it with data-use="<name>". */
@@ -269,9 +368,8 @@ export function copyAssets(ws: Workspace, code: string): string[] {
  * Replace a page's blocks with a page layout's: its tree, every box's component and their images. The
  * head and the theme stay (the variables are added if the page lacks them). One undo step.
  */
-export function useLayout(ws: Workspace, name: string, author = 'user') {
-  const t = pageLayouts().find((p) => p.name === name);
-  if (!t) throw new Error(`unknown layout "${name}" (known: ${pageLayouts().map((p) => p.name).join(', ')})`);
+export function useLayout(ws: Workspace, name: string, author = 'user', keep?: string[]) {
+  const t = pageLayout(name, keep);
   ws.group(`use layout ${name}`, author, () => {
     // the code of boxes the layout doesn't have goes, so an old box can't come back under a new block's name
     for (const id of ws.boxIds()) if (!(id in t.boxes)) ws.setContent(id, null, author);
@@ -281,7 +379,7 @@ export function useLayout(ws: Workspace, name: string, author = 'user') {
     if (next.root.type === 'op' && top !== next.root.id && !find(next.root, top)) Object.assign(next.root, { id: top, named: true });
     ws.save(next, `use layout ${name}`, author);
     for (const [box, c] of Object.entries(t.boxes)) {
-      const code = componentCode(c);
+      const code = t.demote?.includes(box) ? demoteTitle(componentCode(c)) : componentCode(c);
       copyAssets(ws, code);
       copyBehaviours(ws, code, author);
       ws.setContent(box, code, author);
@@ -325,12 +423,12 @@ export const DEFAULT_THEME = 'studio';
 export const EMPTY_LAYOUT = 'empty';
 const EMPTY = { layout: 'header[role=header] main[role=main] H@page', boxes: { header: '', main: '' } as Record<string, string> };
 
-export function createPage(ws: Workspace, name = 'blank', themeName = 'clean', opts: { ownTheme?: boolean } = {}) {
-  const t = name === EMPTY_LAYOUT ? EMPTY : pageLayouts().find((p) => p.name === name);
-  if (!t) throw new Error(`unknown layout "${name}" (known: ${pageLayouts().map((p) => p.name).join(', ')})`);
+export function createPage(ws: Workspace, name = 'blank', themeName = 'clean', opts: { ownTheme?: boolean; keep?: string[] } = {}) {
+  const t = name === EMPTY_LAYOUT ? EMPTY : pageLayout(name, opts.keep);
   const values = preset(themeName).values;
+  const demote: string[] = (t as Partial<PageLayout>).demote ?? [];
   // the empty page's boxes hold empty code, so they show nothing (not their names)
-  const boxes = Object.fromEntries(Object.entries(t.boxes).map(([box, c]) => [box, c ? componentCode(c) : '']));
+  const boxes = Object.fromEntries(Object.entries(t.boxes).map(([box, c]) => [box, !c ? '' : demote.includes(box) ? demoteTitle(componentCode(c)) : componentCode(c)]));
   ws.create(t.layout + '\n', boxes);
   // a page of a site that shares its theme has none of its own (the site's head comes first)
   if (opts.ownTheme !== false) ws.store.write('head.html', withFonts(ws, withPresetName(withThemeValues(theme(), values).head, themeName === BASE_THEME ? null : themeName)));
@@ -379,7 +477,7 @@ export function themeTarget(ws: Workspace): 'page' | 'site' | 'override' | null 
 }
 
 /** setTheme for a page on the site's shared theme: the site's theme, or the page's own values over it. */
-function setSharedTheme(ws: Workspace, values: Record<string, string>, author: string, where: 'site' | 'override') {
+function setSharedTheme(ws: Workspace, values: Record<string, string>, author: string, where: 'site' | 'override', preset?: string) {
   const site = readTheme(ws.siteHead());
   const unknown = Object.keys(values).filter((n) => !(n in site));
   if (unknown.length) throw new Error(`unknown theme variables: ${unknown.join(', ')} (the theme has ${Object.keys(site).join(', ')})`);
@@ -387,8 +485,9 @@ function setSharedTheme(ws: Workspace, values: Record<string, string>, author: s
   if (errors.length) throw new Error(errors.join('; '));
   const label = (changed: Record<string, { to: string }>) => `theme: ${Object.entries(changed).map(([n, c]) => `${n} ${c.to}`).join(', ')}`;
   if (where === 'site') {
-    const { head: next, changed } = withThemeValues(ws.siteHead(), values);
-    if (Object.keys(changed).length) ws.site!.setHead(next, label(changed));
+    const { head: values_, changed } = withThemeValues(ws.siteHead(), values);
+    const next = preset ? withPresetName(values_, preset) : values_;
+    if (next !== ws.siteHead()) ws.site!.setHead(next, Object.keys(changed).length ? label(changed) : `theme preset ${preset}`);
     return changed;
   }
   const own = readOverrides(ws.head());
@@ -403,20 +502,23 @@ function setSharedTheme(ws: Workspace, values: Record<string, string>, author: s
 
 /**
  * Change some theme variables (only ones the theme already has), keeping everything else in the head as it is.
- * Validated, logged and undoable like any change. Returns the variables that changed.
+ * Validated, logged and undoable like any change. Returns the variables that changed. With `preset` (a whole
+ * preset's values), the theme also says it came from that preset, as the Page tab shows it; a page's own
+ * values over a shared theme have no such name.
  */
-export function setTheme(ws: Workspace, values: Record<string, string>, author = 'ai'): Record<string, { from: string; to: string }> {
+export function setTheme(ws: Workspace, values: Record<string, string>, author = 'ai', preset?: string): Record<string, { from: string; to: string }> {
   const head = ws.head();
   const where = themeTarget(ws);
-  if (where === 'site' || where === 'override') return setSharedTheme(ws, values, author, where);
+  if (where === 'site' || where === 'override') return setSharedTheme(ws, values, author, where, preset);
   const current = readTheme(head);
   if (!Object.keys(current).length) throw new Error('this page has no theme; the user can add one in the Page tab of the top block');
   const unknown = Object.keys(values).filter((n) => !(n in current));
   if (unknown.length) throw new Error(`unknown theme variables: ${unknown.join(', ')} (the theme has ${Object.keys(current).join(', ')})`);
   const errors = Object.entries(values).map(([n, v]) => themeValueError(n, v)).filter(Boolean);
   if (errors.length) throw new Error(errors.join('; '));
-  const { head: next, changed } = withThemeValues(head, values);
-  if (Object.keys(changed).length) ws.setHead(withFonts(ws, next), author, `theme: ${Object.entries(changed).map(([n, c]) => `${n} ${c.to}`).join(', ')}`);
+  const { head: values_, changed } = withThemeValues(head, values);
+  const next = preset ? withPresetName(values_, preset) : values_;
+  if (next !== head) ws.setHead(withFonts(ws, next), author, Object.keys(changed).length ? `theme: ${Object.entries(changed).map(([n, c]) => `${n} ${c.to}`).join(', ')}` : `theme preset ${preset}`);
   return changed;
 }
 
