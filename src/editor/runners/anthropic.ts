@@ -110,7 +110,7 @@ export class AnthropicRunner implements Runner {
           content: [{ type: 'text' as const, text: outputs[i].text || '(no output)' }, ...outputs[i].images.map((x) => image(x.mediaType, x.data) as Anthropic.ImageBlockParam)],
         })),
       }],
-      withoutImages: (m) => {
+      kept: (m) => {
         if (typeof m.content === 'string') return m;
         const strip = (b: Block): Block => {
           if (b.type === 'image') return { type: 'text', text: '[picture]' };

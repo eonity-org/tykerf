@@ -348,6 +348,38 @@ describe('the Gemini runner', () => {
     expect(again.got).toHaveLength(1 + GARBLED_TRIES);
   });
 
+  it("shows the model its screenshots inside the call's answer, then keeps only a note of them", async () => {
+    // beside the answers, as parts of the turn, pictures garbled Gemini's next words (tried with the API)
+    const api = await fakeAPI([answer([{ functionCall: { id: 's1', name: 'screenshot', args: { width: 375 } } }]), answer([{ text: 'Looks fine.' }])]);
+    const ws = page();
+    await ask(new AI(ws, () => {}, new GeminiRunner({ GEMINI_API_KEY: 'g', GEMINI_BASE_URL: api.url })), 'a', 'look at it');
+    const parts = api.got[1].body.contents.at(-1).parts;
+    expect(parts).toHaveLength(1);
+    expect(parts[0].functionResponse).toMatchObject({ id: 's1', name: 'screenshot', parts: [{ inlineData: { mimeType: 'image/png' } }] });
+    const memory = ws.store.read('.tykerf/chats/a.api.json')!;
+    expect(memory).not.toMatch(/inlineData/);
+    expect(JSON.parse(memory).exchanges[0][2].parts[0].functionResponse.response.pictures).toBe('1 seen then, not kept');
+    expect(memory.length).toBeLessThan(5000);
+  }, 30_000);
+
+  it('sends thought signatures back within a request, and keeps none for later ones', async () => {
+    const api = await fakeAPI([
+      answer([{ functionCall: { id: 'f1', name: 'set_content', args: { id: 'a', html: '<p>gem</p>' } }, thoughtSignature: 'sig-1' }]),
+      answer([{ text: 'Done.', thoughtSignature: 'sig-2' }]),
+      answer([{ text: 'It says gem.' }]),
+    ]);
+    const ws = page();
+    const ai = new AI(ws, () => {}, new GeminiRunner({ GEMINI_API_KEY: 'g', GEMINI_BASE_URL: api.url }));
+    await ask(ai, 'a', 'change it');
+    // the API checks the signatures of the request that is running
+    expect(api.got[1].body.contents[1].parts[0]).toMatchObject({ thoughtSignature: 'sig-1' });
+    // a later request carries the earlier one without them (the API takes that)
+    expect(ws.store.read('.tykerf/chats/a.api.json')).not.toMatch(/thoughtSignature/);
+    await ask(ai, 'a', 'what does it say?');
+    expect(JSON.stringify(api.got[2].body.contents)).not.toMatch(/thoughtSignature/);
+    expect(api.got[2].body.contents[1].parts[0].functionCall).toMatchObject({ name: 'set_content' });
+  });
+
   it('makes every tool schema acceptable', async () => {
     const tools = await openTools(page(), 'a');
     for (const t of tools.list) {

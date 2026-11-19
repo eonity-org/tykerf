@@ -40,6 +40,15 @@ export function reply(parts: Part[]): { text: string; garbled: boolean } {
   return { text, garbled: texts.length > 0 && !SENTENCE.test(text) };
 }
 
+/** A part without its pictures, once the model has seen them: a note in their place. */
+function seen(p: Part): Part {
+  if (p.inlineData) return { text: '[picture]' };
+  const r = p.functionResponse;
+  if (!r?.parts?.length) return p;
+  const { parts, ...rest } = r;
+  return { ...p, functionResponse: { ...rest, response: { ...rest.response, pictures: `${parts.length} seen then, not kept` } } };
+}
+
 export class GeminiRunner implements Runner {
   readonly name = 'gemini';
   readonly model: string;
@@ -122,13 +131,20 @@ export class GeminiRunner implements Runner {
       user: (prompt, images) => ({ role: 'user', parts: [{ text: prompt }, ...images.map((a) => ({ inlineData: { mimeType: a.mediaType, data: a.data } }))] }),
       results: (calls, outputs) => [{
         role: 'user',
-        parts: [
-          ...calls.map((c, i) => ({ functionResponse: { id: c.id.startsWith('call-') ? undefined : c.id, name: c.name, response: outputs[i].isError ? { error: outputs[i].text } : { output: outputs[i].text || '(no output)' } } })),
-          // screenshots follow the answers, as pictures in the same turn
-          ...outputs.flatMap((o) => o.images.map((x) => ({ inlineData: { mimeType: x.mediaType, data: x.data } }))),
-        ],
+        // a screenshot goes inside its call's answer. Put beside the answers, as parts of the turn, it garbled
+        // the model's next words (tried with the API: 4 replies of 4 were stray words, against none inside)
+        parts: calls.map((c, i) => ({
+          functionResponse: {
+            id: c.id.startsWith('call-') ? undefined : c.id,
+            name: c.name,
+            response: outputs[i].isError ? { error: outputs[i].text } : { output: outputs[i].text || '(no output)' },
+            ...(outputs[i].images.length ? { parts: outputs[i].images.map((x) => ({ inlineData: { mimeType: x.mediaType, data: x.data } })) } : {}),
+          },
+        })),
       }],
-      withoutImages: (m) => ({ ...m, parts: (m.parts ?? []).map((p) => (p.inlineData ? { text: '[picture]' } : p)) }),
+      // a thought signature is checked only in the request that is running (tried with the API: an earlier
+      // request's calls without theirs are taken); kept, they were over a quarter of a saved conversation
+      kept: (m) => ({ ...m, parts: (m.parts ?? []).map(({ thoughtSignature: _, ...p }) => seen(p)) }),
       error: (e) => this.describe(e),
       retry: (e) => this.retryable(e),
       assistant: (text) => ({ role: 'model', parts: [{ text }] }),

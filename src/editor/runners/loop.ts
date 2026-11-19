@@ -87,8 +87,11 @@ export interface Wire<M> {
   user(prompt: string, images: Attachment[]): M;
   /** The messages that give the tools' answers back to the model. */
   results(calls: Call[], outputs: ToolOutput[]): M[];
-  /** A message without its pictures (once the model has seen them). */
-  withoutImages(m: M): M;
+  /**
+   * A message as the conversation keeps it for later requests: without its pictures (the model has seen them),
+   * and without what only the request that made it needs (Gemini's thought signatures).
+   */
+  kept(m: M): M;
   /** A readable message for a failed request (wrong key, rate limit, no network). */
   error(e: unknown): string;
   /** Whether a failed request may work if tried again (busy, rate-limited, unreachable): null when it won't (a refused key, an unknown model); `wait` is what the service asked for (ms). */
@@ -114,18 +117,18 @@ export function runLoop<M>(runner: string, wire: Wire<M>, req: RunRequest, on: R
   (async () => {
     let tools: Tools | null = null;
     // what has been said so far, kept whatever ends the run: a run stopped half-way is continued knowing what it did
-    let kept: (() => void) | null = null;
+    let keepSoFar: (() => void) | null = null;
     try {
       tools = await openTools(req.ws, req.scope, req.home, { tag: req.tag, readOnly: req.readOnly });
       const saved = req.memory.load() as Memory<M> | null;
       const past = saved?.runner === runner ? saved.exchanges : [];
       const now: M[] = [wire.user(req.prompt, req.images)];
-      const save = (exchange: M[]) => req.memory.save({ runner, exchanges: trim([...past, exchange.map((m) => wire.withoutImages(m))]) } satisfies Memory<M>);
+      const save = (exchange: M[]) => req.memory.save({ runner, exchanges: trim([...past, exchange.map((m) => wire.kept(m))]) } satisfies Memory<M>);
       const keep = () => save(now);
       // up to the last whole round (never calls without their results), closed by the model saying it was stopped
       let whole = now.length;
-      kept = () => save([...now.slice(0, whole), wire.assistant(STOPPED_HERE)]);
-      kept();
+      keepSoFar = () => save([...now.slice(0, whole), wire.assistant(STOPPED_HERE)]);
+      keepSoFar();
       let steps = 0, garbled = 0;
       for (;;) {
         const r = await turn(wire, [...past.flat(), ...now], req.system, tools.list, abort.signal, limit, waits, on);
@@ -140,7 +143,7 @@ export function runLoop<M>(runner: string, wire: Wire<M>, req: RunRequest, on: R
           if (long) {
             now.push(wire.assistant(GARBLED));
             keep();
-            kept = null;
+            keepSoFar = null;
             on.answer(GARBLED);
             break;
           }
@@ -148,7 +151,7 @@ export function runLoop<M>(runner: string, wire: Wire<M>, req: RunRequest, on: R
         now.push(r.message);
         if (!r.calls.length) {
           keep();
-          kept = null;
+          keepSoFar = null;
           on.answer(r.text.trim() || '(done)');
           break;
         }
@@ -176,10 +179,10 @@ export function runLoop<M>(runner: string, wire: Wire<M>, req: RunRequest, on: R
         steps += r.calls.length;
         now.push(...wire.results(r.calls, outputs));
         whole = now.length;
-        kept();
+        keepSoFar();
       }
     } catch (e) {
-      kept?.();
+      keepSoFar?.();
       if (abort.signal.aborted) on.error('stopped', 'stopped');
       else if (e instanceof Stop) on.error(e.message, e.reason);
       else on.error(wire.error(e), wire.retry(e) ? 'transient' : 'permanent');
