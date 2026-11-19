@@ -17,11 +17,11 @@ import { type IncomingMessage, type ServerResponse, createServer } from 'node:ht
 import { isIP } from 'node:net';
 import { basename, dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { HOME_PAGE, type PublishSettings, addSitePage, pageMoves, emptyTrash, lastSiteHeadChange, newPageLike, newSitePage, pageLinks, pageNameError, pageTitle, pageWorkspace, readSite, setLang, duplicatePage, removePage, renamePage, setHome, setPublish, setSiteIcon, siteIcon, setSiteCode, setSiteHead, setTitle, shareTheme, siteCode, siteHead, siteIndex, siteKind, siteMap, siteOf, sitePages, trashedPages, Site, siteMedia, removeMediaFile, moveToSite, moveSiteDuplicates, pruneMedia, headStyles, migrateHeadStyles, blockUsers, identicalBoxes, shareIdentical } from '../site.js';
+import { HOME_PAGE, type PublishSettings, addSitePage, pageMoves, emptyTrash, lastSiteHeadChange, newPageLike, newSitePage, pageLinks, pageNameError, pageTitle, pageWorkspace, readSite, setLang, setBrief, setFrame, BRIEF_PARTS, duplicatePage, removePage, renamePage, setHome, setPublish, setSiteIcon, siteIcon, setSiteCode, setSiteHead, setTitle, shareTheme, siteCode, siteHead, siteIndex, siteKind, siteMap, siteOf, sitePages, trashedPages, Site, siteMedia, removeMediaFile, moveToSite, moveSiteDuplicates, pruneMedia, headStyles, migrateHeadStyles, blockUsers, identicalBoxes, shareIdentical } from '../site.js';
 import { tasks } from '../tasks.js';
 import { FolderStore, MemoryStore } from '../store.js';
 import { KIT_LOADER, type KitKind, kitCSS, kitFonts, kitLibraryScripts, kitList, kitRead, kitWarning, kitWrite, lastKitChange } from '../kit.js';
-import { DEFAULT_THEME, EMPTY_LAYOUT, createPage, hasTheme, pageLayouts, libraryAsset, theme, themes } from '../library.js';
+import { DEFAULT_FRAME, DEFAULT_THEME, EMPTY_LAYOUT, createPage, frames, hasTheme, layoutSections, offeredLayouts, pageLayout, purposes, libraryAsset, theme, themes } from '../library.js';
 import { Workspace } from '../workspace.js';
 import { AI, type Runner, SITE_CHAT } from './ai.js';
 import { kaityRuns } from './kaity-log.js';
@@ -173,13 +173,16 @@ const pageRun = () => [...hosts].find(([, h]) => h.ai.running())?.[0] ?? null;
 const BUILD_BRIEF = [
   'This page was just made for this request: it holds only two empty boxes, header and main, on the theme\'s background. Build the whole page the request describes (and the attached pictures show).',
   'Before any tool, decide from the request (and the pictures): what a visitor does on this page (decides and acts, as on a shop, a venue or an event page; reads and understands, as in an article or a guide; looks at the work itself, as in a portfolio; or completes a task), what kind of page it is, who it is for, the one thing a visitor should do there, the sections it needs (the ones the request names or clearly implies), and its tone (warm, formal, playful, technical...). Most pages are not product launches: don\'t add pricing, customer logos, testimonials, figures or a sign-up call unless the request asks for them.',
-  'When the request asks for a page like another page of the site (its layout, its look), start with use_page from that page instead of a layout, and rewrite its text. Otherwise read list_layouts: pick the purpose whose description matches the page you decided on (not the one with the most sections), and the frame for what holds it (a footer, a side menu: most pages want basic without its side menu). Call use_layout with purpose, frame, why (who the page is for and what a visitor should do) and keep (only the sections you decided on, and side or aside only if the page needs them): a section left out is better than one filled with made-up content. When no purpose fits, use the simple frame alone and build the sections in its body yourself (split, use_component). Add the sections the page needs that the purpose lacks.',
+  'Layouts and themes are a starting point to save you work, not a mould: the page should look made for this request, not like every other page made from the same layout. When the request asks for a page like another page of the site (its layout, its look), start with use_page from that page and rewrite its text. Otherwise read list_layouts: when a purpose matches the page you decided on (not the one with the most sections), call use_layout with purpose, frame, why (who the page is for and what a visitor should do) and keep (only the sections you decided on, and side or aside only if the page needs them): a section left out is better than one filled with made-up content. The site\'s frame (if it has one) is the default; another frame is fine when this page needs it. When no purpose fits, or the request or the pictures describe a structure of their own, start from the simple frame alone and build that structure yourself (split, use_component, set_content). Either way the page is yours to change fully: reorder, split, merge, drop or add sections, change a component\'s code, until it fits the request.',
   'Plan the sections. Start with the navigation bar: its brand name and links for the sections you plan (#ids you then give those sections), so the page is the user\'s from the first moment. Link only to pages the site has; when the request names pages that don\'t exist yet, ask in your answer whether they will be made, instead of making up their addresses. Then add boxes for the sections (split, add_leaf), start each from a ready-made component (list_components, use_component) or write its code, and rename boxes after what they hold.',
   'Components come with sample text that says what goes in each place (Site name, Page one, The main idea, The main action, What the first figure counts...): replace all of it with the request\'s content as soon as you place each one (set_content or edit_content), and drop the parts the page doesn\'t need. Before you finish, run check_page and fix what it lists: no placeholder text, placeholder picture or link without a target may be left.',
   'Alternate the sections with the band tones: tag a section #tone-alt or #tone-soft, and the footer #tone-dark.',
   'Craft: a heading speaks for itself, so drop the small label above section titles unless the request wants one; more space above a heading than below it; body text no wider than about 70 characters; text readable on every band (at least 4.5:1, 3:1 for large text); a page of identical cards is not a structure: vary the sections.',
   'When the pictures show a design, follow its layout, spacing and mood with the theme\'s variables.',
-  'Look at the page at 1440 and 375 px before you finish, fix what looks wrong, then say in two or three sentences what you built: which layout and theme you started from and why, and which of the layout\'s sections you left out.',
+  'A theme preset is a base too: when the request gives the site an identity of its own (brand colours, a logo, photos, a described feel), adjust the theme to it with set_theme (the accent, the background, a font from the bundled ones) instead of leaving the preset as it is.',
+  'When the site has no brief yet (it is not in these instructions), write it with set_site once you know the page: audience (who the site is for), tone (a few words) and action (the one thing a visitor should do), each a short line in the request\'s language. The user can correct it later, and every later run reads it.',
+  'Before you finish, run check_design: fix everything it lists as must fix; fix each style note, or keep it and say why in your answer (people see the same notes).',
+  'Look at the page at 1440 and 375 px before you finish, fix what looks wrong, then say in two or three sentences what you built: which layout and theme you started from (or that you built it yourself) and why, what you changed from them, and which of the layout\'s sections you left out.',
 ].join('\n');
 
 /** Whether the site's pages share one theme (the site's head.html has it). */
@@ -323,7 +326,15 @@ function exportDir(url: URL): string | null {
 async function serveGlobal(req: IncomingMessage, res: ServerResponse, p: string, url: URL): Promise<boolean> {
   if (req.method === 'GET' && p === '/_tykerf/library') {
     // (shared: the boxes a layout gives the site as its shared blocks, which New page offers to link)
-    json(res, 200, { layouts: pageLayouts().map(({ name, label, description, shared }) => ({ name, label, description, ...(shared?.length ? { shared } : {}) })), themes: themes(), theme: theme() });
+    // New page starts a page from a purpose in a frame (`<frame>+<purpose>`), or a frame alone; retired layouts aren't offered
+    const entry = ({ name, label, description, shared }: { name: string; label: string; description: string; shared?: string[] }) => ({ name, label, description, ...(shared?.length ? { shared } : {}) });
+    json(res, 200, {
+      purposes: purposes().map(entry),
+      frames: frames().map((f) => ({ ...entry(f), side: layoutSections(pageLayout(f.name)).filter((b) => b === 'side' || b === 'aside') })),
+      frame: readSite(dir).frame ?? DEFAULT_FRAME,
+      layouts: offeredLayouts().map(entry),
+      themes: themes(), theme: theme(),
+    });
     return true;
   }
   // a layout with a theme, rendered in memory, for a preview (New page's Preview at full size)
@@ -348,7 +359,7 @@ async function serveGlobal(req: IncomingMessage, res: ServerResponse, p: string,
   }
   if (req.method === 'GET' && p === '/_tykerf/site') {
     const pages = sitePages(dir), settings = readSite(dir);
-    json(res, 200, { pages, sharedTheme: sharedTheme(), home: settings.home ?? null, titles: Object.fromEntries(pages.map((pg) => [pg, pageTitle(dir, pg, settings)])), ownTitles: settings.titles, lang: settings.lang, langSet: !!settings.langSet, signin: auth.on, kaity: kaityNow() });
+    json(res, 200, { pages, sharedTheme: sharedTheme(), home: settings.home ?? null, titles: Object.fromEntries(pages.map((pg) => [pg, pageTitle(dir, pg, settings)])), ownTitles: settings.titles, lang: settings.lang, langSet: !!settings.langSet, frame: settings.frame ?? null, brief: settings.brief ?? {}, signin: auth.on, kaity: kaityNow() });
     return true;
   }
   // a copy of a page, next to it
@@ -366,11 +377,17 @@ async function serveGlobal(req: IncomingMessage, res: ServerResponse, p: string,
     }
   }
   // the site's settings: its home page, a page's title set by hand, the site's language
-  if (req.method === 'POST' && (p === '/_tykerf/site/home' || p === '/_tykerf/site/title' || p === '/_tykerf/site/lang')) {
+  if (req.method === 'POST' && (p === '/_tykerf/site/home' || p === '/_tykerf/site/title' || p === '/_tykerf/site/lang' || p === '/_tykerf/site/about')) {
     const a = await body(req);
     try {
       if (p === '/_tykerf/site/home') setHome(dir, a.name ? String(a.name) : null);
       else if (p === '/_tykerf/site/lang') setLang(dir, String(a.lang ?? ''));
+      else if (p === '/_tykerf/site/about') {
+        // the site's brief and its frame (About this site): only the fields given change
+        const parts = Object.fromEntries(BRIEF_PARTS.filter((k) => typeof a[k] === 'string').map((k) => [k, String(a[k])]));
+        if (Object.keys(parts).length) setBrief(dir, parts);
+        if (typeof a.frame === 'string') setFrame(dir, a.frame || null);
+      }
       else setTitle(dir, String(a.name ?? ''), String(a.title ?? ''));
     } catch (e) {
       return json(res, 422, { ok: false, error: (e as Error).message }), true;
@@ -444,7 +461,7 @@ async function serveGlobal(req: IncomingMessage, res: ServerResponse, p: string,
       const chosen = a.theme ? String(a.theme) : null;
       const themeBrief = shared ? 'The page uses the theme the site\'s pages share: keep it unless the request asks for other colours or fonts.'
         : chosen ? `The user chose the ${chosen} theme: keep it unless the request asks for other colours or fonts.`
-        : 'The user left the theme to you: pick the preset whose description matches the tone you decided on (list_themes, use_theme), not the first one, or give the theme the design\'s own colours and fonts (set_theme), before you write the sections.';
+        : 'The user left the theme to you: pick the preset whose description (for, not for) matches the tone you decided on (list_themes, use_theme), not the first one, then make it the site\'s own where the request gives it an identity (set_theme), or give the theme the design\'s own colours and fonts (set_theme), before you write the sections.';
       // the site's navigation and footer: shared blocks, the same on every page (use_layout links or makes them)
       const blocks = kitList(dir).blocks.filter((b) => b === 'nav' || b === 'footer');
       const sharedBrief = blocks.length
@@ -463,7 +480,12 @@ async function serveGlobal(req: IncomingMessage, res: ServerResponse, p: string,
     }
     // "Like this page": its header, footer and theme, with an empty section between
     if (a.like) newPageLike(dir, name, String(a.like));
-    else newSitePage(dir, name, String(a.layout ?? 'blank'), String(a.theme ?? DEFAULT_THEME), { shared: a.shared !== false });
+    else {
+      // the frame's side menu and aside only when asked for (side: true)
+      const layout = String(a.layout ?? 'simple');
+      const keep = a.side === true ? undefined : layoutSections(pageLayout(layout)).filter((b) => b !== 'side' && b !== 'aside');
+      newSitePage(dir, name, layout, String(a.theme ?? DEFAULT_THEME), { shared: a.shared !== false, ...(keep?.length ? { keep } : {}) });
+    }
     refreshAll(); // the other pages' lists of pages
     json(res, 200, { ok: true, url: `/${name}/` });
     return true;
@@ -512,6 +534,22 @@ async function serveGlobal(req: IncomingMessage, res: ServerResponse, p: string,
   if (req.method === 'GET' && p === '/_tykerf/site/check') {
     const { checkSite, FINDING_KINDS } = await import('../check-site.js');
     return json(res, 200, { ok: true, findings: checkSite(dir), kinds: FINDING_KINDS }), true;
+  }
+  // Check the design (design.ts): every page in a browser at 1440 and 375 px, on demand (it takes a few seconds a page)
+  if (req.method === 'POST' && p === '/_tykerf/site/design') {
+    const { checkDesign, DESIGN_RULES } = await import('../design.js');
+    const { launchChromium, pageFiles } = await import('../screenshot.js');
+    const browser = await launchChromium();
+    try {
+      const pages = [];
+      for (const pg of sitePages(dir)) {
+        const ws = pageWorkspace(dir, pg);
+        pages.push({ page: pg, findings: await checkDesign(ws.page(), { files: pageFiles(ws), browser }) });
+      }
+      return json(res, 200, { ok: true, pages, rules: DESIGN_RULES }), true;
+    } finally {
+      await browser.close();
+    }
   }
   // Media: every file of the site and its pages, who uses each, and what to do with them (site/media.ts)
   if (req.method === 'GET' && p === '/_tykerf/site/media') return json(res, 200, { ok: true, files: siteMedia(dir) }), true;

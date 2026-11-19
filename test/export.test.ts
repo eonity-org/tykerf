@@ -129,7 +129,7 @@ describe('export', () => {
     ws.setContent(ws.boxIds()[0], '<img src="assets/dot.png">', 'user');
     const { files, report } = exportFiles(join(dir, 'x'));
     expect(files.map((f) => f.path).filter((f) => !f.endsWith('.woff2')).sort()).toEqual(['assets/dot.png', 'index.html']);
-    expect(files.some((f) => f.path === 'assets/inter-latin-wght-normal.woff2')).toBe(true); // the theme's fonts go along
+    expect(files.some((f) => f.path === 'assets/instrument-sans-latin-wght-normal.woff2')).toBe(true); // the theme's fonts go along
     expect(report.pages).toEqual(['index']);
   });
 

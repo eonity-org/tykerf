@@ -35,11 +35,12 @@ function screenStates(info) {
     media: twice ? t('{n} files · {m} kept twice', { n: files.length, m: twice }) : t('{n} files', { n: files.length }),
     links: linkCount ? (hard ? t('{n} · {m} hard to reach', { n: linkCount, m: hard }) : String(linkCount)) : t('none yet'),
     kaity: working ? t('working now') : runs.length === 1 ? t('1 request') : runs.length ? t('{n} requests', { n: runs.length }) : t('nothing yet'),
+    about: site?.brief && Object.keys(site.brief).length ? (site.brief.tone || site.brief.audience || site.brief.action) : t('not written yet'),
     settings: site?.langSet ? t('language: {lang}', { lang: site.lang }) : t('language not set'),
   };
 }
 
-const SCREEN_ORDER = ['tasks', 'shared', 'check', 'media', 'links', 'kaity', 'settings'];
+const SCREEN_ORDER = ['about', 'tasks', 'shared', 'check', 'media', 'links', 'kaity', 'settings'];
 
 /**
  * The sidebar. `page`: the page open behind it (null on a site screen). `docked`: beside a site screen (else over

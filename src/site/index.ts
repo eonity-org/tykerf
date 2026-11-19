@@ -204,7 +204,7 @@ export function siteOf(pageDir: string): Site | null {
 }
 
 export { HOME_PAGE, PAGE_NAME, siteKind, sitePages, pageNameError, newSitePage, freePageName, addSitePage, siteIndex, TYKERF_REPO, CREDIT, withCredit, siteMap, newPageLike, usePage, linkedPage, rewriteLinks, type PageLink, pageLinks, type PageMove, pageMoves, renamePage, duplicatePage, type TrashedPage, trashedPages, emptyTrash, removePage } from './pages.js';
-export { type SiteSettings, LANG, langTag, type PublishSettings, publishSettingsError, readSite, setLang, setHome, setTitle, setPublish, pageTitle, derivedTitle } from './settings.js';
+export { type SiteSettings, LANG, langTag, type PublishSettings, publishSettingsError, readSite, setLang, setFrame, recordFrame, setBrief, briefLines, type SiteBrief, BRIEF_PARTS, setHome, setTitle, setPublish, pageTitle, derivedTitle } from './settings.js';
 export { unsafeSVG, madeIcon, siteIcon, iconLink, setSiteIcon } from './icon.js';
 export { siteHead, setSiteHead, lastSiteHeadChange, siteCode, setSiteCode, headStyles, migrateHeadStyles, undoSiteHead, shareTheme, pagesWithOwnTheme } from './head.js';
 export { type MediaFile, siteMedia, removeMediaFile, moveToSite, moveSiteDuplicates, pruneMedia, siteFileRefs } from './media.js';

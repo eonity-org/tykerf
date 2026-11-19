@@ -15,7 +15,7 @@ my-site/
   head.html      the site's theme, its fonts and its head code
   kit/           what every page shares besides the theme (see The site kit)
   assets/        the theme's fonts
-  site.json      the home page, titles set by hand, the site's language, where Publish sends the site
+  site.json      the home page, titles set by hand, the site's language, its brief and frame, where Publish sends the site
   favicon.svg    the site's icon, when you upload one (.svg, .png or .ico)
   .trash/        removed pages, until you empty the trash
 ```
@@ -23,8 +23,8 @@ my-site/
 `npm start -- my-site` opens it at `http://localhost:4400`. Every page is in a site: the first page you make in a new or empty folder (from New page, `--layout`, `npm run cli -- new` or Claude) is the site's **home page**, named `home` unless you name it, and the site's address opens it. To name it, change **Page name** on New page, or give `--name`:
 
 ```bash
-npm start -- my-site --layout biased --name portfolio      # a site whose one page is /portfolio/
-npm run cli -- new my-site biased --name portfolio         # the same, without opening the editor
+npm start -- my-site --layout person --name portfolio      # a site whose one page is /portfolio/
+npm run cli -- new my-site person --name portfolio         # the same, without opening the editor
 ```
 
 **Name and title** in the site's sidebar renames it later; it stays the home page.
@@ -32,7 +32,7 @@ npm run cli -- new my-site biased --name portfolio         # the same, without o
 On a site that has pages already, `--layout` with `--name` adds that page, once (it says so, with the page's address); the same command run again just starts the editor. In a site that shares one theme, the theme you name becomes that page's own values, so the other pages keep their look. Without `--name`, it asks for one:
 
 ```bash
-npm start -- my-site --layout biased --theme biased --name case-two   # one more page, /case-two/
+npm start -- my-site --layout post --theme ivory --name case-two   # one more page, /case-two/
 ``` Starting TYKERF on one page of a site (`npm start -- my-site/home`) opens its site. A page folder that isn't in a site is refused, with the two commands that put it in one:
 
 ```bash
@@ -46,7 +46,7 @@ npm start -- my-site
 
 On a **new or empty folder**, TYKERF opens on **New page**. Give the first page a name (`home`) and choose how to start:
 - **Describe it, show it, or both:** words, up to three pictures and/or a design ZIP; Kaity builds the page ([Kaity](ai.md#start-a-page-with-kaity)).
-- **From a layout:** pick one, and the theme the whole site will share ([layouts](layouts.md)).
+- **From a kind of page:** what the page is and what holds it, and the theme the whole site will share ([layouts](layouts.md)).
 - **From a copy of a web page:** see [copying a website](importing.md).
 
 On a site with pages, **+ Page** also offers **Like a page of this site**: the new page takes that page's navigation, footer and look, with one empty section between them for its own content (a page without a navigation and a footer is copied whole). The page you came from is chosen; click another to start from it.
@@ -63,6 +63,7 @@ From top to bottom:
 |---|---|
 | **Ask Kaity about the whole site** | Kaity works across pages: she opens each, changes it and checks it ([Kaity for the whole site](ai.md#kaity-for-the-whole-site)) |
 | The pages | Each as a card: its name and address, *Home*, and what it has (*open now*, its tasks, things to check); a click opens it. Below each, its actions in words (see below). **+ Page** opens New page |
+| **About this site** | The site's brief, which Kaity reads before every request: who it is for, its tone, and what a visitor should do; and the frame new pages start in (see below) |
 | **Tasks for Kaity** | Every open task and question of the site, page by page: **Give Kaity everything** (she works page after page), or *Give Kaity this page*; the fixes Check the site found on a page's box can be added as tasks |
 | **Shared blocks** | Boxes that could be shared, the blocks that are, and the rest of [the site kit](#the-site-kit) |
 | **Check the site** | What to fix before publishing (see below); its count shows in red |
@@ -73,6 +74,8 @@ From top to bottom:
 | **Publish**, **Site history**, **Sign out** | The site, live ([publishing](publishing.md)); the site's own undo, and its trash (see below) |
 
 Each line says how it stands now: *3 open on 2 pages*, *2 · 10 more could be*, *language not set*.
+
+**About this site** holds the site's **brief**: who it is for, its tone, and the one thing a visitor should do, a short line each. Kaity writes a first version when she builds the site's first page; change it whenever it no longer says what you want, and every later request, on any page, follows it. When something you ask goes against it, Kaity does what you asked and says so, and asks whether the brief should change; she doesn't change it on her own. Below it, **New pages start in** is the frame (simple, basic or full) a new page gets when only its kind is chosen. The site's first page sets it. It is a default: a page may use another frame, and Kaity says why when she picks another one.
 
 ### The pages
 
@@ -128,6 +131,13 @@ What is shared uses the site's files: sharing a box moves the page's files it us
 
 **Check the site** looks at every page at once and lists what to fix before publishing, each item linking to its page and box: links to pages the site doesn't have, files that aren't there, shared blocks using one page's file, pictures without a text alternative (`alt`), page titles that are missing, too long or the same as another page's, pages no other page links to, a page's own copy of a shared block that equals the block (it could follow the block), fonts without a licence noted, files loaded from other servers, and a site whose language was never set. They come in groups, each with its count and a fix on the spot (a title field, the language, *Add it to the shared nav*, *Open the box*), and each group says whether **Kaity can fix** it or it is **yours to decide**; **Give Kaity the ones she can fix** asks her. Its count shows in the sidebar. An export, Publish and Kaity (`check_site`) report the same.
 
+At the bottom, **Check the design** opens every page in a browser at desktop and phone width (a few seconds a page, so only when you press it) and lists, page by page and box by box:
+
+- **To fix**, so people can read and use the page: text too faint on its background, text too small on a phone, buttons and links too small to tap, headings out of order, a page that scrolls sideways on a phone, lines too long or too close together, stretched pictures. **Give Kaity the … to fix** asks her.
+- **Style notes**, folded: signs of a generic page (small labels over every section title, a badge above the headline, grids of identical icon cards, the same section again and again, a headline that fills the screen, gradient text and glows, cards inside cards, a coloured stripe down one side of a card, long centred or capital text, only the most common fonts). They aren't errors: keep what you chose on purpose.
+
+Each rule comes with a line saying what it asks and why. Kaity runs the same check (`check_design`) before she finishes a page: she fixes what must be fixed, and for each style note she fixes it or says in her answer why it stays.
+
 ### Head code
 
 **Head code, icon & language** shows what every page gets in its head that isn't a style: meta tags, scripts, a link to a stylesheet. Scripts here run on every page. Styles for every page go in [the site kit](#the-site-kit), and the theme (colours and fonts) stays in the full editor's Page tab: a new `<style>` here is refused, with a word on where it goes. A site made before keeps the styles its head code has; the screen offers **Move to the kit**, which moves them to `kit/styles/head.css` (each with a comment saying where it came from) as one step **Undo** takes back. From the command line, `npm run cli -- site <dir> migrate-head` does the same. Nothing moves on its own. **Undo**, in the bar, takes a change back (see [Undo](#undo-and-the-sites-history)).
@@ -138,7 +148,7 @@ Below it is **the site's language**: the language its pages are written in, as a
 
 ### Undo and the site's history
 
-What the whole site shares has one history, apart from each page's: the theme and the head code, the site kit, and the settings (the home page, page titles, the language, where Publish sends the site). **Undo**, in the bar of the site's screens, takes back the last of those changes, whoever made it (you, or Kaity on the whole site); point at it to see which one it is (*Undo "add kit/styles/note.css"*). **Site history** lists the latest changes, who made them and when, with **Undo** and **Redo** (which brings back what you undid, until the next change). A change Kaity makes as one request, across the kit and the settings, undoes as one step.
+What the whole site shares has one history, apart from each page's: the theme and the head code, the site kit, and the settings (the home page, page titles, the language, the brief and the frame, where Publish sends the site). **Undo**, in the bar of the site's screens, takes back the last of those changes, whoever made it (you, or Kaity on the whole site); point at it to see which one it is (*Undo "add kit/styles/note.css"*). **Site history** lists the latest changes, who made them and when, with **Undo** and **Redo** (which brings back what you undid, until the next change). A change Kaity makes as one request, across the kit and the settings, undoes as one step.
 
 Renaming, duplicating or removing a page isn't a step of it: a removed page waits in the trash, and a rename can be made again the other way.
 

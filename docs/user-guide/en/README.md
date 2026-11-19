@@ -45,7 +45,7 @@ npm start -- ~/tykerf-sites/my-site      # open http://localhost:4400
 
 A new or empty folder is a new site. It opens on **New page**, with three ways to start the first page:
 - **Describe it, show it, or both:** Kaity builds the page from your words and pictures.
-- **From a layout:** with the theme the site will share.
+- **From a kind of page:** a purpose (a place, a person, an event…) in a frame, with the theme the site will share.
 - **From a copy of a web page.**
 
 **+ Page** in the site's sidebar (the page's name in the editor's bar opens it) adds more pages, and all the pages share one theme. **Publish**, at the bottom of the sidebar, puts the site online. The first page is the site's home page, which its address opens. To start a site with its home page from a layout directly: `npm start -- my-site --layout launch --theme studio` (add `--name portfolio` to name that page other than `home`).

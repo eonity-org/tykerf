@@ -3,7 +3,7 @@
 .wrap { position: relative; max-width: var(--max-width); margin: 0 auto; padding: calc(var(--space-section) * .8) var(--gap) 0; text-align: center; }
 /* a soft glow of the accent behind the headline and the picture */
 .wrap::before { content: ""; position: absolute; inset: 8% 0 auto; height: 70%; background: radial-gradient(50% 50% at 50% 50%, var(--color-soft), transparent 70%); z-index: -1; }
-.badge { display: inline-flex; align-items: center; gap: 8px; padding: 6px 14px 6px 6px; border: 1px solid var(--color-border); border-radius: var(--radius-button); background: var(--color-bg); font-size: 14px; color: var(--color-muted); text-decoration: none; }
+.badge { display: inline-flex; align-items: center; gap: 8px; padding: 6px 14px 6px 6px; border: 1px solid var(--color-border); border-radius: var(--radius-button); background: var(--color-bg); font-size: 14px; color: var(--color-muted); text-decoration: none; min-height: 40px; }
 .badge b { padding: 3px 10px; border-radius: var(--radius-button); background: var(--color-accent); color: var(--color-on-accent); font-size: 12px; font-weight: 600; }
 h1 { font-size: var(--text-hero); max-width: 14ch; margin: 28px auto 24px; }
 .lead { font-size: var(--text-lead); color: var(--color-muted); max-width: 40em; margin: 0 auto 36px; }

@@ -190,5 +190,9 @@
   "side-note": {
     "label": "Side note",
     "description": "Beside the page: the facts people look for first (when, where, who to ask) and related pages"
+  },
+  "page-text": {
+    "label": "Page text",
+    "description": "The page's title and a few paragraphs: where a page made from a frame alone starts."
   }
 }

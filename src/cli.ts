@@ -117,7 +117,7 @@ switch (cmd) {
     const option = (o: string) => (rest.indexOf(o) >= 0 ? rest[rest.indexOf(o) + 1] : undefined);
     const asked = option('--theme');
     const wish = option('--name');
-    const layout = rest.find((r, i) => !r.startsWith('--') && !['--theme', '--name'].includes(rest[i - 1])) ?? 'blank';
+    const layout = rest.find((r, i) => !r.startsWith('--') && !['--theme', '--name'].includes(rest[i - 1])) ?? 'simple';
     const dir = resolve(arg);
     // an empty or new folder becomes a site, with the page as its home (folders count too: a site may hold only its pages)
     if (!existsSync(dir) || !readdirSync(dir).some((f) => !f.startsWith('.'))) {
@@ -147,11 +147,13 @@ switch (cmd) {
     break;
   }
   case 'layouts': {
-    const { components, pageLayouts, themes } = await import('./library.js');
-    console.log('Layouts (npm start -- <folder> --layout <name>):');
-    for (const p of pageLayouts()) console.log(`  ${p.name.padEnd(14)} ${p.description}`);
+    const { components, frames, purposes, offeredThemes } = await import('./library.js');
+    console.log('Frames (npm start -- <folder> --layout <frame>, or <frame>+<purpose>):');
+    for (const f of frames()) console.log(`  ${f.name.padEnd(14)} ${f.description}`);
+    console.log('\nPurposes (--layout <purpose>, in the basic frame, or <frame>+<purpose>):');
+    for (const p of purposes()) console.log(`  ${p.name.padEnd(14)} ${p.description}`);
     console.log('\nThemes (--theme <name>; the Page tab changes them later):');
-    for (const t of themes()) console.log(`  ${t.name.padEnd(14)} ${t.description}`);
+    for (const t of offeredThemes()) console.log(`  ${t.name.padEnd(14)} ${t.description}`);
     console.log('\nComponents (an empty box: Text tab → Use a component):');
     for (const c of components()) console.log(`  ${c.name.padEnd(14)} ${c.description}`);
     break;

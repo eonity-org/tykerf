@@ -39,6 +39,8 @@ export interface PageLayout extends ComponentInfo {
   boxes: Record<string, string>; // box name -> component name
   /** Boxes whose main heading goes one level down (demoteTitle): the frame has a page title of its own. */
   demote?: string[];
+  /** No longer offered (New page, list_layouts): pages start from a purpose in a frame. Still made by name, for older requests and pages. */
+  retired?: boolean;
 }
 
 /**
@@ -60,12 +62,19 @@ export function components(): ComponentInfo[] {
 
 export interface ThemePreset extends ComponentInfo {
   values: Record<string, string>; // theme variable -> value; the variables left out keep the theme's own
+  /** No longer offered (Page tab, New page, list_themes): still applied by name, for older requests and sites. */
+  retired?: boolean;
 }
 
 /** Theme presets, each with the full set of values it gives the theme (its own over the theme's defaults). */
 export function themes(): ThemePreset[] {
   const base = readTheme(theme());
   return Object.entries(json<Record<string, Omit<ThemePreset, 'name'>>>('themes.json')).map(([name, p]) => ({ name, ...p, values: { ...base, ...p.values } }));
+}
+
+/** The theme presets still offered (none retired). */
+export function offeredThemes(): ThemePreset[] {
+  return themes().filter((t) => !t.retired);
 }
 
 /** The theme's own values, as a preset: what `createPage` uses by default (not offered in the chooser). */
@@ -80,6 +89,11 @@ function preset(name: string): ThemePreset {
 
 export function pageLayouts(): PageLayout[] {
   return Object.entries(json<Record<string, Omit<PageLayout, 'name'>>>('layouts.json')).map(([name, p]) => ({ name, ...p }));
+}
+
+/** The ready-made layouts still offered (none retired); pages start from a purpose in a frame. */
+export function offeredLayouts(): PageLayout[] {
+  return pageLayouts().filter((p) => !p.retired);
 }
 
 /**
@@ -112,7 +126,12 @@ export function purposes(): Purpose[] {
 export function composeLayout(frameName: string, purposeName?: string): PageLayout {
   const f = frames().find((x) => x.name === frameName);
   if (!f) throw new Error(`unknown frame "${frameName}" (known: ${frames().map((x) => x.name).join(', ')})`);
-  if (!purposeName) return { name: f.name, label: f.label, description: f.description, layout: f.layout, ...(f.shared ? { shared: f.shared } : {}), boxes: f.boxes };
+  // a frame with a page title of its own (the page banner's h1): its body's title goes one level down
+  const titledFrame = Object.entries(f.boxes).some(([box, c]) => box !== 'body' && /<h1\b/.test(componentCode(c)));
+  if (!purposeName) {
+    const demoteBody = titledFrame && /<h1\b/.test(componentCode(f.boxes.body)) ? { demote: ['body'] } : {};
+    return { name: f.name, label: f.label, description: f.description, layout: f.layout, ...(f.shared ? { shared: f.shared } : {}), boxes: f.boxes, ...demoteBody };
+  }
   const p = purposes().find((x) => x.name === purposeName);
   if (!p) throw new Error(`unknown purpose "${purposeName}" (known: ${purposes().map((x) => x.name).join(', ')})`);
   const leaves = p.sections.map((s) => `${s.box}[role=section${(s.tags ?? []).map((t) => ` #${t}`).join('')}]`);
@@ -123,7 +142,7 @@ export function composeLayout(frameName: string, purposeName?: string): PageLayo
   const boxes: Record<string, string> = {};
   walk(l.root, (n) => { if (n.type === 'leaf') boxes[n.id] = comp[n.id]; });
   // a frame with a page title (an h1 of its own): the sections' main headings go one level down
-  const titled = Object.values(f.boxes).some((c) => /<h1\b/.test(componentCode(c)));
+  const titled = titledFrame;
   const demote = titled ? p.sections.filter((x) => /<h1\b/.test(componentCode(x.component))).map((x) => x.box) : [];
   return { name: `${f.name}+${p.name}`, label: `${p.label} in ${f.label.toLowerCase()}`, description: p.description, layout: serializeSlice(l).trimEnd(), ...(f.shared ? { shared: f.shared } : {}), boxes, ...(demote.length ? { demote } : {}) };
 }
@@ -135,6 +154,13 @@ function findLayout(name: string): PageLayout | null {
   const [f, p] = name.includes('+') ? name.split('+', 2) : frames().some((x) => x.name === name) ? [name] : purposes().some((x) => x.name === name) ? [DEFAULT_FRAME, name] : [];
   if (!f || !frames().some((x) => x.name === f) || (p !== undefined && !purposes().some((x) => x.name === p))) return null;
   return composeLayout(f, p);
+}
+
+/** The frame a layout name starts in: a frame, `<frame>+<purpose>`, or a purpose alone (the default frame); null for others. */
+export function frameOf(name: string): string | null {
+  const [f, p] = name.includes('+') ? name.split('+', 2) : [name];
+  if (p === undefined && purposes().some((x) => x.name === f)) return DEFAULT_FRAME;
+  return frames().some((x) => x.name === f) ? f : null;
 }
 
 /** The boxes a layout declares shared by every page of a site (navigation, footer…); none for an unknown name. */
@@ -258,6 +284,11 @@ export const FONTS: Record<string, { file: string; style: 'normal' | 'italic' }[
   Newsreader: [{ file: 'newsreader-latin-wght-normal.woff2', style: 'normal' }, { file: 'newsreader-latin-wght-italic.woff2', style: 'italic' }],
   'Playfair Display': [{ file: 'playfair-display-latin-wght-normal.woff2', style: 'normal' }, { file: 'playfair-display-latin-wght-italic.woff2', style: 'italic' }],
   'Plus Jakarta Sans': [{ file: 'plus-jakarta-sans-latin-wght-normal.woff2', style: 'normal' }],
+  'Instrument Sans': [{ file: 'instrument-sans-latin-wght-normal.woff2', style: 'normal' }],
+  'Public Sans': [{ file: 'public-sans-latin-wght-normal.woff2', style: 'normal' }],
+  Fraunces: [{ file: 'fraunces-latin-wght-normal.woff2', style: 'normal' }, { file: 'fraunces-latin-wght-italic.woff2', style: 'italic' }],
+  'Bricolage Grotesque': [{ file: 'bricolage-grotesque-latin-wght-normal.woff2', style: 'normal' }],
+  Nunito: [{ file: 'nunito-latin-wght-normal.woff2', style: 'normal' }],
 };
 
 const FONTS_BLOCK = /<style[^>]*\bdata-tykerf-fonts\b[^>]*>[\s\S]*?<\/style>\n?/;

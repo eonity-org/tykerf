@@ -16,45 +16,54 @@ Three things shape how a page looks, at three sizes:
 
 A layout is a set of components arranged on a page. Once the page is made, it keeps no link back to the ready-made layout: it is an ordinary page whose blocks you can change one by one: replace a box's component, add boxes, or ask Kaity. Changing the theme restyles every component on every page, because components take all their colours and fonts from it.
 
-## Start from a layout and a theme
+## Start from a kind of page and a frame
 
-A page can start from a layout and a theme. On a new site (`npm start -- my-site` on a new or empty folder), **New page** offers the layouts under **From a layout**, each described as you choose it, with the theme the site will share and **Preview at full size**; in a site, **+ Page** in the site's sidebar shows the same layouts, in the site's theme. To start a site with its home page from a layout directly:
+A page starts from **what it is** (a *purpose*: the sections that kind of page needs) in **what holds it** (a *frame*: the navigation bar, a footer, a side menu). On a new site (`npm start -- my-site` on a new or empty folder), **New page** offers them under **From a kind of page**, each described as you choose it, with the theme the site will share and **Preview at full size**; in a site, **+ Page** in the site's sidebar offers the same, in the site's theme. Kaity chooses the same way: she decides what the page is for first, then keeps only the sections it needs. To start a site with its home page directly (`<frame>+<purpose>`, or a frame alone):
 
 ```bash
-npm start -- ~/tykerf-sites/my-site --layout launch --theme studio
-npm start -- ~/tykerf-sites/my-site --layout launch --theme studio --name portfolio   # named portfolio, not home
+npm start -- ~/tykerf-sites/my-site --layout basic+place --theme natural
+npm start -- ~/tykerf-sites/my-site --layout basic+person --theme ivory --name cv   # named cv, not home
 ```
 
-TYKERF keeps a small set, each one clearly different. Layouts differ in **layout and density**, themes in **colour, type and air**. Any layout works with any theme.
-
-Each layout also says which of its boxes every page of a site shares: its navigation (`nav`) and its footer (`footer`; *Blank* has only the navigation). In a site, they're [shared blocks](sites.md#the-site-kit): the site's first page makes them, and every page made later from a layout shows them, unless you untick *With the site's navigation and footer (shared)*.
-
-| Layout | What it has | Density |
+| Purpose | For | Sections |
 |---|---|---|
-| `blank` (default) | A navigation bar and one text section | |
-| `launch` | A product launch: a big headline over the product, logos, features, two feature sections, numbers, quotes, pricing, FAQ, a call to action and a dark footer | Airy |
-| `company` | A headline that switches for each audience, the latest news, what you do, how it works in steps, numbers and a call to action | Balanced |
-| `magazine` | A front page: a lead story and a grid of stories, a most-read list beside them, a newsletter call | Packed |
-| `catalogue` | Products or services: a short intro, filters and a grid of cards, questions | Packed |
-| `portfolio` | A headline beside a picture, a gallery of work, who is behind it, quotes and a contact form | Balanced |
-| `article` | An article with a sidebar (it moves below the article on narrow screens) | Reading |
-| `docs` | A documentation menu next to a documentation page | Reading |
-| `factual` | Facts and figures: a headline, figures on dark cards, a bar chart beside one highlighted figure, a timeline and a picture banner | Balanced |
-| `biased` | A case study told through its decisions: a title with a strip of facts, the work in a frame, the story in three parts, decision cards (what was chosen over what, why, what it cost), before and after, the numbers, a quote, credits, the next case and a call to action | Balanced |
+| `place` | A place people visit: a shop, a bakery, a restaurant, a studio, a venue | An intro, what it offers (prices optional), pictures, when and where, contact |
+| `person` | One person: a CV, a freelancer, an artist | An intro, about, their path, their work, contact |
+| `event` | Something on a date: a wedding, a concert, a workshop, a conference | An intro, the programme, the people, when and where, questions, a sign-up form |
+| `organization` | An association, a club, a school, a charity, a council | What it stands for, what it does, its people, a few figures, how to join, contact |
+| `concept` | A product, an idea or a project to try or back | An intro, what it does, how it works, a closer look, prices, questions, the next step |
+| `post` | Something to read: an article, a story, news, a notice | The article, more to read |
+| `guide` | Something to follow: a how-to, a recipe, a help page, documentation | What it is for, the steps, the details, questions |
 
-| Theme | Its look |
+| Frame | What holds the page |
 |---|---|
-| `studio` (default) | **Airy:** white and light-grey bands, a blue pill button, big type and lots of space (Inter) |
-| `product` | **Packed:** crisp white and cool grey, tight sections, a wider page, small corners, bold headlines (Inter) |
-| `ivory` | **Editorial:** warm paper, a clay accent, serif reading text, a sans for headings (Newsreader, DM Sans) |
-| `gallery` | **Soft:** off-white, pastel cards, a tight sans; suits images and portfolios (Manrope, DM Sans) |
-| `dark` | **For developers:** near-black, a mint accent, monospaced quotes and details (Inter) |
-| `warm` | **Warm editorial:** stone paper, deep navy, a terracotta accent and gilt details, a serif over a sans (Playfair Display, Plus Jakarta Sans) |
-| `biased` | **Ink and highlighter:** warm paper, near-black ink, an indigo accent, a lime highlighter on the words that matter and heavy rules (Manrope, Inter); made for the `biased` layout, and fine with any other |
+| `simple` | Only a navigation bar: build any sections in the body |
+| `basic` (default) | A navigation bar and a footer, with a side menu if you want one |
+| `full` | A navigation bar, a page title shared by every page, a side menu, a side note with key facts, and a footer; the side menu and the side note are optional |
+
+A layout or a theme is where Kaity *starts*, not a mould: she changes the sections, their order and their code until the page fits the request, builds the structure herself when the request or a picture describes one, and adjusts the theme's colours and fonts to the site when it has an identity of its own (a logo, brand colours, photos). Her answer says what she started from and what she changed. In a site, a page whose kind you choose starts in the site's frame (see *About this site* in [Sites](sites.md)).
+
+The frame's navigation and footer (and in `full`, the page title) are [shared blocks](sites.md#the-site-kit) in a site: the site's first page makes them, and every page made later shows them, unless you untick *With the site's navigation and footer (shared)*.
+
+The older ready-made layouts (`blank`, `launch`, `company`, `magazine`, `catalogue`, `portfolio`, `article`, `docs`, `factual`, `biased`) are no longer offered, but still work by name (`--layout launch`, or MCP `use_layout` with `name`).
+
+Pick the theme by the page's tone, not by habit: each says what it is for and what it is not for.
+
+| Theme | Its look | For | Not for |
+|---|---|---|---|
+| `studio` (default) | **Airy:** white and light-grey bands, a blue pill button, big type and lots of space (Instrument Sans) | software, products, studios, anything modern and calm | warm or homely places, official notices |
+| `ivory` | **Editorial:** warm paper, a clay accent, serif reading text, a sans for headings (Newsreader, DM Sans) | restaurants, bakeries and food, posts, stories, writers, events with a personal tone | software, pages read in a hurry |
+| `natural` | **Outdoors:** a pale sage background, deep green and clay, a soft serif for headings (Fraunces, DM Sans) | gardens, farms, nature, outdoor activities and the clubs around them | restaurants and food, clinics and charities, software, nightlife, official notices |
+| `vivid` | **Loud:** white with one strong magenta, a near-black band, heavy headings (Bricolage Grotesque, Instrument Sans) | concerts, festivals, sport, shows, young audiences | notices, health, finance, long reading |
+| `civic` | **Plain and clear:** white, a sober blue, large body text, high contrast, square corners (Public Sans) | councils, schools, charities, clinics and health services, notices, forms, guides everyone must be able to read | portfolios, nightlife, luxury |
+| `playful` | **Friendly:** a light lilac background, violet and butter yellow, round corners (Nunito) | children, families, clubs, hobbies, parties, classes | legal, medical, finance, formal notices |
+| `dark` | **For developers:** near-black, a mint accent, monospaced details (Instrument Sans) | code, documentation, developer tools, night events | families, health, official pages |
+
+The older themes (`product`, `warm`, `gallery`, `biased`) are no longer offered, but still work by name (`--theme warm`, or MCP `use_theme`), and a page made with one keeps its look; its Page tab still shows it.
 
 More layouts and themes, including layouts that show TYKERF's roots in chip floorplans (a pinwheel and a page frame), are kept in [`Other_Layouts/`](../../../Other_Layouts/README.md). TYKERF doesn't offer them, but any of them can be brought back.
 
-Themes use fonts bundled with TYKERF (Inter, Manrope, DM Sans, Newsreader, Playfair Display and Plus Jakarta Sans, all under the SIL Open Font License) or installed on the visitor's device. A page gets a copy of the bundled fonts its theme uses in its `assets/` folder, so it never calls a font server. `npm run cli -- layouts` lists layouts and themes, and `npm run cli -- new <folder> <layout> --theme <theme>` creates a page without opening the editor. In a new or empty folder it makes a site, with the page as its home page (`home`, or `--name <page>`). Given a site (a folder of pages), it adds the page to it, named after the layout or `--name <page>`, and says so; in a site that shares one theme, the theme you name becomes that page's own values, so the other pages keep their look. A folder that is already a page, or holds other things, is refused.
+Themes use fonts bundled with TYKERF (Instrument Sans, Public Sans, Fraunces, Bricolage Grotesque, Nunito, DM Sans and Newsreader, and for older pages Inter, Manrope, Playfair Display and Plus Jakarta Sans, all under the SIL Open Font License) or installed on the visitor's device. A page gets a copy of the bundled fonts its theme uses in its `assets/` folder, so it never calls a font server. `npm run cli -- layouts` lists layouts and themes, and `npm run cli -- new <folder> <layout> --theme <theme>` creates a page without opening the editor. In a new or empty folder it makes a site, with the page as its home page (`home`, or `--name <page>`). Given a site (a folder of pages), it adds the page to it, named after the layout or `--name <page>`, and says so; in a site that shares one theme, the theme you name becomes that page's own values, so the other pages keep their look. A folder that is already a page, or holds other things, is refused.
 
 All the text and images are **placeholders**: replace them in the **Text** tab, leave Kaity a task on them, or ask her ("fill this page for a bakery in Murcia").
 
@@ -84,7 +93,7 @@ Every layout and component uses the same **theme**: colours, fonts, corner radiu
   - **Every page** edits the site theme. Every page follows, except values a page sets for itself.
   - **This page only** keeps your changes on this page. Each value is marked **site** (inherited) or **this page** (its own, with a coloured edge and **reset** to inherit it again). **Use the site theme again** drops all of the page's own values.
   - Only the values that differ from the site's are kept. If the site theme later changes a value this page hasn't set, the page follows.
-- **Presets:** *Studio*, *Product*, *Ivory*, *Gallery*, *Dark* and *Warm* set every value at once (one undo step). Start from one, then adjust the values below, grouped as *Colours*, *Type* and *Shape and space*.
+- **Presets:** *Studio*, *Ivory*, *Natural*, *Vivid*, *Civic*, *Playful* and *Dark* set every value at once (one undo step). Start from one, then adjust the values below, grouped as *Colours*, *Type* and *Shape and space*.
   - TYKERF remembers the preset a theme came from and highlights it. Once you change a value, it reads ***changed*** (for example *Studio · changed*), and **Reset to Studio** puts every value back, in one undo step. Themes saved before TYKERF remembered presets show none until you pick one.
   - Under **This page only**, a preset gives just this page those colours and fonts.
   - A preset rebuilds the whole theme from TYKERF's current one. This also brings an older page up to date: it gets the newest theme values, and repairs colours that an older TYKERF left stuck in the dark and soft bands.

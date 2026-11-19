@@ -75,21 +75,11 @@ Read [what you may do with a copy](importing.md#what-you-may-do-with-the-copy) b
 
 ### 3. A layout
 
-Pick a page layout (each is described as you choose it; **Preview at full size** shows it) and, for a site's first page, its theme. Then replace the placeholder text and images, or ask Kaity to fill them in ("fill this page for a bakery in Murcia").
+Pick what the page is (a place, a person, an event, an organisation, a concept, a post or a guide, or *Just the frame* to start almost empty), what holds it (*simple*, *basic* or *full*), and, for a site's first page, its theme. Each choice is described as you pick it; **Preview at full size** shows the page. Then replace the placeholder text and images, or ask Kaity to fill them in ("fill this page for a bakery in Murcia").
 
-| Layout | For |
-|---|---|
-| Product launch | A big headline over the product, features, numbers, quotes, pricing, FAQ (airy) |
-| Company | A headline for each audience, the latest news, what you do, steps, numbers |
-| Magazine | A front page of stories with a most-read list (packed) |
-| Catalogue | Products or services in a grid of cards, with filters (packed) |
-| Portfolio | A headline beside a picture, a gallery of work, quotes, contact |
-| Biased | A case study told through its decisions: what was chosen over what, why, and the results |
-| Article, Documentation, Blank | Reading pages, and an almost empty start |
+The seven themes each suit a tone: *Studio* (airy, modern), *Ivory* (editorial, warm paper), *Natural* (outdoors, green and clay), *Vivid* (loud, one strong colour), *Civic* (plain and clear, easy for everyone to read), *Playful* (friendly, round, pastel) and *Dark* (for developers). Any page works with any theme, so the pair sets the page's colour, type and density.
 
-The seven themes cover different styles: *Studio* (airy), *Product* (packed), *Ivory* (editorial), *Gallery* (soft), *Dark* (for developers), *Warm* (warm editorial, a serif over a sans, gilt details) and *Biased* (ink on warm paper, an indigo accent, a lime highlighter). Any layout works with any theme, so the pair sets the page's colour, type and density.
-
-A layout is a whole page made of **components**, ready-made sections such as a hero, features or pricing. Later you can drop any component into any box on its own (*Use a component*), and the **theme** styles them all; see [how they differ](layouts.md).
+A page starts from **components**, ready-made sections such as an introduction, an offer list or a programme. Later you can drop any component into any box on its own (*Use a component*), and the **theme** styles them all; see [how they differ](layouts.md).
 
 **Best for:**
 - a solid layout in seconds;

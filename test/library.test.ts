@@ -6,7 +6,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { validate } from '../src/model.js';
 import { serializeSlice } from '../src/notation.js';
 import { MemoryStore } from '../src/store.js';
-import { componentCode, components, composeLayout, createPage, demoteTitle, frames, hasTheme, layoutSections, pageLayout, pageLayouts, purposes, readTheme, theme, themeValueError, themeVariables, themes, useComponent, useLayout, withThemeValues } from '../src/library.js';
+import { componentCode, components, composeLayout, createPage, demoteTitle, frames, hasTheme, layoutSections, pageLayout, pageLayouts, purposes, readTheme, theme, themeValueError, themeVariables, themes, offeredThemes, useComponent, useLayout, withThemeValues } from '../src/library.js';
 import { Workspace } from '../src/workspace.js';
 
 // relative to this file, so the tests also run from another folder
@@ -119,9 +119,10 @@ describe('using a page layout', () => {
     expect((await narrow.call('use_layout', { name: 'docs', why: 'a test page' })).text).toMatch(/refused: a layout replaces the whole page/);
     await narrow.close();
     const tools = await openTools(ws, 'page');
-    expect((await tools.call('list_layouts', {})).text).toMatch(/^blank: Blank\./m);
+    expect((await tools.call('list_layouts', {})).text).toMatch(/^place: Place\./m);
     expect((await tools.call('use_layout', { name: 'docs', why: 'a test page' })).text).toMatch(/^ok: the page now follows the docs layout/);
-    expect((await tools.call('list_themes', {})).text).toMatch(/^warm: Warm\./m);
+    expect((await tools.call('list_themes', {})).text).toMatch(/^natural: Natural\./m);
+    expect((await tools.call('list_themes', {})).text).not.toMatch(/^warm:/m); // retired: hidden, still applied by name
     expect((await tools.call('use_theme', { name: 'warm' })).text).toMatch(/^theme now follows the warm preset/);
     expect(readTheme(ws.head())['--font-heading']).toBe('"Playfair Display", Georgia, serif');
     expect(ws.store.exists('assets/playfair-display-latin-wght-normal.woff2')).toBe(true);
@@ -174,7 +175,7 @@ describe('frames and purposes', () => {
     expect(list).toMatch(/^  sections: intro \(Headline and buttons beside a picture\); offer \(What a place offers/m);
     expect(list).toMatch(/^Frames \(use_layout frame; default basic\):\nsimple: Simple\./m);
     expect(list).toMatch(/^  around the body: side; on every page of a site: nav, footer$/m);
-    expect(list).toMatch(/^Ready-made layouts \(use_layout name\):\nblank: Blank\./m);
+    expect(list).not.toMatch(/Ready-made layouts|^blank:|^launch:/m); // retired: still made by name, no longer offered
     expect((await tools.call('use_layout', { purpose: 'place', name: 'blank', why: 'x' })).text).toMatch(/not both/);
     expect((await tools.call('use_layout', { why: 'x' })).text).toMatch(/give a purpose/);
     expect((await tools.call('use_layout', { purpose: 'place', why: 'a bakery for neighbours', keep: ['intro', 'offer', 'visit'], theme: 'warm' })).text)
@@ -217,8 +218,8 @@ describe('choosing a layout', () => {
     const { openTools } = await import('../src/editor/tools-client.js');
     const tools = await openTools(ws, 'page');
     const list = (await tools.call('list_layouts', {})).text;
-    expect(list).toMatch(/^launch: .*\n  sections: hero \(A big centred headline[^)]*\); logos \(/m);
-    expect(list).toMatch(/^  on every page of a site: nav, footer$/m);
+    expect(list).toMatch(/^place: .*\n  sections: intro \(Headline and buttons beside a picture\); offer \(/m);
+    expect(list).toMatch(/on every page of a site: nav, footer$/m);
     expect((await tools.call('use_layout', { name: 'launch' })).text).toMatch(/expected string, received undefined at why/);
     expect((await tools.call('use_layout', { name: 'launch', why: 'x', keep: ['menu'] })).text).toMatch(/the launch layout has no section "menu"/);
     expect(ws.load().root.type).toBe('op'); // nothing changed
@@ -245,7 +246,7 @@ describe('using a component', () => {
     useComponent(ws, 'main', 'hero');
     expect(ws.content('main')).toContain('The main idea, in a few words');
     expect(ws.store.exists('assets/placeholder-wide.svg')).toBe(true);
-    expect(ws.store.exists('assets/inter-latin-wght-normal.woff2')).toBe(true); // the theme's fonts come along
+    expect(ws.store.exists('assets/instrument-sans-latin-wght-normal.woff2')).toBe(true); // the theme's fonts come along
     // the page keeps its own look; only the variables are added
     expect(ws.head()).toContain('body{color:red}');
     expect(ws.head()).toContain(themeVariables().trim());
@@ -316,10 +317,10 @@ describe('every layout in a browser', () => {
           broken: [...document.images].filter((i) => !i.complete || !i.naturalWidth).length,
           accent: getComputedStyle(document.documentElement).getPropertyValue('--color-accent').trim(),
           font: getComputedStyle(document.body).fontSize,
-          inter: document.fonts.check('16px Inter'),
+          font_: document.fonts.check('16px "Instrument Sans"'),
         }));
         await page.close();
-        expect(r, `${p.name} at ${width}px`).toEqual({ scroll: 0, broken: 0, accent: '#1a52dd', font: '17px', inter: true });
+        expect(r, `${p.name} at ${width}px`).toEqual({ scroll: 0, broken: 0, accent: '#1a52dd', font: '17px', font_: true });
       }
     });
   }
@@ -329,7 +330,8 @@ describe('theme presets', () => {
   it('set only variables the theme has, with values the theme accepts', () => {
     const vars = Object.keys(readTheme(theme()));
     const raw = JSON.parse(readFileSync(join(LIBRARY, 'themes.json'), 'utf8')) as Record<string, { values: Record<string, string> }>;
-    expect(themes().map((t) => t.name)).toEqual(['studio', 'product', 'ivory', 'gallery', 'dark', 'warm', 'biased']);
+    expect(themes().map((t) => t.name)).toEqual(['studio', 'ivory', 'natural', 'vivid', 'civic', 'playful', 'dark', 'product', 'warm', 'gallery', 'biased']);
+    expect(offeredThemes().map((t) => t.name)).toEqual(['studio', 'ivory', 'natural', 'vivid', 'civic', 'playful', 'dark']);
     for (const [name, p] of Object.entries(raw)) {
       for (const [k, v] of Object.entries(p.values)) {
         expect(vars, `${name} sets ${k}`).toContain(k);

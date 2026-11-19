@@ -16,6 +16,7 @@ import { basename, dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { KIND_WORD, type Layout, find, isOp, walk } from '../model.js';
 import { kitClasses } from '../kit.js';
+import { briefLines } from '../site/settings.js';
 import { pathOf } from '../refs.js';
 import { type Leftover, leftoverKey, leftovers, say } from '../check.js';
 import { type TaskNow, sayTask, tasks } from '../tasks.js';
@@ -447,7 +448,7 @@ export class AI {
     if (site) id = SITE_CHAT;
     if (!prompt.trim()) throw new Error('write what you want first');
     if (images.length > 5) throw new Error('at most 5 images per message');
-    const system = site ? siteSystem(brief) : this.blockSystem(id, size, brief);
+    const system = site ? siteSystem(brief, site) : this.blockSystem(id, size, brief);
     const files = images.map((a) => this.keepImage(a));
 
     // what the page has left unfinished before the request: only what the request adds is reported after it
@@ -567,9 +568,10 @@ export class AI {
       'Use only the tykerf tools. get_layout shows only this block; read the boxes you need with get_content.',
       'Only this block may change: changes outside it are refused.',
       CODE_RULES,
-      'Make the change, then look at it with screenshot (at 1440 and 375 px) and check it with evaluate; fix what looks wrong. Answer in 1-3 short sentences saying what you changed.',
+      'Make the change, then look at it with screenshot (at 1440 and 375 px) and check it with evaluate; when you changed how something looks, run check_design too and fix what it lists as must fix. Fix what looks wrong. Answer in 1-3 short sentences saying what you changed.',
       'If the user only asks a question, answer it without changing anything. If the request cannot be done inside this block, say so.',
       ...this.otherPages(),
+      ...(this.ws.site ? briefLines(this.ws.site.dir) : []),
       ...this.sharedNote(layout, id),
       ...this.classNote(),
       ...(brief ? [brief] : []),
@@ -691,7 +693,7 @@ export class AI {
 export const SITE_CHAT = 'site';
 
 /** What Kaity is told for a request about the whole site. */
-function siteSystem(brief?: string): string {
+function siteSystem(brief: string | undefined, dir: string): string {
   return [
     'You are Kaity, the assistant of TYKERF, an editor where people and AI change web pages block by block. If you mention yourself, you are Kaity.',
     'You are working on a whole site: a folder of pages. The user is talking to you in the site manager.',
@@ -704,6 +706,7 @@ function siteSystem(brief?: string): string {
     'The site kit is yours (list_kit, get_kit_file, set_kit_file): what every page shares besides the theme. Use it for what should be the same everywhere: a navigation or footer as one shared block (share_block on one page, link_block on the others), a button or card style in kit styles, a behaviour in kit scripts, a tag the site uses. Say which pages each change reaches. ' +
       'A shared block\'s slots (get_layout: slots: …) are the parts each page fills itself, such as a page title: set_slot fills one on the open page, and the other pages keep theirs.',
     'Answer in a few short sentences: what you changed, page by page. If the user only asks a question, answer it without changing anything.',
+    ...briefLines(dir),
     ...(brief ? [brief] : []),
   ].join('\n');
 }

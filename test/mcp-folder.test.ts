@@ -46,7 +46,7 @@ describe('a server with no folder open (the Claude plugin)', () => {
     expect(await names()).toEqual(expect.arrayContaining(['open_folder', 'list_pages', 'new_page']));
     expect(await call('get_layout')).toEqual({ error: true, text: expect.stringContaining(`no folder is open. open_folder opens one (without a path: the default folder, ${dir})`) });
     expect(await call('use_layout', { name: 'blank', why: 'a test page' })).toMatchObject({ error: true });
-    expect(await call('list_layouts')).toMatchObject({ error: false, text: expect.stringContaining('blank:') });
+    expect(await call('list_layouts')).toMatchObject({ error: false, text: expect.stringContaining('place:') });
     expect(existsSync(dir)).toBe(false);
   });
 

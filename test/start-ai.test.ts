@@ -103,7 +103,9 @@ describe('show or describe it', () => {
     // what the model got: the words, the picture, and the brief for building a whole page
     const first = got[0];
     expect(first.system).toMatch(/This page was just made for this request/);
-    expect(first.system).toMatch(/read list_layouts: pick the purpose whose description matches the page/);
+    expect(first.system).toMatch(/read list_layouts: when a purpose matches the page you decided on/);
+    expect(first.system).toMatch(/Layouts and themes are a starting point to save you work, not a mould/);
+    expect(first.system).toMatch(/When the site has no brief yet/);
     expect(first.system).toMatch(/use_layout with purpose, frame, why .* and keep/);
     expect(first.system).toMatch(/The user left the theme to you/);
     expect(first.messages[0].content.map((c: any) => c.type)).toEqual(['text', 'image']);

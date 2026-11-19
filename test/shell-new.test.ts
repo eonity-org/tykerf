@@ -95,7 +95,7 @@ describe('a new page in the v3 editor', () => {
   it('starts one from a layout without Kaity', async () => {
     await page.goto(`${base}/_tykerf/edit/_site/new`);
     await page.locator('#np-name').fill('about');
-    await page.locator('[data-layout="company"]').click();
+    await page.locator('[data-purpose="organization"]').click();
     expect(await page.locator('[data-np="layout"] [type="submit"]').textContent()).toBe('Create about from it');
     await page.locator('[data-np="layout"] [type="submit"]').click();
     await page.waitForURL(/\/_tykerf\/edit\/about\/$/);

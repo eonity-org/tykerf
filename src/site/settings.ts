@@ -1,5 +1,6 @@
 // The site's settings, site.json: its home page, its pages' titles, its language, where it's published.
 
+import { frames } from '../library.js';
 import { walk } from '../model.js';
 import { Workspace } from '../workspace.js';
 import { sitePages } from './pages.js';
@@ -24,6 +25,31 @@ export interface SiteSettings {
   lang: string;
   /** The language was chosen (site.json has it, English too): the site's check stops asking for it. */
   langSet?: true;
+  /** The frame new pages start in (simple, basic, full): a default, which a page may leave with a reason. */
+  frame?: string;
+  /** What the site is about, in the user's words or drafted by Kaity: every Kaity run reads it. */
+  brief?: SiteBrief;
+}
+
+/** The site's brief: who it is for, its tone, and the one thing a visitor should do. Each part optional. */
+export interface SiteBrief {
+  audience?: string;
+  tone?: string;
+  action?: string;
+}
+export const BRIEF_PARTS = ['audience', 'tone', 'action'] as const;
+const BRIEF_MAX = 300;
+
+/** A brief with only its non-empty parts, each a single trimmed line; undefined when nothing is left. */
+function cleanBrief(raw: unknown): SiteBrief | undefined {
+  if (!raw || typeof raw !== 'object') return undefined;
+  const out: SiteBrief = {};
+  for (const k of BRIEF_PARTS) {
+    const v = (raw as Record<string, unknown>)[k];
+    const t = typeof v === 'string' ? v.replace(/\s+/g, ' ').trim().slice(0, BRIEF_MAX) : '';
+    if (t) out[k] = t;
+  }
+  return Object.keys(out).length ? out : undefined;
 }
 
 /** A language tag a site can have: BCP 47's language, then subtags ("es", "pt-BR", "sr-Latn-RS"). */
@@ -67,7 +93,9 @@ export function readSite(dir: string): SiteSettings {
   const publish = raw.publish && !publishSettingsError(raw.publish) ? raw.publish : undefined;
   const set = typeof raw.lang === 'string' && LANG.test(raw.lang);
   const lang: string = set ? raw.lang! : 'en';
-  return { version: 1, ...(raw.home && pages.has(raw.home) ? { home: raw.home } : {}), titles, ...(publish ? { publish } : {}), lang, ...(set ? { langSet: true as const } : {}) };
+  const frame = typeof raw.frame === 'string' && frames().some((f) => f.name === raw.frame) ? raw.frame : undefined;
+  const brief = cleanBrief(raw.brief);
+  return { version: 1, ...(raw.home && pages.has(raw.home) ? { home: raw.home } : {}), titles, ...(publish ? { publish } : {}), lang, ...(set ? { langSet: true as const } : {}), ...(frame ? { frame } : {}), ...(brief ? { brief } : {}) };
 }
 
 /**
@@ -99,6 +127,54 @@ export function setLang(dir: string, lang: string, author = 'user') {
   const now = readSite(dir);
   if (now.lang === l && now.langSet) return;
   changeSite(dir, `the site's language: ${l}`, author, (s) => Object.assign(s, { lang: l, langSet: true }));
+}
+
+/** The site's frame, when it has none yet: the frame its first framed page started in. Not a step (nothing to undo). */
+export function recordFrame(dir: string, frame: string) {
+  siteStore(dir).lock(() => {
+    const s = readSite(dir);
+    if (!s.frame && frames().some((f) => f.name === frame)) writeSite(dir, { ...s, frame }, null);
+  });
+}
+
+/** The frame the site's new pages start in (null: none, they start in the default frame). */
+export function setFrame(dir: string, frame: string | null, author = 'user') {
+  if (frame !== null && !frames().some((f) => f.name === frame)) throw new Error(`unknown frame "${frame}" (known: ${frames().map((f) => f.name).join(', ')})`);
+  if ((readSite(dir).frame ?? null) === frame) return;
+  changeSite(dir, frame === null ? 'no frame for new pages' : `new pages start in the ${frame} frame`, author, (s) => {
+    if (frame === null) delete s.frame;
+    else s.frame = frame;
+  });
+}
+
+/**
+ * Change the site's brief: only the parts given ('' clears one), each one line of 300 characters at most.
+ * Returns the brief as it is now.
+ */
+export function setBrief(dir: string, parts: SiteBrief, author = 'user'): SiteBrief {
+  for (const [k, v] of Object.entries(parts)) {
+    if (!(BRIEF_PARTS as readonly string[]).includes(k)) throw new Error(`a brief has ${BRIEF_PARTS.join(', ')}; not "${k}"`);
+    if (typeof v !== 'string') throw new Error(`the brief's ${k} is text`);
+    if (v.trim().length > BRIEF_MAX) throw new Error(`the brief's ${k} can be ${BRIEF_MAX} characters at most`);
+  }
+  const now = readSite(dir).brief ?? {};
+  const next = cleanBrief({ ...now, ...parts });
+  if (JSON.stringify(next ?? {}) === JSON.stringify(now)) return now;
+  changeSite(dir, 'the site\'s brief', author, (s) => {
+    if (next) s.brief = next;
+    else delete s.brief;
+  });
+  return next ?? {};
+}
+
+/** The brief and frame as Kaity reads them at the start of a run; [] when the site has neither. */
+export function briefLines(dir: string): string[] {
+  const { brief, frame } = readSite(dir);
+  const parts = [brief?.audience && `who it is for: ${brief.audience}`, brief?.tone && `its tone: ${brief.tone}`, brief?.action && `what a visitor should do: ${brief.action}`].filter(Boolean);
+  return [
+    ...(parts.length ? [`The site's brief (the user can edit it in the site's settings): ${parts.join('; ')}. Let it guide what you write and how it looks. When a request goes against it, do what is asked and say in your answer that it differs from the brief, and ask whether the brief should change (set_site changes it, only when the user says so).`] : []),
+    ...(frame ? [`New pages of this site start in the ${frame} frame. A page may use another frame or none when it serves the page better: say why in your answer.`] : []),
+  ];
 }
 
 /** Make a page the site's home (null: no home page, the site's address shows the manager). */

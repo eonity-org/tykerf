@@ -526,7 +526,7 @@ describe("the site's language", () => {
     expect([langTag('ES_es'), langTag(' pt-BR '), langTag('English'), langTag('')]).toEqual(['es-es', 'pt-BR', null, null]);
   });
 
-  it('is set by Kaity on a run over the site (set_site), and only there', async () => {
+  it('is set by Kaity on a run over the site or the whole page (set_site), not from inside a block', async () => {
     const dir = mkdtempSync(join(tmpdir(), 'tykerf-lang-'));
     newSitePage(dir, 'home', 'launch', 'studio');
     const { openTools } = await import('../src/editor/tools-client.js');
@@ -537,9 +537,68 @@ describe("the site's language", () => {
     await site.close();
     expect(readSite(dir).lang).toBe('es');
     const block = await openTools(pageWorkspace(dir, 'home'), 'hero');
-    expect((await block.call('set_site', { lang: 'en' })).text).toMatch(/not found|unknown tool|error/i);
+    expect((await block.call('set_site', { lang: 'en' })).text).toMatch(/^error: refused: the site's settings are the whole site's, and the scope is "hero"/);
     await block.close();
     expect(readSite(dir).lang).toBe('es');
+    // a page build (the whole page in scope) writes the site's brief
+    const root = pageWorkspace(dir, 'home').load().root.id;
+    const build = await openTools(pageWorkspace(dir, 'home'), root);
+    expect((await build.call('set_site', { tone: 'warm' })).text).toBe('ok: the site\'s tone is "warm"');
+    await build.close();
+    expect(readSite(dir).brief).toEqual({ tone: 'warm' });
+  });
+});
+
+describe("the site's brief and frame", () => {
+  it('keeps who the site is for, its tone, its main action and the frame new pages start in', async () => {
+    const { setBrief, setFrame, briefLines } = await import('../src/site.js');
+    const dir = tmp();
+    newSitePage(dir, 'home', 'blank', 'studio');
+    expect(readSite(dir).brief).toBeUndefined();
+    expect(briefLines(dir)).toEqual([]);
+    expect(setBrief(dir, { audience: ' Neighbours\nnearby ', tone: 'warm' })).toEqual({ audience: 'Neighbours nearby', tone: 'warm' });
+    setBrief(dir, { tone: '', action: 'come to the shop' }); // '' clears a part, the others stay
+    expect(readSite(dir).brief).toEqual({ audience: 'Neighbours nearby', action: 'come to the shop' });
+    expect(() => setBrief(dir, { mood: 'x' } as never)).toThrow(/a brief has audience, tone, action/);
+    expect(() => setBrief(dir, { tone: 'x'.repeat(301) })).toThrow(/300 characters/);
+    setFrame(dir, 'full');
+    expect(() => setFrame(dir, 'huge')).toThrow(/unknown frame "huge"/);
+    expect(briefLines(dir).join('\n')).toMatch(/who it is for: Neighbours nearby; what a visitor should do: come to the shop[\s\S]*start in the full frame/);
+    // each change is a step of the site's history
+    expect(new Site(dir).history.peekUndo()).toMatchObject({ kind: 'settings', label: 'new pages start in the full frame' });
+    // a broken value in site.json is left out
+    writeFileSync(join(dir, 'site.json'), JSON.stringify({ version: 1, titles: {}, frame: 'nope', brief: { tone: 3, audience: 'ok' } }));
+    expect(readSite(dir)).toMatchObject({ brief: { audience: 'ok' } });
+    expect(readSite(dir).frame).toBeUndefined();
+  });
+
+  it('takes the frame from the first framed page, and puts a purpose alone in it', () => {
+    const dir = tmp();
+    newSitePage(dir, 'home', 'full+place', 'studio', { keep: ['intro'] });
+    expect(readSite(dir).frame).toBe('full');
+    newSitePage(dir, 'concert', 'event', 'studio', { keep: ['intro'] }); // the site's frame, not the default one
+    expect(readFileSync(join(dir, 'concert', 'layout.slice'), 'utf8')).toMatch(/\bbanner\b/);
+    newSitePage(dir, 'notes', 'simple+post', 'studio'); // a page may leave it; the site keeps its frame
+    expect(readSite(dir).frame).toBe('full');
+    // a page with no frame sets none
+    const other = tmp();
+    newSitePage(other, 'home', 'blank', 'studio');
+    expect(readSite(other).frame).toBeUndefined();
+  });
+
+  it('is written by Kaity (set_site), and new_page and use_layout start in the site\'s frame', async () => {
+    const dir = tmp();
+    newSitePage(dir, 'home', 'blank', 'studio');
+    const { openTools } = await import('../src/editor/tools-client.js');
+    const site = await openTools(pageWorkspace(dir, 'home'), '', dir);
+    expect((await site.call('set_site', { audience: 'families in Lorca', action: 'ask for a place' })).text).toBe('ok: the site\'s audience is "families in Lorca"; the site\'s main action is "ask for a place"');
+    expect((await site.call('use_layout', { purpose: 'organization', frame: 'full', why: 'a school', keep: ['intro'] })).text).toMatch(/^ok: the page now follows the full\+organization layout/);
+    expect(readSite(dir).frame).toBe('full'); // the first framed page set it
+    expect((await site.call('new_page', { name: 'open-day', purpose: 'event', why: 'an open day', keep: ['intro'] })).text).toMatch(/from the full\+event layout/);
+    expect((await site.call('new_page', { name: 'news', purpose: 'post', frame: 'simple', why: 'news' })).text).toMatch(/from the simple\+post layout \(the site's pages start in the full frame: say in your answer why this one is in simple\)/);
+    expect((await site.call('set_site', { frame: '' })).text).toBe('ok: the site has no frame now');
+    await site.close();
+    expect(readSite(dir).brief).toEqual({ audience: 'families in Lorca', action: 'ask for a place' });
   });
 });
 

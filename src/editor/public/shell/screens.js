@@ -239,6 +239,21 @@ async function renderKitFiles(main, ctx, kit, tabs) {
 const KAITY_FIXES = new Set(['link', 'alt', 'title', 'orphan', 'copy', 'shared-file']);
 const LANGS = ['en', 'es', 'ca', 'gl', 'eu', 'pt', 'pt-BR', 'fr', 'de', 'it', 'nl'];
 
+/** The last design check (POST /_tykerf/site/design), kept while the screen re-renders. */
+let designCheck = null;
+
+/** A design check's findings as the screen lists them: must fix, then the style notes folded, each rule with its hint. */
+function designHTML(r) {
+  const flat = r.pages.flatMap((p) => p.findings.map((f) => ({ ...f, page: p.page })));
+  const fixes = flat.filter((f) => f.group === 'fix'), notes = flat.filter((f) => f.group === 'style');
+  const byRule = (fs) => Object.keys(r.rules).map((rule) => [rule, fs.filter((f) => f.rule === rule)]).filter(([, x]) => x.length);
+  const list = (fs) => byRule(fs).map(([rule, x]) => `<div class="drule"><h3>${esc(t(r.rules[rule].label))} <span class="badge">${x.length}</span></h3><p class="hint">${esc(t(r.rules[rule].hint))}</p>
+    <ul>${x.map((f) => `<li><div class="cwhat"><b>${esc(f.page)}</b>${f.box ? ` · ${esc(f.box)}` : ''}<p>${esc(f.detail)} · ${esc(f.widths.map((w) => `${w} px`).join(', '))}</p></div><div class="cfix"><a class="btn small" href="${edit(f.page, f.box ? `?show=${encodeURIComponent(f.box)}` : '')}">${esc(f.box ? t('Open the box') : t('Open the page'))}</a></div></li>`).join('')}</ul></div>`).join('');
+  return `<p class="lead">${esc(fixes.length ? t('{n} to fix for people to read and use the pages.', { n: fixes.length }) : t('Nothing to fix: the pages read well at desktop and phone width.'))}</p>
+    ${fixes.length ? `<div class="give"><button type="button" class="btn main" data-c="design-kaity">${esc(t('Give Kaity the {n} to fix', { n: fixes.length }))}</button></div>${list(fixes)}` : ''}
+    ${notes.length ? `<details class="dnotes"><summary>${esc(t('Style notes ({n})', { n: notes.length }))}</summary><p class="note">${esc(t('Signs of a generic page. Not errors: keep what you chose on purpose.'))}</p>${list(notes)}</details>` : ''}`;
+}
+
 const checkScreen = {
   title: () => t('Check the site'),
   async render(main, ctx) {
@@ -272,7 +287,13 @@ const checkScreen = {
       ${groups.map(([kind, heading, fs]) => `<section class="cgroup">
         <header><h2>${esc(cap(t(heading)))}</h2><span class="badge">${fs.length}</span><span class="tag">${esc(KAITY_FIXES.has(kind) ? t('Kaity can fix') : t('Yours to decide'))}</span></header>
         <ul>${rows(fs).map((g) => `<li><div class="cwhat">${g[0].page ? `<b>${esc(g[0].page)}</b>` : `<b>${esc(t('The whole site'))}</b>`}${g.length > 1 ? ` <span class="count">${esc(t('{n} times', { n: g.length }))}</span>` : ''}<p>${esc(cap(g[0].detail))}${g.length > 1 ? '…' : ''}</p></div><div class="cfix">${fix(kind, g)}</div></li>`).join('')}</ul>
-      </section>`).join('')}`;
+      </section>`).join('')}
+      <section class="cgroup design" data-design>
+        <header><h2>${esc(t('The design'))}</h2></header>
+        <p class="note">${esc(t('How each page reads and looks, in a browser at desktop and phone width: what people need fixed to read and use it, and style notes. It takes a few seconds a page.'))}</p>
+        <button type="button" class="btn" data-c="design">${esc(designCheck ? t('Check the design again') : t('Check the design'))}</button>
+        <div class="dresult">${designCheck ? designHTML(designCheck) : ''}</div>
+      </section>`;
     main.onsubmit = async (e) => {
       e.preventDefault();
       const f = e.target;
@@ -285,7 +306,26 @@ const checkScreen = {
         failed(err);
       }
     };
-    main.onclick = (e) => {
+    main.onclick = async (e) => {
+      if (e.target.closest('[data-c="design"]')) {
+        const b = e.target.closest('[data-c="design"]');
+        b.disabled = true;
+        b.textContent = t('Checking every page…');
+        try {
+          designCheck = await request('/_tykerf/site/design', {});
+          $('.dresult', main).innerHTML = designHTML(designCheck);
+          b.textContent = t('Check the design again');
+        } catch (err) {
+          failed(err);
+          b.textContent = t('Check the design');
+        }
+        b.disabled = false;
+        return;
+      }
+      if (e.target.closest('[data-c="design-kaity"]') && designCheck) {
+        const fixes = designCheck.pages.flatMap((p) => p.findings.filter((f) => f.group === 'fix').map((f) => `- ${p.page}${f.box ? ` (${f.box})` : ''}: ${designCheck.rules[f.rule].label}: ${f.detail} (${designCheck.rules[f.rule].hint})`));
+        return askKaity(`Fix what the design check found, page by page, then run check_design on each page you changed and say what you changed:\n${fixes.join('\n')}`, ctx);
+      }
       const nav = e.target.closest('[data-nav]')?.dataset.nav;
       if (nav) return askKaity(`Add a link to the page /${nav}/ in the site's shared navigation (the shared block nav), so visitors can reach it from every page.`, ctx);
       if (e.target.closest('[data-c="kaity"]')) {
@@ -477,6 +517,41 @@ const historyScreen = {
   },
 };
 
+// ---------- about this site: its brief and its frame ----------
+
+const aboutScreen = {
+  title: () => t('About this site'),
+  async render(main, ctx) {
+    const [site, lib] = await Promise.all([request('/_tykerf/site'), request('/_tykerf/library')]);
+    const b = site.brief ?? {};
+    const field = (k, label, hint, ph) => `<label class="afield"><span>${esc(label)}</span><input name="${k}" maxlength="300" value="${esc(b[k] ?? '')}" placeholder="${esc(ph)}"><small class="note">${esc(hint)}</small></label>`;
+    main.innerHTML = `
+      <h1>${esc(t('About this site'))}</h1>
+      <p class="note">${esc(t('Kaity reads this before every request, on every page. She drafts it with the first page; change it whenever it no longer says what you want.'))}</p>
+      <form class="setting about" data-s="about">
+        ${field('audience', t('Who it is for'), t('The people the site speaks to.'), t('Neighbours and visitors who want good bread'))}
+        ${field('tone', t('Its tone'), t('A few words: warm, formal, playful, technical…'), t('Warm and simple'))}
+        ${field('action', t('What a visitor should do'), t('The one thing that matters most.'), t('Come to the shop, or order for the weekend'))}
+        <label class="afield"><span>${esc(t('New pages start in'))}</span><select name="frame">
+          <option value="" ${site.frame ? '' : 'selected'}>${esc(t('No frame chosen yet'))}</option>
+          ${(lib.frames ?? []).map((f) => `<option value="${esc(f.name)}" ${f.name === site.frame ? 'selected' : ''}>${esc(t(f.label))}</option>`).join('')}
+        </select><small class="note">${esc(t('A default: a page may use another frame when it needs one.'))}</small></label>
+        <div class="row"><button class="btn primary" type="submit">${esc(t('Save'))}</button></div>
+      </form>`;
+    main.onsubmit = async (e) => {
+      e.preventDefault();
+      const f = e.target;
+      try {
+        await request('/_tykerf/site/about', { audience: f.elements.audience.value, tone: f.elements.tone.value, action: f.elements.action.value, frame: f.elements.frame.value });
+        toast(t('Saved: Kaity reads it from her next request'));
+        await ctx.refresh();
+      } catch (err) {
+        failed(err);
+      }
+    };
+  },
+};
+
 // ---------- head code, icon and language (R14) ----------
 
 const settingsScreen = {
@@ -634,16 +709,19 @@ const newScreen = {
   title: () => t('New page'),
   full: true, // no page yet, and no sidebar: the whole window
   async render(main, ctx) {
-    const [site, { layouts, themes }, ai] = await Promise.all([request('/_tykerf/site'), request('/_tykerf/library'), request('/_tykerf/ai/status').catch(() => ({ ready: false, note: '' }))]);
+    const [site, { purposes, frames, frame: firstFrame, themes }, ai] = await Promise.all([request('/_tykerf/site'), request('/_tykerf/library'), request('/_tykerf/ai/status').catch(() => ({ ready: false, note: '' }))]);
     const taken = site.pages;
     let n = taken.length + 1;
     while (taken.includes(`page-${n}`)) n++;
     // Like a page: the page the screen was opened from, else the home page
     const from = new URLSearchParams(location.search).get('from');
     const likeFirst = taken.includes(from) ? from : taken.includes(site.home) ? site.home : taken[0] ?? '';
-    draft ??= { like: likeFirst, name: `page-${n}`, prompt: '', images: [], zip: null, layout: layouts[0].name, url: '', structureOnly: false, shared: true, theme: themes.some((x) => x.name === 'studio') ? 'studio' : themes[0].name };
+    draft ??= { like: likeFirst, name: `page-${n}`, prompt: '', images: [], zip: null, purpose: purposes[0].name, frame: firstFrame, side: false, url: '', structureOnly: false, shared: true, theme: themes.some((x) => x.name === 'studio') ? 'studio' : themes[0].name };
     if (!taken.includes(draft.like)) draft.like = likeFirst;
-    const L = () => layouts.find((l) => l.name === draft.layout);
+    // a purpose (the sections a kind of page needs) in a frame (what holds it), or the frame alone
+    const P = () => purposes.find((x) => x.name === draft.purpose) ?? null;
+    const F = () => frames.find((x) => x.name === draft.frame) ?? frames[0];
+    const layoutName = () => (P() ? `${F().name}+${P().name}` : F().name);
     const draw = () => {
       const nm = draft.name || '…';
       main.innerHTML = `
@@ -683,15 +761,20 @@ const newScreen = {
         <h2>${esc(t('Or start without Kaity'))}</h2>
         <div class="np-without">
           <form class="np-card" data-np="layout">
-            <h3>${esc(t('From a layout'))}</h3>
-            <p class="note">${esc(t('A ready-made structure of blocks, then change anything.'))}</p>
-            <div class="np-chips">${layouts.map((l) => `<button type="button" class="btn" data-layout="${esc(l.name)}" aria-pressed="${l.name === draft.layout}">${esc(t(l.label))}</button>`).join('')}</div>
-            <p><b>${esc(t(L().label))}:</b> ${esc(t(L().description))}</p>
-            ${L().shared?.length ? `<label class="check"><input type="checkbox" name="shared" ${draft.shared ? 'checked' : ''}> ${esc(t('With the site\'s navigation and footer (shared): one for every page, so a change to them reaches every page. Without it, this page gets copies of its own.'))}</label>` : ''}
+            <h3>${esc(t('From a kind of page'))}</h3>
+            <p class="note">${esc(t('The sections that kind of page needs, with sample text to replace, in a frame; then change anything.'))}</p>
+            <p class="fxlabel">${esc(t('What the page is'))}</p>
+            <div class="np-chips">${purposes.map((x) => `<button type="button" class="btn" data-purpose="${esc(x.name)}" aria-pressed="${x.name === draft.purpose}">${esc(t(x.label))}</button>`).join('')}<button type="button" class="btn" data-purpose="" aria-pressed="${!P()}">${esc(t('Just the frame'))}</button></div>
+            ${P() ? `<p><b>${esc(t(P().label))}:</b> ${esc(t(P().description))}</p>` : `<p>${esc(t('An empty body to build in, section by section.'))}</p>`}
+            <p class="fxlabel">${esc(t('What holds it'))}</p>
+            <div class="np-chips">${frames.map((x) => `<button type="button" class="btn" data-frame="${esc(x.name)}" aria-pressed="${x.name === F().name}">${esc(t(x.label))}</button>`).join('')}</div>
+            <p><b>${esc(t(F().label))}:</b> ${esc(t(F().description))}</p>
+            ${F().side?.length ? `<label class="check"><input type="checkbox" name="side" ${draft.side ? 'checked' : ''}> ${esc(F().side.includes('aside') ? t('With the side menu and the side note') : t('With the side menu'))}</label>` : ''}
+            ${F().shared?.length ? `<label class="check"><input type="checkbox" name="shared" ${draft.shared ? 'checked' : ''}> ${esc(t('With the site\'s navigation and footer (shared): one for every page, so a change to them reaches every page. Without it, this page gets copies of its own.'))}</label>` : ''}
             ${site.sharedTheme ? '' : `<label class="fxlabel" for="np-theme">${esc(t('Theme'))}</label>
-            <select id="np-theme" name="theme">${themes.map((x) => `<option value="${esc(x.name)}" ${x.name === draft.theme ? 'selected' : ''}>${esc(t(x.label))}</option>`).join('')}</select>
+            <select id="np-theme" name="theme">${themes.filter((x) => !x.retired).map((x) => `<option value="${esc(x.name)}" ${x.name === draft.theme ? 'selected' : ''}>${esc(t(x.label))}</option>`).join('')}</select>
             <p class="note">${esc(t('The site\'s pages share it. You can change the colours, fonts and spacing later in the full editor\'s Page tab.'))}</p>`}
-            <div class="row"><button class="btn primary" type="submit">${esc(t('Create {name} from it', { name: nm }))}</button><a class="btn" href="/_tykerf/preview/${encodeURIComponent(draft.layout)}/${site.sharedTheme ? 'site' : encodeURIComponent(draft.theme)}/" target="_blank" rel="noopener">${esc(t('Preview at full size'))}</a></div>
+            <div class="row"><button class="btn primary" type="submit">${esc(t('Create {name} from it', { name: nm }))}</button><a class="btn" href="/_tykerf/preview/${layoutName()}/${site.sharedTheme ? 'site' : encodeURIComponent(draft.theme)}/" target="_blank" rel="noopener">${esc(t('Preview at full size'))}</a></div>
           </form>
           ${taken.length ? `<form class="np-card" data-np="like">
             <h3>${esc(t('Like a page of this site'))}</h3>
@@ -765,11 +848,14 @@ const newScreen = {
       if (f.type === 'file') return addFiles([...f.files]);
       if (f.name === 'structureOnly') draft.structureOnly = f.checked;
       if (f.name === 'shared') draft.shared = f.checked;
+      if (f.name === 'side') draft.side = f.checked;
       if (f.name === 'theme') (draft.theme = f.value), draw();
     };
     main.onclick = (e) => {
-      const lay = e.target.closest('[data-layout]')?.dataset.layout;
-      if (lay) return (draft.layout = lay), draw();
+      const purpose = e.target.closest('[data-purpose]')?.dataset.purpose;
+      if (purpose !== undefined) return (draft.purpose = purpose), draw();
+      const frame = e.target.closest('[data-frame]')?.dataset.frame;
+      if (frame) return (draft.frame = frame), draw();
       const like = e.target.closest('[data-like]')?.dataset.like;
       if (like) return (draft.like = like), draw();
       if (e.target.closest('[data-unpic]')) return draft.images.splice(Number(e.target.closest('[data-unpic]').dataset.unpic), 1), draw();
@@ -798,7 +884,7 @@ const newScreen = {
         if (!/^https?:\/\/[^\s/]+\S*$/i.test(draft.url.trim())) return error(t('Write the address of the page to copy, starting with https://'), $('#np-url', main));
         body = { name, url: draft.url.trim(), structureOnly: draft.structureOnly };
       } else if (kind === 'like') body = { name, like: draft.like };
-      else body = { name, layout: draft.layout, shared: draft.shared, ...(site.sharedTheme ? {} : { theme: draft.theme }) };
+      else body = { name, layout: layoutName(), side: draft.side, shared: draft.shared, ...(site.sharedTheme ? {} : { theme: draft.theme }) };
       for (const b of main.querySelectorAll('[type="submit"]')) b.disabled = true;
       try {
         await request('/_tykerf/site/new', body);
@@ -813,6 +899,6 @@ const newScreen = {
 };
 
 export const SCREENS = {
-  tasks: tasksScreen, shared: sharedScreen, check: checkScreen, media: mediaScreen, links: linksScreen,
+  about: aboutScreen, tasks: tasksScreen, shared: sharedScreen, check: checkScreen, media: mediaScreen, links: linksScreen,
   kaity: kaityScreen, history: historyScreen, settings: settingsScreen, publish: publishScreen, new: newScreen,
 };

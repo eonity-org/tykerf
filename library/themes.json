@@ -1,7 +1,7 @@
 {
   "studio": {
     "label": "Studio",
-    "description": "Airy: white and light grey bands, a blue pill button, big type and lots of space",
+    "description": "Airy: white and light grey bands, a blue pill button, big type and lots of space. For software, products, studios and anything modern and calm. Not for warm or homely places, or official notices.",
     "values": {
       "--color-bg": "#ffffff",
       "--color-band": "#f5f5f7",
@@ -12,12 +12,167 @@
       "--color-soft": "#e8f0fb",
       "--color-dark": "#000000",
       "--color-on-dark": "#f5f5f7",
-      "--font-body": "\"Inter\", system-ui, sans-serif",
-      "--font-heading": "\"Inter\", system-ui, sans-serif",
+      "--font-body": "\"Instrument Sans\", system-ui, sans-serif",
+      "--font-heading": "\"Instrument Sans\", system-ui, sans-serif",
       "--weight-heading": "650",
       "--tracking-heading": "-0.03em",
       "--radius": "22px",
       "--radius-button": "999px"
+    }
+  },
+  "ivory": {
+    "label": "Ivory",
+    "description": "Editorial: warm paper, a clay accent and a serif reading voice. For restaurants, bakeries and food, posts, stories, writers and events with a personal tone. Not for software, or for pages read in a hurry.",
+    "values": {
+      "--color-bg": "#faf9f5",
+      "--color-band": "#f0eee6",
+      "--color-text": "#141413",
+      "--color-muted": "#5e5d59",
+      "--color-accent": "#a64a28",
+      "--color-on-accent": "#ffffff",
+      "--color-soft": "#ece3d6",
+      "--color-dark": "#141413",
+      "--color-on-dark": "#faf9f5",
+      "--font-body": "\"Newsreader\", Georgia, serif",
+      "--font-heading": "\"DM Sans\", system-ui, sans-serif",
+      "--font-accent": "\"Newsreader\", Georgia, serif",
+      "--weight-heading": "600",
+      "--tracking-heading": "-0.03em",
+      "--text-body": "19px",
+      "--radius": "14px",
+      "--radius-button": "10px"
+    }
+  },
+  "natural": {
+    "label": "Natural",
+    "description": "Outdoors: a pale sage background, deep green and clay, a soft Fraunces serif for headings over DM Sans. For gardens, farms, nature, outdoor activities and the clubs around them. Not for restaurants or food (ivory), clinics or charities (civic), software, nightlife or official notices.",
+    "values": {
+      "--color-bg": "#f4f6ef",
+      "--color-band": "#e8ede0",
+      "--color-surface": "#fbfcf8",
+      "--color-text": "#1c271e",
+      "--color-muted": "#505c51",
+      "--color-border": "#d3dbc9",
+      "--color-accent": "#2e6340",
+      "--color-on-accent": "#ffffff",
+      "--color-soft": "#f1dfcd",
+      "--color-highlight": "#c9a86a",
+      "--color-dark": "#1f3326",
+      "--color-on-dark": "#f4f6ef",
+      "--font-body": "\"DM Sans\", system-ui, sans-serif",
+      "--font-heading": "\"Fraunces\", Georgia, serif",
+      "--font-accent": "\"Fraunces\", Georgia, serif",
+      "--weight-heading": "600",
+      "--tracking-heading": "-0.02em",
+      "--text-body": "18px",
+      "--radius": "16px",
+      "--radius-button": "999px"
+    }
+  },
+  "vivid": {
+    "label": "Vivid",
+    "description": "Loud: white with one strong magenta, a near-black band and heavy Bricolage Grotesque headings. For concerts, festivals, sport, launches of a show and young audiences. Not for notices, health, finance or long reading.",
+    "values": {
+      "--color-bg": "#ffffff",
+      "--color-band": "#fff0f5",
+      "--color-surface": "#ffffff",
+      "--color-text": "#14101c",
+      "--color-muted": "#55505f",
+      "--color-border": "#ece4ee",
+      "--color-accent": "#c8155f",
+      "--color-on-accent": "#ffffff",
+      "--color-soft": "#ffdcea",
+      "--color-highlight": "#ffd23f",
+      "--color-dark": "#14101c",
+      "--color-on-dark": "#ffffff",
+      "--font-body": "\"Instrument Sans\", system-ui, sans-serif",
+      "--font-heading": "\"Bricolage Grotesque\", system-ui, sans-serif",
+      "--font-accent": "\"Bricolage Grotesque\", system-ui, sans-serif",
+      "--weight-heading": "780",
+      "--tracking-heading": "-0.04em",
+      "--text-hero": "clamp(48px, 8vw, 112px)",
+      "--radius": "6px",
+      "--radius-button": "6px"
+    }
+  },
+  "civic": {
+    "label": "Civic",
+    "description": "Plain and clear: white, a sober blue, Public Sans, large body text, high contrast and square corners. For councils, schools, charities, clinics and health services, notices, forms and guides everyone must be able to read. Not for portfolios, nightlife or luxury.",
+    "values": {
+      "--color-bg": "#ffffff",
+      "--color-band": "#f1f4f8",
+      "--color-surface": "#ffffff",
+      "--color-text": "#1b1f24",
+      "--color-muted": "#4a5361",
+      "--color-border": "#cfd6e0",
+      "--color-accent": "#1d4f91",
+      "--color-on-accent": "#ffffff",
+      "--color-soft": "#e2ebf6",
+      "--color-highlight": "#f2b632",
+      "--color-dark": "#0f2a4a",
+      "--color-on-dark": "#ffffff",
+      "--font-body": "\"Public Sans\", system-ui, sans-serif",
+      "--font-heading": "\"Public Sans\", system-ui, sans-serif",
+      "--font-accent": "\"Public Sans\", system-ui, sans-serif",
+      "--weight-heading": "700",
+      "--tracking-heading": "-0.015em",
+      "--text-hero": "clamp(36px, 5vw, 64px)",
+      "--text-title": "clamp(28px, 3.2vw, 40px)",
+      "--text-body": "18px",
+      "--radius": "4px",
+      "--radius-button": "4px",
+      "--space-section": "clamp(48px, 6vw, 88px)",
+      "--max-width": "1120px"
+    }
+  },
+  "playful": {
+    "label": "Playful",
+    "description": "Friendly: a light lilac background, violet and butter yellow, round corners and a rounded Nunito. For children, families, clubs, hobbies, parties and classes. Not for legal, medical, finance or formal notices.",
+    "values": {
+      "--color-bg": "#fbf8ff",
+      "--color-band": "#f1ebff",
+      "--color-surface": "#ffffff",
+      "--color-text": "#271f3d",
+      "--color-muted": "#5a5272",
+      "--color-border": "#e2d9f5",
+      "--color-accent": "#6232c8",
+      "--color-on-accent": "#ffffff",
+      "--color-soft": "#fff0b8",
+      "--color-highlight": "#ffc93c",
+      "--color-dark": "#271f3d",
+      "--color-on-dark": "#fbf8ff",
+      "--font-body": "\"Nunito\", system-ui, sans-serif",
+      "--font-heading": "\"Nunito\", system-ui, sans-serif",
+      "--font-accent": "\"Nunito\", system-ui, sans-serif",
+      "--weight-heading": "800",
+      "--tracking-heading": "-0.02em",
+      "--text-body": "18px",
+      "--radius": "26px",
+      "--radius-button": "999px"
+    }
+  },
+  "dark": {
+    "label": "Dark",
+    "description": "For developers: near-black, a mint accent and monospaced details. For code, documentation, developer tools and night events. Not for families, health or official pages.",
+    "values": {
+      "--color-bg": "#0d1117",
+      "--color-band": "#151b23",
+      "--color-surface": "#161c24",
+      "--color-text": "#e6edf3",
+      "--color-muted": "#9da7b3",
+      "--color-border": "#2a313c",
+      "--color-accent": "#3ee8a5",
+      "--color-on-accent": "#04140d",
+      "--color-soft": "#13332a",
+      "--color-dark": "#010409",
+      "--color-on-dark": "#e6edf3",
+      "--font-body": "\"Instrument Sans\", system-ui, sans-serif",
+      "--font-heading": "\"Instrument Sans\", system-ui, sans-serif",
+      "--font-accent": "ui-monospace, \"SF Mono\", Menlo, Consolas, monospace",
+      "--weight-heading": "650",
+      "--tracking-heading": "-0.03em",
+      "--radius": "10px",
+      "--radius-button": "8px"
     }
   },
   "product": {
@@ -46,77 +201,8 @@
       "--gap": "16px",
       "--space-section": "clamp(40px, 5vw, 72px)",
       "--max-width": "1320px"
-    }
-  },
-  "ivory": {
-    "label": "Ivory",
-    "description": "Editorial: warm paper, a clay accent and a serif reading voice",
-    "values": {
-      "--color-bg": "#faf9f5",
-      "--color-band": "#f0eee6",
-      "--color-text": "#141413",
-      "--color-muted": "#5e5d59",
-      "--color-accent": "#a64a28",
-      "--color-on-accent": "#ffffff",
-      "--color-soft": "#ece3d6",
-      "--color-dark": "#141413",
-      "--color-on-dark": "#faf9f5",
-      "--font-body": "\"Newsreader\", Georgia, serif",
-      "--font-heading": "\"DM Sans\", system-ui, sans-serif",
-      "--font-accent": "\"Newsreader\", Georgia, serif",
-      "--weight-heading": "600",
-      "--tracking-heading": "-0.03em",
-      "--text-body": "19px",
-      "--radius": "14px",
-      "--radius-button": "10px"
-    }
-  },
-  "gallery": {
-    "label": "Gallery",
-    "description": "Soft: off-white, pastel cards and a tight sans, for images and portfolios",
-    "values": {
-      "--color-bg": "#fafaf8",
-      "--color-band": "#f1f0eb",
-      "--color-text": "#202b2c",
-      "--color-muted": "#5f6a69",
-      "--color-accent": "#202b2c",
-      "--color-on-accent": "#fafaf8",
-      "--color-soft": "#eac09f",
-      "--color-dark": "#202b2c",
-      "--color-on-dark": "#fafaf8",
-      "--font-body": "\"DM Sans\", system-ui, sans-serif",
-      "--font-heading": "\"Manrope\", system-ui, sans-serif",
-      "--font-accent": "\"Newsreader\", Georgia, serif",
-      "--weight-heading": "560",
-      "--tracking-heading": "-0.045em",
-      "--text-body": "16px",
-      "--radius": "8px",
-      "--radius-button": "999px"
-    }
-  },
-  "dark": {
-    "label": "Dark",
-    "description": "For developers: near-black, a mint accent and monospaced details",
-    "values": {
-      "--color-bg": "#0d1117",
-      "--color-band": "#151b23",
-      "--color-surface": "#161c24",
-      "--color-text": "#e6edf3",
-      "--color-muted": "#9da7b3",
-      "--color-border": "#2a313c",
-      "--color-accent": "#3ee8a5",
-      "--color-on-accent": "#04140d",
-      "--color-soft": "#13332a",
-      "--color-dark": "#010409",
-      "--color-on-dark": "#e6edf3",
-      "--font-body": "\"Inter\", system-ui, sans-serif",
-      "--font-heading": "\"Inter\", system-ui, sans-serif",
-      "--font-accent": "ui-monospace, \"SF Mono\", Menlo, Consolas, monospace",
-      "--weight-heading": "650",
-      "--tracking-heading": "-0.03em",
-      "--radius": "10px",
-      "--radius-button": "8px"
-    }
+    },
+    "retired": true
   },
   "warm": {
     "label": "Warm",
@@ -148,7 +234,32 @@
       "--gap": "24px",
       "--space-section": "clamp(56px, 7vw, 104px)",
       "--max-width": "1280px"
-    }
+    },
+    "retired": true
+  },
+  "gallery": {
+    "label": "Gallery",
+    "description": "Soft: off-white, pastel cards and a tight sans, for images and portfolios",
+    "values": {
+      "--color-bg": "#fafaf8",
+      "--color-band": "#f1f0eb",
+      "--color-text": "#202b2c",
+      "--color-muted": "#5f6a69",
+      "--color-accent": "#202b2c",
+      "--color-on-accent": "#fafaf8",
+      "--color-soft": "#eac09f",
+      "--color-dark": "#202b2c",
+      "--color-on-dark": "#fafaf8",
+      "--font-body": "\"DM Sans\", system-ui, sans-serif",
+      "--font-heading": "\"Manrope\", system-ui, sans-serif",
+      "--font-accent": "\"Newsreader\", Georgia, serif",
+      "--weight-heading": "560",
+      "--tracking-heading": "-0.045em",
+      "--text-body": "16px",
+      "--radius": "8px",
+      "--radius-button": "999px"
+    },
+    "retired": true
   },
   "biased": {
     "label": "Biased",
@@ -180,6 +291,7 @@
       "--gap": "24px",
       "--space-section": "clamp(64px, 8vw, 112px)",
       "--max-width": "1240px"
-    }
+    },
+    "retired": true
   }
 }

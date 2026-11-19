@@ -8,7 +8,7 @@
     ],
     "boxes": {
       "nav": "nav",
-      "body": "text"
+      "body": "page-text"
     }
   },
   "basic": {
@@ -22,7 +22,7 @@
     "boxes": {
       "nav": "nav",
       "side": "side-nav",
-      "body": "text",
+      "body": "page-text",
       "footer": "footer"
     }
   },
@@ -39,7 +39,7 @@
       "nav": "nav",
       "banner": "page-banner",
       "side": "side-nav",
-      "body": "text",
+      "body": "page-text",
       "aside": "side-note",
       "footer": "footer"
     }

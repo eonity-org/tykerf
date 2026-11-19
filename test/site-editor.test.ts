@@ -56,14 +56,15 @@ describe('a new site', () => {
   it('starts on New page: Kaity first, or a layout with a theme for the whole site', async () => {
     await page.goto(url);
     await page.waitForURL(`${url}_tykerf/edit/_site/new`);
-    await page.locator('[data-layout]').first().waitFor(); // the screen asks Kaity's status first, which may take a moment
-    expect(await page.locator('[data-layout]').count()).toBe(10);
+    await page.locator('[data-purpose]').first().waitFor(); // the screen asks Kaity's status first, which may take a moment
+    expect(await page.locator('[data-purpose]').count()).toBe(8); // the seven purposes, and Just the frame
+    expect(await page.locator('[data-frame]').count()).toBe(3);
     expect(await page.locator('#np-theme option').count()).toBe(7);
-    await page.locator('[data-layout="launch"]').click();
+    await page.locator('[data-purpose="event"]').click();
     await page.locator('#np-theme').selectOption('dark');
-    expect(await page.locator('[data-np="layout"] a', { hasText: 'Preview at full size' }).getAttribute('href')).toBe('/_tykerf/preview/launch/dark/');
+    expect(await page.locator('[data-np="layout"] a', { hasText: 'Preview at full size' }).getAttribute('href')).toBe('/_tykerf/preview/basic+event/dark/');
     const preview = await browser.newPage();
-    await preview.goto(`${url}_tykerf/preview/launch/dark/`);
+    await preview.goto(`${url}_tykerf/preview/basic+event/dark/`);
     expect(await preview.locator('body').evaluate((b) => getComputedStyle(b).backgroundColor)).toBe('rgb(13, 17, 23)'); // #0d1117
     await preview.close();
   });
@@ -72,7 +73,7 @@ describe('a new site', () => {
     // the layout's navigation and footer become the site's, shared, unless the box is unticked
     const card = page.locator('[data-np="layout"]');
     expect(await card.locator('[name=shared]').isChecked()).toBe(true);
-    expect(await card.locator('.check').textContent()).toMatch(/With the site's navigation and footer \(shared\)/);
+    expect(await card.locator('.check:has([name=shared])').textContent()).toMatch(/With the site's navigation and footer \(shared\)/);
     await page.locator('#np-name').fill('home');
     await card.locator('[type=submit]').click();
     await page.waitForURL(`${url}_tykerf/edit/home/`);
@@ -87,12 +88,12 @@ describe('a new site', () => {
   it('refuses a page name that is taken, then adds a new page in the site theme', async () => {
     await page.goto(`${url}_tykerf/edit/_site/new?from=home`);
     expect(await page.locator('#np-theme').count()).toBe(0); // the site's theme, not a choice
-    expect(await page.locator('[data-np="layout"] a', { hasText: 'Preview at full size' }).getAttribute('href')).toBe('/_tykerf/preview/blank/site/');  // no launch by default: the first layout
+    expect(await page.locator('[data-np="layout"] a', { hasText: 'Preview at full size' }).getAttribute('href')).toBe('/_tykerf/preview/basic+place/site/'); // the first purpose in the default frame, never launch
     await page.locator('#np-name').fill('home');
     await page.locator('[data-np="layout"] [type=submit]').click();
     expect(await page.locator('.np-error').textContent()).toMatch(/already a page called home/);
     await page.locator('#np-name').fill('about');
-    await page.locator('[data-layout="article"]').click();
+    await page.locator('[data-purpose="post"]').click();
     await page.locator('[data-np="layout"] [type=submit]').click();
     await page.waitForURL(`${url}_tykerf/edit/about/`);
     expect(existsSync(join(site, 'about', 'layout.slice'))).toBe(true);
@@ -164,8 +165,8 @@ describe('a new site', () => {
     await page.locator('section.panel').waitFor();
     await page.locator('.work .tabs [data-tab="page"]').click();
     await page.locator('.theme-scope [data-scope="site"]').click();
-    await page.locator('.presets [data-preset="gallery"]').click();
-    await expect.poll(() => siteTheme(), { timeout: 5000 }).toEqual(values('gallery'));
+    await page.locator('.presets [data-preset="natural"]').click();
+    await expect.poll(() => siteTheme(), { timeout: 5000 }).toEqual(values('natural'));
     expect(readFileSync(headFile, 'utf8')).toContain('--color-text: var(--color-on-dark);');
   });
 
@@ -175,7 +176,7 @@ describe('a new site', () => {
     await page.locator('section.panel').waitFor();
     await page.locator('.work .tabs [data-tab="page"]').click();
     await page.locator('.theme-scope [data-scope="site"]').click();
-    await expect.poll(() => page.locator('.presets [data-preset="gallery"]').getAttribute('aria-pressed'), { timeout: 5000 }).toBe('true');
+    await expect.poll(() => page.locator('.presets [data-preset="natural"]').getAttribute('aria-pressed'), { timeout: 5000 }).toBe('true');
     expect(await page.locator('[data-page="reset-preset"]').count()).toBe(0);
     // change one value
     await page.locator('.theme-var input[data-var="--color-accent"]').fill('#ff0000');
@@ -183,9 +184,9 @@ describe('a new site', () => {
     await expect.poll(() => siteTheme()['--color-accent'], { timeout: 5000 }).toBe('#ff0000');
     await page.goto(`${url}about/?tykerf=full-frame`);
     await page.locator('.work .tabs [data-tab="page"]').click();
-    await expect.poll(() => page.locator('.presets [data-preset="gallery"] .changed').count(), { timeout: 5000 }).toBe(1);
+    await expect.poll(() => page.locator('.presets [data-preset="natural"] .changed').count(), { timeout: 5000 }).toBe(1);
     await page.locator('[data-page="reset-preset"]').click();
-    await expect.poll(() => siteTheme(), { timeout: 5000 }).toEqual(values('gallery'));
+    await expect.poll(() => siteTheme(), { timeout: 5000 }).toEqual(values('natural'));
   });
 
   it('links to another page with the picker, and the link follows a rename of that page', async () => {
@@ -578,15 +579,15 @@ describe('a new site', () => {
     const state = await fetch(`${url}home/_tykerf/state`).then((r) => r.json());
     expect(state.buffer[0]).toMatchObject({ from: 'footer', shared: 'footer' });
     // as a new box: it shows the shared block, so a change to the footer reaches it too
-    const pasted = (await op({ op: 'paste', i: 0, id: 'hero', how: 'below' })).result;
+    const pasted = (await op({ op: 'paste', i: 0, id: 'intro', how: 'below' })).result;
     expect(slice()).toMatch(new RegExp(`${pasted}\\[[^\\]]*use=footer`));
     // into another box: that box shows it (its own code waits underneath)
-    expect((await op({ op: 'paste', i: 0, id: 'logos', how: 'into' })).ok).toBe(true);
-    expect(slice()).toMatch(/logos\[[^\]]*use=footer/);
+    expect((await op({ op: 'paste', i: 0, id: 'people', how: 'into' })).ok).toBe(true);
+    expect(slice()).toMatch(/people\[[^\]]*use=footer/);
     // the page as it was, for the tests that follow
     for (let i = 0; i < 3; i++) await fetch(`${url}home/_tykerf/undo`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}' });
     expect(slice()).toMatch(/footer\[[^\]]*use=footer/);
-    expect(slice()).not.toMatch(/logos\[[^\]]*use=/);
+    expect(slice()).not.toMatch(/people\[[^\]]*use=/);
   });
 
   it("follows a page renamed or removed from another process (Kaity's site run), and lists Kaity's work", async () => {

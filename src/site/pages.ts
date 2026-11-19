@@ -8,10 +8,10 @@ import { type Layout, type Node, find, isOp, walk } from '../model.js';
 import * as M from '../moves.js';
 import { serializeSlice } from '../notation.js';
 import { FolderStore } from '../store.js';
-import { DEFAULT_THEME, EMPTY_LAYOUT, componentCode, copyBehaviours, createPage, hasTheme, layoutShared, pageLayout, pageLayouts, readTheme, themes, withFonts, withOverrides } from '../library.js';
+import { DEFAULT_THEME, EMPTY_LAYOUT, componentCode, copyBehaviours, createPage, frameOf, hasTheme, layoutShared, pageLayout, pageLayouts, purposes, readTheme, themes, withFonts, withOverrides } from '../library.js';
 import { Workspace } from '../workspace.js';
 import { kitList, kitRead, kitWrite } from '../kit.js';
-import { readSite, writeSite, setHome, pageTitle } from './settings.js';
+import { readSite, recordFrame, writeSite, setHome, pageTitle } from './settings.js';
 import { SiteHistory, isRegistered, siteStore } from './history.js';
 import { copyPageFiles, fileHash, siteFilesByHash } from './media.js';
 import { mapPageFiles } from '../assets.js';
@@ -91,6 +91,9 @@ export function pageNameError(dir: string, name: string): string | null {
 export function newSitePage(dir: string, name: string, layout = 'blank', themeName = DEFAULT_THEME, opts: { shared?: boolean; keep?: string[] } = {}): Workspace {
   const err = pageNameError(dir, name);
   if (err) throw new Error(err);
+  // a purpose alone goes in the site's frame (a default: a frame named with it wins); the first framed page sets that frame
+  const siteFrame = readSite(dir).frame;
+  if (siteFrame && purposes().some((p) => p.name === layout)) layout = `${siteFrame}+${layout}`;
   // a layout or sections that don't exist: refused before anything is written
   if (layout !== EMPTY_LAYOUT) pageLayout(layout, opts.keep);
   const first = !sitePages(dir).length;
@@ -99,6 +102,8 @@ export function newSitePage(dir: string, name: string, layout = 'blank', themeNa
   const shared = hasTheme(siteHead(dir)) || fresh;
   createPage(ws, layout, themeName, { ownTheme: !shared, keep: opts.keep });
   if (fresh) startSiteTheme(dir, themeName);
+  const frame = !siteFrame && layout !== EMPTY_LAYOUT ? frameOf(layout) : null;
+  if (frame) recordFrame(dir, frame);
   // a site's first page is its home: the site's address opens it
   if (first && !readSite(dir).home) setHome(dir, name);
   // the library behaviours its components ask for (data-use) come into the site's kit

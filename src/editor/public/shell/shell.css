@@ -464,3 +464,19 @@ body > .stage, body > .layout { grid-row: 3; }
 .bar .widths button[aria-pressed=true] { background: #fff; color: var(--bar); }
 .bar .widths button:not([aria-pressed=true]):hover { background: rgb(255 255 255 / .12); }
 .bar .widths button:focus-visible { outline: 3px solid var(--task); outline-offset: -3px; }
+/* About this site: the brief's lines and the frame, one under the other */
+.setting.about { max-width: 620px; display: grid; gap: 16px; }
+.afield { display: grid; gap: 4px; }
+.afield > span { font-weight: 600; }
+.afield input, .afield select { font: inherit; color: inherit; background: var(--bg, #fff); border: 1px solid var(--line-strong); border-radius: 8px; padding: 8px 10px; }
+.afield select { justify-self: start; }
+/* Check the site: the design check's rules, each with its hint; the style notes folded */
+.cgroup.design { padding-bottom: 16px; }
+.cgroup.design > .note, .cgroup.design > [data-c], .cgroup.design .dresult > .lead, .cgroup.design .give, .drule > h3, .drule > .hint, .dnotes > summary, .dnotes > .note { margin-left: 16px; margin-right: 16px; }
+.cgroup.design > [data-c] { margin-top: 4px; }
+.cgroup.design .dresult { margin-top: 16px; }
+.drule ul { border-top: 1px solid var(--line); }
+.drule h3 { font-size: 15px; margin: 18px 16px 2px; display: flex; gap: 8px; align-items: center; }
+.drule .hint { color: var(--muted, #666); font-size: 13px; margin: 0 16px 8px; }
+.dnotes { margin-top: 20px; }
+.dnotes summary { cursor: pointer; font-weight: 600; }

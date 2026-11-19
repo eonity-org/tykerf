@@ -8,12 +8,12 @@ import { fileURLToPath } from 'node:url';
 import { type Browser, chromium } from 'playwright';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { MemoryStore } from '../src/store.js';
-import { createPage, frames, pageLayouts, purposes } from '../src/library.js';
+import { createPage, frames, offeredThemes, pageLayouts, purposes } from '../src/library.js';
 import { Workspace } from '../src/workspace.js';
 
 vi.setConfig({ testTimeout: 60_000 });
 const LIBRARY = join(dirname(fileURLToPath(import.meta.url)), '..', 'library');
-const PRESETS = ['studio', 'product', 'ivory', 'gallery', 'dark', 'warm', 'biased'];
+const PRESETS = offeredThemes().map((t) => t.name);
 
 function page(layout: string, theme: string): string {
   const ws = new Workspace(new MemoryStore('memory:design'));

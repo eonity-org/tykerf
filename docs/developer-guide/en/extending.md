@@ -37,9 +37,26 @@ The rules:
 
 **Tests:** `test/library.test.ts` (variables, every layout in a browser) and `test/design.test.ts` (contrast, headings, phones), once a layout uses the component.
 
-## A page layout
+## A purpose or a frame
 
-Add an entry to `library/layouts.json`:
+Pages start from a **purpose** (the sections a kind of page needs) in a **frame** (what holds the page); `composeLayout` in `library.ts` grafts the purpose's sections into the frame's `body` box, as one layout named `<frame>+<purpose>`. Add a purpose to `library/purposes.json`:
+
+```json
+"menu": {
+  "label": "Menu",
+  "description": "A restaurant's menu: what it is for, and what it is not for (Kaity chooses by this)",
+  "sections": [{ "box": "intro", "component": "statement" }, { "box": "dishes", "component": "offer-list", "tags": ["tone-alt"] }]
+}
+```
+
+- **`description`** says what the purpose is *for* and *not for*: Kaity picks by it (`list_layouts`), and New page shows it.
+- **`sections`**: box names (not a frame's: `nav`, `side`, `body`, `aside`, `footer`, `banner`), components, band tones. The first section with an `h1` is the page's title; in a frame with a page title of its own, `demoteTitle` moves it one level down.
+
+A frame (`library/frames.json`) is a layout with a `body` box, its `shared` boxes and a component for each box (`body` holds plain text when the frame is used alone); its `side` and `aside` boxes are optional (`keep`). **Tests:** `test/library.test.ts` checks every frame alone and every purpose in every frame; add new combinations worth a browser check to `STARTS` in `test/design.test.ts`, and update the counts in `test/site-editor.test.ts` and the tables in [the user guide](../../user-guide/en/layouts.md).
+
+## A ready-made layout
+
+The older layouts in `library/layouts.json` are `retired`: still made by name, no longer offered (`offeredLayouts`). A new one is an entry there without `retired`:
 
 ```json
 "pricing-page": {
@@ -54,7 +71,7 @@ Add an entry to `library/layouts.json`:
 - **`boxes`** gives the component for each box.
 - **Tones:** alternate `#tone-alt` and `#tone-soft` bands, and keep `#tone-dark` for one or two sections, usually the footer.
 
-The order in `layouts.json` is the order on New page. Keep the set small and clearly different: a layout should differ from the others in structure or density, not only in content. Ones that no longer earn their place go to `Other_Layouts/` (see [its README](../../../Other_Layouts/README.md)), not away. **Tests:** `test/library.test.ts` and `test/design.test.ts` pick up every layout automatically. Update the counts in `test/site-editor.test.ts` and the table in [the user guide](../../user-guide/en/layouts.md).
+Keep the set small and clearly different: a layout should differ from the others in structure or density, not only in content. Ones that no longer earn their place go to `Other_Layouts/` (see [its README](../../../Other_Layouts/README.md)), not away. **Tests:** `test/library.test.ts` and `test/design.test.ts` pick up every layout automatically. Update the counts in `test/site-editor.test.ts` and the table in [the user guide](../../user-guide/en/layouts.md).
 
 ## A theme preset
 
@@ -67,7 +84,7 @@ Add an entry to `library/themes.json` with values for **existing** theme variabl
 ```
 
 - **Colours:** check contrast. The design test fails if secondary text or eyebrows on the alternate or soft band, or text on the accent, fall under WCAG AA (4.5:1).
-- **Fonts:** installed fonts, or the bundled families in `FONTS` (`library.ts`): Inter, Manrope, DM Sans, Newsreader, Playfair Display and Plus Jakarta Sans. To bundle another font:
+- **Fonts:** installed fonts, or the bundled families in `FONTS` (`library.ts`): Instrument Sans, Public Sans, Fraunces, Bricolage Grotesque, Nunito, DM Sans, Newsreader, and for older pages Inter, Manrope, Playfair Display and Plus Jakarta Sans. To bundle another font:
   1. Add the Latin variable `.woff2` and its OFL licence to `library/fonts/`.
   2. Add the family to `FONTS`.
   3. Credit it in `NOTICE`.

@@ -18,8 +18,8 @@ import { leftovers, missingFiles, say } from '../check.js';
 import { SUGGESTIONS, type Suggestion, closeTask, sayTask, tasks } from '../tasks.js';
 import { type KitKind, blockSlots, kitClasses, kitFonts, kitLibraryScripts, kitList, kitRead, kitTags, kitWarning, kitWrite } from '../kit.js';
 import { removeMediaFile, siteMedia } from '../site.js';
-import { HOME_PAGE, blockUsers, linkBlock, newSitePage, pageTitle, pagesWithOwnTheme, pageWorkspace, readSite, setLang, setTitle, shareTheme, removePage, renamePage, shareBlock, movedFiles, siteHead, siteKind, unlinkBlock, unsafeSVG, siteOf, sitePages, usePage } from '../site.js';
-import { DEFAULT_THEME, behavioursIn, componentCode, copyBehaviours, components, createPage, fontWarning, hasTheme, DEFAULT_FRAME, frames, layoutSections, layoutShared, libraryBehaviours, pageLayout, pageLayouts, purposes, readOverrides, readTheme, setTheme, themeTarget, themes, useComponent, useLayout } from '../library.js';
+import { HOME_PAGE, type SiteBrief, setBrief, setFrame, recordFrame, blockUsers, linkBlock, newSitePage, pageTitle, pagesWithOwnTheme, pageWorkspace, readSite, setLang, setTitle, shareTheme, removePage, renamePage, shareBlock, movedFiles, siteHead, siteKind, unlinkBlock, unsafeSVG, siteOf, sitePages, usePage } from '../site.js';
+import { DEFAULT_THEME, behavioursIn, componentCode, copyBehaviours, components, createPage, fontWarning, hasTheme, DEFAULT_FRAME, frameOf, frames, layoutSections, layoutShared, libraryBehaviours, offeredLayouts, pageLayout, pageLayouts, purposes, readOverrides, readTheme, setTheme, themeTarget, themes, offeredThemes, useComponent, useLayout } from '../library.js';
 import { FolderStore, MemoryStore } from '../store.js';
 import { Workspace } from '../workspace.js';
 import { addFile, readSource } from '../files.js';
@@ -167,11 +167,19 @@ function purposeEntry(p: ReturnType<typeof purposes>[number]): string {
   return [`${p.name}: ${p.label}. ${p.description}`, `  sections: ${p.sections.map((s) => `${s.box} (${about.get(s.component) ?? s.component})`).join('; ')}`].join('\n');
 }
 /** A layout named by frame and purpose (use_layout, new_page), or by its own name. */
-function layoutName(a: { name?: string; frame?: string; purpose?: string }): string {
+function layoutName(a: { name?: string; frame?: string; purpose?: string }, siteFrame?: string): string {
   if (a.name && (a.frame || a.purpose)) throw new Error('give a layout name, or a frame and a purpose, not both');
   if (a.name) return a.name;
-  if (!a.frame && !a.purpose) throw new Error(`give a purpose (list_layouts), with a frame (default ${DEFAULT_FRAME}), or a layout name`);
-  return a.purpose ? `${a.frame ?? DEFAULT_FRAME}+${a.purpose}` : a.frame!;
+  if (!a.frame && !a.purpose) throw new Error(`give a purpose (list_layouts), with a frame (default ${siteFrame ?? DEFAULT_FRAME}), or a layout name`);
+  return a.purpose ? `${a.frame ?? siteFrame ?? DEFAULT_FRAME}+${a.purpose}` : a.frame!;
+}
+
+/** The frame a site's new pages start in (site.json), if the site has one. */
+const frameOfSite = (dir: string | undefined): string | undefined => (dir ? readSite(dir).frame : undefined);
+/** A note for a reply when a page leaves its site's frame: a default, which a page may leave for a reason. */
+function frameNote(name: string, siteFrame: string | undefined): string {
+  const f = frameOf(name);
+  return siteFrame && f && f !== siteFrame ? ` (the site's pages start in the ${siteFrame} frame: say in your answer why this one is in ${f})` : '';
 }
 
 /** The inputs that make a layout a choice: why it fits, and which of its sections the page needs. */
@@ -436,7 +444,7 @@ export function createTykerfServer(start: Workspace | null, opts: TykerfServerOp
   })));
 
   server.registerTool('list_themes', { title: 'List theme presets', annotations: READ, description: 'Theme presets: a whole set of colours, fonts and spacing in one go (apply one with use_theme, then fine-tune with set_theme).' },
-    guard(() => themes().map((t) => `${t.name}: ${t.label}. ${t.description}`).join('\n')));
+    guard(() => offeredThemes().map((t) => `${t.name}: ${t.label}. ${t.description}`).join('\n')));
 
   server.registerTool('use_theme', {
     title: 'Apply a theme preset', annotations: REPLACE,
@@ -445,7 +453,7 @@ export function createTykerfServer(start: Workspace | null, opts: TykerfServerOp
   }, guard(({ name }: { name: string }) => ws.transaction(() => {
     assertThemeScope();
     const p = themes().find((t) => t.name === name);
-    if (!p) throw new Error(`unknown theme "${name}" (known: ${themes().map((t) => t.name).join(', ')})`);
+    if (!p) throw new Error(`unknown theme "${name}" (known: ${offeredThemes().map((t) => t.name).join(', ')})`);
     const where = themeTarget(ws);
     const changed = setTheme(ws, p.values, 'ai', name);
     const n = Object.keys(changed).length;
@@ -453,7 +461,7 @@ export function createTykerfServer(start: Workspace | null, opts: TykerfServerOp
   })));
 
   server.registerTool('list_layouts', { title: 'List page layouts', annotations: READ, description: 'How to start or restart a page with use_layout. Purposes: the sections a kind of page needs (a place, a person, an event...). Frames: what holds the page (a navigation bar, a side menu, a footer). A page is a purpose in a frame. Each says what it is for and not for: choose by the page the request describes, not by how much one has. Then the older ready-made layouts.' },
-    guard(() => ['Purposes (use_layout purpose):', ...purposes().map(purposeEntry), '', `Frames (use_layout frame; default ${DEFAULT_FRAME}):`, ...frames().map(frameEntry), '', 'Ready-made layouts (use_layout name):', ...pageLayouts().map(layoutEntry)].join('\n')));
+    guard(() => ['Purposes (use_layout purpose):', ...purposes().map(purposeEntry), '', `Frames (use_layout frame; default ${DEFAULT_FRAME}):`, ...frames().map(frameEntry), ...(offeredLayouts().length ? ['', 'Ready-made layouts (use_layout name):', ...offeredLayouts().map(layoutEntry)] : [])].join('\n')));
 
   server.registerTool('use_layout', {
     title: 'Replace the page with a layout', annotations: REPLACE,
@@ -462,14 +470,15 @@ export function createTykerfServer(start: Workspace | null, opts: TykerfServerOp
       `In an empty or new folder, it starts a site there with this page as its home page ("${HOME_PAGE}"), with the theme given (see list_themes).`,
     inputSchema: {
       purpose: z.string().optional().describe('purpose from list_layouts: the sections this kind of page needs'),
-      frame: z.string().optional().describe(`frame from list_layouts: what holds the page (default ${DEFAULT_FRAME})`),
+      frame: z.string().optional().describe(`frame from list_layouts: what holds the page (default: the site's frame, else ${DEFAULT_FRAME}); another frame than the site's is fine when the page needs it`),
       name: z.string().optional().describe('a ready-made layout from list_layouts, instead of a purpose and a frame'),
       why: z.string().describe(WHY), ...LAYOUT_CHOICE,
       theme: z.string().optional().describe(`theme preset from list_themes (a new page: default ${DEFAULT_THEME}; an existing page: applied as use_theme does, in the same undo step)`),
     },
   }, guard((a: { name?: string; frame?: string; purpose?: string; why: string; keep?: string[]; theme?: string }) => {
     const { keep, theme: themeName } = a;
-    const name = layoutName(a);
+    const siteFrame = frameOfSite(ws.site?.dir);
+    const name = layoutName(a, siteFrame);
     pageLayout(name, keep); // an unknown layout or section: refused before anything changes
     const left = leftOut(name, keep);
     if (!ws.store.exists('layout.slice')) {
@@ -496,16 +505,19 @@ export function createTykerfServer(start: Workspace | null, opts: TykerfServerOp
       if (sc && sc !== l.root.id) throw new Error(`refused: a layout replaces the whole page, and the scope is "${sc}". Ask the user to select the page block ("${l.root.id}").`);
       // a theme given here is applied too (models pass it rather than calling use_theme after)
       const preset = themeName ? themes().find((t) => t.name === themeName) : undefined;
-      if (themeName && !preset) throw new Error(`unknown theme "${themeName}" (known: ${themes().map((t) => t.name).join(', ')})`);
+      if (themeName && !preset) throw new Error(`unknown theme "${themeName}" (known: ${offeredThemes().map((t) => t.name).join(', ')})`);
       const where = preset ? themeTarget(ws) : null;
       // on a page of a site, the layout's navigation and footer are the site's: linked, or made shared (one step)
       const said = ws.group(`use layout ${name}`, 'ai', () => {
         useLayout(ws, name, 'ai', keep);
         if (preset) setTheme(ws, preset.values, 'ai', preset.name);
+        // the site's first framed page sets the frame later pages start in
+        const f = frameOf(name);
+        if (ws.site && !siteFrame && f) recordFrame(ws.site.dir, f);
         return ws.site ? shareLayoutBoxes(ws.site.dir, ws, name, 'ai') : '';
       });
       const look = preset ? `; ${where === 'site' ? 'the site theme' : where === 'override' ? 'this page\'s own theme values' : 'the theme'} now follow${where === 'override' ? '' : 's'} the ${themeName} preset` : '';
-      return `ok: the page now follows the ${name} layout${left}${look}${said}; rewrite every box's placeholder text for this page\n\n${outline(ws.load())}`;
+      return `ok: the page now follows the ${name} layout${left}${frameNote(name, siteFrame)}${look}${said}; rewrite every box's placeholder text for this page\n\n${outline(ws.load())}`;
     });
   }));
 
@@ -936,6 +948,50 @@ export function createTykerfServer(start: Workspace | null, opts: TykerfServerOp
     return readSite(site).titles[name] ? `ok: "${name}" is titled "${pageTitle(site, name)}"` : `ok: "${name}" is titled by its first heading again: "${pageTitle(site, name)}"`;
   }));
 
+  // the whole site's settings (site.json): only the fields in SITE_SETTINGS, each with its own check; on a run over
+  // the site and on a page's run alike (a page build writes the site's brief), not from inside a smaller block
+  const SITE_SETTINGS: Record<string, (site: string, value: string) => void> = {
+    lang: (site, v) => setLang(site, v, 'ai'),
+    frame: (site, v) => setFrame(site, v || null, 'ai'),
+    audience: (site, v) => setBrief(site, { audience: v }, 'ai'),
+    tone: (site, v) => setBrief(site, { tone: v }, 'ai'),
+    action: (site, v) => setBrief(site, { action: v }, 'ai'),
+  };
+  /** A setting as the reply says it. */
+  const said = (site: string, k: string): string => {
+    const s = readSite(site);
+    const v = k === 'lang' ? s.lang : k === 'frame' ? s.frame : s.brief?.[k as keyof SiteBrief];
+    return v ? `the site's ${k === 'action' ? 'main action' : k} is "${v}"${k === 'lang' ? '; every page follows it' : ''}` : `the site has no ${k === 'action' ? 'main action' : k} now`;
+  };
+  server.registerTool('set_site', {
+    title: 'Change the site\'s settings', annotations: REPLACE,
+    description: 'Settings of the whole site; give only what changes. lang: the language its pages are written in, as a BCP 47 tag ("es", "en", "pt-BR"): ' +
+      'every page\'s <html lang>, read by browsers, screen readers and search engines. "" goes back to English. Set it when the site is not in English. ' +
+      'frame: the frame new pages start in (list_layouts), a default a page may leave; "" for none. ' +
+      'audience, tone, action: the site\'s brief, which every run reads and the user can edit: who the site is for, its tone, and the one thing a visitor should do (a short line each; "" clears one). ' +
+      'Write the brief when you build a site\'s first page and it has none; after that, change it only when the user asks.',
+    inputSchema: {
+      lang: z.string().optional().describe('BCP 47 language tag, such as es, en or pt-BR'),
+      frame: z.string().optional().describe('simple, basic or full'),
+      audience: z.string().optional().describe('who the site is for, in one line'),
+      tone: z.string().optional().describe('its tone, in a few words'),
+      action: z.string().optional().describe('the one thing a visitor should do'),
+    },
+  }, guard((a: Record<string, string | undefined>) => {
+    // on a run over the site, or a page's run whose scope is the whole page (a page build writes the brief)
+    const site = ws.site?.dir ?? siteDir();
+    if (!site) throw new Error('this page is not part of a site, so it has no site settings');
+    if (ws.store.exists('layout.slice')) {
+      const l = ws.load();
+      const sc = scope(l);
+      if (sc && sc !== l.root.id) throw new Error(`refused: the site's settings are the whole site's, and the scope is "${sc}". Ask the user to select the page block ("${l.root.id}") to change them.`);
+    }
+    const given = Object.entries(a).filter(([k, v]) => Object.hasOwn(SITE_SETTINGS, k) && typeof v === 'string');
+    if (!given.length) throw new Error(`nothing to change: give ${Object.keys(SITE_SETTINGS).join(', ')}`);
+    for (const [k, v] of given) SITE_SETTINGS[k](site, v!);
+    return `ok: ${given.map(([k]) => said(site, k)).join('; ')}`;
+  }));
+
   // a run on one block (the editor's Kaity) never sees them
   if ((home || folders) && !runScope) {
     // ---------- the site kit (src/kit.ts): what every page shares besides its theme ----------
@@ -1059,22 +1115,6 @@ export function createTykerfServer(start: Workspace | null, opts: TykerfServerOp
       return `ok: ${where === 'site' ? `/assets/${file}` : `${where}'s assets/${file}`} is in the trash (undo brings it back)`;
     }));
 
-    // the whole site's settings (site.json): only the fields in SITE_SETTINGS, each with its own check
-    const SITE_SETTINGS: Record<string, (site: string, value: string) => void> = { lang: (site, v) => setLang(site, v, 'ai') };
-    server.registerTool('set_site', {
-      title: 'Change the site\'s settings', annotations: REPLACE,
-      description: 'Settings of the whole site; give only what changes. lang: the language its pages are written in, as a BCP 47 tag ("es", "en", "pt-BR"): ' +
-        'every page\'s <html lang>, read by browsers, screen readers and search engines. "" goes back to English. Set it when the site is not in English.',
-      inputSchema: { lang: z.string().optional().describe('BCP 47 language tag, such as es, en or pt-BR') },
-    }, guard((a: Record<string, string | undefined>) => {
-      const site = siteOnly();
-      const given = Object.entries(a).filter(([k, v]) => Object.hasOwn(SITE_SETTINGS, k) && typeof v === 'string');
-      if (!given.length) throw new Error(`nothing to change: give ${Object.keys(SITE_SETTINGS).join(' or ')}`);
-      for (const [k, v] of given) SITE_SETTINGS[k](site, v!);
-      const s = readSite(site) as unknown as Record<string, unknown>;
-      return `ok: ${given.map(([k]) => `the site's ${k} is "${s[k]}"`).join('; ')}; every page follows it`;
-    }));
-
     server.registerTool('list_pages', { title: 'List the site\'s pages', annotations: READ, description: 'The pages of the site (a folder of page folders), which one is open (the one every other tool works on), and each page\'s title: set by hand (set_title) or from its first heading.' },
       guard(() => {
         const site = siteOnly();
@@ -1108,8 +1148,8 @@ export function createTykerfServer(start: Workspace | null, opts: TykerfServerOp
         'The layout\'s navigation and footer are the site\'s shared blocks: the page shows them (the site\'s first page makes them); with shared false it gets copies of its own instead. ' +
         'Name: lowercase letters, digits and -. Links between pages are written /<name>/.',
       inputSchema: {
-        name: z.string(), purpose: z.string().optional().describe('purpose from list_layouts'), frame: z.string().optional().describe(`frame from list_layouts (default ${DEFAULT_FRAME})`),
-        layout: z.string().optional().describe('a ready-made layout from list_layouts, instead of a purpose and a frame (default blank)'),
+        name: z.string(), purpose: z.string().optional().describe('purpose from list_layouts'), frame: z.string().optional().describe(`frame from list_layouts (default: the site's frame, else ${DEFAULT_FRAME})`),
+        layout: z.string().optional().describe('a ready-made layout from list_layouts, instead of a purpose and a frame'),
         why: z.string().optional().describe(`with a layout: ${WHY}`), ...LAYOUT_CHOICE,
         theme: z.string().optional().describe(`theme preset from list_themes (default ${DEFAULT_THEME})`),
         copy: z.string().optional().describe('another page to copy instead of a layout: its blocks, code, images and (unless the pages share one) its theme'),
@@ -1117,20 +1157,21 @@ export function createTykerfServer(start: Workspace | null, opts: TykerfServerOp
       },
     }, guard(({ name, layout: given, frame, purpose, why, keep, theme: themeName, copy, shared: linkShared }: { name: string; layout?: string; frame?: string; purpose?: string; why?: string; keep?: string[]; theme?: string; copy?: string; shared?: boolean }) => {
       const site = siteOnly();
-      const layout = given || frame || purpose ? layoutName({ name: given, frame, purpose }) : undefined;
+      const siteFrame = frameOfSite(site);
+      const layout = given || frame || purpose ? layoutName({ name: given, frame, purpose }, siteFrame) : undefined;
       if (layout && !copy && !why?.trim()) throw new Error(`say why the ${layout} layout fits (why): ${WHY}`);
       if (keep && (copy || !layout)) throw new Error('keep chooses the sections of a layout: give the layout too');
       if (copy && !sitePages(site).includes(copy)) throw new Error(`there is no page "${copy}" to copy (pages: ${sitePages(site).join(', ') || 'none yet'})`);
       mkdirSync(site, { recursive: true });
       const shared = hasTheme(siteHead(site));
-      ws = newSitePage(site, name, layout ?? 'blank', themeName ?? DEFAULT_THEME, { shared: linkShared !== false, keep });
+      ws = newSitePage(site, name, layout ?? siteFrame ?? 'simple', themeName ?? DEFAULT_THEME, { shared: linkShared !== false, keep });
       if (copy) {
         const files = usePage(ws, site, copy, { theme: !shared, author: 'ai' });
         const theirs = files.site.length ? `; ${files.site.length} of its files the site already has, so it uses those (not copied)` : '';
         return `ok: new page "${name}", a copy of "${copy}"${theirs}; it is open now. Rewrite its text for this page.\n\n${outline(ws.load())}`;
       }
       const look = shared ? 'it uses the theme the site\'s pages share' : `with the ${themeName ?? DEFAULT_THEME} theme`;
-      return `ok: new page "${name}" from the ${layout ?? 'blank'} layout${layout ? leftOut(layout, keep) : ''}, ${look}${sharedSay(linkedBoxes(ws))}; it is open now. Rewrite every box's placeholder text for this page.\n\n${outline(ws.load())}`;
+      return `ok: new page "${name}" from the ${layout ?? siteFrame ?? 'simple'} layout${layout ? leftOut(layout, keep) + frameNote(layout, siteFrame) : ''}, ${look}${sharedSay(linkedBoxes(ws))}; it is open now. Rewrite every box's placeholder text for this page.\n\n${outline(ws.load())}`;
     }));
     server.registerTool('rename_page', {
       title: 'Rename a page', annotations: CHANGE,
@@ -1241,6 +1282,25 @@ export function createTykerfServer(start: Workspace | null, opts: TykerfServerOp
     const { pageFiles } = await import('../screenshot.js');
     const r = await evaluateHTML(ws.page(), { widths, files: pageFiles(ws) });
     return JSON.stringify(r, null, 2);
+  }) as never);
+
+  server.registerTool('check_design', {
+    title: 'Check how the page reads and looks', annotations: LOOK,
+    description: 'Render the page at 1440 and 375 px and check its design. Must fix: text too faint on its background, text too small on a phone, buttons and links too small to tap, headings out of order, sideways scroll, lines too long or too close together, stretched pictures. ' +
+      'Style notes (signs of a generic page): small labels over every section title, a badge above the headline, grids of identical icon cards, the same section again and again, a headline filling the screen, gradient text and glows, cards in cards, side-stripe cards, long centred or capital text, only the most common fonts. ' +
+      'Each finding names its box and says the rule. Only the scope block\'s findings (the whole page without a scope). Run it before you finish: fix every must-fix; fix each style note, or say in your answer why it stays.',
+  }, guard(async () => {
+    const { checkDesign, sayDesign } = await import('../design.js');
+    const { pageFiles } = await import('../screenshot.js');
+    const l = ws.load();
+    const sc = scope(l);
+    const inside = new Set<string>();
+    const top = sc ? find(l.root, sc)?.node : l.root;
+    if (top) walk(top, (n) => { inside.add(n.id); });
+    const all = await checkDesign(ws.page(), { files: pageFiles(ws) });
+    // a page-wide finding (sideways scroll, the fonts) belongs to the whole page's scope only
+    const mine = all.filter((f) => (f.box ? inside.has(f.box) : !sc || sc === l.root.id));
+    return sayDesign(mine);
   }) as never);
 
   server.registerTool('screenshot', {

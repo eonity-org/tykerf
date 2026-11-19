@@ -12,11 +12,16 @@ This product bundles the IBM Plex Sans and IBM Plex Mono typefaces
 Name "Plex", licensed under the SIL Open Font License, Version 1.1
 (see src/editor/public/fonts/OFL.txt).
 
-Page layouts may use the Inter, Manrope, DM Sans, Newsreader, Playfair Display
-and Plus Jakarta Sans typefaces
+Page layouts may use the Instrument Sans, Public Sans, Fraunces, Bricolage
+Grotesque, Nunito, Inter, Manrope, DM Sans, Newsreader, Playfair Display and
+Plus Jakarta Sans typefaces
 (library/fonts/, Latin subsets from Fontsource), each licensed under the SIL
 Open Font License, Version 1.1 (see library/fonts/*-OFL.txt). A page that
 uses one gets a copy of its font file in its assets/ folder.
+
+The design check (src/design.ts) follows rules and ideas from impeccable
+(https://github.com/pbakaus/impeccable, Apache License 2.0, by Paul Bakaus),
+written anew for TYKERF; no impeccable code is included.
 
 It depends on open-source packages, including the Model Context Protocol
 TypeScript SDK, Playwright, Zod and tsx, each under its own license; their

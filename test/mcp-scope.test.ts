@@ -40,7 +40,7 @@ describe('the page folder', () => {
     const dir = join(mkdtempSync(join(tmpdir(), 'tykerf-mcp-new-')), 'rome');
     const call = await connect('--dir', dir);
     expect(await call('get_layout')).toMatchObject({ error: true, text: expect.stringMatching(/no page is open\..* In an empty folder, use_layout starts a site with its home page/) });
-    expect((await call('list_layouts')).text).toMatch(/^blank: /m);
+    expect((await call('list_layouts')).text).toMatch(/^place: /m);
     const made = await call('use_layout', { name: 'factual', why: 'a test page', theme: 'warm' });
     expect(made).toMatchObject({ error: false, text: expect.stringMatching(/^ok: a new site in .*rome, with its home page "home" from the factual layout with the warm theme/) });
     expect((await call('get_layout')).text).toMatch(/nav leaf/);

@@ -9,7 +9,8 @@
     "boxes": {
       "nav": "nav",
       "text": "text"
-    }
+    },
+    "retired": true
   },
   "launch": {
     "label": "Product launch",
@@ -32,7 +33,8 @@
       "faq": "faq",
       "cta": "cta",
       "footer": "footer"
-    }
+    },
+    "retired": true
   },
   "company": {
     "label": "Company",
@@ -51,7 +53,8 @@
       "stats": "stats",
       "cta": "cta",
       "footer": "footer"
-    }
+    },
+    "retired": true
   },
   "magazine": {
     "label": "Magazine",
@@ -67,7 +70,8 @@
       "latest": "list",
       "cta": "cta",
       "footer": "footer"
-    }
+    },
+    "retired": true
   },
   "catalogue": {
     "label": "Catalogue",
@@ -83,7 +87,8 @@
       "items": "card-grid",
       "faq": "faq",
       "footer": "footer"
-    }
+    },
+    "retired": true
   },
   "portfolio": {
     "label": "Portfolio",
@@ -101,7 +106,8 @@
       "testimonials": "testimonials",
       "contact": "contact",
       "footer": "footer"
-    }
+    },
+    "retired": true
   },
   "article": {
     "label": "Article",
@@ -116,7 +122,8 @@
       "article": "article",
       "aside": "aside",
       "footer": "footer"
-    }
+    },
+    "retired": true
   },
   "docs": {
     "label": "Documentation",
@@ -131,7 +138,8 @@
       "menu": "docs-nav",
       "content": "docs-content",
       "footer": "footer"
-    }
+    },
+    "retired": true
   },
   "factual": {
     "label": "Factual",
@@ -150,7 +158,8 @@
       "timeline": "timeline",
       "banner": "image-banner",
       "footer": "footer"
-    }
+    },
+    "retired": true
   },
   "biased": {
     "label": "Biased",
@@ -173,6 +182,7 @@
       "next": "case-next",
       "cta": "cta",
       "footer": "footer"
-    }
+    },
+    "retired": true
   }
 }

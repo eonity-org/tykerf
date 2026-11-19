@@ -15,7 +15,7 @@ import { STOPPED_HERE, retryWaits, timedOut, trim } from '../src/editor/runners/
 import { openTools } from '../src/editor/tools-client.js';
 import { Workspace } from '../src/workspace.js';
 import { createPage } from '../src/library.js';
-import { pageWorkspace } from '../src/site.js';
+import { pageWorkspace, setBrief, setFrame } from '../src/site.js';
 
 type Reply = { status?: number; body: unknown; delay?: number };
 
@@ -389,6 +389,21 @@ describe("Kaity's instructions", () => {
     const ai = new AI(ws, () => {}, new AnthropicRunner({ TYKERF_API_KEY: 'k', TYKERF_API_BASE_URL: api.url }));
     await ask(ai, 'nav', 'hi');
     expect(api.got[0].body.system).toContain('This page is part of a site with other pages: rome. To make this page like one of them, use_page');
+  });
+
+  it("carry the site's brief and frame, on a page and over the whole site", async () => {
+    const api = await fakeAPI([message([{ type: 'text', text: 'ok' }], 'end_turn'), message([{ type: 'text', text: 'ok' }], 'end_turn')]);
+    const dir = mkdtempSync(join(tmpdir(), 'tykerf-runner-brief-'));
+    createPage(new Workspace(join(dir, 'home')), 'blank');
+    setBrief(dir, { audience: 'gardeners in Valencia', tone: 'friendly' });
+    setFrame(dir, 'basic');
+    const env = { TYKERF_API_KEY: 'k', TYKERF_API_BASE_URL: api.url };
+    await ask(new AI(pageWorkspace(dir, 'home'), () => {}, new AnthropicRunner(env)), 'nav', 'hi');
+    await ask(new AI(pageWorkspace(dir, 'home'), () => {}, new AnthropicRunner(env), { site: dir }), 'site', 'hi');
+    for (const got of api.got) {
+      expect(got.body.system).toContain("The site's brief (the user can edit it in the site's settings): who it is for: gardeners in Valencia; its tone: friendly.");
+      expect(got.body.system).toContain('New pages of this site start in the basic frame.');
+    }
   });
 });
 

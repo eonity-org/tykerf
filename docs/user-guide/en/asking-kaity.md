@@ -16,10 +16,11 @@
 
 ## How Kaity reads a request
 
-Three things decide what Kaity does, before she reads a single word:
+Four things decide what Kaity does, before she reads a single word:
 
 - **The task's block.** Kaity changes the block the task is on and what is inside it, nothing else. A task about the footer left on the hero is refused, however it is worded. Leave it on the thing you mean, or on `page` for something that spans the page. A task carries its block, the element and the window width with it, so she knows exactly where to look.
 - **The conversation of that block.** Each block keeps its own, and every task on it continues it: Kaity remembers what was asked about the hero when a new task is about the hero, but not what was asked about the pricing table. *See her conversation on …*, on a task's card, shows it.
+- **The site's brief.** Who the site is for, its tone and what a visitor should do, from *About this site* (see [Sites](sites.md)). She reads it before every request, so you don't have to repeat it. If a result keeps missing the mark, correct the brief rather than each request.
 - **What she can see.** Kaity reads the page as a tree of named blocks and their code, and she takes screenshots at desktop and phone width. She can't browse the web or download pictures: what she knows about your business is what you write or attach.
 
 ## Writing a request
