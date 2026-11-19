@@ -303,6 +303,9 @@ export function maxContinues(env: NodeJS.ProcessEnv = process.env): number {
   return Number.isFinite(n) && n >= 0 ? Math.floor(n) : 3;
 }
 
+/** Whether a page build's end checks its design in a browser (TYKERF_DESIGN_CHECK=off skips it, as tests with no browser do). */
+export const designCheckOn = (env: NodeJS.ProcessEnv = process.env) => env.TYKERF_DESIGN_CHECK !== 'off';
+
 /** What Kaity hears when she goes on after a stop. */
 function continuePrompt(why: string): string {
   return `You were stopped before you finished (${why.replace(/; ask again to continue$/, '')}). Everything you did so far is on the page. Go on from where you stopped: finish what was asked, check it as asked, then answer.`;
@@ -528,23 +531,34 @@ export class AI {
             unfinished = true;
             this.add(last, 'error', problem);
           }
+          /** The run's end, once what it left is known. */
+          const finish = (left: Leftover[]) => {
+            const last = this.follow();
+            if (left.length && !reviewed && !opts.tag && (brief || this.usedLayout(run.since))) {
+              reviewed = true;
+              this.addCheck(last, left, 'auto');
+              return start(fixPrompt(left), []);
+            }
+            // a task's check goes to its card in the review too (TaskRun)
+            const check = left.length ? this.addCheck(last, left, 'open') : null;
+            ended = true;
+            unlock();
+            if (logSite) logEnd(logSite, { run: run.key, end: run.stopped ? 'stopped' : unfinished ? 'unfinished' : failed ? 'failed' : 'done', block: site ? null : last, ...(answer ? { answer } : {}), ...(problem ? { error: problem } : {}), steps: run.steps });
+            this.run = null;
+            this.runTasks = null;
+            this.emit('ai', { id: last, role: 'end', ...(unfinished ? { unfinished: true } : {}) });
+            opts.onEnd?.({ answer, error: problem, failed, stopped: !!run.stopped, ...(unfinished ? { unfinished: true } : {}), ...(check ? { check } : {}) });
+          };
           // the site run's pages are checked by check_page; a question changes nothing
-          const left = failed || site || opts.readOnly ? [] : this.left(before);
-          // a whole page built in this request gets one pass over what it left, before the run ends
-          if (left.length && !reviewed && !opts.tag && (brief || this.usedLayout(run.since))) {
-            reviewed = true;
-            this.addCheck(last, left, 'auto');
-            return start(fixPrompt(left), []);
+          const placeholders = failed || site || opts.readOnly ? [] : this.left(before);
+          // a whole page built in this request: its design is checked too (must fix only), and it gets one pass
+          // over what it left, before the run ends; what is still there after that pass goes on the review
+          const build = !failed && !site && !opts.readOnly && !opts.tag && (!!brief || this.usedLayout(run.since));
+          if (build && designCheckOn()) {
+            this.designLeft().catch(() => []).then((design) => finish([...placeholders, ...design]));
+            return;
           }
-          // a task's check goes to its card in the review too (TaskRun)
-          const check = left.length ? this.addCheck(last, left, 'open') : null;
-          ended = true;
-          unlock();
-          if (logSite) logEnd(logSite, { run: run.key, end: run.stopped ? 'stopped' : unfinished ? 'unfinished' : failed ? 'failed' : 'done', block: site ? null : last, ...(answer ? { answer } : {}), ...(problem ? { error: problem } : {}), steps: run.steps });
-          this.run = null;
-          this.runTasks = null;
-          this.emit('ai', { id: last, role: 'end', ...(unfinished ? { unfinished: true } : {}) });
-          opts.onEnd?.({ answer, error: problem, failed, stopped: !!run.stopped, ...(unfinished ? { unfinished: true } : {}), ...(check ? { check } : {}) });
+          finish(placeholders);
         },
       }).cancel;
     };
@@ -597,6 +611,21 @@ export class AI {
   }
 
   /** What the page has left unfinished now that it didn't have before, less what the person chose to keep. */
+  /**
+   * What a page build left that people need fixed to read and use the page (check_design's must fix), as
+   * leftovers the review lists and keeps (Leave them as they are) like placeholders.
+   */
+  private async designLeft(): Promise<Leftover[]> {
+    const { checkDesign, DESIGN_RULES } = await import('../design.js');
+    const { pageFiles } = await import('../screenshot.js');
+    const root = this.ws.load().root.id;
+    const kept = new Set(this.kept());
+    return (await checkDesign(this.ws.page(), { files: pageFiles(this.ws) }))
+      .filter((f) => f.group === 'fix')
+      .map((f): Leftover => ({ box: f.box ?? root, kind: 'design', detail: `${DESIGN_RULES[f.rule].label.toLowerCase()} (${f.detail}, at ${f.widths.join(' and ')} px)` }))
+      .filter((l) => !kept.has(leftoverKey(l)));
+  }
+
   private left(before: Set<string>): Leftover[] {
     const kept = new Set(this.kept());
     return leftovers(this.ws).filter((l) => !before.has(leftoverKey(l)) && !kept.has(leftoverKey(l)));
@@ -728,6 +757,7 @@ function fixPrompt(left: (Leftover | string)[]): string {
     ...left.map((l) => `- ${typeof l === 'string' ? l : say(l)}`),
     'Fix each one: write the real text, replace or remove each placeholder picture, and give each link a real target (a section of this page, with an id on that section, or a page of the site).',
     'For links to pages the site doesn\'t have yet, don\'t make up addresses: leave them as they are and ask the user, in your answer, whether those pages will be made.',
+    'For what the design check found (faint or small text, small tap targets, headings out of order, sideways scroll, long or cramped lines, stretched pictures), fix it as its rule says (check_design names each rule), then run check_design again.',
     'If something should stay as it is, say why in one sentence. Then answer in 1-3 short sentences.',
   ].join('\n');
 }

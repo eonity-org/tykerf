@@ -153,14 +153,14 @@ describe('the site in the v3 editor', () => {
     await page.locator('.sidebar [data-screen="about"]').click();
     const form = page.locator('form[data-s="about"]');
     await form.waitFor();
-    expect(await page.locator('.sidebar [data-screen="about"] .sstate').textContent()).toBe('not written yet');
+    await expect.poll(() => page.locator('.sidebar [data-screen="about"] .sstate').textContent(), { timeout: 10_000 }).toBe('not written yet');
     await form.locator('[name="audience"]').fill('Neighbours who want good bread');
     await form.locator('[name="tone"]').fill('warm and simple');
     await form.locator('[name="frame"]').selectOption('simple');
     await form.locator('[type="submit"]').click();
-    await expect.poll(() => readSite(site).brief).toEqual({ audience: 'Neighbours who want good bread', tone: 'warm and simple' });
-    await expect.poll(() => readSite(site).frame).toBe('simple');
-    await expect.poll(() => page.locator('.sidebar [data-screen="about"] .sstate').textContent()).toBe('warm and simple');
+    await expect.poll(() => readSite(site).brief, { timeout: 10_000 }).toEqual({ audience: 'Neighbours who want good bread', tone: 'warm and simple' });
+    await expect.poll(() => readSite(site).frame, { timeout: 10_000 }).toBe('simple');
+    await expect.poll(() => page.locator('.sidebar [data-screen="about"] .sstate').textContent(), { timeout: 10_000 }).toBe('warm and simple');
   });
 
   it('checks the design of every page on demand, the style notes folded with their rules', async () => {

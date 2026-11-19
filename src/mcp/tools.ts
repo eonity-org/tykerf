@@ -1087,8 +1087,28 @@ export function createTykerfServer(start: Workspace | null, opts: TykerfServerOp
     // the whole site's check (check-site.ts): what to fix before publishing, every page at once
     server.registerTool('check_site', {
       title: 'Check the whole site', annotations: READ,
-      description: 'What the whole site should fix before it is published, counts first, then by kind, each with the tool that fixes it: links to pages it doesn\'t have, files that aren\'t there, shared blocks using a page\'s file, pictures without alt text, titles (missing, too long, the same as another page\'s), pages nothing links to, copies of a shared block, fonts without a licence, files from other servers, the language.',
-    }, guard(() => sayFindings(checkSite(siteOnly()))));
+      description: 'What the whole site should fix before it is published, counts first, then by kind, each with the tool that fixes it: links to pages it doesn\'t have, files that aren\'t there, shared blocks using a page\'s file, pictures without alt text, titles (missing, too long, the same as another page\'s), pages nothing links to, copies of a shared block, fonts without a licence, files from other servers, the language. ' +
+        'design: true also checks every page\'s design in a browser (check_design\'s must fix, page by page; a few seconds a page).',
+      inputSchema: { design: z.boolean().optional().describe('also check each page\'s design (slower)') },
+    }, guard(async ({ design }: { design?: boolean }) => {
+      const site = siteOnly();
+      const said = sayFindings(checkSite(site));
+      if (!design) return said;
+      const { checkDesign, DESIGN_RULES } = await import('../design.js');
+      const { launchChromium, pageFiles } = await import('../screenshot.js');
+      const browser = await launchChromium();
+      try {
+        const lines: string[] = [];
+        for (const pg of sitePages(site)) {
+          const pws = pageWorkspace(site, pg);
+          const fix = (await checkDesign(pws.page(), { files: pageFiles(pws), browser })).filter((f) => f.group === 'fix');
+          lines.push(...fix.map((f) => `- ${pg}${f.box ? ` (${f.box})` : ''}: ${DESIGN_RULES[f.rule].label.toLowerCase()}: ${f.detail} (at ${f.widths.join(' and ')} px)`));
+        }
+        return `${said}\n\n${lines.length ? `The design: ${lines.length} to fix (open_page, then check_design on that page for each rule):\n${lines.join('\n')}` : 'The design: nothing to fix on any page at 1440 and 375 px.'}`;
+      } finally {
+        await browser.close();
+      }
+    }) as never);
 
     // the site's files and every page's (site/media.ts): who uses each, and the unused ones
     server.registerTool('list_files', {

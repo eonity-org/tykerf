@@ -67,6 +67,10 @@ describe("the site's check", () => {
     const { openTools } = await import('../src/editor/tools-client.js');
     const run = await openTools(pageWorkspace(dir, 'home'), '', dir);
     expect((await run.call('check_site', {})).text).toBe(text);
+    // with design: every page in a browser too, its must fix after the rest
+    const withDesign = (await run.call('check_site', { design: true })).text;
+    expect(withDesign.startsWith(`${text}\n\nThe design: `)).toBe(true);
+    expect(withDesign).toMatch(/\n\nThe design: (nothing to fix on any page at 1440 and 375 px\.|\d+ to fix \(open_page, then check_design on that page for each rule\):\n- home)/);
     await run.close();
     const { report } = exportFiles(dir);
     expect(report.check).toMatchObject({ link: 1, alt: 1, lang: 1, orphan: 1 });

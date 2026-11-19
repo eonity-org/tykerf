@@ -6,7 +6,7 @@ import { createServer, type IncomingMessage, type Server } from 'node:http';
 import { mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { AI, type ChatMessage, claudeEnv, step, stepAt } from '../src/editor/ai.js';
 import { AnthropicRunner } from '../src/editor/runners/anthropic.js';
 import { GeminiRunner, geminiSchema } from '../src/editor/runners/gemini.js';
@@ -334,6 +334,7 @@ describe('what a request leaves unfinished', () => {
   });
 
   it('gets one pass by Kaity when the request built a whole page', async () => {
+    vi.stubEnv('TYKERF_DESIGN_CHECK', 'off'); // only the placeholders here; the design check has its own test
     const api = await fakeAPI([
       message([toolUse('t1', 'use_component', { id: 'a', name: 'nav' })]),
       message([{ type: 'text', text: 'Built.' }], 'end_turn'),
@@ -357,6 +358,32 @@ describe('what a request leaves unfinished', () => {
     expect(chat.map((m) => m.role)).toEqual(['user', 'step', 'ai', 'check', 'step', 'ai']);
     expect(chat[3]).toMatchObject({ state: 'auto' });
     expect(() => ai.fix(root)).toThrow(/nothing is waiting/);
+    vi.unstubAllEnvs();
+  });
+
+  it("checks a built page's design too: what must be fixed is in the pass, and what is left goes on the review", async () => {
+    const faint = '<h1>Rome</h1><p style="color:#d4d4d4">Pale words about Rome that few people can read on white.</p>';
+    const api = await fakeAPI([
+      message([toolUse('t1', 'set_content', { id: 'a', html: faint })]),
+      message([{ type: 'text', text: 'Built.' }], 'end_turn'),
+      message([{ type: 'text', text: 'I kept the pale text.' }], 'end_turn'),
+    ]);
+    const ws = page();
+    const root = ws.load().root.id;
+    for (const b of ['b', 'c']) ws.setContent(b, '<p>Rome is a city in Italy with a long history and many old streets.</p>', 'user');
+    const ai = new AI(ws, () => {}, new AnthropicRunner({ TYKERF_API_KEY: 'k', TYKERF_API_BASE_URL: api.url }));
+    let done!: () => void;
+    const ended = new Promise<void>((ok) => (done = ok));
+    (ai as any).emit = (_e: string, d: any) => d.role === 'end' && done();
+    ai.ask(root, 'a page about Rome', undefined, [], 'Build the whole page.');
+    await ended;
+    const fix = api.got[2].body.messages.at(-1).content[0].text;
+    expect(fix).toMatch(/- a: text too faint on its background \("Pale words about Rome that fe…" 1\.\d:1, at 1440 and 375 px\)/);
+    expect(fix).toMatch(/fix it as its rule says \(check_design names each rule\), then run check_design again/);
+    // still there after her pass: on the review, to fix or leave as it is
+    const chat = ai.chat(root).messages;
+    expect(chat.at(-1)).toMatchObject({ role: 'check', state: 'open' });
+    expect((chat.at(-1) as any).items.map((i: any) => i.text).join('\n')).toMatch(/^a: text too faint on its background \("Pale words about Rome that fe…" 1\.\d:1, at 1440 and 375 px\)$/m);
   });
 
   it('can be finished on request: "Fix them" asks Kaity with the list', async () => {

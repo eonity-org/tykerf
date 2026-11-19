@@ -12,7 +12,7 @@ import type { Workspace } from './workspace.js';
 
 export interface Leftover {
   box: string;
-  kind: 'text' | 'picture' | 'link' | 'missing' | 'block' | 'shared-file' | 'title' | 'slot';
+  kind: 'text' | 'picture' | 'link' | 'missing' | 'block' | 'shared-file' | 'title' | 'slot' | 'design';
   /**
    * What is left: the placeholder text, the picture's file, the address of a file that isn't there, the link's
    * address and words, (shared-file) the shared block's name and the page's file it uses ("nav logo.png"),
@@ -47,6 +47,7 @@ export function say(l: Leftover): string {
     const f = file.join(' ');
     return `${l.box}: the shared block ${name} uses assets/${f}, a page's file; shared blocks use /assets/${f} (the site's)`;
   }
+  if (l.kind === 'design') return `${l.box}: ${l.detail}`;
   if (l.kind === 'block') return `${l.box}: it shows the shared block "${l.detail}", which the site's kit doesn't have (kit/blocks/${l.detail}.html), so it shows its own code`;
   const [href, ...words] = l.detail.split(' ');
   const label = words.join(' ') || href;
