@@ -120,6 +120,38 @@ export function purposes(): Purpose[] {
 }
 
 /**
+ * A purpose's skill (`library/skills/<purpose>.md`): what a page of that kind needs, what only the person can
+ * tell, how it links. Kaity gets it with use_layout and new_page, and asks for it with get_skill; anyone may
+ * edit the files. Null for a purpose without one.
+ */
+export function purposeSkill(purpose: string): string | null {
+  if (!NAME.test(purpose) || !purposes().some((p) => p.name === purpose)) return null;
+  const file = join(DIR, 'skills', `${purpose}.md`);
+  return existsSync(file) ? readFileSync(file, 'utf8').trim() : null;
+}
+
+/** The purpose a layout name makes a page for (`<frame>+<purpose>`, or a purpose alone); null for a frame or an older layout. */
+export function purposeOf(name: string): string | null {
+  const p = name.includes('+') ? name.split('+', 2)[1] : name;
+  return purposes().some((x) => x.name === p) ? p : null;
+}
+
+/** Where a page keeps the purpose it was made for (TYKERF's state: not exported). */
+const PURPOSE_FILE = '.tykerf/purpose';
+
+/** The purpose a page was made for (use_layout, new_page, a copy of a page), or null. */
+export function pagePurpose(ws: Workspace): string | null {
+  const p = ws.store.read(PURPOSE_FILE)?.trim() ?? '';
+  return p && purposes().some((x) => x.name === p) ? p : null;
+}
+
+/** Record the purpose a page is made for; null forgets it (a frame alone: the page's structure is its own). */
+export function setPagePurpose(ws: Workspace, purpose: string | null) {
+  if (purpose) ws.store.write(PURPOSE_FILE, `${purpose}\n`);
+  else if (ws.store.exists(PURPOSE_FILE)) ws.store.remove(PURPOSE_FILE);
+}
+
+/**
  * A frame with a purpose's sections in its body, as one page layout named `<frame>+<purpose>`: 21 pages from
  * 10 entries, none stored. Without a purpose, the frame alone (its body a plain text block).
  */
@@ -417,6 +449,7 @@ export function useLayout(ws: Workspace, name: string, author = 'user', keep?: s
     }
     if (!hasTheme(ws.siteHead() + ws.head())) ws.setHead(withFonts(ws, themeVariables() + ws.head()), author);
   });
+  setPagePurpose(ws, purposeOf(name));
 }
 
 /** Fill a box with a component: its code, its images and, if the page lacks them, the theme variables. One undo step. */
@@ -464,6 +497,7 @@ export function createPage(ws: Workspace, name = 'blank', themeName = 'clean', o
   // a page of a site that shares its theme has none of its own (the site's head comes first)
   if (opts.ownTheme !== false) ws.store.write('head.html', withFonts(ws, withPresetName(withThemeValues(theme(), values).head, themeName === BASE_THEME ? null : themeName)));
   for (const code of Object.values(boxes)) copyAssets(ws, code);
+  setPagePurpose(ws, purposeOf(name));
 }
 
 // ---- the theme as data: what the AI (and any tool) may change without touching the rest of the head ----

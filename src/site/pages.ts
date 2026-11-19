@@ -8,7 +8,7 @@ import { type Layout, type Node, find, isOp, walk } from '../model.js';
 import * as M from '../moves.js';
 import { serializeSlice } from '../notation.js';
 import { FolderStore } from '../store.js';
-import { DEFAULT_THEME, EMPTY_LAYOUT, componentCode, copyBehaviours, createPage, frameOf, hasTheme, layoutShared, pageLayout, pageLayouts, purposes, readTheme, themes, withFonts, withOverrides } from '../library.js';
+import { DEFAULT_THEME, EMPTY_LAYOUT, componentCode, copyBehaviours, createPage, frameOf, hasTheme, layoutShared, pageLayout, pageLayouts, pagePurpose, purposes, setPagePurpose, readTheme, themes, withFonts, withOverrides } from '../library.js';
 import { Workspace } from '../workspace.js';
 import { kitList, kitRead, kitWrite } from '../kit.js';
 import { readSite, recordFrame, writeSite, setHome, pageTitle } from './settings.js';
@@ -323,6 +323,7 @@ export function usePage(ws: Workspace, dir: string, from: string, opts: { theme?
     for (const [id, html] of Object.entries(code)) ws.setContent(id, html, author, { own: true });
     if (opts.theme) ws.setHead(head ?? '', author);
   });
+  setPagePurpose(ws, pagePurpose(src));
   return { copied: files.copied, site: files.site };
 }
 
@@ -475,6 +476,7 @@ export function duplicatePage(dir: string, from: string, to?: string): string {
   cpSync(join(dir, from), join(dir, name), { recursive: true, filter: (src) => !LEFT.has(basename(src)) });
   // the copy's files the site already has (the same bytes) are the site's: its code points there, and they go
   const copy = new Workspace(join(dir, name));
+  setPagePurpose(copy, pagePurpose(new Workspace(join(dir, from)))); // made for the same kind of page
   const site = siteFilesByHash(dir);
   const theirs = new Map<string, string>();
   for (const f of copy.assets()) {

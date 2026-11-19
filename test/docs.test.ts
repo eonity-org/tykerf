@@ -17,10 +17,10 @@ describe('the docs', () => {
   it('give every page its header and footer (npm run docs:nav writes them)', () => {
     const stale = docsNav().filter((p) => p.before !== p.after).map((p) => p.file);
     expect(stale, 'run npm run docs:nav').toEqual([]);
-    // every Markdown file but CLAUDE.md (for AI coding assistants), .github/ (GitHub's forms) and plugin/ (the Claude plugin's
-    // own files, which go out without the repository) has them
+    // every Markdown file but CLAUDE.md (for AI coding assistants), .github/ (GitHub's forms), plugin/ (the Claude plugin's
+    // own files, which go out without the repository) and library/ (the purposes' skills: Kaity reads them) has them
     const covered = new Set(docsNav().map((p) => p.file));
-    expect(files.filter((f) => !covered.has(f) && f !== 'CLAUDE.md' && !/^(\.github|plugin|node_modules)\//.test(f))).toEqual([]);
+    expect(files.filter((f) => !covered.has(f) && f !== 'CLAUDE.md' && !/^(\.github|plugin|library|node_modules)\//.test(f))).toEqual([]);
   });
 
   it('link only to files and sections that exist', () => {

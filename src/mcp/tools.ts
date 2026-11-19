@@ -19,7 +19,7 @@ import { SUGGESTIONS, type Suggestion, closeTask, sayTask, tasks } from '../task
 import { type KitKind, blockSlots, kitClasses, kitFonts, kitLibraryScripts, kitList, kitRead, kitTags, kitWarning, kitWrite } from '../kit.js';
 import { removeMediaFile, siteMedia } from '../site.js';
 import { HOME_PAGE, type SiteBrief, setBrief, setFrame, recordFrame, blockUsers, linkBlock, newSitePage, pageTitle, pagesWithOwnTheme, pageWorkspace, readSite, setLang, setTitle, shareTheme, removePage, renamePage, shareBlock, movedFiles, siteHead, siteKind, unlinkBlock, unsafeSVG, siteOf, sitePages, usePage } from '../site.js';
-import { DEFAULT_THEME, behavioursIn, componentCode, copyBehaviours, components, createPage, fontWarning, hasTheme, DEFAULT_FRAME, frameOf, frames, layoutSections, layoutShared, libraryBehaviours, offeredLayouts, pageLayout, pageLayouts, purposes, readOverrides, readTheme, setTheme, themeTarget, themes, offeredThemes, useComponent, useLayout } from '../library.js';
+import { DEFAULT_THEME, behavioursIn, componentCode, copyBehaviours, components, createPage, fontWarning, hasTheme, DEFAULT_FRAME, frameOf, frames, layoutSections, layoutShared, libraryBehaviours, offeredLayouts, pageLayout, pageLayouts, pagePurpose, purposeOf, purposeSkill, purposes, readOverrides, readTheme, setTheme, themeTarget, themes, offeredThemes, useComponent, useLayout } from '../library.js';
 import { FolderStore, MemoryStore } from '../store.js';
 import { Workspace } from '../workspace.js';
 import { addFile, readSource } from '../files.js';
@@ -134,7 +134,7 @@ export const askFile = (tag: string) => `.tykerf/asks/${encodeURIComponent(tag)}
 const READ_ONLY_TOO = new Set(['close_task', 'ask_person']);
 
 /** The tools that answer with no folder open: they need no page. */
-const FOLDERLESS = new Set(['open_folder', 'list_themes', 'list_layouts', 'list_components']);
+const FOLDERLESS = new Set(['open_folder', 'list_themes', 'list_layouts', 'list_components', 'get_skill']);
 
 /** A folder as a person writes it: `~` is their home folder, and a pasted path may bring spaces at either end. */
 export function folderPath(path: string): string {
@@ -165,6 +165,12 @@ function frameEntry(f: ReturnType<typeof frames>[number]): string {
 function purposeEntry(p: ReturnType<typeof purposes>[number]): string {
   const about = new Map(components().map((c) => [c.name, c.description]));
   return [`${p.name}: ${p.label}. ${p.description}`, `  sections: ${p.sections.map((s) => `${s.box} (${about.get(s.component) ?? s.component})`).join('; ')}`].join('\n');
+}
+/** A purpose's skill for a reply after a layout is used (below the outline), or '' when its purpose has none. */
+function skillNote(layout: string): string {
+  const p = purposeOf(layout);
+  const skill = p ? purposeSkill(p) : null;
+  return skill ? `\n\nThe ${p} skill: what a page of this kind needs (get_skill gives it again)\n\n${skill}` : '';
 }
 /** A layout named by frame and purpose (use_layout, new_page), or by its own name. */
 function layoutName(a: { name?: string; frame?: string; purpose?: string }, siteFrame?: string): string {
@@ -367,8 +373,10 @@ export function createTykerfServer(start: Workspace | null, opts: TykerfServerOp
     guard(() => {
       const l = ws.load();
       const sc = scopeInfo(l);
-      if (!sc) return withSlotNames(describe(l));
-      return `scope: ${pathOf(l, sc.id)} (set by ${sc.author}) — you may only change this block\n\n${withSlotNames(scopeOutline(l, sc.id))}`;
+      const p = pagePurpose(ws);
+      const made = p && purposeSkill(p) ? `this page was made for the ${p} purpose: get_skill has what such a page needs\n\n` : '';
+      if (!sc) return made + withSlotNames(describe(l));
+      return `${made}scope: ${pathOf(l, sc.id)} (set by ${sc.author}) — you may only change this block\n\n${withSlotNames(scopeOutline(l, sc.id))}`;
     }));
 
   server.registerTool('focus', {
@@ -461,7 +469,20 @@ export function createTykerfServer(start: Workspace | null, opts: TykerfServerOp
   })));
 
   server.registerTool('list_layouts', { title: 'List page layouts', annotations: READ, description: 'How to start or restart a page with use_layout. Purposes: the sections a kind of page needs (a place, a person, an event...). Frames: what holds the page (a navigation bar, a side menu, a footer). A page is a purpose in a frame. Each says what it is for and not for: choose by the page the request describes, not by how much one has. Then the older ready-made layouts.' },
-    guard(() => ['Purposes (use_layout purpose):', ...purposes().map(purposeEntry), '', `Frames (use_layout frame; default ${DEFAULT_FRAME}):`, ...frames().map(frameEntry), ...(offeredLayouts().length ? ['', 'Ready-made layouts (use_layout name):', ...offeredLayouts().map(layoutEntry)] : [])].join('\n')));
+    guard(() => ['Purposes (use_layout purpose). Each comes with a skill, which use_layout gives you (get_skill reads it): what that kind of page needs, what only the person can tell you, how it links.', ...purposes().map(purposeEntry), '', `Frames (use_layout frame; default ${DEFAULT_FRAME}):`, ...frames().map(frameEntry), ...(offeredLayouts().length ? ['', 'Ready-made layouts (use_layout name):', ...offeredLayouts().map(layoutEntry)] : [])].join('\n')));
+
+  server.registerTool('get_skill', {
+    title: 'Read what a kind of page needs', annotations: READ,
+    description: 'A purpose\'s skill (list_layouts): what that kind of page usually has, what only the person can tell you (ask for it, or name it in your answer, never make it up), and how it links. ' +
+      'Without a purpose, the skill of the purpose the open page was made for. use_layout and new_page give it too.',
+    inputSchema: { purpose: z.string().optional().describe('purpose from list_layouts; leave it out for the open page\'s') },
+  }, guard(({ purpose }: { purpose?: string }) => {
+    const known = purposes().map((x) => x.name);
+    const p = purpose?.trim() || pagePurpose(ws);
+    if (!p) throw new Error(`name a purpose (${known.join(', ')}): this page wasn't made from one`);
+    if (!known.includes(p)) throw new Error(`unknown purpose "${p}" (known: ${known.join(', ')})`);
+    return purposeSkill(p) ?? `the ${p} purpose has no skill yet`;
+  }));
 
   server.registerTool('use_layout', {
     title: 'Replace the page with a layout', annotations: REPLACE,
@@ -492,11 +513,11 @@ export function createTykerfServer(start: Workspace | null, opts: TykerfServerOp
         mkdirSync(site, { recursive: true });
         ws = newSitePage(site, HOME_PAGE, name, themeName ?? DEFAULT_THEME, { keep });
         if (!runScope) home = site;
-        return `ok: a new site in ${site}, with its home page "${HOME_PAGE}" from the ${name} layout${left} with the ${themeName ?? DEFAULT_THEME} theme${sharedSay(linkedBoxes(ws))}; the page is open. Rewrite every box's placeholder text for this page\n\n${outline(ws.load())}`;
+        return `ok: a new site in ${site}, with its home page "${HOME_PAGE}" from the ${name} layout${left} with the ${themeName ?? DEFAULT_THEME} theme${sharedSay(linkedBoxes(ws))}; the page is open. Rewrite every box's placeholder text for this page\n\n${outline(ws.load())}${skillNote(name)}`;
       }
       return ws.transaction(() => {
         createPage(ws, name, themeName ?? DEFAULT_THEME, { keep });
-        return `ok: a new page from the ${name} layout${left} with the ${themeName ?? DEFAULT_THEME} theme; rewrite every box's placeholder text for this page\n\n${outline(ws.load())}`;
+        return `ok: a new page from the ${name} layout${left} with the ${themeName ?? DEFAULT_THEME} theme; rewrite every box's placeholder text for this page\n\n${outline(ws.load())}${skillNote(name)}`;
       });
     }
     return ws.transaction(() => {
@@ -517,7 +538,7 @@ export function createTykerfServer(start: Workspace | null, opts: TykerfServerOp
         return ws.site ? shareLayoutBoxes(ws.site.dir, ws, name, 'ai') : '';
       });
       const look = preset ? `; ${where === 'site' ? 'the site theme' : where === 'override' ? 'this page\'s own theme values' : 'the theme'} now follow${where === 'override' ? '' : 's'} the ${themeName} preset` : '';
-      return `ok: the page now follows the ${name} layout${left}${frameNote(name, siteFrame)}${look}${said}; rewrite every box's placeholder text for this page\n\n${outline(ws.load())}`;
+      return `ok: the page now follows the ${name} layout${left}${frameNote(name, siteFrame)}${look}${said}; rewrite every box's placeholder text for this page\n\n${outline(ws.load())}${skillNote(name)}`;
     });
   }));
 
@@ -1191,7 +1212,7 @@ export function createTykerfServer(start: Workspace | null, opts: TykerfServerOp
         return `ok: new page "${name}", a copy of "${copy}"${theirs}; it is open now. Rewrite its text for this page.\n\n${outline(ws.load())}`;
       }
       const look = shared ? 'it uses the theme the site\'s pages share' : `with the ${themeName ?? DEFAULT_THEME} theme`;
-      return `ok: new page "${name}" from the ${layout ?? siteFrame ?? 'simple'} layout${layout ? leftOut(layout, keep) + frameNote(layout, siteFrame) : ''}, ${look}${sharedSay(linkedBoxes(ws))}; it is open now. Rewrite every box's placeholder text for this page.\n\n${outline(ws.load())}`;
+      return `ok: new page "${name}" from the ${layout ?? siteFrame ?? 'simple'} layout${layout ? leftOut(layout, keep) + frameNote(layout, siteFrame) : ''}, ${look}${sharedSay(linkedBoxes(ws))}; it is open now. Rewrite every box's placeholder text for this page.\n\n${outline(ws.load())}${layout ? skillNote(layout) : ''}`;
     }));
     server.registerTool('rename_page', {
       title: 'Rename a page', annotations: CHANGE,

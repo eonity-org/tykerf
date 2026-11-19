@@ -137,3 +137,34 @@ describe('the slots of a shared block', () => {
     await again.close();
   });
 });
+
+describe("a purpose's skill", () => {
+  it('comes with use_layout and new_page, is named by get_layout, and get_skill reads it again', async () => {
+    const { mkdtempSync, readFileSync: read } = await import('node:fs');
+    const { tmpdir } = await import('node:os');
+    const { join } = await import('node:path');
+    const { newSitePage, pageWorkspace, duplicatePage } = await import('../src/site.js');
+    const { openTools } = await import('../src/editor/tools-client.js');
+    const dir = mkdtempSync(join(tmpdir(), 'tykerf-skill-'));
+    newSitePage(dir, 'home', 'simple', 'studio');
+    const place = read('library/skills/place.md', 'utf8').trim();
+
+    const kaity = await openTools(pageWorkspace(dir, 'home'), '', dir);
+    expect((await kaity.call('list_layouts', {})).text).toMatch(/^Purposes \(use_layout purpose\)\. Each comes with a skill/);
+    expect((await kaity.call('get_layout', {})).text).not.toContain('get_skill'); // a frame alone: no purpose
+    expect((await kaity.call('get_skill', {})).text).toMatch(/error: name a purpose \(place, .*\): this page wasn't made from one/);
+    const used = (await kaity.call('use_layout', { purpose: 'place', why: 'a bakery people visit', keep: ['intro', 'visit'] })).text;
+    expect(used).toMatch(/^ok: the page now follows the simple\+place layout/);
+    expect(used).toContain(`The place skill: what a page of this kind needs (get_skill gives it again)\n\n${place}`);
+    expect((await kaity.call('get_layout', {})).text).toMatch(/^this page was made for the place purpose: get_skill has what such a page needs\n\n/);
+    expect((await kaity.call('get_skill', {})).text).toBe(place);
+    expect((await kaity.call('get_skill', { purpose: 'event' })).text).toMatch(/^# Event\n/);
+    expect((await kaity.call('get_skill', { purpose: 'shop' })).text).toMatch(/error: unknown purpose "shop"/);
+    expect((await kaity.call('new_page', { name: 'cv', purpose: 'person', why: 'her CV', keep: ['intro', 'contact'] })).text).toMatch(/\n\nThe person skill: [^]*\n\n# Person\n/);
+    expect((await kaity.call('new_page', { name: 'plain', frame: 'simple' })).text).not.toContain('skill');
+    await kaity.close();
+
+    // a copy is made for the same kind of page
+    expect(pageWorkspace(dir, duplicatePage(dir, 'home')).store.read('.tykerf/purpose')).toBe('place\n');
+  });
+});

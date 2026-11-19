@@ -433,6 +433,7 @@ describe('what a request leaves unfinished', () => {
     expect(fix).toMatch(/^These were left unfinished on the page:/);
     expect(fix).toContain('- a: placeholder text "Page one"');
     expect(fix).toMatch(/keeps that page's address \(\/signup\/\), never # instead/);
+    expect(fix).toMatch(/another website \(Instagram, a map\) is linked at its full address/);
     expect(ws.content('a')).toContain('Rome');
     const chat = ai.chat(root).messages;
     expect(chat.map((m) => m.role)).toEqual(['user', 'step', 'ai', 'check', 'step', 'ai']);

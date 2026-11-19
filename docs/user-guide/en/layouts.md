@@ -43,6 +43,12 @@ npm start -- ~/tykerf-sites/my-site --layout basic+person --theme ivory --name c
 
 A layout or a theme is where Kaity *starts*, not a mould: she changes the sections, their order and their code until the page fits the request, builds the structure herself when the request or a picture describes one, and adjusts the theme's colours and fonts to the site when it has an identity of its own (a logo, brand colours, photos). Her answer says what she started from and what she changed. In a site, a page whose kind you choose starts in the site's frame (see *About this site* in [Sites](sites.md)).
 
+### What Kaity knows about each kind of page
+
+Each purpose comes with a **skill**: a short text, `library/skills/<purpose>.md` (`place.md`, `event.md`…), saying what that kind of page needs (for a place: the hours, the address with a map link, a phone people can tap), what only you can tell her, and how it links (profiles on other websites at their full address, a page you haven't made yet at the address it will have). Kaity reads it when she starts a page of that kind, and again when you ask her for more on it later.
+
+What only you know (your hours, your prices, the names, your Instagram profile) she doesn't make up: when your request doesn't give it, she writes a plain example and **lists it at the end of her answer** for you to confirm or replace, or asks you for it in a task. The skills are plain text: edit them to change what Kaity does for every page of that kind.
+
 The frame's navigation and footer (and in `full`, the page title) are [shared blocks](sites.md#the-site-kit) in a site: the site's first page makes them, and every page made later shows them, unless you untick *With the site's navigation and footer (shared)*.
 
 The older ready-made layouts (`blank`, `launch`, `company`, `magazine`, `catalogue`, `portfolio`, `article`, `docs`, `factual`, `biased`) are no longer offered, but still work by name (`--layout launch`, or MCP `use_layout` with `name`).

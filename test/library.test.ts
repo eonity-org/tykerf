@@ -6,7 +6,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { validate } from '../src/model.js';
 import { serializeSlice } from '../src/notation.js';
 import { MemoryStore } from '../src/store.js';
-import { componentCode, components, composeLayout, createPage, demoteTitle, frames, hasTheme, layoutSections, pageLayout, pageLayouts, purposes, readTheme, theme, themeValueError, themeVariables, themes, offeredThemes, useComponent, useLayout, withThemeValues } from '../src/library.js';
+import { componentCode, components, composeLayout, createPage, demoteTitle, frames, hasTheme, layoutSections, pageLayout, pageLayouts, pagePurpose, purposeOf, purposeSkill, purposes, setPagePurpose, readTheme, theme, themeValueError, themeVariables, themes, offeredThemes, useComponent, useLayout, withThemeValues } from '../src/library.js';
 import { Workspace } from '../src/workspace.js';
 
 // relative to this file, so the tests also run from another folder
@@ -149,6 +149,35 @@ describe('frames and purposes', () => {
     for (const p of purposes()) expect(p.label && p.description && p.sections.length, p.name).toBeTruthy();
   });
 
+  it('each have a skill, library/skills/<purpose>.md, and every skill is a purpose\'s', () => {
+    const files = readdirSync(join(LIBRARY, 'skills')).map((f) => f.replace(/\.md$/, '')).sort();
+    expect(files).toEqual(purposes().map((p) => p.name).sort());
+    for (const p of purposes()) {
+      const skill = purposeSkill(p.name)!;
+      expect(skill, p.name).toMatch(/^# /);
+      // what Kaity needs from each: what the page has, what only the person knows, how it links
+      for (const part of ['## What the page needs', '## What only the person can tell you', '## Links']) expect(skill, `${p.name}: ${part}`).toContain(part);
+      expect(skill.length, p.name).toBeLessThan(2500); // it comes back with use_layout: short enough to read every time
+    }
+    expect(purposeSkill('nope')).toBeNull();
+    expect(purposeSkill('../README')).toBeNull();
+  });
+
+  it('are remembered by the page made for one, and forgotten by a frame alone', () => {
+    expect([purposeOf('basic+place'), purposeOf('event'), purposeOf('simple'), purposeOf('factual')]).toEqual(['place', 'event', null, null]);
+    const ws = fresh();
+    createPage(ws, 'full+event');
+    expect(pagePurpose(ws)).toBe('event');
+    useLayout(ws, 'basic+person');
+    expect(pagePurpose(ws)).toBe('person');
+    useLayout(ws, 'simple'); // a structure of its own
+    expect(pagePurpose(ws)).toBeNull();
+    setPagePurpose(ws, 'guide');
+    expect(pagePurpose(ws)).toBe('guide');
+    ws.store.write('.tykerf/purpose', 'gone\n'); // a purpose the library no longer has
+    expect(pagePurpose(ws)).toBeNull();
+  });
+
   it('name a layout as frame+purpose, a purpose alone in the default frame, and keep what is kept', () => {
     expect(pageLayout('place').name).toBe('basic+place');
     expect(pageLayout('basic+place').shared).toEqual(['nav', 'footer']);
@@ -171,7 +200,7 @@ describe('frames and purposes', () => {
     const { openTools } = await import('../src/editor/tools-client.js');
     const tools = await openTools(ws, 'page');
     const list = (await tools.call('list_layouts', {})).text;
-    expect(list).toMatch(/^Purposes \(use_layout purpose\):\nplace: Place\. A place people visit/);
+    expect(list).toMatch(/^Purposes \(use_layout purpose\)\. Each comes with a skill[^\n]*\nplace: Place\. A place people visit/);
     expect(list).toMatch(/^  sections: intro \(Headline and buttons beside a picture\); offer \(What a place offers/m);
     expect(list).toMatch(/^Frames \(use_layout frame; default basic\):\nsimple: Simple\./m);
     expect(list).toMatch(/^  around the body: side; on every page of a site: nav, footer$/m);
