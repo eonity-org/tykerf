@@ -13,7 +13,7 @@ Step-by-step recipes. Each ends with the tests that guard it. Run `npm test && n
 A ready-made section people (and the AI) can drop into a box.
 
 1. Add `library/components/<name>.html`: a `<style>` and the markup. The style applies to the box only (it is wrapped in `@scope`).
-2. Register it in `library/components.json`: `"<name>": { "label": "…", "description": "…" }`. The description is what the AI reads in `list_components`, so say what the component holds.
+2. Register it in `library/components.json`: `"<name>": { "label": "…", "description": "…" }`. The description is what the AI reads in `list_components`, so say what the component holds. Add `"use": "…"`, one or two sentences for Kaity, only when the sample can't show how to use it: content she would otherwise make up (figures, quotes, names, prices: say she uses only what the request gives, and what to do without it), or markup a script or a style counts on (the accordion's `<details>`, the hero switcher's matching counts, a form's `action`). `list_components` shows it, `use_component` returns it, and `use_layout`/`new_page` list the notes of the components they place (`componentNotes`). What a whole kind of page needs goes in its purpose's skill instead.
 
 Follow the house style:
 

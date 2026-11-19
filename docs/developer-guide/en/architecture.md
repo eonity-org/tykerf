@@ -146,7 +146,7 @@ Links between pages are written from the site root (`/about/`); export makes the
 - `frames.json` and `purposes.json`: what holds a page and the sections a kind of page needs, composed when used (`composeLayout`, `<frame>+<purpose>`; a purpose alone goes in `DEFAULT_FRAME`), with `keep` choosing the sections and a frame's optional side boxes;
 - `skills/<purpose>.md`: each purpose's skill, what that kind of page needs, what only the person can tell (to ask, never to make up) and how it links, in plain Markdown anyone can edit (`purposeSkill`). MCP `use_layout` and `new_page` add it to their reply under the outline, `get_skill` reads it, and `get_layout` names it on a page made for a purpose. A page remembers its purpose in `.tykerf/purpose` (`pagePurpose`/`setPagePurpose`: `createPage` and `useLayout` write it, a frame alone forgets it, `usePage` and `duplicatePage` carry it to the copy);
 - `layouts.json`: the older ready-made layouts, `retired` (made by name, not offered);
-- `components/*.html`, listed in `components.json`;
+- `components/*.html`, listed in `components.json` (label, description, and for some a `use` note for Kaity: what she may not make up, or the markup a script counts on);
 - `theme.html` and `themes.json`: the theme and its presets;
 - `fonts/`: Instrument Sans, Public Sans, Fraunces, Bricolage Grotesque, Nunito, DM Sans, Newsreader, Inter, Manrope, Playfair Display and Plus Jakarta Sans, under the SIL Open Font License;
 - `assets/`: placeholder images.

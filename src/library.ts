@@ -30,6 +30,16 @@ export interface ComponentInfo {
   name: string;
   label: string;
   description: string;
+  /**
+   * How to use it, for Kaity (components.json `use`, one or two sentences): only on components that invite
+   * made-up content (figures, quotes, names, prices) or whose markup a script or a style counts on.
+   */
+  use?: string;
+}
+/** The usage notes of a layout's components (with `keep`, of the ones it places), one line each: "stats: Only figures…". */
+export function componentNotes(name: string, keep?: string[]): string[] {
+  const placed = new Set(Object.values(pageLayout(name, keep).boxes));
+  return components().filter((c) => c.use && placed.has(c.name)).map((c) => `${c.name}: ${c.use}`);
 }
 /** A ready-made page layout: its tree of blocks (`layout`, in the notation) and the component for each box. */
 export interface PageLayout extends ComponentInfo {

@@ -11,7 +11,7 @@ A product, an idea or a project people should try or back: an app, a service, a 
 - The questions people ask before they decide, and the next step again at the end.
 
 ## What only the person can tell you
-The name, the prices and plans, the address of the app or the shop, customers, figures, quotes from users, the company behind it. Use what the request gives. Never invent customers, logos, testimonials or figures: leave those sections out. A price or a plan you don't know is a plain example listed at the end of your answer to confirm.
+The name, the prices and plans, the address of the app or the shop, customers, figures, quotes from users, the company behind it. Use what the request gives. A price or a plan you don't know is a plain example listed at the end of your answer to confirm.
 
 ## Links
 - Sign up, log in, the app, a store: the address the person gives (https://…), or a page the site doesn't have yet at the address it will have (/signup/), named in your answer.

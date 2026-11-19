@@ -156,6 +156,10 @@ describe("a purpose's skill", () => {
     const used = (await kaity.call('use_layout', { purpose: 'place', why: 'a bakery people visit', keep: ['intro', 'visit'] })).text;
     expect(used).toMatch(/^ok: the page now follows the simple\+place layout/);
     expect(used).toContain(`The place skill: what a page of this kind needs (get_skill gives it again)\n\n${place}`);
+    // then the notes of the components it placed, and only those (no contact form: it was left out)
+    expect(used).toMatch(/\n\nHow to use the components it placed:\n- hours-location: Hours by day[^\n]*$/);
+    expect((await kaity.call('list_components', {})).text).toMatch(/^stats: Numbers\. .*\n  use: Only figures the request gives/m);
+    expect((await kaity.call('use_component', { id: 'intro', name: 'stats' })).text).toMatch(/^ok: "intro" now holds the stats component\nHow to use it: Only figures the request gives[^\n]*\n\n<style/);
     expect((await kaity.call('get_layout', {})).text).toMatch(/^this page was made for the place purpose: get_skill has what such a page needs\n\n/);
     expect((await kaity.call('get_skill', {})).text).toBe(place);
     expect((await kaity.call('get_skill', { purpose: 'event' })).text).toMatch(/^# Event\n/);

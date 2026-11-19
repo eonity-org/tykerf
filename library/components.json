@@ -17,7 +17,8 @@
   },
   "logos": {
     "label": "Logos",
-    "description": "A row of the names of customers or partners"
+    "description": "A row of the names of customers or partners",
+    "use": "Only customers or partners the request names; never invent a name. Without them, leave the section out."
   },
   "text": {
     "label": "Text section",
@@ -45,19 +46,23 @@
   },
   "stats": {
     "label": "Numbers",
-    "description": "Four large figures with a line of text each"
+    "description": "Four large figures with a line of text each",
+    "use": "Only figures the request gives, each with what it counts; never invent one. With fewer than three real figures, use highlight for one, or leave the section out."
   },
   "testimonials": {
     "label": "Testimonials",
-    "description": "One big quote, then three smaller ones"
+    "description": "One big quote, then three smaller ones",
+    "use": "Only quotes the request gives, word for word, with who said them; never write a quote and put a name on it. Without real ones, leave the section out."
   },
   "pricing": {
     "label": "Pricing",
-    "description": "Three plans, the popular one on a dark card"
+    "description": "Three plans, the popular one on a dark card",
+    "use": "Only plans and prices the request gives, as many cards as it has plans (one or two is fine), and the popular one marked only when the request says. A price you don't know is a plain example listed at the end of your answer."
   },
   "faq": {
     "label": "FAQ",
-    "description": "A title beside questions that open to show the answer"
+    "description": "A title beside questions that open to show the answer",
+    "use": "Each question is a <details> with its <summary> inside the accordion: add or remove whole ones. Only questions the request gives or clearly implies, with answers that are true; a question without a real answer goes."
   },
   "cta": {
     "label": "Call to action",
@@ -65,11 +70,13 @@
   },
   "gallery": {
     "label": "Gallery",
-    "description": "Pictures of work with a title and a year"
+    "description": "Pictures of work with a title and a year",
+    "use": "Real pictures (the person's, placed with add_picture) or drawn ones that fit; a gallery of placeholders says less than none. Titles and years only when they are known."
   },
   "card-grid": {
     "label": "Card grid",
-    "description": "Products or services as small cards with a picture, a tag and a price, under a row of filters"
+    "description": "Products or services as small cards with a picture, a tag and a price, under a row of filters",
+    "use": "Prices only when the request gives them. The filters are links: point each at a section or a page for that kind, or remove the row when there is only one kind."
   },
   "image": {
     "label": "Image",
@@ -77,7 +84,8 @@
   },
   "contact": {
     "label": "Contact form",
-    "description": "Ways to reach you beside a form"
+    "description": "Ways to reach you beside a form",
+    "use": "The form says thank you when it is sent, but it sends nowhere until its action is the address of a form service the person gives: say so in your answer. The email and phone are links (mailto:, tel:) to the real ones; a way to reach people the request doesn't give is a plain example listed at the end of your answer."
   },
   "footer": {
     "label": "Footer",
@@ -105,19 +113,23 @@
   },
   "figure-cards": {
     "label": "Figure cards",
-    "description": "Large figures on dark cards, each with an icon, a label, a line of text and a bar"
+    "description": "Large figures on dark cards, each with an icon, a label, a line of text and a bar",
+    "use": "Only figures the request gives, never invented ones; each bar's width (style=\"width:…%\") shows its figure as a share, so set it from the figure. Without real figures, leave the section out."
   },
   "bar-chart": {
     "label": "Bar chart",
-    "description": "A ranked list of items with a value and a bar each, more under Show more, and a source"
+    "description": "A ranked list of items with a value and a bar each, more under Show more, and a source",
+    "use": "Only real values, with the source line saying where they come from; never invent one. The items past the first few go under Show more."
   },
   "highlight": {
     "label": "Highlight",
-    "description": "One figure on a soft card with a round icon, a title and a sentence"
+    "description": "One figure on a soft card with a round icon, a title and a sentence",
+    "use": "One real figure the request gives, never an invented one; without it, use another component or leave the section out."
   },
   "timeline": {
     "label": "Timeline",
-    "description": "Dated steps along a line, side by side on a wide screen"
+    "description": "Dated steps along a line, side by side on a wide screen",
+    "use": "Only real dates and steps; never fill a gap in a CV or a history with an invented one."
   },
   "image-banner": {
     "label": "Picture banner",
@@ -129,7 +141,8 @@
   },
   "hero-switch": {
     "label": "Hero with a switcher",
-    "description": "A hero that speaks to several audiences: pills switch the headline, text, figures and the card over the picture"
+    "description": "A hero that speaks to several audiences: pills switch the headline, text, figures and the card over the picture",
+    "use": "The first pill shows the first headline, case and card, the second the second, up to four: keep the pills, the headlines (.v), the cases and the cards the same number, in the same order."
   },
   "case-intro": {
     "label": "Case opening",
@@ -153,7 +166,8 @@
   },
   "case-quote": {
     "label": "Pull quote",
-    "description": "A quote in words only: a large opening mark, the quote and who said it"
+    "description": "A quote in words only: a large opening mark, the quote and who said it",
+    "use": "Only a quote the request gives, word for word, with who said it; never write one and put a name on it."
   },
   "case-credits": {
     "label": "Credits",
@@ -165,7 +179,8 @@
   },
   "page-banner": {
     "label": "Page banner",
-    "description": "A title and one sentence over each page, shared by every page; each page fills in its own (slots)"
+    "description": "A title and one sentence over each page, shared by every page; each page fills in its own (slots)",
+    "use": "Shared by every page of a site: its title and its sentence are slots each page fills (set_slot). Change the block itself only for what every page shows."
   },
   "offer-list": {
     "label": "Offer list",
@@ -173,7 +188,8 @@
   },
   "hours-location": {
     "label": "Hours and location",
-    "description": "Opening hours or times beside a picture of the map, the address and a link to a map"
+    "description": "Opening hours or times beside a picture of the map, the address and a link to a map",
+    "use": "Hours by day, as the request gives them. The map button links to https://www.google.com/maps/search/?api=1&query=<the address>, and the picture of the map is one you draw (add_picture) or the person's."
   },
   "programme": {
     "label": "Programme",
@@ -181,7 +197,8 @@
   },
   "people": {
     "label": "People",
-    "description": "The people behind it: a round picture, a name, a role and one line each"
+    "description": "The people behind it: a round picture, a name, a role and one line each",
+    "use": "Only people the request names, with their real role; never invent a name. Without their photos, use initials or no picture, never a made-up face; without names, leave the section out."
   },
   "side-nav": {
     "label": "Side menu",

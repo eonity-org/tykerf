@@ -6,7 +6,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { validate } from '../src/model.js';
 import { serializeSlice } from '../src/notation.js';
 import { MemoryStore } from '../src/store.js';
-import { componentCode, components, composeLayout, createPage, demoteTitle, frames, hasTheme, layoutSections, pageLayout, pageLayouts, pagePurpose, purposeOf, purposeSkill, purposes, setPagePurpose, readTheme, theme, themeValueError, themeVariables, themes, offeredThemes, useComponent, useLayout, withThemeValues } from '../src/library.js';
+import { componentCode, componentNotes, components, composeLayout, createPage, demoteTitle, frames, hasTheme, layoutSections, pageLayout, pageLayouts, pagePurpose, purposeOf, purposeSkill, purposes, setPagePurpose, readTheme, theme, themeValueError, themeVariables, themes, offeredThemes, useComponent, useLayout, withThemeValues } from '../src/library.js';
 import { Workspace } from '../src/workspace.js';
 
 // relative to this file, so the tests also run from another folder
@@ -18,6 +18,20 @@ describe('the library', () => {
     const files = readdirSync(join(LIBRARY, 'components')).map((f) => f.replace(/\.html$/, '')).sort();
     expect(components().map((c) => c.name).sort()).toEqual(files);
     for (const c of components()) expect(c.label && c.description).toBeTruthy();
+  });
+
+  it('gives some components a usage note: one or two short sentences, for what a sample can\'t show', () => {
+    const noted = components().filter((c) => c.use);
+    expect(noted.length).toBeGreaterThan(10);
+    for (const c of noted) {
+      expect(c.use!.length, c.name).toBeLessThan(320);
+      expect(c.use!.match(/[.!?](\s|$)/g)?.length ?? 0, c.name).toBeLessThanOrEqual(2);
+    }
+    // the purpose's skill says what the page needs; what a component invites (made-up figures, quotes, names) is its note
+    for (const p of purposes()) expect(readFileSync(join(LIBRARY, 'skills', `${p.name}.md`), 'utf8'), p.name).not.toMatch(/invent (customers|logos|testimonials)|placeholder pictures/i);
+    // a layout's notes are those of the components it places
+    expect(componentNotes('basic+organization', ['intro', 'figures']).map((n) => n.split(':')[0])).toEqual(['stats']);
+    expect(componentNotes('basic+place', ['intro'])).toEqual([]);
   });
 
   it('uses every component in some page layout, so each one is seen and kept working', () => {

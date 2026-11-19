@@ -18,5 +18,4 @@ The hours, the address, the phone, the prices, the dishes or products, the booki
 - A booking or delivery service, a social profile: its full address (https://…). Without the real one, leave the link out and ask for it.
 
 ## Watch for
-- A gallery of placeholder pictures says less than no gallery: keep it only with real pictures, or drawn ones that fit.
 - A contact form for a place that takes calls is one step too many: a phone and an address may be enough.

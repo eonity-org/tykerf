@@ -49,6 +49,8 @@ Each purpose comes with a **skill**: a short text, `library/skills/<purpose>.md`
 
 What only you know (your hours, your prices, the names, your Instagram profile) she doesn't make up: when your request doesn't give it, she writes a plain example and **lists it at the end of her answer** for you to confirm or replace, or asks you for it in a task. The skills are plain text: edit them to change what Kaity does for every page of that kind.
 
+Some components carry a note of their own, in `library/components.json` (`use`): the figures, quotes, logos, people and prices she uses only when you give them (otherwise she leaves the section out), what the contact form needs to really send (the address of a form service), how the questions of an FAQ are added. She reads it whenever she places that component, on any kind of page.
+
 The frame's navigation and footer (and in `full`, the page title) are [shared blocks](sites.md#the-site-kit) in a site: the site's first page makes them, and every page made later shows them, unless you untick *With the site's navigation and footer (shared)*.
 
 The older ready-made layouts (`blank`, `launch`, `company`, `magazine`, `catalogue`, `portfolio`, `article`, `docs`, `factual`, `biased`) are no longer offered, but still work by name (`--layout launch`, or MCP `use_layout` with `name`).
