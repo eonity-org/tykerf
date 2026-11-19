@@ -12,7 +12,7 @@ import type { Workspace } from './workspace.js';
 
 export interface Leftover {
   box: string;
-  kind: 'text' | 'picture' | 'link' | 'missing' | 'block' | 'shared-file' | 'title' | 'slot' | 'design';
+  kind: 'text' | 'picture' | 'link' | 'missing' | 'block' | 'shared-file' | 'title' | 'slot' | 'design' | 'empty';
   /**
    * What is left: the placeholder text, the picture's file, the address of a file that isn't there, the link's
    * address and words, (shared-file) the shared block's name and the page's file it uses ("nav logo.png"),
@@ -48,6 +48,7 @@ export function say(l: Leftover): string {
     return `${l.box}: the shared block ${name} uses assets/${f}, a page's file; shared blocks use /assets/${f} (the site's)`;
   }
   if (l.kind === 'design') return `${l.box}: ${l.detail}`;
+  if (l.kind === 'empty') return `${l.box}: an empty box: it takes space on the page but shows nothing; fill it, or remove it (remove)`;
   if (l.kind === 'block') return `${l.box}: it shows the shared block "${l.detail}", which the site's kit doesn't have (kit/blocks/${l.detail}.html), so it shows its own code`;
   const [href, ...words] = l.detail.split(' ');
   const label = words.join(' ') || href;
@@ -111,8 +112,11 @@ export function missingFiles(ws: Workspace, html: string): string[] {
   return [...out];
 }
 
-/** The boxes of a block (all boxes for the whole page). */
-function boxesIn(ws: Workspace, within?: string | null): string[] {
+/** A box's code that shows nothing: only blanks, comments, styles or scripts. */
+const EMPTY = (html: string) => !html.replace(/<!--[\s\S]*?-->/g, '').replace(/<(style|script)\b[\s\S]*?<\/\1>/gi, '').trim();
+
+/** The boxes of a block (all boxes for the whole page), with code (`all`: those without code too). */
+function boxesIn(ws: Workspace, within?: string | null, all = false): string[] {
   const layout = ws.load();
   const root = within ? find(layout.root, within)?.node ?? null : layout.root;
   if (!root) return [];
@@ -120,6 +124,7 @@ function boxesIn(ws: Workspace, within?: string | null): string[] {
   walk(root, (n) => {
     if (!isOp(n) && n.type === 'leaf') out.push(n.id);
   });
+  if (all) return out;
   const code = new Set(ws.boxIds());
   return out.filter((id) => code.has(id));
 }
@@ -127,7 +132,8 @@ function boxesIn(ws: Workspace, within?: string | null): string[] {
 /** What is left unfinished in a block's boxes (the whole page without one). */
 export function leftovers(ws: Workspace, opts: { within?: string | null } = {}): Leftover[] {
   const boxes = boxesIn(ws, opts.within);
-  if (!boxes.length) return [];
+  const leaves = boxesIn(ws, opts.within, true);
+  if (!leaves.length) return [];
   const ids = new Set([...ws.page().matchAll(/\bid\s*=\s*["']([^"']+)["']/gi)].map((m) => m[1]));
   const pages = ws.site?.pageNames() ?? null;
   const known = placeholderText();
@@ -176,5 +182,7 @@ export function leftovers(ws: Workspace, opts: { within?: string | null } = {}):
       if (why) add({ box, kind: 'link', detail: `${href || '#'} ${words}`.trim(), why, ...(target ? { target } : {}) });
     }
   }
+  // a box that shows nothing still takes its share of the page (a blank column, a gap): not a shared block's box
+  for (const box of leaves) if (!ws.sharedBlock(box, layout) && EMPTY(ws.content(box) ?? '')) add({ box, kind: 'empty', detail: '' });
   return out;
 }

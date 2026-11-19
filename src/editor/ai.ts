@@ -455,7 +455,8 @@ export class AI {
     const files = images.map((a) => this.keepImage(a));
 
     // what the page has left unfinished before the request: only what the request adds is reported after it
-    const before = site ? new Set<string>() : new Set(leftovers(this.ws).map(leftoverKey));
+    // a page to build (a brief) owns everything on it, the empty boxes it started with included
+    const before = site || brief ? new Set<string>() : new Set(leftovers(this.ws).map(leftoverKey));
     this.add(id, 'user', prompt.trim(), files);
     const run: NonNullable<AI['run']> = { cancel: () => {}, id, since: new Date().toISOString(), key: runId(), steps: 0 };
     this.run = run;

@@ -170,7 +170,8 @@ describe('show or describe it', () => {
 
   it('says a page is not finished when the model stopped answering, and Continue lets her go on', async () => {
     const { url } = await editor({ TYKERF_RUNNER: 'anthropic', TYKERF_API_KEY: 'k', TYKERF_API_BASE_URL: `http://127.0.0.1:${(api.address() as { port: number }).port}`, TYKERF_TURN_TIMEOUT: '0.5', TYKERF_RETRY_WAITS: '' });
-    replies.push({ ...message([{ type: 'text', text: 'too late' }], 'end_turn'), delay: 3000 } as any, message([{ type: 'text', text: 'All built.' }], 'end_turn'));
+    // the page stays empty here, so the build's end gets one pass over its empty boxes: a second answer
+    replies.push({ ...message([{ type: 'text', text: 'too late' }], 'end_turn'), delay: 3000 } as any, message([{ type: 'text', text: 'Built.' }], 'end_turn'), message([{ type: 'text', text: 'All built.' }], 'end_turn'));
     const r = await fetch(`${url}_tykerf/site/new`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ name: 'later', prompt: 'a page about later' }) }).then((x) => x.json());
     expect(r.ok).toBe(true);
     const page = await browser.newPage({ viewport: { width: 1280, height: 800 } });

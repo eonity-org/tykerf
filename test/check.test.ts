@@ -55,6 +55,20 @@ describe('what a page has left unfinished', () => {
     expect(leftovers(ws)).toEqual([]);
   });
 
+  it('finds a box that shows nothing but takes space (a blank column), and not a box that shows something', () => {
+    const ws = fresh(['home']);
+    ws.create('side menu more H3', {
+      side: '  <!-- nothing yet -->\n<style>:scope { padding: 20px }</style>',
+      menu: '<h2>Coffees</h2><p>Espresso 2.50</p>',
+      more: '<div class="photo"></div>', // a box drawn by its styles alone shows something
+    });
+    expect(leftovers(ws).map(say)).toEqual(['side: an empty box: it takes space on the page but shows nothing; fill it, or remove it (remove)']);
+    // a box with no code at all is empty too; inside a block, only that block's boxes count
+    ws.setContent('more', null, 'user');
+    expect(leftovers(ws).map((l) => `${l.box} ${l.kind}`)).toEqual(['side empty', 'more empty']);
+    expect(leftovers(ws, { within: 'menu' })).toEqual([]);
+  });
+
   it('gives each leftover a stable key, to compare a page before and after a request', () => {
     const ws = fresh();
     createPage(ws, 'blank');
