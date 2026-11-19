@@ -140,6 +140,7 @@ interface Runner {
 - **Memory** is kept per block in `.tykerf/chats/<block>.api.json` as *exchanges* (a request and everything after it). Pictures are replaced by a note once an exchange is over, and the oldest exchanges go past about 100,000 characters.
 - **The provider part.** Each provider only implements the `Wire` part: one model turn, a user message, tool results, a message without pictures, and readable errors (refused key, rate limit, unknown model, network).
 - **Cut-off replies.** A reply cut off at the output limit (`max_tokens` / `MAX_TOKENS`) runs none of its tool calls, and the loop tells the model why (`CUT`).
+- **Garbled replies.** A final reply that is not an answer is not kept, and the same turn is asked again, up to `GARBLED_TRIES` (2) times, each said in the conversation. "Not an answer" means it is longer than `ANSWER_MAX` (4,000 characters: some model turns write out pages of documentation they remember), or the provider marks it `garbled`. `gemini.ts`'s `reply()` does that for Gemini, which sometimes writes stray pieces before its reply (half a word, the end of some code, a note to itself about "the user"): it drops them, and marks a reply that still doesn't start like a sentence. After the tries, a short reply is taken as it is; a long one gives way to `GARBLED`, which tells the person that what she did is on the page.
 
 **Claude Code specifics:**
 - `ClaudeCodeRunner.warm()` finds out in the background whether `claude` is installed. Never call the CLI synchronously from a request.

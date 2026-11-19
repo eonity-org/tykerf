@@ -9,9 +9,9 @@ import { join } from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { AI, type ChatMessage, claudeEnv, step, stepAt } from '../src/editor/ai.js';
 import { AnthropicRunner } from '../src/editor/runners/anthropic.js';
-import { GeminiRunner, geminiSchema } from '../src/editor/runners/gemini.js';
+import { GeminiRunner, geminiSchema, reply } from '../src/editor/runners/gemini.js';
 import { runnerFromEnv } from '../src/editor/runners/index.js';
-import { STOPPED_HERE, retryWaits, timedOut, trim } from '../src/editor/runners/loop.js';
+import { GARBLED, GARBLED_TRIES, STOPPED_HERE, retryWaits, timedOut, trim } from '../src/editor/runners/loop.js';
 import { openTools } from '../src/editor/tools-client.js';
 import { Workspace } from '../src/workspace.js';
 import { createPage } from '../src/library.js';
@@ -298,6 +298,54 @@ describe('the Gemini runner', () => {
     expect(decl.parametersJsonSchema.properties.id).toBeTruthy();
     expect(decl.parametersJsonSchema.$schema).toBeUndefined();
     expect(second.body.contents.at(-1).parts[0].functionResponse).toMatchObject({ id: 'f1', name: 'set_content', response: { output: expect.stringMatching(/^ok/) } });
+  });
+
+  it('answers with her reply, without the stray pieces Gemini sometimes puts before it', async () => {
+    // seen with gemini-pro-latest: half a word, a note to itself, the end of some code
+    const api = await fakeAPI([answer([{ text: 'gs.' }, { text: '\nI am ready to reply to the user.' }, { text: 'g/2000/svg>' }, { text: 'I changed the heading and looked at it at 1440 and 375 px.' }])]);
+    const chat = await ask(new AI(page(), () => {}, new GeminiRunner({ GEMINI_API_KEY: 'g', GEMINI_BASE_URL: api.url })), 'a', 'change it');
+    expect(chat.at(-1)).toMatchObject({ role: 'ai', text: 'I changed the heading and looked at it at 1440 and 375 px.' });
+    expect(reply([{ text: 'Done.' }])).toEqual({ text: 'Done.', garbled: false });
+    expect(reply([{ text: 'I made the page.' }, { text: 'Should the menu link to an order page?' }, { text: 'x', thought: true }]))
+      .toEqual({ text: 'I made the page.\n\nShould the menu link to an order page?', garbled: false });
+    for (const t of ['He creado la página.', '¿Hago también la página de contacto?', 'ページを作りました。', '- the menu\n- the hours']) expect(reply([{ text: t }]).garbled, t).toBe(false);
+    // a reply that starts in the middle of something, or is nothing but stray pieces
+    for (const t of ['eti}\n\n<p>I built your CV page.', 'om䐪I built the home page.', 'ers/m/Desktop/repos/out/configurationModels.js:145\n\n  if (node) {', '}', '-4.49e+15</tr></tbody></table>'])
+      expect(reply([{ text: t }]).garbled, t).toBe(true);
+    expect(reply([])).toEqual({ text: '', garbled: false });
+  });
+
+  it('asks again for a reply that starts in the middle of something, and takes the next one', async () => {
+    const api = await fakeAPI([answer([{ text: 'mead,margin-top:20px;]\n\nHe creado la página.' }]), answer([{ text: 'He creado la página.' }])]);
+    const chat = await ask(new AI(page(), () => {}, new GeminiRunner({ GEMINI_API_KEY: 'g', GEMINI_BASE_URL: api.url })), 'a', 'hazla');
+    expect(chat.filter((m) => m.role === 'step').map((m) => m.text)).toEqual(["the model's reply came out garbled; asking again (1 of 2)"]);
+    expect(chat.at(-1)).toMatchObject({ role: 'ai', text: 'He creado la página.' });
+    // one that stays so is taken as it is in the end: short, it may still say what she did
+    const stays = await fakeAPI([answer([{ text: 'om䐪I built it.' }]), answer([{ text: 'om䐪I built it.' }]), answer([{ text: 'om䐪I built it.' }])]);
+    expect((await ask(new AI(page(), () => {}, new GeminiRunner({ GEMINI_API_KEY: 'g', GEMINI_BASE_URL: stays.url })), 'a', 'x')).at(-1)).toMatchObject({ role: 'ai', text: 'om䐪I built it.' });
+  });
+
+  it('asks again for a reply that is pages of something else, and never keeps it', async () => {
+    // seen with gemini-pro-latest: some 70,000 characters of course material where the answer should be
+    const junk = Array.from({ length: 12 }, (_, i) => ({ text: `source/lessons/${i}-lists.rst\nLists\n=====\n\n${'Lists are useful ways to represent data. '.repeat(20)}` }));
+    const api = await fakeAPI([
+      answer([{ functionCall: { id: 'f1', name: 'set_content', args: { id: 'a', html: '<p>gem</p>' } } }]),
+      answer(junk),
+      answer([{ text: 'I changed the block: it says gem.' }]),
+    ]);
+    const ws = page();
+    const chat = await ask(new AI(ws, () => {}, new GeminiRunner({ GEMINI_API_KEY: 'g', GEMINI_BASE_URL: api.url })), 'a', 'change it');
+    expect(chat.filter((m) => m.role === 'step').at(-1)!.text).toMatch(/^the model's reply came out garbled \(\d+ characters\); asking again \(1 of 2\)$/);
+    expect(chat.at(-1)).toMatchObject({ role: 'ai', text: 'I changed the block: it says gem.' });
+    // the second try is asked with the same conversation, and the reply isn't kept
+    expect(api.got[2].body.contents).toEqual(api.got[1].body.contents);
+    expect(ws.store.read('.tykerf/chats/a.api.json')).not.toMatch(/lessons/);
+
+    // replies that never come out as an answer end the run with a note: what she did is on the page
+    const again = await fakeAPI([answer(junk), answer(junk), answer(junk)]);
+    const end = await ask(new AI(page(), () => {}, new GeminiRunner({ GEMINI_API_KEY: 'g', GEMINI_BASE_URL: again.url })), 'a', 'change it');
+    expect(end.at(-1)).toMatchObject({ role: 'ai', text: GARBLED });
+    expect(again.got).toHaveLength(1 + GARBLED_TRIES);
   });
 
   it('makes every tool schema acceptable', async () => {

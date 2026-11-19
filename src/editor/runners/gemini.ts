@@ -8,7 +8,7 @@
 
 import { ApiError, type Content, type FunctionCall, GoogleGenAI, type Part } from '@google/genai';
 import type { RunEvents, RunRequest, Runner } from '../ai.js';
-import { type Wire, retryWaits, runLoop, turnTimeout } from './loop.js';
+import { ANSWER_MAX, type Wire, retryWaits, runLoop, turnTimeout } from './loop.js';
 
 export const GEMINI_MODEL = 'gemini-pro-latest';
 
@@ -16,6 +16,28 @@ export const GEMINI_MODEL = 'gemini-pro-latest';
 export function geminiSchema(schema: Record<string, unknown>): Record<string, unknown> {
   const { $schema: _, ...rest } = schema;
   return rest;
+}
+
+/** How a reply starts: a capital or a letter of a script without case, a figure, an opening mark, or a list. */
+const SENTENCE = /^(?:[\p{Lu}\p{Lt}\p{Lo}\p{N}\p{So}¿¡"'“‘«(*#_`[]|[-•]\s)/u;
+
+/**
+ * The words of a model turn: its text parts, without thoughts. Gemini (gemini-pro-latest) sometimes writes
+ * something else where its reply should be, or before it: the end of some code, half a word, a note to itself
+ * ("I am ready to reply to the user."), pages of documentation. The reply is the parts after the last stray one
+ * (no space in it and not a word such as "Done.", or a short note about "the user": Kaity speaks to the person
+ * as "you"); `garbled` when what is
+ * left doesn't start like a sentence or is too long to be a reply, so the loop asks for the turn again.
+ */
+export function reply(parts: Part[]): { text: string; garbled: boolean } {
+  const texts = parts.filter((p) => p.text && !p.thought).map((p) => p.text!.trim()).filter(Boolean);
+  const all = texts.join('\n');
+  if (all.length > ANSWER_MAX) return { text: all, garbled: true };
+  const stray = (t: string) => (!/\s/.test(t) && !SENTENCE.test(t)) || (t.length < 80 && /\bthe user\b/i.test(t));
+  let from = texts.length;
+  while (from > 0 && !stray(texts[from - 1])) from--;
+  const text = texts.slice(from).join('\n\n');
+  return { text, garbled: texts.length > 0 && !SENTENCE.test(text) };
 }
 
 export class GeminiRunner implements Runner {
@@ -93,9 +115,9 @@ export class GeminiRunner implements Runner {
         if (!content?.parts?.length) throw new Error(`Gemini gave no answer${r.promptFeedback?.blockReason ? ` (blocked: ${r.promptFeedback.blockReason})` : ''}`);
         const parts = content.parts;
         const calls = parts.filter((p): p is Part & { functionCall: FunctionCall } => !!p.functionCall).map((p, i) => ({ id: p.functionCall.id ?? `call-${i}`, name: p.functionCall.name ?? '', args: (p.functionCall.args ?? {}) as Record<string, unknown> }));
-        const text = parts.filter((p) => p.text && !p.thought).map((p) => p.text).join('\n');
+        const { text, garbled } = reply(parts);
         // the model's turn goes back as it came (it may carry thought signatures the API wants to see again)
-        return { message: { role: 'model', parts }, calls, text, cut: r.candidates?.[0]?.finishReason === 'MAX_TOKENS' };
+        return { message: { role: 'model', parts }, calls, text, garbled, cut: r.candidates?.[0]?.finishReason === 'MAX_TOKENS' };
       },
       user: (prompt, images) => ({ role: 'user', parts: [{ text: prompt }, ...images.map((a) => ({ inlineData: { mimeType: a.mediaType, data: a.data } }))] }),
       results: (calls, outputs) => [{

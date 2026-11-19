@@ -15,6 +15,17 @@ import { type ToolDef, type ToolOutput, type Tools, openTools } from '../tools-c
 export const CUT = 'your reply was cut off at the length limit before this call was complete, so nothing was done; ' +
   'to change part of a box use edit_content (only the changed text), and write long code in several smaller steps';
 
+/**
+ * The longest final reply taken as an answer. Kaity answers in a few sentences (her answers in the test runs
+ * stay under 1,300 characters); a model sometimes writes out pages of text it remembers from elsewhere
+ * (documentation, course material) where its answer should be.
+ */
+export const ANSWER_MAX = 4000;
+/** How many times a reply that is not an answer (too long, or garbled) is asked for again. */
+export const GARBLED_TRIES = 2;
+/** The answer when the model's replies stayed too long to be one: what it did is on the page. */
+export const GARBLED = 'I finished, but my reply came out garbled. Everything I did is on the page: look at it, and ask me if something is missing.';
+
 /** Most tool calls in one request; then the model is stopped and the user can ask it to go on. */
 export const MAX_STEPS = 40;
 /** Roughly how much past conversation (characters of JSON) is sent with each request. */
@@ -70,7 +81,8 @@ export interface Call {
 /** How one provider writes messages. M is its message type. */
 export interface Wire<M> {
   /** One model turn: the message to keep, the tools it calls (in order) and its words. */
-  turn(history: M[], system: string, tools: ToolDef[], signal: AbortSignal): Promise<{ message: M; calls: Call[]; text: string; cut?: boolean }>;
+  /** `garbled`: the words are not a reply (the provider can tell: see gemini.ts), so the loop asks for the turn again. */
+  turn(history: M[], system: string, tools: ToolDef[], signal: AbortSignal): Promise<{ message: M; calls: Call[]; text: string; cut?: boolean; garbled?: boolean }>;
   /** The user's request, with the pictures they attached. */
   user(prompt: string, images: Attachment[]): M;
   /** The messages that give the tools' answers back to the model. */
@@ -114,9 +126,25 @@ export function runLoop<M>(runner: string, wire: Wire<M>, req: RunRequest, on: R
       let whole = now.length;
       kept = () => save([...now.slice(0, whole), wire.assistant(STOPPED_HERE)]);
       kept();
-      let steps = 0;
+      let steps = 0, garbled = 0;
       for (;;) {
         const r = await turn(wire, [...past.flat(), ...now], req.system, tools.list, abort.signal, limit, waits, on);
+        // a final reply that is not an answer (too long, or garbled) is not kept; the turn is asked again. After
+        // that, a short one is taken as it is, and a long one gives way to GARBLED
+        const long = r.text.length > ANSWER_MAX;
+        if (!r.calls.length && (long || r.garbled)) {
+          if (garbled++ < GARBLED_TRIES) {
+            on.retry?.(`the model's reply came out garbled${long ? ` (${r.text.length} characters)` : ''}; asking again (${garbled} of ${GARBLED_TRIES})`);
+            continue;
+          }
+          if (long) {
+            now.push(wire.assistant(GARBLED));
+            keep();
+            kept = null;
+            on.answer(GARBLED);
+            break;
+          }
+        }
         now.push(r.message);
         if (!r.calls.length) {
           keep();
