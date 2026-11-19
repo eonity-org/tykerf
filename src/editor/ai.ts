@@ -57,7 +57,7 @@ The box must work at 375, 768 and 1440 px: fluid widths, flex/grid, images with 
 If the box has a type, follow it (get_types), and reuse the pattern of sibling boxes of the same type (get_content).
 For a new section (hero, features, FAQ, pricing, footer...), start from a ready-made component (list_components, use_component) and adapt its text and images, instead of writing it from scratch.
 If the page has a theme (CSS variables such as --color-accent, --color-surface, --font-heading, --radius, --gap, --max-width; sibling boxes use them), use those variables instead of fixed colours and fonts, so the page stays consistent and the theme can restyle it: sizes from --text-hero, --text-title, --text-lead; section padding from --space-section; buttons rounded by --radius-button. Paint a section's background with var(--section-bg, transparent), so the band tones work: tag a section #tone-alt, #tone-soft or #tone-dark (at most one or two dark bands per page) to alternate bands. Images the boxes use live in assets/.
-Every link needs a real target: a section of this page (give the section an id and link to #that-id) or a page of the site (/page/). Never make up the address of a page the site doesn't have: leave such a link as it is and ask the user, in your answer, whether that page will be made.
+Every link needs a real target: a section of this page (give the section an id and link to #that-id) or a page of the site (/page/). A link to a page the site doesn't have yet (a sign-up page, an about page) points at the address that page will have (/signup/), and your answer names those pages, so the user can make them: never leave a link at # or empty.
 To change those colours, fonts or spacing for the whole page, use get_theme and set_theme; that is only allowed when the request is about the whole page (the page block is selected). From a smaller block, say that the user can select the page block for page-wide changes.`;
 
 /** One request to the AI, about one block. */
@@ -535,10 +535,13 @@ export class AI {
           /** The run's end, once what it left is known. */
           const finish = (left: Leftover[]) => {
             const last = this.follow();
-            if (left.length && !reviewed && !opts.tag && (brief || this.usedLayout(run.since))) {
+            // a link to a page the site doesn't have yet is not hers to fix (in the pass she turned /signup/ into #):
+            // the person makes the page, or changes the link; it goes on the review
+            const hers = left.filter((l) => !(l.kind === 'link' && l.why === 'page'));
+            if (hers.length && !reviewed && !opts.tag && (brief || this.usedLayout(run.since))) {
               reviewed = true;
-              this.addCheck(last, left, 'auto');
-              return start(fixPrompt(left), []);
+              this.addCheck(last, hers, 'auto');
+              return start(fixPrompt(hers), []);
             }
             // a task's check goes to its card in the review too (TaskRun)
             const check = left.length ? this.addCheck(last, left, 'open') : null;
@@ -757,7 +760,7 @@ function fixPrompt(left: (Leftover | string)[]): string {
     'These were left unfinished on the page:',
     ...left.map((l) => `- ${typeof l === 'string' ? l : say(l)}`),
     'Fix each one: write the real text, replace or remove each placeholder picture, and give each link a real target (a section of this page, with an id on that section, or a page of the site).',
-    'For links to pages the site doesn\'t have yet, don\'t make up addresses: leave them as they are and ask the user, in your answer, whether those pages will be made.',
+    'A link to a page the site doesn\'t have yet keeps that page\'s address (/signup/), never # instead: name those pages in your answer, so the user can make them.',
     'For what the design check found (faint or small text, small tap targets, headings out of order, sideways scroll, long or cramped lines, stretched pictures), fix it as its rule says (check_design names each rule), then run check_design again.',
     'If something should stay as it is, say why in one sentence. Then answer in 1-3 short sentences.',
   ].join('\n');

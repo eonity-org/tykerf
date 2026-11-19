@@ -5,8 +5,9 @@
 .eyebrow { margin: 0 0 16px; font-size: 13px; font-weight: 600; letter-spacing: .12em; text-transform: uppercase; color: var(--color-accent); }
 h2 { font-size: var(--text-title); }
 .head p:last-child { font-size: var(--text-lead); color: var(--color-muted); margin: 0; }
-/* a bento grid: two wide tiles with a picture, four small ones */
-.grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr)); gap: 16px; }
+/* a bento grid: two wide tiles with a picture, four small ones; dense, so at three columns a small tile fills the
+   cell a wide one leaves */
+.grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr)); grid-auto-flow: dense; gap: 16px; }
 .tile { padding: 28px; border-radius: var(--radius); background: var(--color-surface); border: 1px solid var(--color-border); display: flex; flex-direction: column; gap: 10px; }
 .tile.wide { grid-column: span 2; }
 @media (max-width: 620px) { .tile.wide { grid-column: auto; } }

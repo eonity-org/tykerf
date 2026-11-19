@@ -45,7 +45,7 @@ describe('what a page has left unfinished', () => {
     });
     ws.store.write('assets/colosseum.jpg', new Uint8Array([1]));
     expect(leftovers(ws).map(say)).toEqual([
-      'nav: the link "Blog" points at /blog/, a page the site doesn\'t have (yet)',
+      'nav: the link "Blog" points at /blog/, a page the site doesn\'t have yet (the user can make it)',
       'nav: the link "Old" points at #gone, which is not on the page',
     ]);
     // a block's own element is a target too (its id is sw-<name>), and a link written with the block's name says so

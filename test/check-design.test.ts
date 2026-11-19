@@ -34,13 +34,17 @@ body { margin: 0; font: 16px/1.5 Arial, sans-serif; }
 <div data-sw="loud"><p style="text-transform: uppercase">Whole sentences written in capitals are slow to read for nearly everyone</p><p class="grad">Shiny gradient words</p>
 <p style="text-align: center; max-width: 300px">Centred text that goes on for several lines is hard to follow, because every line starts in a different place and the eye has to hunt for it again and again.</p></div>
 <div data-sw="cards"><div class="card"><div class="card">A card in a card</div></div><div class="stripe">A card with a stripe</div></div>
+<div data-sw="tiles"><div style="display: grid; grid-template-columns: repeat(3, 200px); gap: 10px"><div>One</div><div>Two</div><div style="grid-column: span 3">Three, across</div><div>Four</div></div></div>
+<div data-sw="times"><div style="display: grid; grid-template-columns: 80px 200px"><b>10:00</b><span>Doors open</span><span style="grid-column: 2">The time column stays empty here on purpose.</span></div></div>
 </body></html>`;
 
 describe('check_design', () => {
   it('finds each broken rule, names its box and its widths, and says the rule', async () => {
     const found = await checkDesign(BAD, { browser });
     const rules = new Set(found.map((f) => f.rule));
-    for (const r of ['contrast', 'small-text', 'tap-target', 'headings', 'sideways-scroll', 'long-lines', 'tight-lines', 'big-headline', 'effects', 'nested-cards', 'side-stripe', 'centred-text', 'all-caps', 'plain-fonts'] as const) expect(rules, r).toContain(r);
+    for (const r of ['contrast', 'small-text', 'tap-target', 'headings', 'sideways-scroll', 'long-lines', 'tight-lines', 'big-headline', 'effects', 'nested-cards', 'side-stripe', 'centred-text', 'all-caps', 'plain-fonts', 'grid-hole'] as const) expect(rules, r).toContain(r);
+    // a gap the grid's next item would have filled; not the cell beside an item set on a column of its own
+    expect(found.filter((f) => f.rule === 'grid-hole')).toMatchObject([{ box: 'tiles', detail: '1 empty cell among 4 items in 3 columns' }]);
     expect(found.find((f) => f.rule === 'contrast')).toMatchObject({ group: 'fix', box: 'faint', widths: [1440, 375] });
     expect(found.find((f) => f.rule === 'sideways-scroll')).toMatchObject({ box: null, widths: [375] });
     expect(found.find((f) => f.rule === 'headings' && f.box === 'faint')?.detail).toMatch(/h1 then h4/);
@@ -52,7 +56,7 @@ describe('check_design', () => {
     expect(Object.values(DESIGN_RULES).every((r) => r.hint.length > 20)).toBe(true);
   });
 
-  it('has nothing to fix on the pages people and Kaity start from, in every offered theme', async () => {
+  it('has nothing to fix, and no hole in a grid, on the pages people and Kaity start from, in every offered theme', async () => {
     const starts = [...frames().map((f) => f.name), ...purposes().map((p) => `basic+${p.name}`), 'full+event'];
     const bad: string[] = [];
     for (const theme of offeredThemes().map((t) => t.name)) {
@@ -63,7 +67,7 @@ describe('check_design', () => {
           ? `data:font/woff2;base64,${readFileSync(join(LIBRARY, 'fonts', f)).toString('base64')}`
           : `data:image/svg+xml,${encodeURIComponent(readFileSync(join(LIBRARY, 'assets', f), 'utf8'))}`]));
         const html = ws.page().replace(/assets\/([\w.-]+)/g, (_m, f) => data[f]);
-        for (const f of await checkDesign(html, { browser })) if (f.group === 'fix') bad.push(`${theme} ${layout}: ${f.rule} in ${f.box} (${f.detail})`);
+        for (const f of await checkDesign(html, { browser })) if (f.group === 'fix' || f.rule === 'grid-hole') bad.push(`${theme} ${layout}: ${f.rule} in ${f.box} (${f.detail})`);
       }
     }
     expect(bad).toEqual([]);

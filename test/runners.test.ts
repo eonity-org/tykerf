@@ -15,7 +15,7 @@ import { GARBLED, GARBLED_TRIES, STOPPED_HERE, retryWaits, timedOut, trim } from
 import { openTools } from '../src/editor/tools-client.js';
 import { Workspace } from '../src/workspace.js';
 import { createPage } from '../src/library.js';
-import { pageWorkspace, setBrief, setFrame } from '../src/site.js';
+import { newSitePage, pageWorkspace, setBrief, setFrame } from '../src/site.js';
 
 type Reply = { status?: number; body: unknown; delay?: number };
 
@@ -432,12 +432,43 @@ describe('what a request leaves unfinished', () => {
     const fix = api.got[2].body.messages.at(-1).content[0].text;
     expect(fix).toMatch(/^These were left unfinished on the page:/);
     expect(fix).toContain('- a: placeholder text "Page one"');
-    expect(fix).toMatch(/don't make up addresses/);
+    expect(fix).toMatch(/keeps that page's address \(\/signup\/\), never # instead/);
     expect(ws.content('a')).toContain('Rome');
     const chat = ai.chat(root).messages;
     expect(chat.map((m) => m.role)).toEqual(['user', 'step', 'ai', 'check', 'step', 'ai']);
     expect(chat[3]).toMatchObject({ state: 'auto' });
     expect(() => ai.fix(root)).toThrow(/nothing is waiting/);
+    vi.unstubAllEnvs();
+  });
+
+  it("leaves a link to a page the site doesn't have yet for the review, not for her pass", async () => {
+    // in her pass she turned /signup/ into #: the person makes the page, or changes the link
+    vi.stubEnv('TYKERF_DESIGN_CHECK', 'off');
+    const dir = mkdtempSync(join(tmpdir(), 'tykerf-links-'));
+    newSitePage(dir, 'home', 'simple', 'studio');
+    const ws = pageWorkspace(dir, 'home');
+    const [first, second] = ws.boxIds();
+    for (const id of ws.boxIds()) ws.setContent(id, `<p>The ${id}</p>`, 'user');
+    const api = await fakeAPI([
+      message([toolUse('t1', 'set_content', { id: first, html: '<a href="/signup/">Sign up</a> <a href="#">Prices</a>' })]),
+      message([{ type: 'text', text: 'Built. The sign-up page is still to be made.' }], 'end_turn'),
+      message([toolUse('t2', 'edit_content', { id: first, old: 'href="#"', new: `href="#sw-${second}"` })]),
+      message([{ type: 'text', text: 'Linked the prices.' }], 'end_turn'),
+    ]);
+    const ai = new AI(ws, () => {}, new AnthropicRunner({ TYKERF_API_KEY: 'k', TYKERF_API_BASE_URL: api.url }));
+    const root = ws.load().root.id;
+    let done!: () => void;
+    const ended = new Promise<void>((ok) => (done = ok));
+    (ai as any).emit = (_e: string, d: any) => d.role === 'end' && done();
+    ai.ask(root, 'a page with a sign-up', undefined, [], 'Build the whole page.');
+    await ended;
+    const fix = api.got[2].body.messages.at(-1).content[0].text;
+    expect(fix).toContain(`- ${first}: the link "Prices" goes nowhere`);
+    expect(fix).not.toContain('points at /signup/');
+    expect(ws.content(first)).toContain('href="/signup/"');
+    const checks = ai.chat(root).messages.filter((m) => m.role === 'check');
+    expect(checks.map((m: any) => m.state)).toEqual(['auto', 'open']);
+    expect(JSON.stringify(checks[1])).toContain('points at /signup/, a page the site doesn\'t have yet (the user can make it)');
     vi.unstubAllEnvs();
   });
 

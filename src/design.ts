@@ -29,6 +29,7 @@ export const DESIGN_RULES = {
   eyebrow: { group: 'style', label: 'A small label over every section title', hint: 'Small capital labels above each heading are a common sign of a generic page; keep one only where it helps.' },
   'hero-chip': { group: 'style', label: 'A badge above the main headline', hint: 'A little pill over the headline ("New", a date) is a stock opening; say it in the text, or drop it.' },
   'icon-tiles': { group: 'style', label: 'A grid of identical icon cards', hint: 'Four or more cards of icon, title and line, all alike, read as filler; vary them, or say it in a list or a sentence.' },
+  'grid-hole': { group: 'style', label: 'A hole in a grid', hint: 'An empty cell between the items of a grid reads as something missing; fill it, span an item over it, or change the columns.' },
   'same-sections': { group: 'style', label: 'The same section again and again', hint: 'Three or more sections in a row built the same way make a page monotonous; vary their shape.' },
   'big-headline': { group: 'style', label: 'A headline that fills the screen', hint: 'A main headline taking most of the first screen pushes everything else out of sight; make it shorter or smaller.' },
   effects: { group: 'style', label: 'Gradient text, glows or coloured shadows', hint: 'Text filled with a gradient, glowing text and heavy coloured shadows are decoration that dates fast and reads as generic.' },
@@ -213,6 +214,50 @@ function audit(arg: { width: number; vh: number }): Raw[] {
       return icon && k.querySelector('h2, h3, h4, strong') && k.querySelector('p');
     });
     if (tiles.length >= 4 && new Set(tiles.map(sig)).size === 1) add('icon-tiles', parent, `${tiles.length} alike`);
+  }
+
+  // ---- style: a hole in a grid (an empty cell with items after it; the last row may end short) ----
+  for (const g of all) {
+    const cs = getComputedStyle(g);
+    if (!/grid/.test(cs.display) || cs.gridTemplateAreas !== 'none') continue;
+    const kids = [...g.children].filter((k) => shown(k) && !/^(absolute|fixed)$/.test(getComputedStyle(k).position));
+    // TYKERF's own boxes are placed by the page's tree (a periphery's empty slots are meant)
+    if (kids.length < 3 || kids.some((k) => k.hasAttribute('data-sw'))) continue;
+    const tracks = (list: string, gap: string, from: number) => {
+      const sizes = list.split(/\s+/).map(parseFloat).filter((n) => n > 0);
+      let at = from;
+      return sizes.map((n) => { const t = [at, at + n]; at += n + (parseFloat(gap) || 0); return t; });
+    };
+    const r = g.getBoundingClientRect();
+    const cols = tracks(cs.gridTemplateColumns, cs.columnGap, r.left + parseFloat(cs.borderLeftWidth) + parseFloat(cs.paddingLeft));
+    const rows = tracks(cs.gridTemplateRows, cs.rowGap, r.top + parseFloat(cs.borderTopWidth) + parseFloat(cs.paddingTop));
+    if (cols.length < 2 || rows.length < 1) continue;
+    const taken = rows.map(() => cols.map(() => false));
+    const over = (a: number[], lo: number, hi: number) => Math.min(a[1], hi) - Math.max(a[0], lo) > 2;
+    // each item: its first row and column, and how many columns it spans
+    const items = kids.map((k) => {
+      const b = k.getBoundingClientRect();
+      const rs = rows.flatMap((row, i) => (over(row, b.top, b.bottom) ? [i] : []));
+      const cs2 = cols.flatMap((col, j) => (over(col, b.left, b.right) ? [j] : []));
+      for (const i of rs) for (const j of cs2) taken[i][j] = true;
+      // placed on a line of its own (grid-column: 2) rather than where the grid puts it
+      const ks = getComputedStyle(k), fixed = (v: string) => v !== 'auto' && !v.startsWith('span');
+      return { row: rs[0] ?? -1, col: cs2[0] ?? -1, span: cs2.length, free: !fixed(ks.gridColumnStart) && !fixed(ks.gridRowStart) };
+    }).filter((it) => it.row >= 0 && it.col >= 0);
+    // a run of empty cells in a row is a hole when an item the grid places after it would have fitted in it
+    // (an item set on a column of its own leaves the cells before it empty on purpose: a time, then its text)
+    let holes = 0;
+    taken.forEach((row, i) => {
+      for (let j = 0; j < row.length; j++) {
+        if (row[j]) continue;
+        let end = j;
+        while (end + 1 < row.length && !row[end + 1]) end++;
+        const room = end - j + 1;
+        if (items.some((it) => it.free && (it.row > i || (it.row === i && it.col > end)) && it.span <= room)) holes += room;
+        j = end;
+      }
+    });
+    if (holes) add('grid-hole', g, `${holes} empty cell${holes > 1 ? 's' : ''} among ${kids.length} items in ${cols.length} columns`);
   }
 
   // ---- style: three or more sections in a row with the same shape ----

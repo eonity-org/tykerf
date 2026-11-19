@@ -54,7 +54,7 @@ export function say(l: Leftover): string {
   const label = words.join(' ') || href;
   if (l.why === 'nowhere') return `${l.box}: the link "${label}" goes nowhere`;
   if (l.why === 'section') return `${l.box}: the link "${label}" points at ${href}, which is not on the page${l.target ? `; the block "${href.slice(1)}" is ${l.target}` : ''}`;
-  return `${l.box}: the link "${label}" points at ${href}, a page the site doesn't have (yet)`;
+  return `${l.box}: the link "${label}" points at ${href}, a page the site doesn't have yet (the user can make it)`;
 }
 
 const ENTITIES: Record<string, string> = { amp: '&', lt: '<', gt: '>', quot: '"', apos: "'", nbsp: ' ' };
