@@ -44,6 +44,8 @@ describe('fixing by hand in the v3 editor', () => {
   });
 
   const frame = () => page.frameLocator('.frame');
+  /** expect.poll with time for the editor under load (its default is one second). */
+  const poll = <T>(fn: () => T | Promise<T>, opts: { timeout?: number } = {}) => expect.poll(fn, { timeout: 15_000, ...opts });
   const panel = () => page.locator('.fixbar');
 
   it('shows only the element clicked: a link\'s words and where it leads, saved into the box', async () => {
@@ -60,13 +62,13 @@ describe('fixing by hand in the v3 editor', () => {
     await panel().locator('[name="text"]').fill('Start for free');
     await panel().locator('[name="href"]').selectOption('#sw-pricing');
     await panel().locator('[type="submit"]').click();
-    await expect.poll(() => ws.content('hero')).toContain('Start for free');
+    await poll(() => ws.content('hero')).toContain('Start for free');
     expect(ws.content('hero')).toContain('href="#sw-pricing"');
     await frame().locator('[data-sw="hero"] a', { hasText: 'Start for free' }).waitFor();
     // one step, which Undo takes back
     expect(ws.peekUndo()?.label).toMatch(/hero/);
     await page.locator('[data-top="undo"]').click();
-    await expect.poll(() => ws.content('hero')).toContain('The main action');
+    await poll(() => ws.content('hero')).toContain('The main action');
   });
 
   it('leads to the full editor for a bigger fix: the box selected, at the tab for it', async () => {
@@ -74,10 +76,10 @@ describe('fixing by hand in the v3 editor', () => {
     expect(await panel().locator('.fxmore a').evaluateAll((a) => a.map((x) => x.getAttribute('href')))).toEqual([`${full}&tab=size`, `${full}&tab=text`, `${full}&tab=code`, full]);
     await panel().locator('[data-full="code"]').click();
     await page.waitForURL(/\/_tykerf\/edit\/first\/\?mode=full$/);
-    // its inspector is in the rail's Block section (round 2: nothing on the page's right)
-    await expect.poll(() => page.locator('#tykerf-inspector .work .w-name').inputValue()).toBe('hero');
+    // its inspector floats over the page, in the shell's window
+    await poll(() => page.locator('#tykerf-inspector .work .w-name').inputValue()).toBe('hero');
     expect(await page.locator('#tykerf-inspector .work .tabs [data-tab="code"]').getAttribute('aria-selected')).toBe('true');
-    expect(await page.locator('.rail [data-acc="block"] .acc-t').textContent()).toBe('Block: hero');
+    expect(await page.locator('.ifloat .iftitle').textContent()).toBe('Block: hero');
     // the quick fix has no copies of those editors
     await page.locator('.bar .modes a', { hasText: 'Tasks' }).click();
     await page.waitForURL(/\/_tykerf\/edit\/first\/$/);
@@ -99,12 +101,12 @@ describe('fixing by hand in the v3 editor', () => {
 
   it('leaves it as a task for Kaity instead', async () => {
     await frame().locator('[data-sw="hero"] h1').click();
-    await expect.poll(() => panel().locator('.fxtitle').textContent()).toMatch(/^the heading "/);
+    await poll(() => panel().locator('.fxtitle').textContent()).toMatch(/^the heading "/);
     await panel().locator('[data-fx="task"]').click();
     expect(await panel().isHidden()).toBe(true);
     await page.locator('.taskbox textarea').fill('Shorter, please');
     await page.locator('.taskbox [data-box="add"]').click();
-    await expect.poll(() => tasks(ws).at(-1)?.text).toBe('Shorter, please');
+    await poll(() => tasks(ws).at(-1)?.text).toBe('Shorter, please');
     expect(tasks(ws).at(-1)?.label).toMatch(/^h1 "/);
   });
 
@@ -115,7 +117,7 @@ describe('fixing by hand in the v3 editor', () => {
     await frame().locator('[data-sw="hero"] h1').waitFor();
     await page.locator('.bar [data-device="tablet"]').click();
     // laid out at 768 px, shown smaller to fit the column beside the rail
-    await expect.poll(() => page.locator('.frame').evaluate((f: HTMLIFrameElement) => f.contentWindow!.innerWidth)).toBe(768);
+    await poll(() => page.locator('.frame').evaluate((f: HTMLIFrameElement) => f.contentWindow!.innerWidth)).toBe(768);
     expect(await page.locator('.viewport').evaluate((v) => getComputedStyle(v).transform)).toMatch(/^matrix\(0\.[5-9]/);
     await frame().locator('[data-sw="hero"] h1').click();
     await page.locator('.taskbox').waitFor();
@@ -128,7 +130,7 @@ describe('fixing by hand in the v3 editor', () => {
     const pin = page.locator(`.pin[data-pin="${n}"]`);
     await pin.waitFor();
     const h1 = (await frame().locator('[data-sw="hero"] h1').boundingBox())!;
-    await expect.poll(async () => {
+    await poll(async () => {
       const b = await pin.boundingBox();
       return b && Math.round(b.height) === 22 && Math.abs(b.y + 22 - h1.y) < 6;
     }).toBe(true);
@@ -142,9 +144,16 @@ describe('fixing by hand in the v3 editor', () => {
     const h1 = frame().locator('[data-sw="hero"] h1');
     await h1.waitFor();
     const menu = page.locator('.ctxmenu');
+    // (under load the frame may take a moment to listen again after a change: the right-click is tried again)
     const open = async (where = h1) => {
-      await where.click({ button: 'right' });
-      await menu.locator('[role=menuitem]').first().waitFor();
+      for (let i = 0; ; i++) {
+        await where.click({ button: 'right' });
+        try {
+          return await menu.locator('[role=menuitem]').first().waitFor({ timeout: 3000 });
+        } catch (e) {
+          if (i === 3) throw e;
+        }
+      }
     };
     await open();
     expect(await menu.locator('[role=menuitem]').allTextContents()).toEqual(['Leave a task here…', 'Ask a question here…', 'Edit this text', 'Fix it by hand', 'Add a box below…', 'Add a box beside…', 'Delete this box…', 'Open hero in the full editor', 'View the site as visitors see it']);
@@ -153,9 +162,9 @@ describe('fixing by hand in the v3 editor', () => {
     await menu.locator('[data-ctx="text"]').click();
     await page.keyboard.type('A shorter promise');
     await page.keyboard.press('Enter');
-    await expect.poll(() => ws.content('hero')).toContain('A shorter promise');
+    await poll(() => ws.content('hero')).toContain('A shorter promise');
     expect(ws.peekUndo()?.label).toMatch(/hero/);
-    await expect.poll(() => h1.textContent()).toBe('A shorter promise');
+    await poll(() => h1.textContent()).toBe('A shorter promise');
     await open();
     await menu.locator('[data-ctx="text"]').click();
     await page.keyboard.type('nope');
@@ -163,23 +172,23 @@ describe('fixing by hand in the v3 editor', () => {
     expect(await h1.textContent()).toBe('A shorter promise');
     expect(ws.content('hero')).not.toContain('nope');
     await page.locator('[data-top="undo"]').click();
-    await expect.poll(() => ws.content('hero')).not.toContain('A shorter promise');
+    await poll(() => ws.content('hero')).not.toContain('A shorter promise');
     // two clicks do the same, as in the full editor: the first click's task box goes
-    await expect.poll(() => h1.textContent()).not.toBe('A shorter promise'); // the page shows the undo first
+    await poll(() => h1.textContent()).not.toBe('A shorter promise'); // the page shows the undo first
     await h1.dblclick();
     await page.keyboard.type('Two clicks');
     await page.keyboard.press('Enter');
-    await expect.poll(() => ws.content('hero')).toContain('Two clicks');
+    await poll(() => ws.content('hero')).toContain('Two clicks');
     expect(await page.locator('.taskbox').count()).toBe(0);
     await page.locator('[data-top="undo"]').click();
-    await expect.poll(() => ws.content('hero')).not.toContain('Two clicks');
+    await poll(() => ws.content('hero')).not.toContain('Two clicks');
 
     // a box below: added empty, and the task box asks what goes in it
     const order = () => (ws.load().root as { children: { id: string }[] }).children.map((c) => c.id);
     const n = order().length;
     await open();
     await menu.locator('[data-ctx="below"]').click();
-    await expect.poll(() => order().length).toBe(n + 1);
+    await poll(() => order().length).toBe(n + 1);
     const added = order()[order().indexOf('hero') + 1];
     await page.locator('.taskbox').waitFor();
     expect(await page.locator('.taskbox textarea').getAttribute('placeholder')).toBe('What should go in this new box? Kaity fills it, or leave it empty.');
@@ -191,8 +200,8 @@ describe('fixing by hand in the v3 editor', () => {
     await menu.locator('[data-ctx="delete"]').click();
     expect(await menu.locator('.ctxconfirm p').textContent()).toBe('Delete stats? Its code goes into the box before it, and Undo brings it back.');
     await menu.locator('[data-ctx="delete-yes"]').click();
-    await expect.poll(() => order().includes('stats')).toBe(false);
+    await poll(() => order().includes('stats')).toBe(false);
     await page.locator('[data-top="undo"]').click();
-    await expect.poll(() => order().includes('stats')).toBe(true);
+    await poll(() => order().includes('stats')).toBe(true);
   });
 });

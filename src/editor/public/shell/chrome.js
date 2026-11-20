@@ -95,14 +95,14 @@ export function renderTop(bar, { crumb, centre = '', undo = null, kaity = { coun
  * The left rail. On the site's screens: Pages (with + New page), Site (its screens with their state), Assistant (the
  * Kaity center), Docs and Sign out. On a page (v4 round 2: the page is the work, nothing is docked on its right): the
  * page's context, ← Site, its name, Home and address, then `accordion` (sections.js: Tasks, Kaity on this page,
- * Blocks, the block's details, Site, which holds the rest of the site rail: `siteHTML`). It folds to a strip: on a
+ * Blocks, Site, which holds the rest of the site rail: `siteHTML`). It folds to a strip: on a
  * page, icons for the sections (`onStrip(key)` drops them from the top bar) and back to the site.
  * `screen()`: the site screen shown; `go(screen)`: show a site screen without leaving (site mode); `pageHref(p)`;
  * `pending`: a page being set up (New page); `counts()`: { tasks, kaity } for the strip's badges.
  */
-export function createRail({ page = null, screen = () => null, go = null, pageHref = (p) => `/_tykerf/edit/${encodeURIComponent(p)}/`, accordion = null, onKaity = null, onStrip = null, counts = () => ({}), pending = () => null, onChange = () => {}, wide = false }) {
+export function createRail({ page = null, screen = () => null, go = null, pageHref = (p) => `/_tykerf/edit/${encodeURIComponent(p)}/`, accordion = null, onKaity = null, onStrip = null, counts = () => ({}), pending = () => null, onChange = () => {} }) {
   const el = document.createElement('nav');
-  el.className = `rail${page ? ' paged' : ''}${wide ? ' wide' : ''}`;
+  el.className = `rail${page ? ' paged' : ''}`;
   el.setAttribute('aria-label', page ? t('This page and the site') : t('The site'));
   const head = document.createElement('div');
   head.className = 'rhead-wrap';

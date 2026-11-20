@@ -85,9 +85,9 @@ Each of these is one step that **Undo** takes back.
 
 ## The full editor
 
-The full editor is the expert way, beside tasks, for long manual work: restructuring a page, editing many boxes in a row, code, the page's theme. Each block's text, code, sizes and look are there by hand. **Edit**, next to **Tasks** in the top bar, switches to it (on the box you are fixing, when you are), and so do a right-click's *Open … in the full editor* and the quick fix's *More*. There is still one side panel: its **Blocks** section is the tree (a click selects a block in the editor too), and under it **Block: <name>** holds the editor's details for the selected block: its path, the Text, Code and Size & look tabs, its fields, Revert and Save. The panel is wider in Edit. The page keeps the rest of the width, and the top bar's widths work here too. The selected block's **quick actions** sit in a small bar on the block itself: add a box beside or below, move it up or down, rename, share, delete, and **Details**, which opens the block in the side panel (unfolding it if it is folded). **Tasks** comes back, and every page opens in Tasks. Kaity is asked with tasks there too: right-click → *Add a task for Kaity here…*. The rest of this page describes it.
+The full editor is the expert way, beside tasks, for long manual work: restructuring a page, editing many boxes in a row, code, the page's theme. Each block's text, code, sizes and look are there by hand. **Edit**, next to **Tasks** in the top bar, switches to it (on the box you are fixing, when you are), and so do a right-click's *Open … in the full editor* and the quick fix's *More*. The side panel's **Blocks** section is the tree (a click selects a block in the editor too). The selected block's details float over the page in a window of their own, **Block: <name>**: its path, the Text, Code and Size & look tabs, its fields, Revert and Save. Drag it by its bar anywhere, resize it from its corner, and **–** compacts it to its bar (**+** opens it again); TYKERF remembers where it is and how big. The page keeps the rest of the width, and the top bar's widths work here too: at 768 or 375 the page shrinks, the window doesn't. The selected block's **quick actions** sit in a small bar on the block itself: add a box beside or below, move it up or down, rename, share, delete, and **Details**, which opens the window again when it is compacted. **Tasks** comes back, and every page opens in Tasks. Kaity is asked with tasks there too: right-click → *Add a task for Kaity here…*. The rest of this page describes it.
 
-![Edit mode: the side panel with the page's blocks and the hero's details (its Text tab), the hero's quick actions on the page](../images/full-editor.png)
+![Edit mode: the page's blocks in the side panel, the hero's details (its Text tab) floating over the page, and its quick actions on the hero](../images/full-editor.png)
 
 ### Selecting
 
@@ -103,7 +103,7 @@ The full editor is the expert way, beside tasks, for long manual work: restructu
 
 ### The panel
 
-In TYKERF it is the side panel's **Block** section. Its header holds the path of the selected block and Dim/Blur; the selected block's name is underlined in amber, the colour of the task box and of the frame round the block. Undo is the top bar's, the tree is the Blocks section, and the quick actions are on the block. Opened on its own (`/<page>/?tykerf=full-frame`), it floats over the page instead: drag it by its header, resize it from its corner, **Compact** makes it small, **×** closes it.
+In TYKERF it is the floating **Block** window. Its header holds the path of the selected block and Dim/Blur; the selected block's name is underlined in amber, the colour of the task box and of the frame round the block. Undo is the top bar's, the tree is the side panel's Blocks section, and the quick actions are on the block. Opened on its own (`/<page>/?tykerf=full-frame`), it floats over the page instead: drag it by its header, resize it from its corner, **Compact** makes it small, **×** closes it.
 
 | Zone | What it shows |
 |---|---|

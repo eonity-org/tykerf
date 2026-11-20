@@ -192,7 +192,7 @@ describe('tasks in the editor', () => {
     // a link to a block: the shell's Full editor mode, the full editor in its frame on that block, the bar on top
     await fresh.goto(`${base}?block=hero&tab=text`);
     await fresh.waitForURL(/\/_tykerf\/edit\/home\/\?mode=full$/);
-    // its inspector is in the rail's Block section (round 2: nothing docked on the page's right)
+    // its inspector floats over the page, in the shell's window
     await expect.poll(() => fresh.locator('#tykerf-inspector .work .w-name').inputValue()).toBe('hero');
     expect(await fresh.locator('.bar .modes a[aria-current="page"]').textContent()).toBe('Edit');
     // its tasks are in Tasks: the count leads there, the tray doesn't open here

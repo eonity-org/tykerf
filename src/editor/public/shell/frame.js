@@ -137,10 +137,30 @@ export function createFrame(iframe, { isBlock, on, passive = () => false }) {
     // the site's behaviours that failed show in the frame's console; the page keeps working
     on.loaded();
   }
-  iframe.addEventListener('load', () => {
+  // each document is wired once, as soon as it is parsed: a page whose pictures or fonts are slow takes clicks at
+  // once, not only after its load event
+  let wired = null;
+  function attachOnce() {
+    const d = iframe.contentDocument;
+    if (!d || d === wired || d.readyState === 'loading' || d.URL === 'about:blank') return false;
+    wired = d;
     if (editing) end(false); // a new document: the text being edited is gone
     attach();
-  });
+    return true;
+  }
+  iframe.addEventListener('load', () => attachOnce());
+  /** While a new document comes in: wire it once it is parsed (the load event is the fallback). */
+  function watchNew() {
+    const was = iframe.contentDocument;
+    const until = Date.now() + 30_000;
+    const tick = () => {
+      if (Date.now() > until) return;
+      const d = iframe.contentDocument;
+      if (d && d !== was && attachOnce()) return;
+      setTimeout(tick, 30);
+    };
+    setTimeout(tick, 30);
+  }
 
   /** End editing in place: `save` hands the new words over; otherwise the element shows what it had. */
   function end(save) {
@@ -166,6 +186,7 @@ export function createFrame(iframe, { isBlock, on, passive = () => false }) {
       if (keepScroll) iframe.addEventListener('load', () => iframe.contentWindow.scrollTo(0, y), { once: true });
       if (iframe.getAttribute('src') === src && win) win.location.reload();
       else iframe.src = src;
+      watchNew();
     },
     /** New content in place (after a change): the page's style and body, scripts run again, the scroll stays. */
     swap({ css, body, lang }) {

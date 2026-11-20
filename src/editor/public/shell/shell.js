@@ -4,7 +4,7 @@
 // fixing by hand, the Site; with the rail folded the same sections drop from the top bar's "This page ▾".
 // Three modes in the top bar: Tasks (the page to point at: click anything and leave a task, or ask Kaity in the
 // one-line composer under the page, on the box picked, the page or the site), Edit (the full editor: its inspector
-// in the rail's "Block" section, the block's quick actions in a toolbar on it) and View (the site as visitors see it,
+// floating over the page in this window, the block's quick actions in a toolbar on it) and View (the site as visitors see it,
 // until Edit). Kaity works through tasks one at a time (task-run.ts); what she did waits in Kaity on this page, to
 // keep or undo. Everything tykerf draws over the page (outlines, pins, the task box) is in the shell's own document,
 // over the frame; the page itself is untouched.
@@ -31,7 +31,7 @@ const MODE = FULL ? 'edit' : 'tasks';
 document.body.classList.add(`page-mode`, `mode-${MODE}`);
 
 // the one frame: the rail on the left (the page's sections), the page in the rest (the status line above it, the
-// composer under it in Tasks); the inspector (Edit) and the fix panel are kept nodes the rail's sections show
+// composer under it in Tasks); the fix panel is a kept node a rail's section shows; in Edit the inspector floats
 const work = document.createElement('div');
 work.className = 'work';
 $('.stage').replaceWith(work);
@@ -53,8 +53,87 @@ fixMount.className = 'fixmount';
 // kept in the document while no section shows them (the rail folded), so the full editor always finds its place
 const holder = document.createElement('div');
 holder.hidden = true;
-holder.append(inspector, fixMount);
+holder.append(fixMount);
 document.body.append(holder);
+
+// ---------- Edit mode: the inspector floats over the page (as in v3), in this window, so the page's widths leave it
+// at its own size; dragged by its bar, resized from its corner, compacted to its bar; where and how big it is is
+// remembered (tykerf.inspector) ----------
+
+const float = document.createElement('section');
+float.className = 'ifloat';
+float.setAttribute('aria-label', t('Block details'));
+float.innerHTML = `<header class="ifbar"><span class="iftitle"></span>
+  <button type="button" class="ificon" data-if="min" aria-expanded="true"></button></header>`;
+float.append(inspector);
+const FLOAT = { w: 420, h: 600, x: null, y: null, min: false, ...store.get('inspector', {}) };
+function placeFloat() {
+  const W = innerWidth, H = innerHeight, top = $('.bar').offsetHeight;
+  const w = Math.min(Math.max(300, FLOAT.w), W - 16), h = Math.min(Math.max(200, FLOAT.h), H - top - 16);
+  const x = Math.max(8, Math.min(FLOAT.x ?? W - w - 24, W - w - 8));
+  const y = Math.max(top + 8, Math.min(FLOAT.y ?? top + 60, H - (FLOAT.min ? 44 : h) - 8));
+  Object.assign(float.style, { left: `${x}px`, top: `${y}px`, width: `${w}px`, height: FLOAT.min ? '' : `${h}px` });
+  float.classList.toggle('min', FLOAT.min);
+  const b = $('[data-if="min"]', float);
+  b.textContent = FLOAT.min ? '+' : '–';
+  b.setAttribute('aria-expanded', String(!FLOAT.min));
+  b.setAttribute('aria-label', FLOAT.min ? t('Show the block\'s details') : t('Compact: only this bar'));
+  b.title = b.getAttribute('aria-label');
+}
+const saveFloat = () => store.set('inspector', FLOAT);
+function renderFloat() {
+  $('.iftitle', float).textContent = S.sel ? t('Block: {name}', { name: S.sel }) : t('Block details');
+}
+if (FULL) {
+  document.body.append(float);
+  placeFloat();
+  addEventListener('resize', placeFloat);
+  // dragged by its bar (the page's frame lets the pointer go while it moves)
+  float.querySelector('.ifbar').addEventListener('pointerdown', (e) => {
+    if (e.button !== 0 || e.target.closest('button') || matchMedia('(max-width: 600px)').matches) return;
+    const r = float.getBoundingClientRect(), dx = e.clientX - r.left, dy = e.clientY - r.top;
+    document.body.classList.add('dragging');
+    const move = (m) => {
+      FLOAT.x = m.clientX - dx;
+      FLOAT.y = m.clientY - dy;
+      placeFloat();
+    };
+    const up = () => {
+      document.body.classList.remove('dragging');
+      removeEventListener('pointermove', move);
+      removeEventListener('pointerup', up);
+      saveFloat();
+    };
+    addEventListener('pointermove', move);
+    addEventListener('pointerup', up);
+  });
+  float.addEventListener('click', (e) => {
+    if (!e.target.closest('[data-if="min"]')) return;
+    FLOAT.min = !FLOAT.min;
+    placeFloat();
+    saveFloat();
+  });
+  // resized from its corner (CSS resize): the size is kept
+  let sized = 0;
+  new ResizeObserver(() => {
+    if (FLOAT.min || matchMedia('(max-width: 600px)').matches) return;
+    clearTimeout(sized);
+    sized = setTimeout(() => {
+      const r = float.getBoundingClientRect();
+      if (Math.abs(r.width - FLOAT.w) > 2 || Math.abs(r.height - FLOAT.h) > 2) (FLOAT.w = Math.round(r.width)), (FLOAT.h = Math.round(r.height)), saveFloat();
+    }, 200);
+  }).observe(float);
+}
+/** Details, Rename…, Delete… on a block: the floating details open (out of Compact) and come into view. */
+function showFloat() {
+  if (!FULL) return;
+  FLOAT.min = false;
+  placeFloat();
+  saveFloat();
+  float.classList.remove('flash');
+  void float.offsetWidth;
+  float.classList.add('flash');
+}
 $('.frame').title = t('The page');
 $('.frame').setAttribute('aria-label', t('The page'));
 $('.tray').setAttribute('aria-label', t('Tasks'));
@@ -903,7 +982,7 @@ function renderStatus() {
   const stepsBtn = `<button type="button" class="btn small" data-bar="tray" aria-expanded="${S.tray}">${esc(S.tray ? t('Hide the steps') : t('Show the steps'))}</button>`;
   let middle, actions = '';
   if (FULL && !running()) {
-    middle = `<p class="hint">${esc(t('Pick a block on the page or in Blocks. Quick actions sit on the block; its details open in the side panel.'))}</p>`;
+    middle = `<p class="hint">${esc(t('Pick a block on the page or in Blocks. Quick actions sit on the block; its details float over the page: drag them anywhere.'))}</p>`;
     actions = `<a class="btn small" href="${shellOf(PAGE, false)}" title="${esc(t('Your tasks are in Tasks'))}">${esc(count)}</a>`;
   } else if (fix?.isOpen()) {
     middle = `<div class="status"><span>${esc(t('Fixing by hand · {what}', { what: fix.what() }))}</span></div>`;
@@ -1019,6 +1098,7 @@ function pickBlock(id) {
     try {
       $('.frame').contentWindow?.tykerfSelect?.(id);
     } catch {}
+    renderFloat();
     return renderSections();
   }
   const el = frame.blockEl(id);
@@ -1032,9 +1112,10 @@ window.tykerfSelected = (id) => {
   S.sel = id;
   for (const a of ancestorsOf(id)) S.collapsed.delete(a);
   renderSections();
+  renderFloat();
 };
-// Details, Rename…, Delete… on a block (the full editor's toolbar on the page): its details in the rail
-window.tykerfShowBlock = () => showSection('block');
+// Details, Rename…, Delete… on a block (the full editor's toolbar on the page): its floating details
+window.tykerfShowBlock = () => showFloat();
 
 /** The blocks around a block, from the page down. */
 function ancestorsOf(id, n = S.tree, path = []) {
@@ -1106,7 +1187,6 @@ const SECTIONS = () => [
   { key: 'kaity', title: () => t('Kaity on this page'), count: () => waitingN() || pageItems().length, body: kaityHTML, open: true },
   { key: 'fix', title: () => t('Fixing by hand · {what}', { what: fix.what() }), el: fixMount, shown: () => fix.isOpen(), open: true },
   { key: 'blocks', title: () => t('Blocks'), count: blockCount, body: treeHTML, open: FULL },
-  { key: 'block', title: () => t('Block: {name}', { name: S.sel ?? '' }), el: inspector, shown: () => FULL, open: true },
   { key: 'site', title: () => t('Site'), summary: () => t('pages, shared blocks, media…'), body: () => rail.siteHTML(), open: false },
 ];
 const accordion = createAccordion({ sections: SECTIONS, label: t('This page') });
@@ -1141,11 +1221,11 @@ function pageButton(btn) {
   if (!rail.isFolded()) return showSection('tasks');
   return pageMenu.hidden ? openPageMenu(btn) : closePageMenu();
 }
-/** A section brought into view: in the rail (unfolded for it when it is folded), or the inspector's Block section. */
+/** A section brought into view in the rail (unfolded for it when it is folded). */
 async function showSection(key) {
   closePageMenu();
   if (rail.isFolded()) await rail.unfold();
-  accordion.show(key, { focus: key !== 'block' });
+  accordion.show(key, { focus: true });
 }
 pageMenu.addEventListener('click', (e) => {
   if (e.target.closest('[data-menu="pin"]')) return void showSection('tasks');
@@ -1162,7 +1242,7 @@ function renderSections() {
 }
 
 const rail = createRail({
-  page: PAGE, pageHref: (p) => shellOf(p, false), accordion, wide: FULL,
+  page: PAGE, pageHref: (p) => shellOf(p, false), accordion,
   onKaity: () => center.toggle(),
   onStrip: (key, btn) => (pageMenu.hidden ? openPageMenu(btn, key) : closePageMenu()),
   counts: () => ({ tasks: openTasks().length, kaity: waitingN() }),
@@ -1509,6 +1589,7 @@ await loadTasks();
 setJob((await api('/job').catch(() => ({ job: null }))).job, { arriving: true });
 frame.load(frameSrc());
 composerScopes();
+if (FULL) renderFloat();
 void rail.refresh().then(renderBar);
 void loadThreadNow();
 // the thread on this page follows Kaity anywhere on the site (a task run, the whole site, another tab)

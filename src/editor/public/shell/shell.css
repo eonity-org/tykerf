@@ -738,7 +738,6 @@ body { grid-template-columns: minmax(0, 1fr); }
 
 /* ---------- v4 round 2: page modes at full width; the page's sections in the rail ---------- */
 .rail.paged { width: 280px; padding: 12px 12px 20px 14px; }
-.rail.paged.wide { width: 340px; }
 .rail.paged.folded { width: 52px; padding: 0; overflow: visible; background: #fff; }
 .rtop { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 .rback { display: inline-flex; align-items: center; gap: 6px; padding: 4px 6px; margin-left: -6px; border-radius: 6px; color: var(--ink); font-weight: 600; text-decoration: none; }
@@ -833,7 +832,7 @@ body { grid-template-columns: minmax(0, 1fr); }
 body.page-mode .pagecol > .composer.line { box-shadow: 0 6px 18px rgb(16 48 63 / .12); }
 @media (max-width: 900px) {
   body.page-mode .work { align-content: start; }
-  .rail.paged, .rail.paged.wide { width: auto; min-height: auto; overflow: visible; }
+  .rail.paged { width: auto; min-height: auto; overflow: visible; }
   .rail.paged.folded { width: auto; height: auto; overflow: visible; }
   .rstrip { display: flex; justify-content: flex-start; gap: 8px; padding: 6px 12px; }
   body.page-mode .pagecol { min-height: 70vh; }
@@ -845,4 +844,26 @@ body.page-mode .pagecol > .composer.line { box-shadow: 0 6px 18px rgb(16 48 63 /
   .composer.line .cline { flex-wrap: wrap; }
   .composer.line textarea { flex: 1 1 calc(100% - 40px); }
   .composer.line .cscope { margin-left: auto; }
+}
+
+/* ---------- Edit mode: the inspector floating over the page (as in v3), in the shell's own window ---------- */
+.ifloat { position: fixed; z-index: 35; display: flex; flex-direction: column; min-width: 300px; min-height: 44px; border: 1px solid var(--line-strong); border-radius: 12px; background: #fff; box-shadow: 0 18px 50px rgb(16 48 63 / .28), 0 2px 6px rgb(16 48 63 / .12); overflow: hidden; resize: both; }
+.ifloat.min { resize: none; }
+.ifloat.min #tykerf-inspector { display: none; }
+.ifloat.flash { animation: ifflash .9s ease-out; }
+@keyframes ifflash { 0% { box-shadow: 0 0 0 4px var(--task), 0 18px 50px rgb(16 48 63 / .28); } 100% { box-shadow: 0 18px 50px rgb(16 48 63 / .28), 0 2px 6px rgb(16 48 63 / .12); } }
+@media (prefers-reduced-motion: reduce) { .ifloat.flash { animation: none; } }
+.ifbar { display: flex; align-items: center; gap: 8px; flex: none; min-height: 42px; padding: 4px 6px 4px 14px; border-bottom: 1px solid var(--line); background: var(--ground); cursor: move; user-select: none; touch-action: none; }
+.ifloat.min .ifbar { border-bottom: 0; }
+.iftitle { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; }
+.ificon { display: grid; place-items: center; width: 32px; height: 32px; padding: 0; border: 1px solid var(--line); border-radius: 8px; background: #fff; color: var(--ink); font-size: 18px; line-height: 1; cursor: pointer; }
+.ificon:hover { border-color: var(--bar); }
+.ificon:focus-visible { outline: 3px solid var(--task); outline-offset: 2px; }
+#tykerf-inspector { flex: 1; min-height: 0; overflow: auto; padding: 8px 12px 12px; }
+body.dragging .frame { pointer-events: none; }
+body.dragging { cursor: move; user-select: none; }
+@media (max-width: 600px) {
+  .ifloat { left: 8px !important; right: 8px; top: auto !important; bottom: 8px; width: auto !important; height: 50vh !important; resize: none; }
+  .ifloat.min { height: auto !important; }
+  .ifbar { cursor: default; }
 }

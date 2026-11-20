@@ -277,7 +277,7 @@ describe('a new site', () => {
     expect(await head.locator('button').evaluateAll((b) => b.map((x) => x.className || (x as HTMLElement).dataset.view))).toEqual(['dim', 'blur', 'undo', 'redo', 'minimize', 'closebtn']);
     for (const gone of ['.pagesw', '.sitebtn', '.backtasks', '.modesw', '.tabsbtn', '.copybtn', '.managebtn', '.taskpanel']) expect(await page.locator(gone).count()).toBe(0);
     // no Kaity tab: tasks are how she is asked
-    expect(await page.locator('.work .tabs [role=tab]').evaluateAll((b) => b.map((x) => (x as HTMLElement).dataset.tab))).toEqual(['blocks', 'page', 'size']);
+    await expect.poll(() => page.locator('.work .tabs [role=tab]').evaluateAll((b) => b.map((x) => (x as HTMLElement).dataset.tab)), { timeout: 10_000 }).toEqual(['blocks', 'page', 'size']);
     await page.locator('.work .tabs [data-tab="page"]').click();
     await page.locator('.head-code').waitFor();
     expect(await page.locator('[data-page^="export"]').count()).toBe(0);
@@ -286,7 +286,7 @@ describe('a new site', () => {
     await page.locator('a[href="/_tykerf/export.zip?page=home"]').waitFor();
   });
 
-  it('in Edit mode, has the inspector in the rail and the quick actions on the block: nothing on the page\'s right', async () => {
+  it('in Edit mode, floats the inspector over the page (as in v3) and puts the quick actions on the block', async () => {
     // on its own, the full editor keeps its dark header
     await page.goto(`${url}home/?tykerf=full-frame`);
     await page.locator('section.panel').waitFor();
@@ -301,22 +301,40 @@ describe('a new site', () => {
     expect(await page.locator('.bar .modes [aria-current]').textContent()).toBe('Edit');
     // the widths stay in the top bar in Edit mode
     expect(await page.locator('.bar .widths button').allTextContents()).toEqual(['Desktop', '768', '375']);
-    // one sidebar: the page's sections, the Block section with the inspector; nothing docked over or beside the page
+    // one sidebar, the page's sections; the inspector floats over the page in the shell's window, nothing is docked
     expect(await fr.locator('section.panel').count()).toBe(0);
     expect(await fr.locator('html').evaluate((h) => getComputedStyle(h).marginRight)).toBe('0px');
     expect(await page.locator('.stage').evaluate((s) => s.clientWidth)).toBeGreaterThanOrEqual(1080);
-    expect(Math.round((await page.locator('.rail').boundingBox())!.width)).toBe(340);
+    expect(Math.round((await page.locator('.rail').boundingBox())!.width)).toBe(280);
+    const float = page.locator('.ifloat');
+    expect(await float.locator('#tykerf-inspector section.panel').count()).toBe(1);
     // no Undo, Redo, Compact or × of its own (the top bar has the one Undo), no tree (the rail has it)
     for (const gone of ['.head-tools > .undo', '.head-tools > .redo', '.head-tools > .minimize', '.head-tools > .closebtn', '.tree', '.work .actions']) expect(await inspector.locator(gone).first().isHidden(), gone).toBe(true);
     expect(await page.getByRole('button', { name: /^Undo|^Nothing to undo/ }).count()).toBe(1);
     // the rail's tree has every block, as the inspector's path has them: intro inside its containers
     await page.locator('.rail [data-block="intro"]').click();
     await expect.poll(() => inspector.locator('.path').textContent()).toMatch(/^page\/(.+\/)?body\/intro$/);
-    expect(await page.locator('.rail [data-acc="block"] .acc-t').textContent()).toBe('Block: intro');
+    expect(await float.locator('.iftitle').textContent()).toBe('Block: intro');
     const path = (await inspector.locator('.path').textContent())!.split('/');
     const tree = await page.locator('.rail .tree [data-block]').evaluateAll((b) => b.map((x) => (x as HTMLElement).dataset.block));
     for (const id of path.slice(1)) expect(tree).toContain(id);
     for (let i = 2; i < path.length; i++) expect(await page.locator(`.rail .tree li:has(> .tline [data-block="${path[i - 1]}"]) [data-block="${path[i]}"]`).count()).toBe(1);
+    // the floating window: dragged by its bar (where it is is remembered), compacted to its bar; the page's widths
+    // leave it at its own size
+    const at = (await float.boundingBox())!;
+    const bar = (await float.locator('.ifbar').boundingBox())!;
+    await page.mouse.move(bar.x + 30, bar.y + 15);
+    await page.mouse.down();
+    await page.mouse.move(bar.x - 170, bar.y + 85, { steps: 6 });
+    await page.mouse.up();
+    await expect.poll(async () => Math.round((await float.boundingBox())!.x)).toBe(Math.round(at.x - 200));
+    expect(JSON.parse(await page.evaluate(() => localStorage.getItem('tykerf.inspector') ?? '{}')).x).toBe(Math.round(at.x - 200));
+    await page.locator('.bar [data-device="phone"]').click();
+    await expect.poll(() => page.locator('.frame').evaluate((f: HTMLIFrameElement) => f.contentWindow!.innerWidth)).toBe(375);
+    expect(Math.round((await float.boundingBox())!.width)).toBe(Math.round(at.width));
+    await page.locator('.bar [data-device="full"]').click();
+    await float.locator('[data-if="min"]').click();
+    expect(await float.locator('#tykerf-inspector').isHidden()).toBe(true);
     // the quick actions sit on the block in the page: move it down, then up again
     const tool = fr.locator('.btool');
     await expect.poll(() => tool.isVisible()).toBe(true);
@@ -327,7 +345,9 @@ describe('a new site', () => {
     await expect.poll(order).not.toEqual(was);
     await tool.locator('[data-act="earlier"]').click();
     await expect.poll(order).toEqual(was);
-    // edit and save its words in the rail's inspector
+    // Details opens the floating window again, out of Compact
+    await tool.locator('[data-act="details"]').click();
+    await expect.poll(() => float.locator('#tykerf-inspector').isVisible()).toBe(true);
     const field = inspector.locator('.work .tab-body textarea, .work .tab-body input').first();
     await field.waitFor();
     // the editor's selection shows in the rail, and the rail's selects in the editor
@@ -340,12 +360,12 @@ describe('a new site', () => {
     await expect.poll(() => tool.locator('.bname').textContent()).toBe('contact');
     await tool.locator('[data-act="remove"]').click();
     await inspector.locator('.sheet:not([hidden])').waitFor();
-    expect(await page.locator('.rail [data-acc="block"]').getAttribute('aria-expanded')).toBe('true');
-    // folded, the toolbar stays, and Details unfolds the rail to the block
+    // with the rail folded the page takes the whole width; the toolbar and the floating window stay
     await page.locator('.rail [data-rail="fold"]').click();
     expect(await tool.isVisible()).toBe(true);
-    await tool.locator('[data-act="details"]').click();
-    await expect.poll(() => page.locator('.rail').getAttribute('class')).not.toContain('folded');
+    expect(await float.isVisible()).toBe(true);
+    await page.locator('.rail [data-rail="unfold"]').click();
+    await page.evaluate(() => localStorage.removeItem('tykerf.inspector'));
     await page.setViewportSize({ width: 1280, height: 900 });
     await page.goto('about:blank'); // the page follows a removal: leave it first
     await post('_tykerf/site/remove', { name: 'me' });

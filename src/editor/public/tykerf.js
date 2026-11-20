@@ -16,9 +16,10 @@ const full = (page) => `/_tykerf/edit/${encodeURIComponent(page)}/?mode=full`;
 // own navigation did (the pages, the site, back to tasks), so that stays out of sight, and moving on is the shell's
 const EMBEDDED = new URLSearchParams(location.search).get('tykerf') === 'full-frame' && window.top !== window;
 /**
- * v4 Edit mode: in the shell the panel is the inspector. The shell's rail has a place for it (#tykerf-inspector, the
- * "Block" section): the panel moves there (RAILED: one sidebar, the page keeps the whole width) and the block's quick
- * actions sit in a toolbar on the block in the page. Without that place it is docked on the right of the page (see dock).
+ * v4 Edit mode: in the shell the panel is the inspector. The shell has a place for it (#tykerf-inspector, a window
+ * floating over the page in the shell's own document, so the page's widths never shrink it): the panel moves there
+ * (RAILED; the shell drags, resizes and compacts it) and the block's quick actions sit in a toolbar on the block in
+ * the page. Without that place it is docked on the right of the page (see dock).
  */
 const RAIL_SLOT = (() => {
   if (!EMBEDDED) return null;
@@ -2886,7 +2887,7 @@ function dock() {
 }
 
 function keepPanelOnScreen() {
-  if (DOCKED) return void Object.assign(panel.style, { left: '', top: '' });
+  if (DOCKED || RAILED) return void Object.assign(panel.style, { left: '', top: '' });
   const r = panel.getBoundingClientRect();
   const x = Math.max(8, Math.min(panelPos?.x ?? innerWidth - r.width - 24, innerWidth - r.width - 8));
   const y = Math.max(8, Math.min(panelPos?.y ?? (innerWidth < 700 ? innerHeight - r.height - 8 : 24), innerHeight - Math.min(r.height, 48) - 8));
@@ -2896,7 +2897,7 @@ function keepPanelOnScreen() {
 
 $('.head').addEventListener('pointerdown', (e) => {
   // what can be pressed in the header (buttons, the link back to tasks, fields) is pressed, not dragged; docked, it stays
-  if (e.target.closest('button, a, input, select, textarea') || e.button !== 0 || DOCKED) return;
+  if (e.target.closest('button, a, input, select, textarea') || e.button !== 0 || DOCKED || RAILED) return;
   // a drag is not a text selection: without this, dragging past the window's edge selects the whole page
   e.preventDefault();
   getSelection()?.removeAllRanges();

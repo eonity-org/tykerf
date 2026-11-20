@@ -1,5 +1,5 @@
-// The page's sections (v4 round 2): Tasks on this page, Kaity on this page, Blocks, the selected block's details
-// (Edit), fixing one thing by hand, and the Site. One accordion component, shown in the rail, or dropped from the top
+// The page's sections (v4 round 2): Tasks on this page, Kaity on this page, Blocks, fixing one thing by hand, and
+// the Site. One accordion component, shown in the rail, or dropped from the top
 // bar's "This page ▾" while the rail is folded: the same sections, from the same functions, in either place. Which
 // sections are open is remembered in this browser (per page mode), across pages and reloads.
 //
