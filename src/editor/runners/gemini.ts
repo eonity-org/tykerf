@@ -42,7 +42,7 @@ export function reply(parts: Part[]): { text: string; garbled: boolean } {
 
 /** A part without its pictures, once the model has seen them: a note in their place. */
 function seen(p: Part): Part {
-  if (p.inlineData) return { text: '[picture]' };
+  if (p.inlineData) return { text: p.inlineData.mimeType === 'application/pdf' ? '[a PDF, read then]' : '[picture]' };
   const r = p.functionResponse;
   if (!r?.parts?.length) return p;
   const { parts, ...rest } = r;

@@ -21,11 +21,11 @@ import { HOME_PAGE, type PublishSettings, addSitePage, pageMoves, emptyTrash, la
 import { tasks } from '../tasks.js';
 import { FolderStore, MemoryStore } from '../store.js';
 import { KIT_LOADER, type KitKind, kitCSS, kitFonts, kitLibraryScripts, kitList, kitRead, kitWarning, kitWrite, lastKitChange } from '../kit.js';
-import { DEFAULT_FRAME, DEFAULT_THEME, EMPTY_LAYOUT, createPage, frames, hasTheme, layoutSections, offeredLayouts, pageLayout, purposes, libraryAsset, theme, themes } from '../library.js';
+import { DEFAULT_FRAME, DEFAULT_THEME, EMPTY_LAYOUT, createPage, frames, hasTheme, layoutSections, offeredLayouts, pageLayout, purposes, libraryAsset, setTheme, theme, themes } from '../library.js';
 import { Workspace } from '../workspace.js';
 import { AI, type Runner, SITE_CHAT } from './ai.js';
-import { kaityRuns } from './kaity-log.js';
-import { type DesignZip, designContext, designNote, readDesignZip } from './design-zip.js';
+import { type KaityRun, kaityRuns, logUndo } from './kaity-log.js';
+import { readAttachments } from './attachments.js';
 import { createAuth, loginPage } from './auth.js';
 import { ASSET_TYPES, pageFileRefs } from '../assets.js';
 import { type PageHost, body, cornerButton, createPageHost, json } from './page.js';
@@ -188,6 +188,16 @@ const BUILD_BRIEF = [
 
 /** Whether the site's pages share one theme (the site's head.html has it). */
 const sharedTheme = () => hasTheme(siteHead(dir));
+
+/**
+ * View mode (the v4 editor): the signed-in person sees the pages as visitors do, with a small pill to go back to
+ * editing, and stays so while following links between pages, until Edit. A session cookie the page's address reads.
+ */
+const VIEW_COOKIE = 'tykerf_view';
+const viewing = (req: IncomingMessage) => new RegExp(`(?:^|;\\s*)${VIEW_COOKIE}=1(?:;|$)`).test(req.headers.cookie ?? '');
+
+/** The last design check (POST /_tykerf/site/design), for the Overview's "Before you publish" and the top bar's Checks. */
+let lastDesign: { at: string; fixes: number; notes: number } | null = null;
 /** The site's last step, when it changed the head: what the Page tab's site Undo would take back (else null). */
 const headStep = () => {
   const top = new Site(dir).history.peekUndo();
@@ -234,7 +244,7 @@ function hostOf(name: string): PageHost | null {
   if (!sitePages(dir).includes(name)) return null;
   watchSite();
   let h = hosts.get(name);
-  if (!h) hosts.set(name, (h = createPageHost(pageWorkspace(dir, name), { name, runner, admin: auth.admin, visitorEnd: EDIT_BUTTON, title: () => pageTitle(dir, name), site: () => ({ pages: sitePages(dir), current: name, sharedTheme: sharedTheme() }), onTaskRun: (run) => taskRunChanged(name, run) })));
+  if (!h) hosts.set(name, (h = createPageHost(pageWorkspace(dir, name), { name, runner, admin: auth.admin, visitorEnd: EDIT_BUTTON, viewing, title: () => pageTitle(dir, name), site: () => ({ pages: sitePages(dir), current: name, sharedTheme: sharedTheme() }), onTaskRun: (run) => taskRunChanged(name, run), onAi: (data) => siteEvent('ai', { ...(data as object), page: name }) })));
   return h;
 }
 
@@ -274,6 +284,9 @@ const STATIC: Record<string, string> = {
   // the v3 editor: the shell around a page in a frame (shell.html at /_tykerf/edit/<page>/)
   '/_tykerf/shell/boot.js': 'text/javascript', '/_tykerf/shell/common.js': 'text/javascript', '/_tykerf/shell/shell.js': 'text/javascript',
   '/_tykerf/shell/frame.js': 'text/javascript', '/_tykerf/shell/fix.js': 'text/javascript', '/_tykerf/shell/site.js': 'text/javascript', '/_tykerf/shell/screens.js': 'text/javascript', '/_tykerf/shell/shell.css': 'text/css',
+  // v4: the one frame (top bar, rail), the one Kaity (composer, thread, Kaity center), the Overview, New page, View mode
+  '/_tykerf/shell/chrome.js': 'text/javascript', '/_tykerf/shell/composer.js': 'text/javascript', '/_tykerf/shell/kaity.js': 'text/javascript',
+  '/_tykerf/shell/overview.js': 'text/javascript', '/_tykerf/shell/newpage.js': 'text/javascript', '/_tykerf/shell/view.js': 'text/javascript',
 };
 
 /** TYKERF's own scripts, styles, fonts and translations (also under a page's address, where its script asks for them). */
@@ -330,7 +343,8 @@ async function serveGlobal(req: IncomingMessage, res: ServerResponse, p: string,
     // New page starts a page from a purpose in a frame (`<frame>+<purpose>`), or a frame alone; retired layouts aren't offered
     const entry = ({ name, label, description, shared }: { name: string; label: string; description: string; shared?: string[] }) => ({ name, label, description, ...(shared?.length ? { shared } : {}) });
     json(res, 200, {
-      purposes: purposes().map(entry),
+      // each purpose's sections (its boxes), for New page's "What must it include?"
+      purposes: purposes().map((x) => ({ ...entry(x), sections: x.sections.map((s) => s.box) })),
       frames: frames().map((f) => ({ ...entry(f), side: layoutSections(pageLayout(f.name)).filter((b) => b === 'side' || b === 'aside') })),
       frame: readSite(dir).frame ?? DEFAULT_FRAME,
       layouts: offeredLayouts().map(entry),
@@ -346,7 +360,9 @@ async function serveGlobal(req: IncomingMessage, res: ServerResponse, p: string,
       // theme "site": the layout with the site's shared theme, as a new page of this site would look
       const shared = th === 'site' && sharedTheme();
       const ws = new Workspace(new MemoryStore('memory:preview'), { site: shared ? new Site(dir) : null });
-      createPage(ws, tpl, shared ? DEFAULT_THEME : th, { ownTheme: !shared });
+      // ?side=0: without the frame's side menu and side note, as New page makes it when they're unticked
+      const keep = url.searchParams.get('side') === '0' ? layoutSections(pageLayout(tpl)).filter((b) => b !== 'side' && b !== 'aside') : undefined;
+      createPage(ws, tpl, shared ? DEFAULT_THEME : th, { ownTheme: !shared, ...(keep?.length ? { keep } : {}) });
       res.writeHead(200, { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store', 'content-security-policy': "sandbox; script-src 'none'" });
       res.end(ws.page({ title: tpl }));
     } else {
@@ -360,7 +376,12 @@ async function serveGlobal(req: IncomingMessage, res: ServerResponse, p: string,
   }
   if (req.method === 'GET' && p === '/_tykerf/site') {
     const pages = sitePages(dir), settings = readSite(dir);
-    json(res, 200, { pages, sharedTheme: sharedTheme(), home: settings.home ?? null, titles: Object.fromEntries(pages.map((pg) => [pg, pageTitle(dir, pg, settings)])), ownTitles: settings.titles, lang: settings.lang, langSet: !!settings.langSet, frame: settings.frame ?? null, brief: settings.brief ?? {}, signin: auth.on, kaity: kaityNow() });
+    // each page's last change, for the Overview's cards (who, when, what)
+    const changed = Object.fromEntries(pages.map((pg) => {
+      const h = pageWorkspace(dir, pg).history(1)[0];
+      return [pg, h ? { at: h.at ?? null, author: h.author ?? null, label: h.label } : null];
+    }));
+    json(res, 200, { pages, changed, sharedTheme: sharedTheme(), home: settings.home ?? null, titles: Object.fromEntries(pages.map((pg) => [pg, pageTitle(dir, pg, settings)])), ownTitles: settings.titles, lang: settings.lang, langSet: !!settings.langSet, frame: settings.frame ?? null, brief: settings.brief ?? {}, signin: auth.on, kaity: kaityNow() });
     return true;
   }
   // a copy of a page, next to it
@@ -439,24 +460,19 @@ async function serveGlobal(req: IncomingMessage, res: ServerResponse, p: string,
       json(res, 200, { ok: true, url: `/${name}/` });
       return true;
     }
-    // "Show or describe it": a nearly empty page, then the AI builds it from the words and pictures
-    if (a.prompt || (Array.isArray(a.images) && a.images.length) || a.zip) {
+    // "Describe it to Kaity": a nearly empty page, then she builds it from the brief and the attached files
+    // (pictures, PDFs, a design ZIP: attachments.ts; `images` and `zip` are the older forms)
+    if (a.prompt || (Array.isArray(a.images) && a.images.length) || a.zip || (Array.isArray(a.files) && a.files.length)) {
       if (siteAI.running()) return json(res, 409, { ok: false, error: 'Kaity is working on the whole site; wait for her to finish' }), true;
       const st = runner.status?.() ?? { ready: true, note: '' };
       if (!st.ready) return json(res, 422, { ok: false, error: `Kaity is not ready: ${st.note}` }), true;
-      const images = Array.isArray(a.images) ? a.images.slice(0, 3) : [];
-      // a design export: its pictures join the user's (5 at most in all), its text goes along as reference
-      let design: { name: string; zip: DesignZip } | null = null;
-      if (a.zip) {
-        const zipName = String(a.zip.name ?? 'design.zip').replace(/[^\w .()-]/g, '').slice(0, 80) || 'design.zip';
-        try {
-          design = { name: zipName, zip: readDesignZip(new Uint8Array(Buffer.from(String(a.zip.data ?? ''), 'base64')), 5 - images.length) };
-        } catch (e) {
-          return json(res, 422, { ok: false, error: `${zipName}: ${(e as Error).message}` }), true;
-        }
-        if (!design.zip.images.length && !design.zip.texts.length) return json(res, 422, { ok: false, error: `${zipName} has no pictures or text files Kaity can use` }), true;
-        images.push(...design.zip.images.map(({ mediaType, data }) => ({ mediaType, data })));
+      let attached;
+      try {
+        attached = readAttachments([...(Array.isArray(a.files) ? a.files : []), ...(a.zip ? [a.zip] : [])], a.images);
+      } catch (e) {
+        return json(res, 422, { ok: false, error: (e as Error).message }), true;
       }
+      const images = attached.files;
       // the theme: the site's shared one (when other pages use it), the one the user chose, or Kaity's choice
       const shared = sitePages(dir).length > 0 && hasTheme(siteHead(dir));
       const chosen = a.theme ? String(a.theme) : null;
@@ -471,10 +487,10 @@ async function serveGlobal(req: IncomingMessage, res: ServerResponse, p: string,
       newSitePage(dir, name, EMPTY_LAYOUT, chosen ?? DEFAULT_THEME);
       const host = hostOf(name)!;
       const root = pageWorkspace(dir, name).load().root.id;
-      const asked = String(a.prompt ?? '').trim() || (design ? 'Make this page from the attached design.' : 'Make this page look like the attached picture.');
-      const prompt = design ? `${asked}\n\n${designNote(design.name, design.zip)}` : asked;
+      const asked = String(a.prompt ?? '').trim() || (attached.note ? 'Make this page from the attached design.' : 'Make this page from the attached files.');
+      const prompt = attached.note ? `${asked}\n\n${attached.note}` : asked;
       host.job.start('ai', { select: root, stop: () => host.ai.cancel() });
-      host.ai.ask(root, prompt, undefined, images, `${BUILD_BRIEF}\n${themeBrief}\n${sharedBrief}`, design ? designContext(design.name, design.zip) : undefined);
+      host.ai.ask(root, prompt, undefined, images, `${BUILD_BRIEF}\n${themeBrief}\n${sharedBrief}`, attached.context || undefined);
       refreshAll();
       json(res, 200, { ok: true, url: `/${name}/`, select: root });
       return true;
@@ -485,7 +501,11 @@ async function serveGlobal(req: IncomingMessage, res: ServerResponse, p: string,
       // the frame's side menu and aside only when asked for (side: true)
       const layout = String(a.layout ?? 'simple');
       const keep = a.side === true ? undefined : layoutSections(pageLayout(layout)).filter((b) => b !== 'side' && b !== 'aside');
-      newSitePage(dir, name, layout, String(a.theme ?? DEFAULT_THEME), { shared: a.shared !== false, ...(keep?.length ? { keep } : {}) });
+      const shared = sharedTheme();
+      const made = newSitePage(dir, name, layout, String(a.theme && a.theme !== 'site' ? a.theme : DEFAULT_THEME), { shared: a.shared !== false, ...(keep?.length ? { keep } : {}) });
+      // another theme than the one the site's pages share: this page's own values over it (it no longer matches them)
+      const preset = shared && a.theme && a.theme !== 'site' ? themes().find((x) => x.name === String(a.theme)) : null;
+      if (preset) setTheme(made, preset.values, 'user', preset.name);
     }
     refreshAll(); // the other pages' lists of pages
     json(res, 200, { ok: true, url: `/${name}/` });
@@ -534,7 +554,7 @@ async function serveGlobal(req: IncomingMessage, res: ServerResponse, p: string,
   // the whole site's check (check-site.ts): what to fix before publishing
   if (req.method === 'GET' && p === '/_tykerf/site/check') {
     const { checkSite, FINDING_KINDS } = await import('../check-site.js');
-    return json(res, 200, { ok: true, findings: checkSite(dir), kinds: FINDING_KINDS }), true;
+    return json(res, 200, { ok: true, findings: checkSite(dir), kinds: FINDING_KINDS, design: lastDesign }), true;
   }
   // Check the design (design.ts): every page in a browser at 1440 and 375 px, on demand (it takes a few seconds a page)
   if (req.method === 'POST' && p === '/_tykerf/site/design') {
@@ -547,6 +567,8 @@ async function serveGlobal(req: IncomingMessage, res: ServerResponse, p: string,
         const ws = pageWorkspace(dir, pg);
         pages.push({ page: pg, findings: await checkDesign(ws.page(), { files: pageFiles(ws), browser }) });
       }
+      const all = pages.flatMap((x) => x.findings);
+      lastDesign = { at: new Date().toISOString(), fixes: all.filter((f) => f.group === 'fix').length, notes: all.filter((f) => f.group === 'style').length };
       return json(res, 200, { ok: true, pages, rules: DESIGN_RULES }), true;
     } finally {
       await browser.close();
@@ -725,6 +747,58 @@ async function serveGlobal(req: IncomingMessage, res: ServerResponse, p: string,
     const runs = kaityRuns(dir, live);
     return json(res, 200, { ok: true, runs: [...runs.filter((r) => r.state === 'working'), ...runs.filter((r) => r.state !== 'working')] }), true;
   }
+  // One thread of everything Kaity did and was asked, on the whole site and on every page, oldest first (the
+  // Kaity center, the Overview's "Kaity lately", a page's "Kaity on this page"): the runs of her log (kaity-log.ts),
+  // each with what it was asked, its answer, its scope and whether it can still be undone
+  if (req.method === 'GET' && p === '/_tykerf/site/thread') {
+    const live = new Map([siteAI.progress(), ...[...hosts.values()].map((h) => h.ai.progress())].filter((r) => !!r).map((r) => [r.run, r]));
+    const runs = kaityRuns(dir, live, 400).reverse();
+    const kind = (r: KaityRun) => (r.tag?.includes('#') ? 'task' : r.origin ? r.origin : 'ask');
+    // a run can be undone while its changes are in a page's history (one that only looked or asked changed nothing)
+    const held = new Map<string, Set<string>>();
+    const tagsOf = (pg: string) => held.get(pg) ?? (held.set(pg, pageWorkspace(dir, pg).tags()), held.get(pg)!);
+    const pages = sitePages(dir);
+    const kept = (r: KaityRun) => !!r.tag && (r.page ? pages.includes(r.page) && tagsOf(r.page).has(r.tag) : pages.some((pg) => tagsOf(pg).has(r.tag!)));
+    const items = runs.map((r) => ({ ...r, kind: kind(r), task: r.tag?.includes('#') ? Number(r.tag.split('#')[1]) : undefined, undoable: !r.undone && r.state !== 'working' && kept(r) }));
+    return json(res, 200, { ok: true, items, pages: sitePages(dir), running: items.filter((r) => r.state === 'working').length }), true;
+  }
+  // Undo one of Kaity's runs from the thread: what her changes carry (its tag) is taken back on its page, or on every
+  // page for a run on the whole site, as one new step each (Workspace.revertTagged); the site's own steps (its kit,
+  // its theme) are undone in Site history
+  if (req.method === 'POST' && p === '/_tykerf/site/kaity/undo') {
+    const a = await body(req);
+    const r = kaityRuns(dir, new Map(), 400).find((x) => x.run === String(a.run ?? ''));
+    if (!r?.tag) return json(res, 422, { ok: false, error: 'that run can\'t be undone from here' }), true;
+    if (r.undone) return json(res, 422, { ok: false, error: 'that run is undone already' }), true;
+    const pages = r.page ? [r.page] : sitePages(dir);
+    const busy = pages.find((pg) => hosts.get(pg)?.ai.running()) ?? (siteAI.running() ? 'the whole site' : null);
+    if (busy) return json(res, 409, { ok: false, error: `Kaity is working on ${busy}; undo waits until she is done` }), true;
+    let n = 0;
+    const problems: string[] = [];
+    for (const pg of pages.filter((x) => sitePages(dir).includes(x))) {
+      try {
+        n += pageWorkspace(dir, pg).revertTagged([r.tag], `undo Kaity's work: ${r.request.slice(0, 60)}`, 'user');
+        hosts.get(pg)?.refresh();
+      } catch (e) {
+        const m = (e as Error).message;
+        if (!/nothing of that is left/.test(m)) problems.push(r.page ? m : `${pg}: ${m}`);
+      }
+    }
+    if (problems.length) return json(res, 409, { ok: false, error: problems.join('; ') }), true;
+    if (!n) return json(res, 422, { ok: false, error: 'nothing she changed in that run is left to undo' }), true;
+    logUndo(dir, r.run);
+    siteEvent('ai', { role: 'undone', run: r.run });
+    return json(res, 200, { ok: true, result: n }), true;
+  }
+  // a file attached to a request about the whole site (kept in the site's .tykerf/images/, ai.ts keepImage)
+  if (req.method === 'GET' && p.startsWith('/_tykerf/site/image/')) {
+    const name = p.slice('/_tykerf/site/image/'.length);
+    const bytes = siteAI.image(name);
+    if (!bytes) return res.writeHead(404).end('not found'), true;
+    const ext = name.split('.').pop()!;
+    res.writeHead(200, { 'content-type': ext === 'pdf' ? 'application/pdf' : `image/${ext === 'jpg' ? 'jpeg' : ext}`, 'cache-control': 'max-age=31536000, immutable', 'x-content-type-options': 'nosniff', 'content-security-policy': 'sandbox' });
+    return res.end(bytes), true;
+  }
   // every open task and question on the site, page by page (the v3 editor's "Tasks for Kaity"), with Kaity's run on each
   if (req.method === 'GET' && p === '/_tykerf/site/tasks') {
     const pages = sitePages(dir).map((page) => ({ page, tasks: tasks(pageWorkspace(dir, page), { open: true }), run: hosts.get(page)?.taskRun.state() ?? null }))
@@ -756,7 +830,14 @@ async function serveGlobal(req: IncomingMessage, res: ServerResponse, p: string,
     if (p === '/_tykerf/site/chat/reset') return json(res, 200, { ok: siteAI.reset(SITE_CHAT) }), true;
     const busy = pageRun();
     if (busy) return json(res, 409, { ok: false, error: `Kaity is working on the page "${busy}"; wait for her to finish` }), true;
-    siteAI.ask(SITE_CHAT, String(a.prompt ?? ''), undefined, Array.isArray(a.images) ? a.images : []);
+    let attached;
+    try {
+      attached = readAttachments(a.files, a.images);
+    } catch (e) {
+      return json(res, 422, { ok: false, error: (e as Error).message }), true;
+    }
+    const asked = String(a.prompt ?? '').trim() || (attached.files.length ? 'Look at the attached files.' : '');
+    siteAI.ask(SITE_CHAT, attached.note ? `${asked}\n\n${attached.note}` : asked, undefined, attached.files, undefined, attached.context || undefined);
     return json(res, 200, { ok: true }), true;
   }
   // the pages removed into the site's .trash, and emptying it for good
@@ -953,10 +1034,21 @@ createServer(async (req, res) => {
     const way = admin ? { href: MANAGER, text: 'Site manager' } : { href: `/_tykerf/login?next=${encodeURIComponent(MANAGER)}`, text: 'Sign in to edit' };
     if (p === '/pages/') return res.writeHead(200, { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store' }).end(siteIndex(dir, way)), undefined;
     if (p === '/sitemap.xml' && PUBLIC_URL) return res.writeHead(200, { 'content-type': 'application/xml; charset=utf-8' }).end(siteMap(dir, PUBLIC_URL)), undefined;
-    // a site: "/" opens its home page when it has one; otherwise it is the manager, as /_tykerf/site/ always is
-    if (p === '/' && readSite(dir).home) return redirect(res, `/${readSite(dir).home}/`);
-    // the site's own screens in the shell: its tasks, or New page for a site with no pages yet (the site manager was here)
-    if (p === '/' || p === MANAGER) return redirect(res, sitePages(dir).length ? (url.searchParams.has('kit') ? '/_tykerf/edit/_site/shared' : '/_tykerf/edit/_site/tasks') : '/_tykerf/edit/_site/new');
+    // a site: "/" opens its home page for visitors (and in View mode); for the person editing it, the editor opens on
+    // the site manager's Overview, as /_tykerf/site/ always does (a site with no pages shows its first-run welcome there)
+    if (p === '/' && readSite(dir).home && (!admin || viewing(req))) return redirect(res, `/${readSite(dir).home}/`);
+    if (p === '/' || p === MANAGER) return redirect(res, url.searchParams.has('kit') ? '/_tykerf/edit/_site/shared' : '/_tykerf/edit/_site/');
+    // View mode on (the Overview's View site, a page's View) and off (the pill's Edit this page, Back to the site manager)
+    if (req.method === 'GET' && p === '/_tykerf/view') {
+      const pg = url.searchParams.get('page');
+      const to = pg && sitePages(dir).includes(pg) ? `/${pg}/` : readSite(dir).home ? `/${readSite(dir).home}/` : sitePages(dir)[0] ? `/${sitePages(dir)[0]}/` : '/_tykerf/edit/_site/';
+      return res.writeHead(302, { location: to, 'set-cookie': `${VIEW_COOKIE}=1; Path=/; SameSite=Lax`, 'cache-control': 'no-store' }).end(), undefined;
+    }
+    if (req.method === 'GET' && p === '/_tykerf/view/off') {
+      const next = url.searchParams.get('next') ?? '';
+      const to = /^\/_tykerf\/edit\/[^\s"<>]*$/.test(next) ? next : '/_tykerf/edit/_site/';
+      return res.writeHead(302, { location: to, 'set-cookie': `${VIEW_COOKIE}=; Path=/; Max-Age=0; SameSite=Lax`, 'cache-control': 'no-store' }).end(), undefined;
+    }
     // the v3 editor on the whole site: the sidebar docked, a site screen beside it (no page in a frame)
     if (/^\/_tykerf\/edit\/_site\/([a-z-]*)$/.test(p)) {
       res.writeHead(200, { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store' });

@@ -365,8 +365,13 @@ export class Workspace {
   }
 
   /** The most recent history entries, newest first (label, author, time). */
-  history(limit = 30): { label: string; author?: string; at?: string; kind?: string }[] {
-    return this.entries().slice(-limit).reverse().map(({ label, author, at, kind }) => ({ label, author, at, kind }));
+  history(limit = 30): { label: string; author?: string; at?: string; kind?: string; tag?: string }[] {
+    return this.entries().slice(-limit).reverse().map(({ label, author, at, kind, tag }) => ({ label, author, at, kind, ...(tag ? { tag } : {}) }));
+  }
+
+  /** The tags the page's history still holds (Kaity's runs whose changes are there to be undone). */
+  tags(): Set<string> {
+    return new Set(this.entries().map((e) => e.tag).filter((t): t is string => !!t));
   }
 
   /**

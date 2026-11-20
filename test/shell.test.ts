@@ -1,5 +1,6 @@
-// The v3 editor's shell (public/shell.html, shell/*.js at /_tykerf/edit/<page>/): the bar, the page in a frame at
-// its real width, tasks left by clicking the page, the tray, Undo for tasks, and Hide tykerf with the way back.
+// A page in the v4 editor (public/shell.html, shell/*.js at /_tykerf/edit/<page>/): the one frame (the top bar, the
+// rail with the page's blocks), the page in a frame, tasks left by clicking it, the side panel and the tray, the one
+// Undo, and View mode, which stays while following links until Edit.
 
 import { type ChildProcess, spawn } from 'node:child_process';
 import { mkdtempSync } from 'node:fs';
@@ -8,6 +9,7 @@ import { join } from 'node:path';
 import { type Browser, type Page, chromium } from 'playwright';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { createPage } from '../src/library.js';
+import { setHome } from '../src/site.js';
 import { tasks } from '../src/tasks.js';
 import { Workspace } from '../src/workspace.js';
 import { freePort } from './ports.js';
@@ -25,6 +27,8 @@ describe('the v3 editor', () => {
     const site = join(mkdtempSync(join(tmpdir(), 'tykerf-shell-')), 'site');
     ws = new Workspace(join(site, 'home'));
     createPage(ws, 'launch');
+    createPage(new Workspace(join(site, 'about')), 'factual');
+    setHome(site, 'home');
     const port = await freePort();
     base = `http://localhost:${port}`;
     server = spawn(process.execPath, ['--import', 'tsx', 'src/editor/server.ts', site, '--port', String(port)], { stdio: ['ignore', 'pipe', 'inherit'], env: { ...process.env, TYKERF_DOTENV: 'off' } });
@@ -43,18 +47,31 @@ describe('the v3 editor', () => {
 
   const frame = () => page.frameLocator('.frame');
 
-  it('shows the bar and the page at its real width, untouched, under it', async () => {
+  it('shows the one frame: the top bar, the rail with the page\'s blocks, the page, its tasks and the composer', async () => {
     await page.goto(`${base}/_tykerf/edit/home/`);
-    await expect.poll(() => page.locator('.bar .switcher .name').textContent()).toBe('home');
-    expect(await page.locator('.bar .hint').textContent()).toBe('Click anything on the page and say what should change.');
-    expect(await page.locator('[data-bar="tray"]').textContent()).toBe('0 tasks');
-    expect(await page.locator('[data-bar="give"]').isDisabled()).toBe(true);
     await frame().locator('[data-sw="hero"]').waitFor();
-    // the page in the frame has no editor of its own, and the frame is as wide as the window
+    // the top bar: where you are, the page's modes and widths, then Kaity, Checks, one Undo, one Publish
+    expect(await page.locator('.bar .crumb b').textContent()).toBe('home');
+    expect(await page.locator('.bar .modes a').allTextContents()).toEqual(['Tasks', 'Edit', 'View']);
+    expect(await page.locator('.bar .modes [aria-current]').textContent()).toBe('Tasks');
+    expect(await page.locator('.bar .widths button').allTextContents()).toEqual(['Desktop', '768', '375']);
+    expect(await page.locator('.bar [data-top="kaity"]').count()).toBe(1);
+    expect(await page.getByRole('button', { name: /^Undo|^Nothing to undo/ }).count()).toBe(1);
+    expect(await page.getByRole('link', { name: 'Publish' }).count()).toBe(1);
+    // the rail: the pages, the open one with its blocks, the site's screens, the Kaity center
+    await expect.poll(() => page.locator('.rail .rpage[aria-current]').textContent()).toContain('home');
+    expect(await page.locator('.rail .rblocks [data-block]').count()).toBeGreaterThan(3);
+    expect(await page.locator('.rail .rlist a').allTextContents()).toContain('Kaity center');
+    // the status line, the side panel, the composer under the page
+    expect(await page.locator('.pstatus .hint').textContent()).toBe('Click anything on the page and say what should change, or ask Kaity about the whole page below.');
+    expect(await page.locator('.pside-card h2').first().textContent()).toBe('Tasks on home');
+    expect(await page.locator('.pside-card .empty').first().textContent()).toBe('No open tasks. Click anything on the page and say what should change.');
+    expect(await page.locator('.pagecol .composer .kscope .chip').allTextContents()).toEqual(['This page', 'Whole site']);
+    expect(await page.locator('.pagecol .composer [data-c="attach"]').textContent()).toBe('Attach');
+    // the page in the frame has no editor of its own, and is laid out at the room its column has
     expect(await frame().locator('tykerf-root').count()).toBe(0);
-    expect(await page.locator('.frame').evaluate((f: HTMLIFrameElement) => f.contentWindow!.innerWidth)).toBe(1280);
-    const barBottom = await page.locator('.bar').evaluate((b) => b.getBoundingClientRect().bottom);
-    expect(await page.locator('.frame').evaluate((f) => f.getBoundingClientRect().top)).toBe(barBottom);
+    const inner = await page.locator('.frame').evaluate((f: HTMLIFrameElement) => f.contentWindow!.innerWidth);
+    expect(inner).toBe(Math.round(await page.locator('.stage').evaluate((s) => s.clientWidth)));
   });
 
   it('leaves a task on what was clicked, with its block, element and width, and pins it there', async () => {
@@ -64,14 +81,18 @@ describe('the v3 editor', () => {
     await h1.click();
     const box = page.locator('.taskbox');
     await box.waitFor();
-    // one line: the number, the box (its tooltip says Kaity changes only it), the element; no width at full width
-    expect(await box.locator('.where .num').textContent()).toBe('1');
+    // one line: New task (no number until it is one), the box (its tooltip says Kaity changes only it), the element
+    expect(await box.locator('.where .num').textContent()).toBe('New task');
     expect(await box.locator('.where b').textContent()).toBe('hero');
     expect(await box.locator('.where b').getAttribute('title')).toBe('Kaity changes only hero for it.');
     expect(await box.locator('.where .what').textContent()).toMatch(/^› the heading ".+"$/);
     expect(await box.locator('.where .chip').count()).toBe(0);
     expect(await box.locator('textarea').getAttribute('placeholder')).toBe('What should change here? End with ? to ask.');
     expect(await box.locator('button').evaluateAll((b) => b.map((x) => (x as HTMLElement).dataset.box))).toEqual(['q', 'cancel', 'pic', 'menu', 'now', 'add']);
+    expect(await box.locator('[data-box="pic"]').textContent()).toBe('Attach');
+    // the block picked is the rail's and the composer's too
+    await expect.poll(() => page.locator('.rail .rblocks [aria-current]').textContent()).toBe('hero');
+    expect(await page.locator('.pagecol .composer .kscope .chip').allTextContents()).toEqual(['This box: hero', 'This page', 'Whole site']);
     await box.locator('textarea').fill('Make the headline fit on two lines on a phone');
     // More… opens the right-click menu from the box, which stays with what is written in it
     expect(await box.locator('[data-box="menu"]').textContent()).toBe('More… or right-click');
@@ -87,8 +108,12 @@ describe('the v3 editor', () => {
     await box.locator('[data-box="add"]').click();
     await page.locator('.pin[data-pin="1"]').waitFor();
     expect(await page.locator('.taskbox').count()).toBe(0);
-    expect(await page.locator('[data-bar="tray"]').textContent()).toBe('1 task');
-    expect(tasks(ws)[0]).toMatchObject({ n: 1, block: 'hero', width: 1280, text: 'Make the headline fit on two lines on a phone' });
+    expect(await page.locator('.pstatus [data-bar="tray"]').textContent()).toBe('1 task · see them all');
+    // the side panel lists it, with its number, as the pin does
+    expect(await page.locator('.ptask').textContent()).toBe('1hero — Make the headline fit on two lines on a phone');
+    expect(await page.locator('.pside-card .tag').first().textContent()).toBe('1 open');
+    expect(tasks(ws)[0]).toMatchObject({ n: 1, block: 'hero', text: 'Make the headline fit on two lines on a phone' });
+    expect(tasks(ws)[0].width).toBe(Math.round(await page.locator('.stage').evaluate((s) => s.clientWidth)));
     expect(tasks(ws)[0].label).toMatch(/^h1 "/);
     expect(tasks(ws)[0].path!.length).toBeGreaterThan(0);
   });
@@ -99,7 +124,7 @@ describe('the v3 editor', () => {
     await link.click();
     const box = page.locator('.taskbox');
     await box.locator('textarea').pressSequentially('Where does this lead?');
-    expect(await box.locator('.num').getAttribute('aria-pressed')).toBe('true'); // the number became Question
+    expect(await box.locator('.num').getAttribute('aria-pressed')).toBe('true'); // New task became Question
     expect(await box.locator('.num').textContent()).toBe('Question');
     expect(await box.locator('[data-box="add"]').textContent()).toBe('Add question');
     // a click on it makes it a task, and again a question
@@ -117,83 +142,105 @@ describe('the v3 editor', () => {
     expect(await page.locator('.taskbox').count()).toBe(0);
   });
 
-  it('lists the tasks in the tray, and Undo takes back a task marked done', async () => {
-    await page.locator('[data-bar="tray"]').click();
+  it('lists the tasks in the tray, and the top bar\'s one Undo takes back a task marked done', async () => {
+    await page.locator('.pstatus [data-bar="tray"]').click();
     const tray = page.locator('.tray');
     await tray.waitFor();
     expect(await tray.locator('h2').textContent()).toBe('1 task and 1 question on home');
     expect(await tray.locator('.card .text').allTextContents()).toEqual(['Make the headline fit on two lines on a phone', 'Where does this lead?']);
     expect(await tray.locator('.card[data-card="2"] [data-card-act="done"]').count()).toBe(0); // a question is answered, not marked done
-    expect(await page.locator('[data-bar="tray"]').getAttribute('aria-expanded')).toBe('true');
-    // a pin opens the tray on its card
+    expect(await page.locator('.pstatus [data-bar="tray"]').getAttribute('aria-expanded')).toBe('true');
     await tray.locator('.card[data-card="1"] [data-card-act="done"]').click();
     await expect.poll(() => tray.locator('.card').count()).toBe(1);
     expect(tasks(ws)[0].done).toBeTruthy();
-    expect(await page.locator('[data-bar="undo"]').getAttribute('title')).toBe('Undo "close task 1"');
-    await page.locator('[data-bar="undo"]').click();
+    await expect.poll(() => page.locator('[data-top="undo"]').getAttribute('title')).toBe('Undo "close task 1"');
+    await page.locator('[data-top="undo"]').click();
     await expect.poll(() => tray.locator('.card').count()).toBe(2);
     expect(tasks(ws)[0].done).toBeUndefined();
     // Escape closes the tray
     await page.keyboard.press('Escape');
     expect(await tray.isHidden()).toBe(true);
+    // a pin opens the tray on its card
     await page.locator('.pin[data-pin="2"]').click();
     expect(await page.locator('.tray .card[data-card="2"]').getAttribute('class')).toContain('lit');
-    await page.locator('[data-bar="tray"]').click();
+    await page.locator('.pstatus [data-bar="tray"]').click();
   });
 
-  it('hides itself for a look as a visitor, and comes back', async () => {
-    await page.locator('[data-bar="hide"]').click();
-    await page.waitForURL(/\/home\/\?tykerf=hidden$/);
+  it('picks a block in the rail: it is shown on the page, and the composer\'s This box', async () => {
+    await page.locator('.rail [data-block="footer"]').click();
+    expect(await page.locator('.rail [data-block="footer"]').getAttribute('aria-current')).toBe('true');
+    await page.locator('.outline.flash').waitFor();
+    expect(await page.locator('.pagecol .composer .kscope .chip').first().textContent()).toBe('This box: footer');
+  });
+
+  it('views the site as a visitor does, and stays in View while following links, until Edit', async () => {
+    await page.locator('.bar .modes a', { hasText: 'View' }).click();
+    await page.waitForURL(/\/home\/$/);
     expect(await page.locator('.bar').count()).toBe(0);
     expect(await page.locator('tykerf-root').count()).toBe(0);
-    // TYKERF's pill in the corner: its mark and a word
-    expect(await page.locator('[data-tykerf-show] svg rect').count()).toBe(5);
-    expect(await page.locator('[data-tykerf-show]').textContent()).toBe('Show tykerf');
-    await page.locator('[data-tykerf-show]').click();
+    // the pill: tykerf · Viewing · the page switcher · Edit this page
+    const pill = page.locator('tykerf-view');
+    await pill.locator('.pill').waitFor();
+    expect(await pill.locator('.tag').textContent()).toBe('Viewing');
+    expect(await pill.locator('.edit').textContent()).toBe('Edit this page');
+    // a link to another page of the site keeps View
+    await page.goto(`${base}/about/`);
+    await pill.locator('.pill').waitFor();
+    expect(await pill.locator('.switch').textContent()).toBe('about ▾');
+    await pill.locator('.switch').click();
+    await expect.poll(() => pill.locator('.menu a').allTextContents()).toEqual(['about', 'homeHome', '← Back to the site manager']);
+    await page.keyboard.press('Escape');
+    await page.goto(`${base}/`);
+    await page.waitForURL(/\/home\/$/); // "/" in View is the home page, as for a visitor
+    await pill.locator('.pill').waitFor();
+    // Edit this page goes back to Tasks on it, and View is over
+    await pill.locator('.edit').click();
     await page.waitForURL(/\/_tykerf\/edit\/home\/$/);
-    await page.locator('.bar .switcher').waitFor();
+    await frame().locator('[data-sw="hero"]').waitFor();
+    await page.goto(`${base}/about/`);
+    await page.waitForURL(/\/_tykerf\/edit\/about\/$/);
     // and with the keyboard, both ways
+    await page.goto(`${base}/_tykerf/edit/home/`);
     await frame().locator('[data-sw="hero"]').waitFor();
     await page.keyboard.press('Alt+Shift+KeyT');
-    await page.waitForURL(/tykerf=hidden$/);
+    await page.waitForURL(/\/home\/$/);
+    await page.locator('tykerf-view .pill').waitFor();
     await page.keyboard.press('Alt+Shift+KeyT');
     await page.waitForURL(/\/_tykerf\/edit\/home\/$/);
   });
 
   it('shows the page at a tablet\'s or a phone\'s width from the bar, and tasks written then say that width', async () => {
+    await frame().locator('[data-sw="hero"]').waitFor();
     const width = () => page.locator('.frame').evaluate((f: HTMLIFrameElement) => f.contentWindow!.innerWidth);
+    const desk = await width();
     expect(await page.locator('.bar .widths [aria-pressed="true"]').getAttribute('data-device')).toBe('full');
-    expect(await page.locator('.bar .widths button').allTextContents()).toEqual(['100 %', '768', '375']);
-    const box = () => page.locator('.bar .widths').evaluate((e) => e.getBoundingClientRect().width);
-    const before = await box();
     await page.locator('.bar [data-device="tablet"]').click();
     await expect.poll(width).toBe(768);
-    expect(await box()).toBe(before); // the box doesn't change size, so the hint after it stays where it is
-    expect(await page.locator('.bar [data-device="tablet"]').textContent()).toBe('768');
     await page.locator('.bar [data-device="phone"]').click();
     await expect.poll(width).toBe(375);
     await frame().locator('[data-sw="hero"] h1').click();
     expect(await page.locator('.taskbox .where .chip').textContent()).toBe('375 px');
     // only the page takes the phone's width: the task box keeps its own (440 px), past the page's sides if it must
     expect(Math.round((await page.locator('.taskbox').boundingBox())!.width)).toBe(440);
-    expect(await page.locator('.taskbox [data-box="now"]').evaluate((b) => b.getBoundingClientRect().top)).toBe(await page.locator('.taskbox [data-box="add"]').evaluate((b) => b.getBoundingClientRect().top));
     await page.keyboard.press('Escape'); // the task box
     await page.keyboard.press('Escape'); // then the full width again
-    await expect.poll(width).toBe(1280);
+    await expect.poll(width).toBe(desk);
   });
 
-  it('keeps the bar on one line in a 1280 px window', async () => {
+  it('keeps the top bar on one line in a 1280 px window', async () => {
     expect(Math.round((await page.locator('.bar').boundingBox())!.height)).toBeLessThan(60);
   });
 
-  it('fits a narrow window: the bar wraps, nothing scrolls sideways', async () => {
+  it('fits a narrow window: the rail folds above the page, nothing scrolls sideways', async () => {
     const narrow = await browser.newPage({ viewport: { width: 375, height: 760 } });
     await narrow.goto(`${base}/_tykerf/edit/home/`);
-    await narrow.locator('.bar .switcher').waitFor();
     await narrow.frameLocator('.frame').locator('[data-sw="hero"]').waitFor();
     expect(await narrow.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
-    for (const b of ['tray', 'give', 'undo', 'hide']) expect(await narrow.locator(`[data-bar="${b}"]`).isVisible()).toBe(true);
-    expect(await narrow.locator('.frame').evaluate((f: HTMLIFrameElement) => f.contentWindow!.innerWidth)).toBe(375);
+    expect(await narrow.locator('.rail').getAttribute('class')).toContain('folded');
+    for (const b of ['[data-top="undo"]', '[data-top="publish"]', '[data-top="kaity"]']) expect(await narrow.locator(b).isVisible()).toBe(true);
+    await narrow.locator('.rail [data-rail="unfold"]').click();
+    expect(await narrow.locator('.rail .rpage').first().isVisible()).toBe(true);
+    expect(await narrow.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
     await narrow.close();
   });
 

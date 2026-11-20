@@ -58,7 +58,7 @@ After the first build, most of your requests will be **tasks**: you click an ele
 
 The fastest way to a good page is two passes:
 
-1. **The whole page, once.** On **New page**, describe it, show it, or both, with everything you know. Kaity picks a layout, builds every section, checks the result at desktop and phone width and goes once over what she left unfinished.
+1. **The whole page, once.** On **New page**, describe it to Kaity, with everything you know and the files that show it. Kaity picks a layout, builds every section, checks the result at desktop and phone width and goes once over what she left unfinished.
 2. **Then tasks.** Look at the page and click what you'd change, one task each. Small, specific ones: "the title is too long, keep it under six words", "make this a dark band", "add a fourth card about the earthquake of 1755". Give them to Kaity all at once, or one with *Kaity, do it now*; review each, and answer her when she asks. To go on about one block, *Ask for more* on its card: the new task continues the same conversation.
 
 Undo is your friend: every step Kaity takes is a separate undo step, so if one change goes wrong you don't lose the others. ⌘Z goes back one step; *Undo this one* on a task's card takes back that task's work; her conversation on the block shows each step she took.
@@ -78,7 +78,7 @@ Kaity checks her own work, but you are the one who knows what the page is for:
 
 ### A page from one sentence
 
-On **New page**, write the sentence and choose **Build it with Kaity**; she picks the theme. The page in the video came from this one:
+On **New page**, write the sentence over *What Kaity will get* and choose **Build it with Kaity**; she picks the theme. The page in the video came from this one:
 
 > Create a page in English about Lisbon. Include facts, trivia, games, animations and illustrations about the city. Make it joyful and colourful.
 
@@ -98,7 +98,7 @@ A [copy of a website](importing.md) is a starting point with the site's own code
 
 ### A consistent site
 
-Build the first page well, then add pages with **+ Page**, or ask Kaity about the whole site: "a page about Porto with the same layout as Lisbon". For changes that touch every page, use **Ask Kaity about the whole site**, at the top of the site's sidebar: "make the navigation link to every page", "use the same footer as Lisbon on every page". Each page's changes go into that page's history.
+Build the first page well, then add pages with **+ New page**, or ask Kaity about the whole site: "a page about Porto with the same layout as Lisbon". For changes that touch every page, choose **Whole site** in the box to ask her (in the Kaity center, or on the Overview): "make the navigation link to every page", "use the same footer as Lisbon on every page". Each page's changes go into that page's history.
 
 ### The same navigation and footer on every page
 

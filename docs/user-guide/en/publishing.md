@@ -16,7 +16,7 @@ A TYKERF site is plain HTML once it leaves the editor: no TYKERF script, no requ
 
 ## Publish
 
-**Publish**, at the bottom of the site's sidebar, exports the site and commits it to a GitHub repository, with no git needed on your machine. A host connected to that repository puts every publish live within a minute or two.
+**Publish**, in the top bar, exports the site and commits it to a GitHub repository, with no git needed on your machine. A host connected to that repository puts every publish live within a minute or two.
 
 ![Publish: the button, where to (the repository, branch, folder and address, the Made with tykerf option), and the exports](../images/publish.png)
 
@@ -62,7 +62,7 @@ Click **Publish**. TYKERF says how many files are new, changed and removed, with
 
 ## Export
 
-**Publish**, at the bottom of the site's sidebar, also exports: **Export the site**, or only the page you came from. See [Exporting](exporting.md) for the options and what to check.
+**Publish**, in the top bar, also exports: **Export the site**, or only the page you came from. See [Exporting](exporting.md) for the options and what to check.
 
 ## Serve it with TYKERF
 
@@ -74,7 +74,7 @@ TYKERF_PUBLIC_URL=https://cities.example.org  # the site's address
 ```
 
 - **Visitors** get the pages without the editor, their images, `/`, `/pages/`, `/sitemap.xml` and the site's icon. Every editor address answers *sign in first*.
-- **You** sign in at `/_tykerf/login` (TYKERF prints it when it starts, and `/_tykerf/` leads there too); the list of pages links to it (*Sign in to edit*). You stay signed in for a week, restarts included. After that, a browser that has signed in before gets **Edit with TYKERF** on every page, which signs you in and brings you back to the same page; visitors never see it. **Sign out** is at the bottom of the site's sidebar.
+- **You** sign in at `/_tykerf/login` (TYKERF prints it when it starts, and `/_tykerf/` leads there too); the list of pages links to it (*Sign in to edit*). You stay signed in for a week, restarts included. After that, a browser that has signed in before gets **Edit with TYKERF** on every page, which signs you in and brings you back to the same page; visitors never see it. **Sign out** is at the bottom of the side panel.
 - Run it behind a proxy that does HTTPS (Caddy or nginx). [DEPLOY.md](../../../DEPLOY.md#serve-a-site-to-visitors-with-an-admin) has the setup.
 
 Without `TYKERF_ADMIN_PASSWORD`, TYKERF is a local editor: anyone who can reach it edits, and uses your AI account. Don't put it on the internet that way.

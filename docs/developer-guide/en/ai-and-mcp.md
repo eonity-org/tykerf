@@ -58,7 +58,10 @@ The AI may only change its scope block and what is inside it (`src/scope.ts`):
 ## The editor's AI (`src/editor/ai.ts`)
 
 The `AI` class keeps, per block:
-- **Conversations:** `.tykerf/chats/<block>.json`, with attached pictures in `.tykerf/images/`.
+- **Conversations:** `.tykerf/chats/<block>.json`, with attached pictures and PDFs in `.tykerf/images/` (`keepImage`, by content hash; `IMAGE_FILE`).
+- **Files attached** (`src/editor/attachments.ts`, `readAttachments`): every composer sends `files` (`{name, type, data}`; the older `images` still work). Each is checked by its bytes: pictures (PNG, JPEG, GIF, WebP, 5 MB) and PDFs (10 MB) go to the model as they are, five at most; a design ZIP gives its pictures and its text files as the run's `context` and `designNote` in the chat; anything else is refused with a sentence. The runners send a PDF as a document (`isDocument`: Claude Code and the Anthropic API a `document` block, Gemini `inlineData` `application/pdf`), and their memory keeps a note in its place (`Wire.kept`).
+- **What she may change** (`scope`): one block, the page's top block (the composer's *This page*: `POST /_tykerf/ask` with `scope: 'page'`; `blockSystem` tells her the whole page is hers and nothing on other pages, `whole`), or the whole site (the site's `AI`).
+- **The controls she may name** (`CONTROLS`, in both systems): the message box and its Attach button, so she never sends the person to a control the editor doesn't have.
 - **One run at a time per page.** While it runs, a guard on the editor's `Workspace` locks the block: the person can keep editing the rest of the page, but not that block, and undo and redo wait. If the AI renames the block, the conversation, the lock and the selection follow it (`followRenames`).
 - **The system prompt:** what the block is, the scope rule and the code rules (`CODE_RULES`: box code is a fragment; use the theme's variables, band tones and components; check at 1440 and 375 px). A page built from New page adds `BUILD_BRIEF` (`editor/server.ts`).
 
@@ -84,7 +87,7 @@ People add tasks on elements of the page in the editor; they live in `.tykerf/ta
 
 `TaskRun` (one per page host, `PageHost.taskRun`) is how the v3 editor hands tasks over: Kaity works through the given tasks one at a time, questions last. Each task is one `AI.ask` on the task's block with only that task (`taskPrompt`), with `RunOptions`: `tag` (`<run>#<n>`), `readOnly` for a question, `queued`, and `onStep`/`onEnd`. While the run lasts, `AI.running()` answers between her requests too, so other requests, Undo and the site's runs wait as for any run.
 
-- **Tags.** `RunRequest.tag` reaches the tools as `createTykerfServer({ tag })` (the API runners, `openTools`) or `server.ts --tag` (Claude Code's MCP process). Every history entry the tools log then carries it (`Workspace.tag`). `Workspace.revertTagged(tags, label)` takes back what those tags changed, wherever it is in the history, as one new step (Undo can take that back too). It refuses when a later step by someone else touched the same box, layout, head, file or task, and when the work changed a shared block (the site's history has that).
+- **Tags.** `RunRequest.tag` reaches the tools as `createTykerfServer({ tag })` (the API runners, `openTools`) or `server.ts --tag` (Claude Code's MCP process). Every history entry the tools log then carries it (`Workspace.tag`). Every other run carries a mark the same way (`RunRequest.mark`, `--mark`, `createTykerfServer({ mark })`: `run-<run id>`, without `ask_person`), so any run can be undone on its own from the thread (`POST /_tykerf/site/kaity/undo`). `Workspace.revertTagged(tags, label)` takes back what those tags changed, wherever it is in the history, as one new step (Undo can take that back too). It refuses when a later step by someone else touched the same box, layout, head, file or task, and when the work changed a shared block (the site's history has that).
 - **Questions** run with `readOnly` (`--read-only`): only the tools annotated read-only, plus `close_task` and `ask_person`.
 - **Suggestions:** `close_task`'s `suggest` is kept in the task (`done.next`, `Suggestion`) and copied to the run's task (`RunTask.next`); the shell shows each as a button on the card (`nextSteps`), leaving out one no longer possible (the box is gone or shared, the page is gone). Sharing is the page op `share`; the person does it, never Kaity.
 - **`ask_person`** (only in a task run) writes the question to `.tykerf/asks/<tag>.json`; when the request ends, the task is `needs-you` with it. A task she neither closed nor asked about is `needs-you` with her answer as the question. The person's answer (`answer`) puts the task back on her list with the question and answer in its prompt.
@@ -93,13 +96,15 @@ People add tasks on elements of the page in the editor; they live in `.tykerf/ta
 
 ### Kaity for the whole site
 
-`server.ts` keeps one more `AI`, over a `Workspace` on the site folder with `{ site: dir }`: one conversation (`SITE_CHAT`, in the site's `.tykerf/chats/`), `siteSystem()` instructions, no block lock and no leftovers check. Its runs carry `home` (`RunRequest.home`), so Claude Code starts the MCP server on the site without `--scope`, and the API runners open the tools with `home` (`openTools`): `list_pages`, `open_page` and `new_page` are there, and every other tool works on the open page. Endpoints: `GET /_tykerf/site/chat`, `GET /_tykerf/site/events` (SSE), `POST /_tykerf/site/ask`, `…/ask/cancel`, `…/chat/reset`. A page run and the site run wait for each other (409), and so does a new page Kaity builds from New page; renames and removals wait for the site run. Runs on different pages go on at the same time.
+`server.ts` keeps one more `AI`, over a `Workspace` on the site folder with `{ site: dir }`: one conversation (`SITE_CHAT`, in the site's `.tykerf/chats/`), `siteSystem()` instructions, no block lock and no leftovers check. Its runs carry `home` (`RunRequest.home`), so Claude Code starts the MCP server on the site without `--scope`, and the API runners open the tools with `home` (`openTools`): `list_pages`, `open_page` and `new_page` are there, and every other tool works on the open page. Endpoints: `GET /_tykerf/site/chat`, `GET /_tykerf/site/events` (SSE), `POST /_tykerf/site/ask` (`prompt`, `files`), `…/ask/cancel`, `…/chat/reset`, `GET /_tykerf/site/image/<file>`. A page run and the site run wait for each other (409), and so does a new page Kaity builds from New page; renames and removals wait for the site run. Runs on different pages go on at the same time.
 
 Every runner reports a tool call as `on.step(step(name, input), stepAt(name, input))`: the line her conversation keeps, and where on the page it is (the block a call names through `id`, `ref`, `leaf`, `target` or `ids`, or the task `close_task` closes). `AI.add` sends that `where` with the SSE `ai` step, to the open pages only; the chat file keeps the words.
 
-### Kaity's work (`src/editor/kaity-log.ts`)
+### One thread (`src/editor/kaity-log.ts`)
 
-Every run, of a page's `AI` or the site's, writes a line to the site's `.tykerf/kaity.jsonl` when it starts (`logStart`: its id, the page or `null` for the site, the block, the request, the tasks) and one when it ends (`logEnd`: done, failed or stopped, the block's name then, her last answer or error, the number of steps). `AI.ask` writes both; a log that can't be written never fails a run. `kaityRuns(site, live)` pairs them, newest first: a run with no end is *working* when it is among `live` (from `AI.progress()`: its id, block and current step) and *cut short* otherwise. The log keeps the newest 1000 lines once it passes 2000. The site's **Kaity's work** screen reads it from `GET /_tykerf/site/kaity`, again on each of the site's events, while it is open.
+Every run, of a page's `AI` or the site's, writes a line to the site's `.tykerf/kaity.jsonl` when it starts (`logStart`: its id, the page or `null` for the site, the block, `scope` (`site`, `page` or `box`), `tag` (the task's tag or the run's mark), `origin` (`fix`, `continue`: runs not asked for in words), the request, the files attached, the tasks) and one when it ends (`logEnd`: done, failed, stopped or unfinished, the block's name then, her last answer or error, the number of steps); an undo from the thread adds a third (`logUndo`). `AI.ask` writes the first two; a log that can't be written never fails a run. `kaityRuns(site, live)` pairs them, newest first: a run with no end is *working* when it is among `live` (from `AI.progress()`) and *cut short* otherwise. The log keeps the newest 1000 lines once it passes 2000.
+
+`GET /_tykerf/site/thread` gives them oldest first, each with its `kind` (`ask`, `task`, `fix`, `continue`) and whether it can still be undone: the Kaity center, the Overview's *Kaity lately* and a page's *Kaity on this page* read it (`public/shell/kaity.js`), again on the site's events, which carry each page's runs too (`createPageHost`'s `onAi`). `POST /_tykerf/site/kaity/undo {run}` takes a run back by its tag (`revertTagged`, on its page, or on every page for a site run; the site's own steps stay in Site history). `GET /_tykerf/site/kaity` still lists the runs newest first, the working ones on top.
 
 ### Runners
 
@@ -150,14 +155,14 @@ interface Runner {
 
 ### The AI-first start
 
-`POST /_tykerf/site/new` with `prompt`, `images` and/or `zip` (`{name, data}`, a design export):
+`POST /_tykerf/site/new` with `prompt` (New page's brief, as the person saw it) and `files` (pictures, PDFs, a design ZIP; the older `images` and `zip` still work):
 1. checks `runner.status()`;
-2. reads the ZIP, if any (`readDesignZip` in `src/editor/design-zip.ts`, on the dependency-free reader `src/unzip.ts`: safe names, size caps checked while inflating, CRC): its pictures join `images` (five in all), its text files become the run's `context` (`designContext`), and the chat shows only `designNote`; a ZIP with nothing usable is refused before any page is made;
+2. reads the files (`readAttachments`): a ZIP through `readDesignZip` (`src/editor/design-zip.ts`, on the dependency-free reader `src/unzip.ts`: safe names, size caps checked while inflating, CRC), its pictures joining the others (five in all), its text files the run's `context` (`designContext`), the chat showing only `designNote`; a file Kaity can't read, or a ZIP with nothing usable, is refused before any page is made;
 3. makes an empty page (`EMPTY_LAYOUT`: `header` and `main` with empty code, so nothing shows until Kaity builds it);
 4. starts `ai.ask(root, prompt, undefined, images, BUILD_BRIEF, context)` (`context` goes to the model after the prompt, not into the chat);
 5. answers with the root's name.
 
-The New page screen (`newScreen` in `public/shell/screens.js`) then opens the page in the shell, where the build shows as the page's job in the bar and the tray; the whole conversation is the root's (the shell shows a block's conversation with `?conversation=<block>`, and a task's card links to it).
+The New page screen (`newScreen` in `public/shell/newpage.js`) then opens the page in the shell, where the build shows as the page's job in the status line and the tray; the whole conversation is the root's (the shell shows a block's conversation with `?conversation=<block>`, and a task's card links to it).
 
 ## The Claude Desktop extension
 

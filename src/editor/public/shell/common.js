@@ -61,6 +61,23 @@ export const kaityMark = (working = false, light = false) => `<span class="kaity
   `<circle cx="${cx}" cy="5" r="${r}" fill="${(working ? KAITY_WORKING : light ? KAITY_REST : KAITY_LIGHT)[i]}">${working && !stillMotion
     ? `<animate attributeName="fill-opacity" values="1;1;0.4;1" dur="1s" begin="${delay}" repeatCount="indefinite"/>` : ''}</circle>`).join('')}</svg></span>`;
 
+/**
+ * The online guides (the user guide on GitHub until they move to eonity.org: change this one address then). Each
+ * "Learn tykerf" link is a page of it.
+ */
+export const DOCS = 'https://github.com/eonity-org/tykerf/blob/main/docs/user-guide/en';
+/** The Overview's "Learn tykerf" strip. */
+export const DOC_LINKS = () => [
+  ['getting-started.md', t('Getting started')], ['editor.md', t('Pages and blocks')], ['asking-kaity.md', t('Working with Kaity')],
+  ['sites.md', t('Shared blocks')], ['publishing.md', t('Publishing')],
+];
+/** The first run's Documentation card: the same guides, said a little longer. */
+export const DOC_CARD = () => [
+  ['getting-started.md', t('Getting started (5 min)')], ['sites.md', t('Pages, blocks and shared blocks')], ['asking-kaity.md', t('Working with Kaity')],
+  ['layouts.md', t('Themes and the look of the site')], ['publishing.md', t('Publishing your site')],
+];
+export const docLink = (file) => `${DOCS}/${file}`;
+
 /** When something happened, in words: "just now", "5 minutes ago", or the date. */
 export function when(at) {
   const s = (Date.now() - new Date(at).getTime()) / 1000;

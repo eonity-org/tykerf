@@ -1,6 +1,6 @@
-// Fixing one thing by hand in the v3 editor (shell/fix.js): only the element clicked, saved into its box's code;
-// the bigger fixes in the full editor, on the box and the tab for them (R8, R9); and the page shrunk to fit beside
-// the panel at its real width.
+// Fixing one thing by hand in the v4 editor (shell/fix.js): only the element clicked, in the side panel beside the
+// page, saved into its box's code; the bigger fixes in the full editor, on the box and the tab for them; what tykerf
+// draws at its own size over a page shown smaller; and the right-click menu's small changes.
 
 import { type ChildProcess, spawn } from 'node:child_process';
 import { mkdtempSync } from 'node:fs';
@@ -52,7 +52,9 @@ describe('fixing by hand in the v3 editor', () => {
     await page.locator('.ctxmenu [data-ctx="hand"]').click();
     await panel().locator('.fxtitle').waitFor();
     expect(await panel().locator('.fxtitle').textContent()).toBe('the link "The main action"');
-    expect(await page.locator('.bar .status').textContent()).toContain('Fixing by hand · the link "The main action"');
+    expect(await page.locator('.pstatus .status').textContent()).toContain('Fixing by hand · the link "The main action"');
+    // in the side panel, beside the page: the page keeps its width
+    expect(await page.locator('.pside .fixbar').isVisible()).toBe(true);
     expect(await panel().locator('.fxnote').last().textContent()).toBe('hero is the same on second. This fix stays on first unless you share the box.');
     await panel().locator('[name="text"]').fill('Start for free');
     await panel().locator('[name="href"]').selectOption('#sw-pricing');
@@ -62,7 +64,7 @@ describe('fixing by hand in the v3 editor', () => {
     await frame().locator('[data-sw="hero"] a', { hasText: 'Start for free' }).waitFor();
     // one step, which Undo takes back
     expect(ws.peekUndo()?.label).toMatch(/hero/);
-    await page.locator('[data-bar="undo"]').click();
+    await page.locator('[data-top="undo"]').click();
     await expect.poll(() => ws.content('hero')).toContain('The main action');
   });
 
@@ -79,46 +81,17 @@ describe('fixing by hand in the v3 editor', () => {
     await frame().locator('[data-sw="hero"]').waitFor();
   });
 
-  it('shrinks the page to fit beside the panel, at its real width', async () => {
+  it('opens beside the page, in the side panel, and the page is not covered or moved', async () => {
+    const before = await page.locator('.frame').evaluate((f: HTMLIFrameElement) => f.contentWindow!.innerWidth);
     await frame().locator('[data-sw="hero"] h1').click({ button: 'right' });
     await page.locator('.ctxmenu [data-ctx="hand"]').click();
     await panel().locator('.fxtitle').waitFor();
-    expect(await panel().locator('[data-view]').count()).toBe(0);
-    await panel().locator('[data-mode="shrink"]').click();
-    // the page keeps its width; it is scaled to fit beside the panel, and the bar says how much
-    expect(await page.locator('.frame').evaluate((f: HTMLIFrameElement) => f.contentWindow!.innerWidth)).toBe(1440);
-    expect(await page.locator('.viewport').evaluate((v) => getComputedStyle(v).transform)).toMatch(/^matrix\(0\.7/);
-    expect(await page.locator('.bar [data-device="full"]').textContent()).toMatch(/^7\d %$/); // on the full-width button
-    // over the page, the page is as it was
-    await panel().locator('[data-mode="over"]').click();
-    expect(await page.locator('.viewport').evaluate((v) => getComputedStyle(v).transform)).toBe('none');
-  });
-
-  it('never shrinks the page in Full editor mode: its panel is in the page, and would shrink with it', async () => {
-    await panel().locator('[data-mode="shrink"]').click();
-    const url = page.url();
-    await page.goto(url.replace(/\/$/, '/?mode=full'));
-    await frame().locator('.panel').waitFor();
-    await page.locator('[data-bar="pages"]').click();
-    await page.locator('.sidebar .pcard').first().waitFor();
-    // the switch is there, as in Tasks: Over the page, and Shrink greyed out with why
-    expect(await page.locator('.sidebar [data-mode="over"]').getAttribute('aria-pressed')).toBe('true');
-    const shrink = page.locator('.sidebar [data-mode="shrink"]');
-    expect(await shrink.getAttribute('aria-disabled')).toBe('true');
-    expect(await shrink.getAttribute('title')).toMatch(/isn't shrunk: its panel would shrink with it/);
-    await shrink.click({ force: true }); // (it can be clicked: it says why, and nothing changes)
-    await page.locator('.toast', { hasText: "isn't shrunk" }).waitFor();
-    expect(await page.locator('.viewport').evaluate((v) => getComputedStyle(v).transform)).toBe('none');
-    expect(await page.locator('.bar [data-device="full"]').textContent()).toBe('100 %');
-    // back in Tasks, shrink to fit is as the person left it
-    await page.locator('.sidebar [data-sb="collapse"]').click();
-    await page.goto(url);
-    await frame().locator('[data-sw="hero"]').waitFor();
-    await frame().locator('[data-sw="hero"] h1').click({ button: 'right' });
-    await page.locator('.ctxmenu [data-ctx="hand"]').click();
-    await panel().locator('.fxtitle').waitFor();
-    expect(await page.locator('.viewport').evaluate((v) => getComputedStyle(v).transform)).toMatch(/^matrix\(0\.7/);
-    await panel().locator('[data-mode="over"]').click();
+    expect(await panel().locator('[data-view], [data-mode]').count()).toBe(0);
+    expect(await page.locator('.frame').evaluate((f: HTMLIFrameElement) => f.contentWindow!.innerWidth)).toBe(before);
+    const p = (await panel().boundingBox())!, stage = (await page.locator('.stage').boundingBox())!;
+    expect(p.x).toBeGreaterThanOrEqual(stage.x + stage.width);
+    // the page's tasks and Kaity wait under it while fixing
+    expect(await page.locator('.pcards').isHidden()).toBe(true);
   });
 
   it('leaves it as a task for Kaity instead', async () => {
@@ -132,32 +105,32 @@ describe('fixing by hand in the v3 editor', () => {
     expect(tasks(ws).at(-1)?.label).toMatch(/^h1 "/);
   });
 
-  it('draws the task box at its own size when the page is shrunk to fit', async () => {
+  it('draws the task box at its own size when a tablet\'s width is shown smaller in a narrow column', async () => {
+    const size = page.viewportSize()!;
+    await page.setViewportSize({ width: 1000, height: size.height });
     await page.goto(page.url().replace(/\?.*$/, ''));
     await frame().locator('[data-sw="hero"] h1').waitFor();
-    if (!(await page.locator('.sidebar').isVisible())) await page.locator('[data-bar="pages"]').click();
-    await page.locator('.sidebar [data-mode="shrink"]').click();
-    expect(await page.locator('.viewport').evaluate((v) => getComputedStyle(v).transform)).toMatch(/^matrix\(0\.7/);
+    await page.locator('.bar [data-device="tablet"]').click();
+    // laid out at 768 px, shown smaller to fit the column beside the rail and the side panel
+    await expect.poll(() => page.locator('.frame').evaluate((f: HTMLIFrameElement) => f.contentWindow!.innerWidth)).toBe(768);
+    expect(await page.locator('.viewport').evaluate((v) => getComputedStyle(v).transform)).toMatch(/^matrix\(0\.[5-9]/);
     await frame().locator('[data-sw="hero"] h1').click();
     await page.locator('.taskbox').waitFor();
-    // the page is shown smaller; the box to write in isn't (440 px, as without a panel)
+    // the page is shown smaller; the box to write in isn't (440 px)
     expect(Math.round((await page.locator('.taskbox').boundingBox())!.width)).toBe(440);
-    const box = (await page.locator('.taskbox').boundingBox())!, stage = (await page.locator('.stage').boundingBox())!;
-    expect(box.x + box.width).toBeLessThanOrEqual(stage.x + stage.width + 1); // and it stays on the screen
-    // so is the task's pin (22 px high, as without a panel), on the element's top edge
+    // so is the task's pin (22 px high), on the element's top edge
     await page.locator('.taskbox textarea').fill('Shorter');
     await page.locator('.taskbox [data-box="add"]').click();
     const n = tasks(ws).at(-1)!.n;
     const pin = page.locator(`.pin[data-pin="${n}"]`);
     await pin.waitFor();
-    // (a redraw replaces the pins: measure it again until it holds)
     const h1 = (await frame().locator('[data-sw="hero"] h1').boundingBox())!;
     await expect.poll(async () => {
       const b = await pin.boundingBox();
       return b && Math.round(b.height) === 22 && Math.abs(b.y + 22 - h1.y) < 6;
     }).toBe(true);
-    await page.locator('.sidebar [data-mode="over"]').click();
-    await page.locator('.sidebar [data-sb="collapse"]').click();
+    await page.locator('.bar [data-device="full"]').click();
+    await page.setViewportSize(size);
   });
 
   it('has small changes in its right-click menu: words in place, a box added with a task on it, a box deleted', async () => {
@@ -171,7 +144,7 @@ describe('fixing by hand in the v3 editor', () => {
       await menu.locator('[role=menuitem]').first().waitFor();
     };
     await open();
-    expect(await menu.locator('[role=menuitem]').allTextContents()).toEqual(['Leave a task here…', 'Ask a question here…', 'Edit this text', 'Fix it by hand', 'Add a box below…', 'Add a box beside…', 'Delete this box…', 'Open hero in the full editor', 'Hide tykerf']);
+    expect(await menu.locator('[role=menuitem]').allTextContents()).toEqual(['Leave a task here…', 'Ask a question here…', 'Edit this text', 'Fix it by hand', 'Add a box below…', 'Add a box beside…', 'Delete this box…', 'Open hero in the full editor', 'View the site as visitors see it']);
 
     // the words, right on the page: Enter keeps them (one step), Escape puts them back
     await menu.locator('[data-ctx="text"]').click();
@@ -186,7 +159,7 @@ describe('fixing by hand in the v3 editor', () => {
     await page.keyboard.press('Escape');
     expect(await h1.textContent()).toBe('A shorter promise');
     expect(ws.content('hero')).not.toContain('nope');
-    await page.locator('[data-bar="undo"]').click();
+    await page.locator('[data-top="undo"]').click();
     await expect.poll(() => ws.content('hero')).not.toContain('A shorter promise');
     // two clicks do the same, as in the full editor: the first click's task box goes
     await expect.poll(() => h1.textContent()).not.toBe('A shorter promise'); // the page shows the undo first
@@ -195,7 +168,7 @@ describe('fixing by hand in the v3 editor', () => {
     await page.keyboard.press('Enter');
     await expect.poll(() => ws.content('hero')).toContain('Two clicks');
     expect(await page.locator('.taskbox').count()).toBe(0);
-    await page.locator('[data-bar="undo"]').click();
+    await page.locator('[data-top="undo"]').click();
     await expect.poll(() => ws.content('hero')).not.toContain('Two clicks');
 
     // a box below: added empty, and the task box asks what goes in it
@@ -216,7 +189,7 @@ describe('fixing by hand in the v3 editor', () => {
     expect(await menu.locator('.ctxconfirm p').textContent()).toBe('Delete stats? Its code goes into the box before it, and Undo brings it back.');
     await menu.locator('[data-ctx="delete-yes"]').click();
     await expect.poll(() => order().includes('stats')).toBe(false);
-    await page.locator('[data-bar="undo"]').click();
+    await page.locator('[data-top="undo"]').click();
     await expect.poll(() => order().includes('stats')).toBe(true);
   });
 });

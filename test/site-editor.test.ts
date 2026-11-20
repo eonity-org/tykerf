@@ -53,16 +53,18 @@ afterAll(async () => {
 const post = (path: string, data: unknown) => fetch(`${url}${path}`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(data) });
 
 describe('a new site', () => {
-  it('starts on New page: Kaity first, or a layout with a theme for the whole site', async () => {
+  it('starts on the Overview\'s first run, then New page: a kind of page in a frame, with a theme for the whole site', async () => {
     await page.goto(url);
-    await page.waitForURL(`${url}_tykerf/edit/_site/new`);
+    await page.waitForURL(`${url}_tykerf/edit/_site/`);
+    await page.locator('.ostart[data-start="kind"]').click();
+    await page.waitForURL(`${url}_tykerf/edit/_site/new?start=kind`);
     await page.locator('[data-purpose]').first().waitFor(); // the screen asks Kaity's status first, which may take a moment
     expect(await page.locator('[data-purpose]').count()).toBe(8); // the seven purposes, and Just the frame
     expect(await page.locator('[data-frame]').count()).toBe(3);
-    expect(await page.locator('#np-theme option').count()).toBe(7);
+    expect(await page.locator('[data-theme]').count()).toBe(7); // no site theme yet: the seven offered presets
     await page.locator('[data-purpose="event"]').click();
-    await page.locator('#np-theme').selectOption('dark');
-    expect(await page.locator('[data-np="layout"] a', { hasText: 'Preview at full size' }).getAttribute('href')).toBe('/_tykerf/preview/basic+event/dark/');
+    await page.locator('[data-theme="dark"]').click();
+    expect(await page.locator('.pvframe').getAttribute('src')).toBe('/_tykerf/preview/basic+event/dark/?side=0');
     const preview = await browser.newPage();
     await preview.goto(`${url}_tykerf/preview/basic+event/dark/`);
     expect(await preview.locator('body').evaluate((b) => getComputedStyle(b).backgroundColor)).toBe('rgb(13, 17, 23)'); // #0d1117
@@ -70,31 +72,29 @@ describe('a new site', () => {
   });
 
   it('creates the first page from them; its theme becomes the theme of the whole site', async () => {
-    // the layout's navigation and footer become the site's, shared, unless the box is unticked
-    const card = page.locator('[data-np="layout"]');
-    expect(await card.locator('[name=shared]').isChecked()).toBe(true);
-    expect(await card.locator('.check:has([name=shared])').textContent()).toMatch(/With the site's navigation and footer \(shared\)/);
-    await page.locator('#np-name').fill('home');
-    await card.locator('[type=submit]').click();
+    // the layout's navigation and footer become the site's, shared; the first page is the home page
+    expect(await page.locator('#np-name2').inputValue()).toBe('home');
+    await page.locator('[data-go="layout"]').click();
     await page.waitForURL(`${url}_tykerf/edit/home/`);
     expect(existsSync(join(site, 'kit', 'blocks', 'nav.html')) && existsSync(join(site, 'kit', 'blocks', 'footer.html'))).toBe(true);
     expect(readFileSync(join(site, 'home', 'layout.slice'), 'utf8')).toMatch(/nav\[[^\]]*use=nav/);
     expect(siteTheme()).toEqual(values('dark'));
     expect(existsSync(join(site, 'home', 'head.html'))).toBe(false);
-    expect(await page.locator('.bar .switcher .name').textContent()).toBe('home');
+    expect(await page.locator('.bar .crumb b').textContent()).toBe('home');
     await expect.poll(() => page.frameLocator('.frame').locator('body').evaluate((b) => getComputedStyle(b).backgroundColor)).toBe('rgb(13, 17, 23)');
   });
 
   it('refuses a page name that is taken, then adds a new page in the site theme', async () => {
-    await page.goto(`${url}_tykerf/edit/_site/new?from=home`);
-    expect(await page.locator('#np-theme').count()).toBe(0); // the site's theme, not a choice
-    expect(await page.locator('[data-np="layout"] a', { hasText: 'Preview at full size' }).getAttribute('href')).toBe('/_tykerf/preview/basic+place/site/'); // the first purpose in the default frame, never launch
-    await page.locator('#np-name').fill('home');
-    await page.locator('[data-np="layout"] [type=submit]').click();
-    expect(await page.locator('.np-error').textContent()).toMatch(/already a page called home/);
-    await page.locator('#np-name').fill('about');
+    await page.goto(`${url}_tykerf/edit/_site/new?start=kind&from=home`);
+    await page.locator('.pvframe').waitFor();
+    expect(await page.locator('[data-theme="site"]').getAttribute('aria-pressed')).toBe('true'); // the site's theme first
+    expect(await page.locator('.pvframe').getAttribute('src')).toBe('/_tykerf/preview/basic+place/site/?side=0'); // the first purpose in the default frame, never launch
+    await page.locator('#np-name2').fill('home');
+    await page.locator('[data-go="layout"]').click();
+    expect(await page.locator('.np-error').first().textContent()).toMatch(/already a page called home/);
+    await page.locator('#np-name2').fill('about');
     await page.locator('[data-purpose="post"]').click();
-    await page.locator('[data-np="layout"] [type=submit]').click();
+    await page.locator('[data-go="layout"]').click();
     await page.waitForURL(`${url}_tykerf/edit/about/`);
     expect(existsSync(join(site, 'about', 'layout.slice'))).toBe(true);
     expect(existsSync(join(site, 'about', 'head.html'))).toBe(false);
@@ -206,17 +206,19 @@ describe('a new site', () => {
     if ((await textTab.getAttribute('aria-selected')) !== 'true') await textTab.click();
     const pick = page.locator('.work select[data-link]').first();
     await pick.waitFor(); // the Text tab loads the box first
-    expect(await pick.locator('option').allTextContents()).toEqual(['Link to a page…', 'about', 'home', 'team']);
+    await expect.poll(() => pick.locator('option').allTextContents()).toEqual(['Link to a page…', 'about', 'home', 'team']);
 
-    // rename "about" from its own page, in the site sidebar: the tab follows, and home's link points at the new name
-    await page.goto(`${url}_tykerf/edit/about/`);
-    await page.locator('[data-bar="pages"]').click();
-    await page.locator('.sidebar .pcard[data-page="about"] [data-pact="name"]').click();
-    await page.locator('.sidebar .pform [name="to"]').fill('about-us');
-    await page.locator('.sidebar .pform [type="submit"]').click();
-    // the tab goes to the new address twice (after the rename, and on the "moved" event): one may cut the other short
-    await expect.poll(() => page.url(), { timeout: 8000 }).toBe(`${url}_tykerf/edit/about-us/`);
-    await page.waitForLoadState();
+    // rename "about" from its card on the Overview: a tab open on it follows, and home's link points at the new name
+    const tab = await browser.newPage();
+    await tab.goto(`${url}_tykerf/edit/about/`);
+    await tab.frameLocator('.frame').locator('[data-sw]').first().waitFor();
+    await page.goto(`${url}_tykerf/edit/_site/`);
+    await page.locator('.ocard[data-page="about"] [data-pact="name"]').click();
+    await page.locator('.pform [name="to"]').fill('about-us');
+    await page.locator('.pform [type="submit"]').click();
+    await page.locator('.ocard[data-page="about-us"]').waitFor();
+    await expect.poll(() => tab.url(), { timeout: 8000 }).toBe(`${url}_tykerf/edit/about-us/`);
+    await tab.close();
     expect(existsSync(join(site, 'about'))).toBe(false);
     // (home's first box is the site's shared navigation: the link follows there, for every page)
     expect(await (await fetch(`${url}home/?tykerf=frame`)).text()).toContain('href="/about-us/"');
@@ -236,17 +238,14 @@ describe('a new site', () => {
     const foreign = await fetch(`${url}_tykerf/site/remove`, { method: 'POST', headers: { 'content-type': 'application/json', origin: 'http://evil.example' }, body: JSON.stringify({ name: 'home' }) });
     expect(foreign.status).toBe(403);
 
-    await page.goto(`${url}_tykerf/edit/about-us/`);
-    // the sidebar stays open from page to page (it was left open on the last one)
-    await page.frameLocator('.frame').locator('[data-sw]').first().waitFor();
-    if (!(await page.locator('.sidebar').isVisible())) await page.locator('[data-bar="pages"]').click();
-    await page.locator('.sidebar .pcard[data-page="about-us"] [data-pact="remove"]').click();
+    await page.goto(`${url}_tykerf/edit/_site/`);
+    await page.locator('.ocard[data-page="about-us"] [data-pact="more"]').click();
+    await page.locator('.ocard[data-page="about-us"] [data-pact="remove"]').click();
     // the link is in the shared navigation, so on every page that shows it
-    expect(await page.locator('.sidebar .confirm .hint').textContent()).toMatch(/2 links to it from home, team will point nowhere/);
-    await page.locator('.sidebar [data-pact="remove-yes"]').click();
-    // the tab goes to the site's screens, with the pages left
-    await expect.poll(() => page.url(), { timeout: 8000 }).toBe(`${url}_tykerf/edit/_site/tasks`);
-    await expect.poll(() => page.locator('.sidebar .pname').allTextContents(), { timeout: 8000 }).toEqual(['home', 'team']);
+    expect(await page.locator('.confirm .hint').textContent()).toMatch(/2 links to it from home, team will point nowhere/);
+    await page.locator('[data-pact="remove-yes"]').click();
+    await expect.poll(() => page.locator('.ocard h3 a').allTextContents(), { timeout: 8000 }).toEqual(['home', 'team']);
+    expect(await page.locator('.rail .rpage').allTextContents()).toEqual(['homeHome', 'team']);
     expect(existsSync(join(site, 'about-us'))).toBe(false);
     const { readdirSync } = await import('node:fs');
     expect(readdirSync(join(site, '.trash'))[0]).toMatch(/^about-us-/);
@@ -287,41 +286,32 @@ describe('a new site', () => {
     await page.locator('a[href="/_tykerf/export.zip?page=home"]').waitFor();
   });
 
-  it('in the shell, has a light header with the tykerf sign, and compacts while the site\'s sidebar is open', async () => {
+  it('in Edit mode, is the inspector docked on the right of the frame: the page beside it, the tree in the rail', async () => {
     // on its own, the full editor keeps its dark header
     await page.goto(`${url}home/?tykerf=full-frame`);
     await page.locator('section.panel').waitFor();
     const dark = await page.locator('section.panel .head').evaluate((h) => getComputedStyle(h).backgroundColor);
     expect(dark).toBe('rgb(10, 84, 117)');
-    // the editor open, the sidebar closed
-    await page.evaluate(() => (localStorage.setItem('tykerf.min', 'false'), localStorage.setItem('tykerf.sidebar', '"closed"')));
     await page.goto(`${url}_tykerf/edit/home/?mode=full`);
     const fr = page.frameLocator('.frame');
     await fr.locator('section.panel').waitFor();
+    expect(await page.locator('.bar .modes [aria-current]').textContent()).toBe('Edit');
     expect(await fr.locator('section.panel .head').evaluate((h) => getComputedStyle(h).backgroundColor)).toBe('rgb(242, 247, 249)');
-    expect(await fr.locator('section.panel .head .brand').isVisible()).toBe(true);
-    const saved = () => page.evaluate(() => localStorage.getItem('tykerf.min'));
-    const before = await saved();
-    expect(await fr.locator('section.panel').evaluate((p) => p.classList.contains('min'))).toBe(false);
-    // the sidebar opens: the editor shows only its header, out of the sidebar's way, and says why
-    await page.locator('[data-bar="pages"]').click();
-    await page.locator('.sidebar .pcard.current .pstate', { hasText: 'Open now in the full editor' }).waitFor();
-    await expect.poll(() => fr.locator('section.panel').evaluate((p) => p.classList.contains('min'))).toBe(true);
-    expect(await fr.locator('.compacted-note').textContent()).toBe('Compacted while the site is open');
-    const side = (await page.locator('.sidebar').boundingBox())!;
-    expect((await fr.locator('section.panel').boundingBox())!.x).toBeGreaterThanOrEqual(side.x + side.width);
-    // closed: back as it was, and the person's own Compact choice was never touched
-    await page.locator('.sidebar [data-sb="collapse"]').click();
-    await expect.poll(() => fr.locator('section.panel').evaluate((p) => p.classList.contains('min'))).toBe(false);
-    expect(await fr.locator('.compacted-note').isHidden()).toBe(true);
-    expect(await saved()).toBe(before);
-    // See more while it is open is the person's choice: it stays open when the sidebar closes
-    await page.locator('[data-bar="pages"]').click();
-    await expect.poll(() => fr.locator('section.panel').evaluate((p) => p.classList.contains('min'))).toBe(true);
-    await fr.locator('.minimize').click();
-    expect(await fr.locator('.compacted-note').isHidden()).toBe(true);
-    await page.locator('.sidebar [data-sb="collapse"]').click();
-    expect(await fr.locator('section.panel').evaluate((p) => p.classList.contains('min'))).toBe(false);
+    // one toolbar: no Undo, Redo, Compact or × of its own (the top bar has the one Undo), no tree (the rail has it)
+    for (const gone of ['.head-tools > .undo', '.head-tools > .redo', '.head-tools > .minimize', '.head-tools > .closebtn', '.tree']) expect(await fr.locator(gone).isHidden(), gone).toBe(true);
+    expect(await page.getByRole('button', { name: /^Undo|^Nothing to undo/ }).count()).toBe(1);
+    // docked on the right, the page laid out beside it, not under it
+    const frameBox = (await page.locator('.frame').boundingBox())!;
+    const panel = (await fr.locator('section.panel').boundingBox())!;
+    expect(Math.round(panel.x + panel.width)).toBe(Math.round(frameBox.x + frameBox.width));
+    expect(await fr.locator('html').evaluate((h) => getComputedStyle(h).marginRight)).toBe('400px');
+    const body = (await fr.locator('body').boundingBox())!;
+    expect(body.x + body.width).toBeLessThanOrEqual(panel.x + 1);
+    // the rail's tree selects in the editor, and the editor's selection shows in the rail
+    await page.locator('.rail [data-block="footer"]').click();
+    await expect.poll(() => fr.locator('.path [aria-current]').textContent()).toBe('footer');
+    await fr.locator('.path button').first().click();
+    await expect.poll(() => page.locator('.rail .rblocks [aria-current]').count()).toBe(0);
   });
 
   it('tells which AI answers, never its key', async () => {
@@ -331,11 +321,12 @@ describe('a new site', () => {
     expect(JSON.stringify(st)).not.toMatch(/key=|sk-/);
   });
 
-  it('manages the pages from the sidebar: names, copies, the trash, home and title; the head code and the site\'s Undo', async () => {
+  it('manages the pages from the Overview: names, copies, the trash, home and title; the head code and the site\'s Undo', async () => {
     await post('_tykerf/site/new', { name: 'notes', layout: 'blank' });
-    await page.goto(`${url}_tykerf/edit/_site/tasks`);
-    const sb = page.locator('.sidebar');
-    const card = (name: string) => sb.locator(`.pcard[data-page="${name}"]`);
+    await page.goto(`${url}_tykerf/edit/_site/`);
+    const sb = page.locator('.screen');
+    const rail = page.locator('.rail');
+    const card = (name: string) => sb.locator(`.ocard[data-page="${name}"]`);
     await card('notes').waitFor();
     // a name that can't be one is refused; a good one renames the page
     const bad = await post('_tykerf/site/rename', { name: 'notes', to: 'Bad Name' });
@@ -356,18 +347,19 @@ describe('a new site', () => {
     expect(again).toMatchObject({ ok: true, name: 'journal-copy-2', url: '/journal-copy-2/' });
     for (const n of ['journal-copy', 'journal-copy-2']) await post('_tykerf/site/remove', { name: n });
     await page.evaluate(() => window.dispatchEvent(new Event('focus'))); // coming back: the list looks again
-    await expect.poll(() => sb.locator('.pname').allTextContents(), { timeout: 5000 }).not.toContain('journal-copy');
+    await expect.poll(() => rail.locator('.rpage').allTextContents(), { timeout: 5000 }).not.toContain('journal-copy');
 
     // removing asks first
+    await card('journal').locator('[data-pact="more"]').click();
     await card('journal').locator('[data-pact="remove"]').click();
     expect(await sb.locator('.confirm p').first().textContent()).toBe("Remove journal? It goes to the site's trash, and links to it stop working.");
     expect(await sb.locator('.confirm .hint').textContent()).toBe('No other page links to it.');
     await sb.locator('[data-pact="remove-yes"]').click();
-    await expect.poll(() => sb.locator('.pname').allTextContents()).not.toContain('journal');
+    await expect.poll(() => sb.locator('.ocard h3 a').allTextContents()).not.toContain('journal');
     expect(existsSync(join(site, 'journal'))).toBe(false);
 
     // removed pages wait in the trash, until it is emptied for good (asked first)
-    await sb.locator('[data-screen="history"]').click();
+    await rail.locator('[data-screen="history"]').click();
     await expect.poll(() => page.locator('.trashsec li b').allTextContents()).toContain('journal');
     await page.locator('[data-h="empty"]').click();
     expect(await page.locator('.trashsec .confirm p').textContent()).toMatch(/for good\? This cannot be undone\./);
@@ -376,32 +368,43 @@ describe('a new site', () => {
     expect(existsSync(join(site, '.trash'))).toBe(false);
 
     // the home page (the site's first page, from the start), and a title set by hand
+    await rail.locator('[data-screen="overview"]').click();
     await card('home').locator('.hometag').waitFor();
     await card('home').locator('[data-pact="name"]').click();
     await sb.locator('.pform [name=title]').fill('Our home');
     await sb.locator('.pform [type=submit]').click();
     await expect.poll(() => JSON.parse(readFileSync(join(site, 'site.json'), 'utf8'))).toMatchObject({ home: 'home', titles: { home: 'Our home' } });
-    // the site's address opens the home page (in the editor, for a person signed in); /pages/ lists them by title
+    // the site's address opens the site manager's Overview for a person signed in (the home page in View mode and for
+    // visitors); a page's address opens it in the editor; /pages/ lists them by title
     const front = await fetch(url, { redirect: 'manual' });
-    expect([front.status, front.headers.get('location')]).toEqual([302, '/home/']);
+    expect([front.status, front.headers.get('location')]).toEqual([302, '/_tykerf/edit/_site/']);
+    expect((await fetch(url, { redirect: 'manual', headers: { cookie: 'tykerf_view=1' } })).headers.get('location')).toBe('/home/');
     expect((await fetch(`${url}home/`, { redirect: 'manual' })).headers.get('location')).toBe('/_tykerf/edit/home/');
-    expect((await fetch(`${url}_tykerf/site/`, { redirect: 'manual' })).headers.get('location')).toBe('/_tykerf/edit/_site/tasks');
+    expect((await fetch(`${url}_tykerf/site/`, { redirect: 'manual' })).headers.get('location')).toBe('/_tykerf/edit/_site/');
     expect(await (await fetch(`${url}pages/`)).text()).toMatch(/<a href="\/home\/"><span class="title">Our home<\/span><span class="route">\/home\/ <b>home<\/b><\/span>/);
 
     // the head code of every page, apart from the theme: saved, and a style block refused (styles are the kit's)
-    await sb.locator('[data-screen="settings"]').click();
+    await rail.locator('[data-screen="settings"]').click();
     const code = page.locator('form[data-s="code"]');
     await code.locator('textarea').fill('<meta name="tykerf-note" content="outline: 3px solid red">');
     await code.locator('[type=submit]').click();
     await page.locator('.toast', { hasText: 'Saved' }).waitFor();
     expect(await (await fetch(`${url}home/?tykerf=frame`)).text()).toContain('<meta name="tykerf-note" content="outline: 3px solid red">');
     expect(siteTheme()).toBeTruthy(); // the theme stays
-    await code.locator('textarea').fill('<style data-tykerf-theme>:root{}</style>');
-    await code.locator('[type=submit]').click();
-    await page.locator('.toast.bad', { hasText: 'Page tab' }).waitFor();
+    // (the screen draws itself again after Saved: a field filled meanwhile can be replaced, so try again then)
+    for (let i = 0; ; i++) {
+      await code.locator('textarea').fill('<style data-tykerf-theme>:root{}</style>');
+      await code.locator('[type=submit]').click();
+      try {
+        await page.locator('.toast.bad', { hasText: 'Page tab' }).waitFor({ timeout: 3000 });
+        break;
+      } catch (e) {
+        if (i === 2) throw e;
+      }
+    }
 
     // the kit's tags: a file with no name to give, and nothing to remove yet
-    await sb.locator('[data-screen="shared"]').click();
+    await rail.locator('[data-screen="shared"]').click();
     await page.locator('[data-kit-tab="tags"]').click();
     await page.locator('[data-k="new"]').click();
     await page.locator('.kitedit textarea').waitFor();
@@ -411,7 +414,7 @@ describe('a new site', () => {
     await page.locator('[data-kit-tab="blocks"]').click();
 
     // the site's one Undo: it takes back the head's change and the kit's, newest first
-    await sb.locator('[data-screen="history"]').click();
+    await rail.locator('[data-screen="history"]').click();
     const undo = page.locator('[data-h="undo"]');
     await expect.poll(() => undo.textContent()).toBe('Undo "edit the head code of every page"');
     kitWrite(site, 'styles', 'note', '.t-note { color: blue }'); // a kit change after it (as Kaity's would come)
@@ -607,23 +610,27 @@ describe('a new site', () => {
     await page.frameLocator('.frame').locator('[data-sw]').first().waitFor();
     await page.waitForTimeout(500);
     removePage(site, 'lisbon');
-    await page.waitForURL(`${url}_tykerf/edit/_site/tasks`);
+    await page.waitForURL(`${url}_tykerf/edit/_site/`);
 
     logStart(site, { run: 'r1', page: 'home', block: 'hero', request: 'Work through this task:\n\n#1 · hero › h1 · 1280 px\nShorter title' });
     logEnd(site, { run: 'r1', end: 'done', block: 'hero', answer: 'The title is **shorter**.', steps: 4 });
     logStart(site, { run: 'r2', page: null, block: null, request: 'Link every page' });
+    // the Kaity center as a page: one thread, oldest first, each request and her answer once
     await page.goto(`${url}_tykerf/edit/_site/kaity`);
-    await page.locator('.runs .run').nth(1).waitFor();
-    expect(await page.locator('.workhead .summary').textContent()).toBe('0 going on now, 2 finished.');
-    const [site_, home] = [page.locator('.runs .run').nth(0), page.locator('.runs .run').nth(1)];
-    expect(await site_.locator('.state').textContent()).toBe('Cut short: TYKERF stopped while she worked'); // no run going on now
-    expect(await site_.locator('.rhead b').textContent()).toBe('The whole site');
-    expect(await home.locator('.rhead a').getAttribute('href')).toBe('/_tykerf/edit/home/?conversation=hero');
-    expect(await home.locator('.state').textContent()).toBe('Done');
+    const thread = page.locator('.screen .kview .thread');
+    await thread.locator('.ti.you').nth(1).waitFor();
+    expect(await thread.locator('.ti.you .req').allTextContents()).toEqual(['Work through this task:\n\n#1 · hero › h1 · 1280 px\nShorter title', 'Link every page']);
+    const [home, site_] = [thread.locator('.ti.her').nth(0), thread.locator('.ti.her').nth(1)];
+    expect(await home.locator('.scopechip').textContent()).toBe('home · hero');
     expect(await home.locator('.md strong').textContent()).toBe('shorter');
-    expect(await home.locator('.rhead .note').textContent()).toContain('4 steps');
-    await page.locator('[data-k="filter"]').selectOption('site');
-    await expect.poll(() => page.locator('.runs .run').count()).toBe(1);
+    expect(await home.locator('.when').textContent()).toContain('4 steps');
+    expect(await site_.locator('.scopechip').textContent()).toBe('Whole site');
+    expect(await site_.locator('.note').textContent()).toBe('Cut short: tykerf stopped while she worked.'); // no run going on now
+    // opened at the newest, next to the composer
+    expect(await page.locator('.screen .kscroll').evaluate((e) => e.scrollHeight - e.scrollTop - e.clientHeight)).toBeLessThan(40);
+    await page.locator('.screen .kfilters [data-filter="site"]').click();
+    await expect.poll(() => thread.locator('.ti.you').count()).toBe(1);
+    await page.locator('.screen .kfilters [data-filter="all"]').click();
   });
 });
 
@@ -641,7 +648,7 @@ describe('an editor older than its code', () => {
       expect(await (await fetch(`${at}_tykerf/version`)).json()).toEqual({ ok: true, outdated: false, page: expect.any(String) });
       const tab = await browser.newPage();
       await tab.goto(at);
-      await tab.locator('.bar .switcher').waitFor();
+      await tab.locator('.bar .brandlink').waitFor();
       await tab.waitForTimeout(300); // it has asked
       expect(await tab.locator('.outdated').isHidden()).toBe(true);
       utimesSync(join(code, 'a.ts'), new Date(), new Date(Date.now() + 60_000));
@@ -666,7 +673,7 @@ describe('an editor older than its code', () => {
       const at = `http://localhost:${port}/`;
       const tab = await browser.newPage();
       await tab.goto(`${at}home/`);
-      await tab.locator('.bar .switcher').waitFor();
+      await tab.locator('.bar .brandlink').waitFor();
       await tab.waitForTimeout(300); // it has asked which version it loaded
       expect(await tab.locator('.outdated').isHidden()).toBe(true);
       writeFileSync(join(files, 'tykerf.js'), '// the browser part, updated'); // as an update does
@@ -674,7 +681,7 @@ describe('an editor older than its code', () => {
       await tab.locator('.outdated', { hasText: 'reload this page' }).waitFor();
       await tab.locator('.outdated .reload').click();
       await tab.waitForLoadState();
-      await tab.locator('.bar .switcher').waitFor();
+      await tab.locator('.bar .brandlink').waitFor();
       await tab.waitForTimeout(300);
       expect(await tab.locator('.outdated').isHidden()).toBe(true); // the new script, nothing to say
       await tab.close();

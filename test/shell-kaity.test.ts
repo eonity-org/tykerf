@@ -1,6 +1,7 @@
-// Kaity in the v3 editor (shell/shell.js): she works through the page's tasks one at a time while the bar and the
-// tray follow her, then the review: what she changed, before and after, on a phone, her question answered, her
-// answer to a question, one task's work undone, and keeping the rest. The editor runs the Anthropic runner
+// Kaity in the v4 editor (shell/shell.js, shell/kaity.js): she works through the page's tasks one at a time while the
+// status line and the tray follow her, then the review: what she changed, before and after, on a phone, her question
+// answered, her answer to a question, one task's work undone, and keeping the rest. Then a request about the whole
+// page from the composer under it, its place in the thread, and Undo from there. The editor runs the Anthropic runner
 // against a fake API that answers each task by what it asks, so the whole path is real.
 
 import { type ChildProcess, spawn } from 'node:child_process';
@@ -22,7 +23,9 @@ const say = (text: string) => message([{ type: 'text', text }], 'end_turn');
 const call = (name: string, input: unknown, id = name) => ({ type: 'tool_use', id, name, input });
 
 /** Kaity's side, by the task the request is about and how many turns it has had. */
-function kaity(body: { messages: { role: string; content: { type: string; text?: string }[] }[] }) {
+const systems: string[] = [];
+function kaity(body: { system?: string | { text: string }[]; messages: { role: string; content: { type: string; text?: string }[] }[] }) {
+  systems.push(typeof body.system === 'string' ? body.system : (body.system ?? []).map((b) => b.text).join('\n'));
   const msgs = body.messages;
   let i = msgs.length - 1;
   while (i >= 0 && !(msgs[i].role === 'user' && msgs[i].content.some((c) => c.type === 'text'))) i--;
@@ -37,17 +40,20 @@ function kaity(body: { messages: { role: string; content: { type: string; text?:
     if (/Their answer: \$90/.test(prompt)) return turn === 0 ? message([call('close_task', { n: 2, reply: 'Added $90 a year.' })]) : say('Added it.');
     return turn === 0 ? message([call('ask_person', { question: 'What is the yearly price?' })]) : say('I need the yearly price.');
   }
+  if (prompt.startsWith('Make the call to action warmer')) return turn === 0 ? message([call('set_content', { id: 'cta', html: '<h2>Warmer call to action</h2>' })]) : say('Made it warmer.');
   if (prompt.startsWith('Question 3:')) return turn === 0 ? message([call('close_task', { n: 3, reply: 'Yes: hero is the same on both pages.', suggest: [{ do: 'open', name: 'hero' }] })]) : say('Answered.');
   return say('done');
 }
 
-describe('Kaity in the v3 editor', () => {
+describe('Kaity in the v4 editor', () => {
   let api: Server;
   let browser: Browser;
   let server: ChildProcess;
   let ws: Workspace;
   let page: Page;
   let hero: string | null;
+  let cta: string | null;
+  let desk = 0;
 
   beforeAll(async () => {
     api = createServer(async (req, res) => {
@@ -62,6 +68,7 @@ describe('Kaity in the v3 editor', () => {
     ws = new Workspace(join(site, 'home'));
     createPage(ws, 'launch');
     hero = ws.content('hero');
+    cta = ws.content('cta');
     const port = await freePort();
     server = spawn(process.execPath, ['--import', 'tsx', 'src/editor/server.ts', site, '--port', String(port)], {
       stdio: ['ignore', 'pipe', 'inherit'],
@@ -76,6 +83,7 @@ describe('Kaity in the v3 editor', () => {
     page.setDefaultTimeout(15_000);
     await page.goto(`http://localhost:${port}/_tykerf/edit/home/`);
     await page.frameLocator('.frame').locator('[data-sw="hero"]').waitFor();
+    desk = await page.locator('.frame').evaluate((f: HTMLIFrameElement) => f.contentWindow!.innerWidth);
   }, 60_000);
   afterAll(async () => {
     await browser?.close();
@@ -84,7 +92,7 @@ describe('Kaity in the v3 editor', () => {
   });
 
   const frame = () => page.frameLocator('.frame');
-  const status = () => page.locator('.bar .status').textContent();
+  const status = () => page.locator('.pstatus .status').textContent();
   async function leave(sel: string, text: string) {
     await frame().locator(sel).first().click();
     await page.locator('.taskbox textarea').fill(text);
@@ -97,10 +105,12 @@ describe('Kaity in the v3 editor', () => {
     await leave('[data-sw="pricing"] h2', 'Add a yearly price next to the monthly one');
     await leave('[data-sw="hero"] p', 'Is this box the same on second?');
     expect(tasks(ws).map((x) => [x.n, x.kind ?? 'task'])).toEqual([[1, 'task'], [2, 'task'], [3, 'question']]);
-    await page.locator('[data-bar="give"]').click();
-    // she starts: the steps open, the bar says where she is, the page marks her element
+    // the side panel lists them, with Give them to Kaity
+    expect(await page.locator('.ptask').count()).toBe(3);
+    await page.locator('.pside [data-side="give"]').click();
+    // she starts: the steps open, the status line says where she is, the page marks her element
     await expect.poll(status).toMatch(/^Kaity is working · task 1 of 3/);
-    expect(await page.locator('.bar .chip').textContent()).toContain('hero');
+    expect(await page.locator('.pstatus .chip').textContent()).toContain('hero');
     expect(await page.locator('.tray').isVisible()).toBe(true);
     expect(await page.locator('.tray h2').textContent()).toBe('Kaity is working through 3 tasks on home');
     await page.locator('.ktag', { hasText: '1 · Kaity is here' }).waitFor();
@@ -128,7 +138,7 @@ describe('Kaity in the v3 editor', () => {
     await expect.poll(() => page.locator('.frame').evaluate((f: HTMLIFrameElement) => f.contentWindow!.innerWidth)).toBe(375);
     expect(await page.locator('.bar [data-device="phone"]').getAttribute('aria-pressed')).toBe('true');
     await page.locator('.bar [data-device="full"]').click();
-    await expect.poll(() => page.locator('.frame').evaluate((f: HTMLIFrameElement) => f.contentWindow!.innerWidth)).toBe(1280);
+    await expect.poll(() => page.locator('.frame').evaluate((f: HTMLIFrameElement) => f.contentWindow!.innerWidth)).toBe(desk);
   });
 
   it('takes the person\'s answer to her question and goes on; an answered question is read and put away', async () => {
@@ -160,9 +170,35 @@ describe('Kaity in the v3 editor', () => {
     expect(tasks(ws, { open: true }).map((x) => x.n)).toEqual([1]);
     expect(await page.locator('[data-bar="keep"]').textContent()).toBe('Keep the change');
     await page.locator('[data-bar="keep"]').click();
-    await page.locator('.bar .hint').waitFor();
+    await page.locator('.pstatus .hint').waitFor();
     expect(await page.locator('.tray').isHidden()).toBe(true);
-    expect(await page.locator('[data-bar="tray"]').textContent()).toBe('1 task');
+    expect(await page.locator('.pstatus [data-bar="tray"]').textContent()).toBe('1 task · see them all');
     expect(await page.locator('.pin.done').count()).toBe(0);
+  });
+
+  it('asks Kaity about the whole page from the composer under it; the thread shows it, and Undo takes it back', async () => {
+    const composer = page.locator('.pagecol .composer');
+    expect(await composer.locator('.chip[aria-pressed="true"]').textContent()).toBe('This page');
+    await composer.locator('textarea').fill('Make the call to action warmer');
+    await composer.locator('textarea').press('Enter');
+    await expect.poll(() => ws.content('cta'), { timeout: 30_000 }).toContain('Warmer call to action');
+    // she was told the whole page is hers, and nothing on other pages
+    expect(systems.at(-1)).toMatch(/You are working on the whole page "home": any of its blocks may change, and nothing on the site's other pages/);
+    expect(systems.at(-1)).toMatch(/Attach button/);
+    // Kaity on this page: the request, and Undo
+    const item = page.locator('.pthread li', { hasText: 'Make the call to action warmer' });
+    await item.waitFor();
+    expect(await item.locator('.scopechip').textContent()).toBe('home');
+    // the Kaity center: what was asked and what she answered, oldest first, opened at the newest
+    await page.locator('.bar [data-top="kaity"]').click();
+    const center = page.locator('.kcenter');
+    await center.locator('.ti.you', { hasText: 'Make the call to action warmer' }).waitFor();
+    expect(await center.locator('.ti.her').last().locator('.md').textContent()).toBe('Made it warmer.');
+    expect(await center.locator('.ti.event').count()).toBeGreaterThan(0); // her task runs: compact events
+    expect(await center.locator('.kscroll').evaluate((e) => e.scrollHeight - e.scrollTop - e.clientHeight)).toBeLessThan(40);
+    await center.locator('[data-kc="close"]').click();
+    await item.locator('[data-undo-run]').click();
+    await expect.poll(() => ws.content('cta')).toBe(cta);
+    await expect.poll(() => page.locator('.pthread li', { hasText: 'Make the call to action warmer' }).locator('[data-undo-run]').count()).toBe(0);
   });
 });

@@ -10,7 +10,7 @@ An export is the page, or every page of the site, as plain files you can put on 
 
 ## From the editor
 
-**Publish**, at the bottom of the site's sidebar, has an **Export** section. Choose:
+**Publish**, in the top bar, has an **Export** section. Choose:
 
 - **Export the site**: every page, so links between pages keep working. Links between pages end in a folder (`../about/`), as web hosts serve them.
 - **Export to open from disk**: links between pages end in `index.html` (`../about/index.html`), so you can double-click `index.html` and browse the export without a web server. It works on a web host too, with less tidy addresses.
@@ -22,7 +22,7 @@ Before you export, the site's **Check** lists links to pages that don't exist an
 
 ## Publishing instead
 
-To put the site online without downloading anything, **Publish**, at the bottom of the site's sidebar, sends it to a GitHub repository that GitHub Pages, Cloudflare Pages or Netlify serve: see [Publishing and serving](publishing.md).
+To put the site online without downloading anything, **Publish**, in the top bar, sends it to a GitHub repository that GitHub Pages, Cloudflare Pages or Netlify serve: see [Publishing and serving](publishing.md).
 
 ## From the command line
 

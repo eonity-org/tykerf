@@ -32,5 +32,5 @@ if (process.argv.includes('--lazy')) {
   // --scope: the block of one editor AI run (see tools.ts)
   // the folder may be a site, or a page of one: the client can then list, open and make its pages
   // --tag, --read-only: Kaity working on one task (ai.ts): her changes carry the tag; a question changes nothing
-  await createTykerfServer(ws, { scope: flag('--scope') ?? null, home: dir, localFiles: true, tag: flag('--tag') ?? null, readOnly: process.argv.includes('--read-only') }).connect(new StdioServerTransport());
+  await createTykerfServer(ws, { scope: flag('--scope') ?? null, home: dir, localFiles: true, tag: flag('--tag') ?? null, mark: flag('--mark') ?? null, readOnly: process.argv.includes('--read-only') }).connect(new StdioServerTransport());
 }

@@ -1,5 +1,5 @@
-// The site in the v3 editor (shell/site.js, shell/screens.js): the sidebar over a page, the site's screens beside it
-// docked, and Give Kaity everything going page by page. The editor runs the Anthropic runner against a fake API
+// The site in the v4 editor (shell/site.js, shell/overview.js, shell/screens.js, shell/kaity.js): the Overview, the
+// site's screens beside the docked rail, the Kaity center, and Give Kaity everything going page by page. The editor runs the Anthropic runner against a fake API
 // that closes each task it is given.
 
 import { type ChildProcess, spawn } from 'node:child_process';
@@ -75,96 +75,103 @@ describe('the site in the v3 editor', () => {
 
   const frameWidth = () => page.locator('.frame').evaluate((f: HTMLIFrameElement) => f.contentWindow!.innerWidth);
 
-  it('opens the site over the page from the page switcher, without moving the page', async () => {
-    await page.goto(`${base}/_tykerf/edit/first/`);
-    await page.frameLocator('.frame').locator('[data-sw="hero"]').waitFor();
-    const width = await frameWidth();
-    await page.locator('[data-bar="pages"]').click();
-    const sb = page.locator('.sidebar');
-    await sb.locator('.pcard').first().waitFor();
-    expect(await page.locator('[data-bar="pages"]').getAttribute('aria-expanded')).toBe('true');
-    expect(await frameWidth()).toBe(width);
-    expect(await sb.locator('.pname').allTextContents()).toEqual(['first', 'second']);
-    expect(await sb.locator('.pcard.current .pstate').textContent()).toMatch(/^Open now · 1 task/);
-    expect(await sb.locator('.pcard[data-page="first"] .hometag').count()).toBe(1);
-    expect(await sb.locator('[data-screen="tasks"] .sstate').textContent()).toBe('3 open on 2 pages');
-    expect(await sb.locator('[data-screen="settings"] .sstate').textContent()).toBe('language not set');
-    // its page actions are words: a title set here is the page's
-    await sb.locator('.pcard[data-page="second"] [data-pact="name"]').click();
-    await sb.locator('.pform input[name="title"]').fill('The second page');
-    await sb.locator('.pform [type="submit"]').click();
+  it('opens on the Overview: the pages as cards with their actions, what to check before publishing, Kaity lately', async () => {
+    await page.goto(`${base}/`);
+    await page.waitForURL(`${base}/_tykerf/edit/_site/`);
+    const main = page.locator('.screen');
+    await main.locator('.ocard h3 a').first().waitFor();
+    expect(await page.locator('.bar .crumb b').textContent()).toBe('Overview');
+    expect(await main.locator('.ocard h3 a').allTextContents()).toEqual(['first', 'second']);
+    expect(await main.locator('.ocard[data-page="first"] .hometag').count()).toBe(1);
+    expect(await main.locator('.ocard[data-page="first"] .note').textContent()).toMatch(/1 open task$/);
+    expect(await main.locator('.ocard[data-page="second"] .note').textContent()).toMatch(/2 open tasks$/);
+    // each card's actions are words, More holds the rest
+    await main.locator('.ocard[data-page="second"] [data-pact="name"]').click();
+    await main.locator('.pform input[name="title"]').fill('The second page');
+    await main.locator('.pform [type="submit"]').click();
     await expect.poll(() => readSite(site).titles.second).toBe('The second page');
-    await sb.locator('.pcard[data-page="second"] [data-pact="home"]').click();
+    await main.locator('.ocard[data-page="second"] [data-pact="more"]').click();
+    await main.locator('.ocard[data-page="second"] [data-pact="home"]').click();
     await expect.poll(() => readSite(site).home).toBe('second');
-    await sb.locator('.pcard[data-page="second"] .hometag').waitFor();
-    // it stays until the person closes it: a click on the page leaves a task, and the sidebar is still there
-    await page.frameLocator('.frame').locator('[data-sw="hero"] h1').click();
-    await page.locator('.taskbox').waitFor();
-    expect(await sb.isVisible()).toBe(true);
-    await page.keyboard.press('Escape'); // the task box goes, the sidebar stays
-    expect(await page.locator('.taskbox').count()).toBe(0);
-    expect(await sb.isVisible()).toBe(true);
-    // from one page to the next, to look at them all
-    await sb.locator('.pcard[data-page="second"] a.popen').click();
-    await page.waitForURL(`${base}/_tykerf/edit/second/`);
-    await page.locator('.sidebar .pcard.current[data-page="second"]').waitFor();
-    // folded: only its edge, and › opens it again; folded it stays folded on the next page
-    await page.locator('.sidebar [data-sb="fold"]').click();
-    expect(await page.locator('.sidebar.folded .sbunfold').isVisible()).toBe(true);
-    expect(await page.locator('.sidebar').evaluate((e) => e.getBoundingClientRect().width)).toBeLessThan(30);
-    await page.goto(`${base}/_tykerf/edit/first/`);
-    await page.locator('.sidebar.folded .sbunfold').click();
-    await page.locator('.sidebar:not(.folded) .pcard').first().waitFor();
-    // Close closes it, for the next pages too
-    await page.locator('.sidebar [data-sb="collapse"]').click();
-    expect(await page.locator('.sidebar').isHidden()).toBe(true);
-    await page.reload();
-    await page.frameLocator('.frame').locator('[data-sw="hero"]').waitFor();
-    expect(await page.locator('.sidebar').isHidden()).toBe(true);
+    await main.locator('.ocard[data-page="second"] .hometag').waitFor();
+    // before you publish, and Kaity's latest work with a composer for the whole site
+    expect(await main.locator('.ocheck li > span:first-child').allTextContents()).toEqual(['Design check', 'About this site', 'Links between pages', 'Language', 'Other checks']);
+    expect(await main.locator('.olately h2').textContent()).toBe('Kaity lately');
+    expect(await main.locator('.olately .composer [data-c="attach"]').count()).toBe(1);
+    // New page in one click from the rail, the header and the card; one Undo and one Publish
+    for (const where of ['.rail [data-screen="new"]', '.ohead [data-screen="new"]', '.ocard.onew']) expect(await page.locator(where).count()).toBe(1);
+    expect(await page.getByRole('button', { name: /^Undo|^Nothing to undo/ }).count()).toBe(1);
+    expect(await page.getByRole('link', { name: 'Publish', exact: true }).count()).toBe(1);
+    // the guides
+    expect(await main.locator('.olearn a').count()).toBe(5);
+    expect(await main.locator('.olearn a').first().getAttribute('href')).toMatch(/^https:\/\/github\.com\/eonity-org\/tykerf\/.*getting-started\.md$/);
   });
 
-  it('shows the site\'s screens beside it, docked, and goes from one to another', async () => {
-    await page.locator('[data-bar="pages"]').click();
-    await page.locator('.sidebar [data-screen="check"]').click();
-    await page.waitForURL(/\/_tykerf\/edit\/_site\/check\?from=first$/);
+  it('shows the site\'s screens beside the docked rail, the same frame on each, and goes from one to another', async () => {
+    await page.locator('.rail [data-screen="check"]').click();
+    await page.waitForURL(/\/_tykerf\/edit\/_site\/check$/);
     await page.locator('.screen h1', { hasText: 'Check the site' }).waitFor();
-    expect(await page.locator('.sidebar.docked').isVisible()).toBe(true);
-    expect(await page.locator('.bar a', { hasText: 'Back to first' }).getAttribute('href')).toBe('/_tykerf/edit/first/');
+    expect(await page.locator('.rail [data-screen="check"]').getAttribute('aria-current')).toBe('page');
     // the language, set where the check says it is missing (English, chosen on purpose)
     const lang = page.locator('form[data-lang]');
     await lang.locator('input').fill('en');
     await lang.locator('[type="submit"]').click();
     await expect.poll(() => readSite(site).langSet).toBe(true);
     await expect.poll(() => page.locator('form[data-lang]').count()).toBe(0);
-    expect(await page.locator('.sidebar [data-screen="settings"] .sstate').textContent()).toBe('language: en');
-    // every screen of the list opens
-    for (const [k, h1] of [['shared', 'Shared blocks'], ['media', 'Media'], ['links', 'Links between pages'], ['kaity', 'Kaity\'s work'], ['settings', 'Head code, icon & language'], ['history', 'Site history'], ['publish', 'Publish']] as const) {
-      await page.locator(`.sidebar [data-screen="${k}"]`).first().click();
+    await expect.poll(() => page.locator('.rail [data-screen="settings"] .rstate').textContent()).toBe('en');
+    // every screen of the list opens, in the same frame: one Undo, one Publish
+    for (const [k, h1] of [['shared', 'Shared blocks'], ['media', 'Media'], ['links', 'Links between pages'], ['settings', 'Head code, icon & language'], ['history', 'Site history'], ['about', 'About this site']] as const) {
+      await page.locator(`.rail [data-screen="${k}"]`).first().click();
       await page.locator('.screen h1', { hasText: h1 }).waitFor();
+      expect(await page.locator('.bar .crumb b').textContent()).toBe(h1);
+      expect(await page.getByRole('link', { name: 'Publish', exact: true }).count()).toBe(1);
     }
+    await page.locator('.bar [data-top="publish"]').click();
+    await page.locator('.screen h1', { hasText: 'Publish' }).waitFor();
+    // the Kaity center: a drawer from the top bar, and the same thread as a page
+    await page.locator('.bar [data-top="kaity"]').click();
+    const center = page.locator('.kcenter');
+    await expect.poll(() => center.locator('.kfilters button').allTextContents()).toEqual(['Everything', 'Whole site', 'first', 'second', 'Tasks']);
+    await center.locator('[data-filter="tasks"]').click();
+    await expect.poll(() => center.locator('.group h3').allTextContents()).toEqual(['first', 'second']);
+    await center.locator('[data-filter="all"]').click();
+    await center.locator('a', { hasText: 'Open as page' }).click();
+    await page.locator('.screen h1', { hasText: 'Kaity center' }).waitFor();
     // the site's history has the language and the home page; Undo takes back the last
-    await page.locator('.sidebar [data-screen="history"]').click();
+    await page.locator('.rail [data-screen="history"]').click();
+    await page.locator('.steps li b').first().waitFor();
     expect(await page.locator('.steps li b').first().textContent()).toBe('the site\'s language: en');
     await page.locator('[data-h="undo"]').click();
     await expect.poll(() => readSite(site).langSet).toBeUndefined();
   });
 
   it('keeps the site\'s brief and frame in About this site', async () => {
-    await page.locator('.sidebar [data-screen="about"]').click();
+    await page.locator('.rail [data-screen="about"]').click();
     const form = page.locator('form[data-s="about"]');
     await form.waitFor();
-    await expect.poll(() => page.locator('.sidebar [data-screen="about"] .sstate').textContent(), { timeout: 10_000 }).toBe('not written yet');
+    await expect.poll(() => page.locator('.rail [data-screen="about"] .rstate').textContent(), { timeout: 10_000 }).toBe('not written yet');
     await form.locator('[name="audience"]').fill('Neighbours who want good bread');
     await form.locator('[name="tone"]').fill('warm and simple');
     await form.locator('[name="frame"]').selectOption('simple');
     await form.locator('[type="submit"]').click();
     await expect.poll(() => readSite(site).brief, { timeout: 10_000 }).toEqual({ audience: 'Neighbours who want good bread', tone: 'warm and simple' });
     await expect.poll(() => readSite(site).frame, { timeout: 10_000 }).toBe('simple');
-    await expect.poll(() => page.locator('.sidebar [data-screen="about"] .sstate').textContent(), { timeout: 10_000 }).toBe('warm and simple');
+    await expect.poll(() => page.locator('.rail [data-screen="about"] .rstate').textContent(), { timeout: 10_000 }).toBe('written');
+  });
+
+  it('fits a phone: the rail folds above the screen, nothing scrolls sideways', async () => {
+    const narrow = await browser.newPage({ viewport: { width: 375, height: 760 } });
+    for (const path of ['/_tykerf/edit/_site/', '/_tykerf/edit/_site/check', '/_tykerf/edit/_site/new', '/_tykerf/edit/_site/kaity']) {
+      await narrow.goto(`${base}${path}`);
+      await narrow.locator('.screen h1, .screen .ofirst').first().waitFor();
+      expect(await narrow.evaluate(() => document.documentElement.scrollWidth <= innerWidth), path).toBe(true);
+      expect(await narrow.locator('.rail').getAttribute('class')).toContain('folded');
+    }
+    await narrow.close();
   });
 
   it('checks the design of every page on demand, the style notes folded with their rules', async () => {
-    await page.locator('.sidebar [data-screen="check"]').click();
+    await page.locator('.rail [data-screen="check"]').click();
     const design = page.locator('[data-design]');
     await design.locator('[data-c="design"]').click();
     await design.locator('.dresult .lead').waitFor({ timeout: 60_000 });
@@ -175,7 +182,7 @@ describe('the site in the v3 editor', () => {
   });
 
   it('shares a box that is the same on both pages', async () => {
-    await page.locator('.sidebar [data-screen="shared"]').click();
+    await page.locator('.rail [data-screen="shared"]').click();
     const suggest = page.locator('.suggest');
     await suggest.waitFor();
     await suggest.locator('[data-share="stats"]').click();
@@ -204,7 +211,7 @@ describe('the site in the v3 editor', () => {
   it('does what her answer suggests in one click: shares the box, goes to the page', async () => {
     await page.goto(`${base}/_tykerf/edit/second/`);
     await page.frameLocator('.frame').locator('[data-sw="hero"]').waitFor();
-    await page.locator('[data-bar="tray"]').click();
+    await page.locator('.pstatus [data-bar="tray"]').click();
     const q = page.locator('.card[data-card="2"]');
     const share = q.locator('[data-card-act="next"]', { hasText: 'Share hero with every page' });
     await share.click();

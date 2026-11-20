@@ -37,13 +37,17 @@ export interface ChatMessage {
   state?: 'auto' | 'open' | 'fixing' | 'left';
 }
 
-/** A picture the user attached to a request (screenshot, sketch, reference design). */
+/** A file the user attached to a request: a picture (screenshot, sketch, reference design) or a PDF. */
 export interface Attachment {
   mediaType: string;
   data: string; // base64
+  /** The file's own name, when the person attached one (shown in the thread; the model gets the bytes). */
+  name?: string;
 }
-const IMAGE_TYPES: Record<string, string> = { 'image/png': 'png', 'image/jpeg': 'jpg', 'image/gif': 'gif', 'image/webp': 'webp' };
-export const IMAGE_FILE = /^[a-f0-9]{40}\.(png|jpg|gif|webp)$/;
+const IMAGE_TYPES: Record<string, string> = { 'image/png': 'png', 'image/jpeg': 'jpg', 'image/gif': 'gif', 'image/webp': 'webp', 'application/pdf': 'pdf' };
+export const IMAGE_FILE = /^[a-f0-9]{40}\.(png|jpg|gif|webp|pdf)$/;
+/** A PDF among the attachments: every runner sends it as a document, not a picture. */
+export const isDocument = (a: Attachment) => a.mediaType === 'application/pdf';
 export interface Chat {
   session?: string; // Claude Code session to resume
   messages: ChatMessage[];
@@ -60,6 +64,12 @@ If the page has a theme (CSS variables such as --color-accent, --color-surface, 
 Every link needs a real target: a section of this page (give the section an id and link to #that-id) or a page of the site (/page/). A link to a page the site doesn't have yet (a sign-up page, an about page) points at the address that page will have (/signup/), and your answer names those pages, so the user can make them: never leave a link at # or empty. A profile or page on another website (Instagram, a map) is linked at its full address (https://instagram.com/…), never as a page of this site.
 To change those colours, fonts or spacing for the whole page, use get_theme and set_theme; that is only allowed when the request is about the whole page (the page block is selected). From a smaller block, say that the user can select the page block for page-wide changes.`;
 
+/**
+ * What the person has in the editor to send Kaity things, so she only ever mentions controls that exist (she once
+ * told someone to use "the clip icon", which the editor didn't have).
+ */
+export const CONTROLS = 'The person writes to you in a message box; its Attach button (or dropping or pasting files on it) sends you pictures, PDFs and a design as a ZIP file, up to 5. When you need a file or a picture from them (their CV, a logo, a photo), ask them to attach it with the Attach button. Don\'t mention other buttons or icons.';
+
 /** One request to the AI, about one block. */
 export interface RunRequest {
   ws: Workspace; // the page (API runners run its tools in this process)
@@ -75,6 +85,8 @@ export interface RunRequest {
   memory: { load(): unknown; save(m: unknown): void };
   /** Kaity working on one task (TaskRun): her changes carry this tag in the page's history, and ask_person is there. */
   tag?: string;
+  /** Any other run: her changes carry this tag in the history (no ask_person), so the run can be undone on its own. */
+  mark?: string;
   /** Only the tools that look: Kaity answering a question changes nothing. */
   readOnly?: boolean;
 }
@@ -186,7 +198,7 @@ export class ClaudeCodeRunner implements Runner {
       on.end();
       return { cancel: () => {} };
     }
-    const args = ['tsx', MCP_SERVER, '--dir', req.dir, ...(req.scope ? ['--scope', req.scope] : []), ...(req.tag ? ['--tag', req.tag] : []), ...(req.readOnly ? ['--read-only'] : [])];
+    const args = ['tsx', MCP_SERVER, '--dir', req.dir, ...(req.scope ? ['--scope', req.scope] : []), ...(req.tag ? ['--tag', req.tag] : []), ...(req.mark ? ['--mark', req.mark] : []), ...(req.readOnly ? ['--read-only'] : [])];
     const cfg = JSON.stringify({ mcpServers: { tykerf: { command: 'npx', args } } });
     // The request goes in on stdin as a stream-json user message, so it can carry pictures.
     const argv = ['-p', '--input-format', 'stream-json', '--output-format', 'stream-json', '--verbose', '--tools', '', '--strict-mcp-config',
@@ -194,10 +206,11 @@ export class ClaudeCodeRunner implements Runner {
     if (req.session) argv.push('--resume', req.session);
     if (process.env.TYKERF_MODEL) argv.push('--model', process.env.TYKERF_MODEL);
     const child: ChildProcess = spawn('claude', argv, { stdio: ['pipe', 'pipe', 'pipe'], env: claudeEnv() });
-    const n = req.images.length;
+    const n = req.images.filter((a) => !isDocument(a)).length, docs = req.images.length - n;
+    const said = [n ? `${n === 1 ? 'An image is' : `${n} images are`} attached: use ${n === 1 ? 'it' : 'them'} as the reference.` : '', docs ? `${docs === 1 ? 'A PDF is' : `${docs} PDFs are`} attached: read ${docs === 1 ? 'it' : 'them'}.` : ''].filter(Boolean).join(' ');
     const content = [
-      { type: 'text', text: req.prompt + (n ? `\n\n(${n === 1 ? 'An image is' : `${n} images are`} attached: use ${n === 1 ? 'it' : 'them'} as the reference.)` : '') },
-      ...req.images.map((a) => ({ type: 'image', source: { type: 'base64', media_type: a.mediaType, data: a.data } })),
+      { type: 'text', text: req.prompt + (said ? `\n\n(${said})` : '') },
+      ...req.images.map((a) => ({ type: isDocument(a) ? 'document' : 'image', source: { type: 'base64', media_type: a.mediaType, data: a.data } })),
     ];
     child.stdin!.on('error', () => {}); // the process may exit before reading (e.g. not logged in)
     child.stdin!.end(JSON.stringify({ type: 'user', message: { role: 'user', content } }) + '\n');
@@ -290,6 +303,8 @@ export interface RunOptions {
   queued?: boolean; // started by the task run, which otherwise keeps every other request out
   onStep?(text: string): void;
   onEnd?(r: RunEnd): void;
+  /** A run Kaity was not asked for in words (the thread shows it as an event, not as the person's message). */
+  origin?: 'fix' | 'continue';
 }
 
 /** What a request left unfinished (a check in the block's conversation, found again by its time). */
@@ -403,12 +418,13 @@ export class AI {
     return bytes && mediaType ? { mediaType, data: Buffer.from(bytes).toString('base64') } : null;
   }
 
-  /** Keep an attached picture (by content hash) so the conversation (or a task) can show it again. */
+  /** Keep an attached picture or PDF (by content hash) so the conversation (or a task) can show it again. */
   keepImage(a: Attachment): string {
     const ext = IMAGE_TYPES[a.mediaType];
-    if (!ext) throw new Error(`images must be PNG, JPEG, GIF or WebP (got ${a.mediaType})`);
+    if (!ext) throw new Error(`attached files must be PNG, JPEG, GIF, WebP or PDF (got ${a.mediaType})`);
     const buf = Buffer.from(a.data, 'base64');
-    if (buf.length > 5 * 1024 * 1024) throw new Error('an image is larger than 5 MB');
+    if (ext !== 'pdf' && buf.length > 5 * 1024 * 1024) throw new Error('an image is larger than 5 MB');
+    if (ext === 'pdf' && buf.length > 10 * 1024 * 1024) throw new Error('a PDF is larger than 10 MB');
     const name = `${createHash('sha1').update(buf).digest('hex')}.${ext}`;
     this.store.write(`.tykerf/images/${name}`, new Uint8Array(buf));
     return name;
@@ -450,7 +466,7 @@ export class AI {
     const site = this.opts.site;
     if (site) id = SITE_CHAT;
     if (!prompt.trim()) throw new Error('write what you want first');
-    if (images.length > 5) throw new Error('at most 5 images per message');
+    if (images.length > 5) throw new Error('at most 5 files (pictures and PDFs) per message');
     const system = site ? siteSystem(brief, site) : this.blockSystem(id, size, brief);
     const files = images.map((a) => this.keepImage(a));
 
@@ -462,7 +478,11 @@ export class AI {
     this.run = run;
     // the site's log of Kaity's work, for every page and the whole site (kaity-log.ts)
     const logSite = site ?? this.ws.site?.dir ?? null;
-    if (logSite) logStart(logSite, { run: run.key, page: site ? null : (this.ws.pageName ?? null), block: site ? null : id, request: prompt.trim(), ...(this.runTasks ? { tasks: this.runTasks } : {}) });
+    // her changes carry a tag in the page's history (a task's, or the run's own), so the run can be undone on its own
+    const mark = opts.tag ?? `run-${run.key}`;
+    const scope = site ? 'site' : id === this.ws.load().root.id ? 'page' : 'box';
+    const attached = files.map((file, i) => ({ file, ...(images[i].name ? { name: images[i].name } : {}) }));
+    if (logSite) logStart(logSite, { run: run.key, page: site ? null : (this.ws.pageName ?? null), block: site ? null : id, scope, tag: mark, ...(opts.origin ? { origin: opts.origin } : {}), request: prompt.trim(), ...(attached.length ? { files: attached } : {}), ...(this.runTasks ? { tasks: this.runTasks } : {}) });
     let answer = '', problem = '';
     if (brief) this.briefs.set(id, brief);
     else this.briefs.delete(id);
@@ -490,7 +510,7 @@ export class AI {
     };
     const start = (text: string, pictures: Attachment[]) => {
       let done = false;
-      run.cancel = this.runner.start({ ws: this.ws, dir, scope: site ? '' : run.id, home: site, system, prompt: text, images: pictures, session: this.chat(now()).session, memory, ...(opts.tag ? { tag: opts.tag } : {}), ...(opts.readOnly ? { readOnly: true } : {}) }, {
+      run.cancel = this.runner.start({ ws: this.ws, dir, scope: site ? '' : run.id, home: site, system, prompt: text, images: pictures, session: this.chat(now()).session, memory, ...(opts.tag ? { tag: opts.tag } : { mark }), ...(opts.readOnly ? { readOnly: true } : {}) }, {
         session: (s) => this.save(now(), { ...this.chat(now()), session: s }),
         step: (t, at) => {
           run.steps++;
@@ -580,14 +600,19 @@ export class AI {
     const what = isOp(node)
       ? `the container ${ref} (a ${KIND_WORD[node.kind]} of ${node.children.length} blocks)`
       : `the box ${ref}${node.type === 'leaf' && node.boxType ? ` (type ${node.boxType})` : ''}`;
+    // the page's top block: the person asked about the whole page (the composer's This page)
+    const whole = id === layout.root.id;
     return [
       'You are Kaity, the assistant of TYKERF, an editor where people and AI change web pages block by block. If you mention yourself, you are Kaity.',
-      `You are working on one block of a web page: ${what}${size ? `, about ${size} on screen` : ''}. The user selected it in the TYKERF editor and is talking to you about it.`,
+      whole
+        ? `You are working on the whole page${this.ws.pageName ? ` "${this.ws.pageName}"` : ''}: any of its blocks may change, and nothing on the site's other pages. The user is talking to you about this page in the TYKERF editor. If the request needs another page, say so instead of changing this one.`
+        : `You are working on one block of a web page: ${what}${size ? `, about ${size} on screen` : ''}. The user selected it in the TYKERF editor and is talking to you about it.`,
       'Use only the tykerf tools. get_layout shows only this block; read the boxes you need with get_content.',
       'Only this block may change: changes outside it are refused.',
       CODE_RULES,
       'Make the change, then look at it with screenshot (at 1440 and 375 px) and check it with evaluate; when you changed how something looks, run check_design too and fix what it lists as must fix. Fix what looks wrong. Answer in 1-3 short sentences saying what you changed.',
       'If the user only asks a question, answer it without changing anything. If the request cannot be done inside this block, say so.',
+      CONTROLS,
       ...this.otherPages(),
       ...(this.ws.site ? briefLines(this.ws.site.dir) : []),
       ...this.sharedNote(layout, id),
@@ -696,7 +721,7 @@ export class AI {
   /** Continue: Kaity goes on with a block's last request where it stopped, with the same instructions (its brief). */
   resume(id: string, opts: RunOptions = {}) {
     const key = this.opts.site ? SITE_CHAT : id;
-    this.ask(id, 'Go on from where you stopped, and finish what was asked.', undefined, [], this.briefs.get(key), undefined, opts);
+    this.ask(id, 'Go on from where you stopped, and finish what was asked.', undefined, [], this.briefs.get(key), undefined, { origin: 'continue', ...opts });
   }
 
   /** "Fix them": ask Kaity to finish what her last request left. */
@@ -704,7 +729,7 @@ export class AI {
     const open = this.openCheck(id, at);
     if (!open) throw new Error('nothing is waiting to be fixed');
     const items = open.check.items ?? [];
-    this.ask(id, 'Fix what was left unfinished.', undefined, [], undefined, fixPrompt(items.map((i) => i.text)), opts);
+    this.ask(id, 'Fix what was left unfinished.', undefined, [], undefined, fixPrompt(items.map((i) => i.text)), { origin: 'fix', ...opts });
     open.check.state = 'fixing';
     const c = this.chat(id);
     c.messages[open.chat.messages.indexOf(open.check)] = open.check;
@@ -739,6 +764,7 @@ function siteSystem(brief: string | undefined, dir: string): string {
     'The site kit is yours (list_kit, get_kit_file, set_kit_file): what every page shares besides the theme. Use it for what should be the same everywhere: a navigation or footer as one shared block (share_block on one page, link_block on the others), a button or card style in kit styles, a behaviour in kit scripts, a tag the site uses. Say which pages each change reaches. ' +
       'A shared block\'s slots (get_layout: slots: …) are the parts each page fills itself, such as a page title: set_slot fills one on the open page, and the other pages keep theirs.',
     'Answer in a few short sentences: what you changed, page by page. If the user only asks a question, answer it without changing anything.',
+    CONTROLS,
     ...briefLines(dir),
     ...(brief ? [brief] : []),
   ].join('\n');

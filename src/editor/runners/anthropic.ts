@@ -18,6 +18,8 @@ type Block = Anthropic.ContentBlockParam;
 type ImageType = 'image/png' | 'image/jpeg' | 'image/gif' | 'image/webp';
 
 const image = (mediaType: string, data: string): Block => ({ type: 'image', source: { type: 'base64', media_type: mediaType as ImageType, data } });
+/** A file the person attached: a PDF goes as a document, a picture as an image. */
+const attached = (mediaType: string, data: string): Block => (mediaType === 'application/pdf' ? { type: 'document', source: { type: 'base64', media_type: 'application/pdf', data } } : image(mediaType, data));
 
 export class AnthropicRunner implements Runner {
   readonly name = 'anthropic';
@@ -100,7 +102,7 @@ export class AnthropicRunner implements Runner {
         const text = r.content.filter((c): c is Anthropic.TextBlock => c.type === 'text').map((c) => c.text).join('\n');
         return { message: { role: 'assistant', content: r.content as Block[] }, calls, text, cut: r.stop_reason === 'max_tokens' };
       },
-      user: (prompt, images) => ({ role: 'user', content: [{ type: 'text', text: prompt }, ...images.map((a) => image(a.mediaType, a.data))] }),
+      user: (prompt, images) => ({ role: 'user', content: [{ type: 'text', text: prompt }, ...images.map((a) => attached(a.mediaType, a.data))] }),
       results: (calls, outputs) => [{
         role: 'user',
         content: calls.map((c, i) => ({
@@ -114,6 +116,7 @@ export class AnthropicRunner implements Runner {
         if (typeof m.content === 'string') return m;
         const strip = (b: Block): Block => {
           if (b.type === 'image') return { type: 'text', text: '[picture]' };
+          if (b.type === 'document') return { type: 'text', text: '[a PDF, read then]' };
           if (b.type === 'tool_result' && Array.isArray(b.content)) return { ...b, content: b.content.map((x) => (x.type === 'image' ? { type: 'text' as const, text: '[screenshot]' } : x)) as Anthropic.ToolResultBlockParam['content'] };
           return b;
         };

@@ -3,18 +3,18 @@
 // part said next to whatever hands her work. Each screen is { title(), render(main, ctx), onAi?(message) }, and
 // draws itself again from the server on every render.
 
-import { markdown } from '../markdown.js';
 import { $, esc, failed, hardToReach, kaityMark, keptTwice, plainLabel, request, size, t, toast, when } from './common.js';
 
 const edit = (page, q = '') => `/_tykerf/edit/${encodeURIComponent(page)}/${q}`;
 const cap = (s) => (s ? s[0].toUpperCase() + s.slice(1) : s);
 const list = (xs) => xs.map((x) => `<b>${esc(x)}</b>`).join(', ');
 
-/** Ask Kaity about the whole site, then show her at work (the Kaity screen). */
+/** Ask Kaity about the whole site, then show her at work (the Kaity center). */
 async function askKaity(prompt, ctx) {
   try {
     await request('/_tykerf/site/ask', { prompt });
-    ctx.go('kaity');
+    if (ctx.openKaity) ctx.openKaity();
+    else ctx.go('kaity');
   } catch (e) {
     failed(e);
   }
@@ -420,60 +420,6 @@ const linksScreen = {
   },
 };
 
-// ---------- Kaity on the whole site, and her work everywhere (R14) ----------
-
-let workFilter = 'all'; // the runs shown: all, the whole site's, or one page's
-
-const kaityScreen = {
-  title: () => t('Kaity\'s work'),
-  async render(main, ctx) {
-    const [chat, work] = await Promise.all([request('/_tykerf/site/chat'), request('/_tykerf/site/kaity')]);
-    const msgs = chat.messages.filter((m) => m.role !== 'step').slice(-12);
-    const steps = chat.messages.filter((m) => m.role === 'step');
-    const runWord = { working: t('Working'), done: t('Done'), failed: t('Failed'), stopped: t('Stopped'), unfinished: t('Unfinished: ask her to continue'), 'cut short': t('Cut short: TYKERF stopped while she worked') };
-    const pages = [...new Set(work.runs.map((r) => r.page).filter(Boolean))];
-    const runs = work.runs.filter((r) => workFilter === 'all' || (workFilter === 'site' ? !r.page : r.page === workFilter));
-    const going = work.runs.filter((r) => r.state === 'working').length;
-    const where = (r) => (r.page ? `<a href="/_tykerf/edit/${encodeURIComponent(r.page)}/${r.block ? `?conversation=${encodeURIComponent(r.block)}` : ''}" ${r.block ? `title="${esc(t('Her conversation on {block}', { block: r.block }))}"` : ''}>${esc(r.page)}${r.block ? ` · ${esc(r.block)}` : ''}</a>` : `<b>${esc(t('The whole site'))}</b>`);
-    main.innerHTML = `
-      <h1>${esc(t('Kaity\'s work'))}</h1>
-      <section class="convo">
-        <h2>${esc(t('Kaity on the whole site'))}</h2>
-        ${msgs.length ? `<ol class="msgs">${msgs.map((m) => `<li class="msg ${esc(m.role)}">${m.role === 'ai' ? `<b>Kaity</b> ` : m.role === 'user' ? `<b>${esc(t('You'))}</b> ` : ''}${esc(m.text)}</li>`).join('')}</ol>` : `<p class="empty">${esc(t('Ask her about the whole site: she opens the pages herself and works on them one by one.'))}</p>`}
-        ${chat.running ? `<p class="working" data-step>${kaityMark(true, true)} ${esc(steps.at(-1)?.text ?? t('Starting…'))}</p><button type="button" class="btn" data-k="stop">${esc(t('Stop Kaity'))}</button>` : `
-        <form class="askk wide">${kaityMark(false, true)}<label for="ask-site-2">${esc(t('Ask Kaity about the whole site'))}</label><input id="ask-site-2" name="prompt" autocomplete="off" placeholder="${esc(t('e.g. Link the navigation to all the pages'))}"><button class="btn primary" type="submit">${esc(t('Ask'))}</button></form>`}
-      </section>
-      <h2>${esc(t('Everything she did on the site'))}</h2>
-      <div class="row workhead"><p class="summary">${esc(t('{going} going on now, {done} finished.', { going, done: work.runs.length - going }))}</p>
-        ${work.runs.length ? `<select data-k="filter" aria-label="${esc(t('Show'))}"><option value="all">${esc(t('Everywhere'))}</option><option value="site" ${workFilter === 'site' ? 'selected' : ''}>${esc(t('The whole site'))}</option>${pages.map((p) => `<option value="${esc(p)}" ${workFilter === p ? 'selected' : ''}>${esc(p)}</option>`).join('')}</select>` : ''}</div>
-      ${runs.length ? `<ul class="runs">${runs.slice(0, 40).map((r) => `<li class="run ${esc(r.state.replace(' ', '-'))}">
-        <div class="rhead"><span class="state ${r.state === 'working' ? 'now' : r.state === 'done' ? 'done' : ''}">${esc(runWord[r.state] ?? r.state)}</span>${where(r)}<span class="note">${esc(when(r.at))}${r.steps ? ` · ${esc(r.steps === 1 ? t('1 step') : t('{n} steps', { n: r.steps }))}` : ''}</span></div>
-        <p class="rreq">${esc(r.request)}</p>${r.answer ? `<div class="note md">${markdown(r.answer)}</div>` : ''}${r.error ? `<p class="note bad">${esc(r.error)}</p>` : ''}${r.step ? `<p class="note">${esc(r.step)}</p>` : ''}
-      </li>`).join('')}</ul>` : `<p class="empty">${esc(t('Nothing yet.'))}</p>`}`;
-    main.onchange = (e) => {
-      if (e.target.dataset.k !== 'filter') return;
-      workFilter = e.target.value;
-      void kaityScreen.render(main, ctx);
-    };
-    main.onsubmit = async (e) => {
-      e.preventDefault();
-      const prompt = e.target.elements.prompt.value.trim();
-      if (prompt) await askKaity(prompt, ctx);
-    };
-    main.onclick = async (e) => {
-      if (e.target.closest('[data-k="stop"]')) await request('/_tykerf/site/ask/cancel', {}).catch(failed);
-    };
-  },
-  onAi(m, main, ctx) {
-    if (m.role === 'step') {
-      const el = $('[data-step]', main);
-      if (el) el.lastChild.textContent = ` ${m.text}`;
-      return;
-    }
-    void kaityScreen.render(main, ctx);
-  },
-};
-
 // ---------- the site's history (R14) ----------
 
 let emptying = false; // the trash's Empty asks first
@@ -698,207 +644,7 @@ const publishScreen = {
   },
 };
 
-// ---------- a new page (R10) ----------
-
-const IMAGE_TYPES = ['image/png', 'image/jpeg', 'image/gif', 'image/webp'];
-const isZip = (f) => /\.zip$/i.test(f.name) || ['application/zip', 'application/x-zip-compressed'].includes(f.type);
-const NAME = /^[a-z0-9][a-z0-9-]{0,62}$/;
-let draft = null; // what the person has written, chosen and dropped on the New page screen
-
-const newScreen = {
-  title: () => t('New page'),
-  full: true, // no page yet, and no sidebar: the whole window
-  async render(main, ctx) {
-    const [site, { purposes, frames, frame: firstFrame, themes }, ai] = await Promise.all([request('/_tykerf/site'), request('/_tykerf/library'), request('/_tykerf/ai/status').catch(() => ({ ready: false, note: '' }))]);
-    const taken = site.pages;
-    let n = taken.length + 1;
-    while (taken.includes(`page-${n}`)) n++;
-    // Like a page: the page the screen was opened from, else the home page
-    const from = new URLSearchParams(location.search).get('from');
-    const likeFirst = taken.includes(from) ? from : taken.includes(site.home) ? site.home : taken[0] ?? '';
-    draft ??= { like: likeFirst, name: `page-${n}`, prompt: '', images: [], zip: null, purpose: purposes[0].name, frame: firstFrame, side: false, url: '', structureOnly: false, shared: true, theme: themes.some((x) => x.name === 'studio') ? 'studio' : themes[0].name };
-    if (!taken.includes(draft.like)) draft.like = likeFirst;
-    // a purpose (the sections a kind of page needs) in a frame (what holds it), or the frame alone
-    const P = () => purposes.find((x) => x.name === draft.purpose) ?? null;
-    const F = () => frames.find((x) => x.name === draft.frame) ?? frames[0];
-    const layoutName = () => (P() ? `${F().name}+${P().name}` : F().name);
-    const draw = () => {
-      const nm = draft.name || '…';
-      main.innerHTML = `
-      <div class="newpage">
-        <h1>${esc(t('What page do you want?'))}</h1>
-        <p class="lead">${esc(t('Show it, describe it, or both. Kaity builds it while you watch.'))}</p>
-        <div class="np-top">
-          <form class="np-kaity" data-np="kaity">
-            <label class="fxlabel" for="np-prompt">${esc(t('Describe it'))}</label>
-            <textarea id="np-prompt" name="prompt" rows="4" placeholder="${esc(t('e.g. A page for our bakery in Murcia: warm and simple, our three best breads, opening hours and a map'))}">${esc(draft.prompt)}</textarea>
-            <div class="np-drop" tabindex="0" role="button" aria-label="${esc(t('Add images'))}">
-              <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2.5"/><circle cx="9" cy="10" r="1.8"/><path d="m4 18 5-5 4 4 3-3 4 4"/></svg>
-              <p><b>${esc(t('Show it.'))}</b> ${esc(t('Drop or paste up to 3 images (a screenshot of a page you like, a sketch, a mock-up) or a design exported as a ZIP file.'))}</p>
-              <span class="btn small">${esc(t('Choose files'))}</span>
-              <input type="file" accept="${[...IMAGE_TYPES, '.zip', 'application/zip'].join(',')}" multiple hidden>
-            </div>
-            ${draft.images.length || draft.zip ? `<div class="np-pics">${draft.images.map((a, i) => `<span><img src="data:${a.mediaType};base64,${a.data}" alt=""><button type="button" data-unpic="${i}" aria-label="${esc(t('Remove this image'))}">×</button></span>`).join('')}${draft.zip ? `<span class="np-zip"><b>${esc(draft.zip.name)}</b><button type="button" data-unzip aria-label="${esc(t('Remove the ZIP file'))}">×</button></span>` : ''}</div>` : ''}
-            <div class="np-name">
-              <label class="fxlabel" for="np-name">${esc(t('Page name'))}</label>
-              <input id="np-name" name="name" value="${esc(draft.name)}" spellcheck="false" autocomplete="off">
-              <p class="note">${esc(t('Its address will be /{name}/.', { name: nm }))} ${esc(site.sharedTheme ? t('It uses the site\'s theme.') : t('Kaity chooses a theme that fits.'))}</p>
-            </div>
-            <p class="np-error" role="alert" hidden></p>
-            <button class="btn main big" type="submit" ${ai.ready ? '' : 'disabled'}>${esc(t('Build it with Kaity'))}</button>
-            ${ai.ready ? '' : `<p class="warn">${esc(t('Kaity is not ready here: {note}', { note: ai.note ?? '' }))} ${esc(t('Start from a layout or a copy of a website instead, and ask Kaity later.'))}</p>`}
-          </form>
-          <aside class="np-what">
-            <h2>${esc(t('What happens'))}</h2>
-            <ol>
-              <li>${esc(t('Kaity picks the layout that fits best, and the theme unless you choose one.'))}</li>
-              <li>${esc(t('The page opens at once, and you see each step as she builds it from your words and pictures.'))}</li>
-              <li>${esc(t('Everything she does is a normal change: stop it at any time, undo a step, or ask for more.'))}</li>
-            </ol>
-            <p class="note">${esc(t('It uses your AI account and takes a few minutes.'))}</p>
-          </aside>
-        </div>
-        <h2>${esc(t('Or start without Kaity'))}</h2>
-        <div class="np-without">
-          <form class="np-card" data-np="layout">
-            <h3>${esc(t('From a kind of page'))}</h3>
-            <p class="note">${esc(t('The sections that kind of page needs, with sample text to replace, in a frame; then change anything.'))}</p>
-            <p class="fxlabel">${esc(t('What the page is'))}</p>
-            <div class="np-chips">${purposes.map((x) => `<button type="button" class="btn" data-purpose="${esc(x.name)}" aria-pressed="${x.name === draft.purpose}">${esc(t(x.label))}</button>`).join('')}<button type="button" class="btn" data-purpose="" aria-pressed="${!P()}">${esc(t('Just the frame'))}</button></div>
-            ${P() ? `<p><b>${esc(t(P().label))}:</b> ${esc(t(P().description))}</p>` : `<p>${esc(t('An empty body to build in, section by section.'))}</p>`}
-            <p class="fxlabel">${esc(t('What holds it'))}</p>
-            <div class="np-chips">${frames.map((x) => `<button type="button" class="btn" data-frame="${esc(x.name)}" aria-pressed="${x.name === F().name}">${esc(t(x.label))}</button>`).join('')}</div>
-            <p><b>${esc(t(F().label))}:</b> ${esc(t(F().description))}</p>
-            ${F().side?.length ? `<label class="check"><input type="checkbox" name="side" ${draft.side ? 'checked' : ''}> ${esc(F().side.includes('aside') ? t('With the side menu and the side note') : t('With the side menu'))}</label>` : ''}
-            ${F().shared?.length ? `<label class="check"><input type="checkbox" name="shared" ${draft.shared ? 'checked' : ''}> ${esc(t('With the site\'s navigation and footer (shared): one for every page, so a change to them reaches every page. Without it, this page gets copies of its own.'))}</label>` : ''}
-            ${site.sharedTheme ? '' : `<label class="fxlabel" for="np-theme">${esc(t('Theme'))}</label>
-            <select id="np-theme" name="theme">${themes.filter((x) => !x.retired).map((x) => `<option value="${esc(x.name)}" ${x.name === draft.theme ? 'selected' : ''}>${esc(t(x.label))}</option>`).join('')}</select>
-            <p class="note">${esc(t('The site\'s pages share it. You can change the colours, fonts and spacing later in the full editor\'s Page tab.'))}</p>`}
-            <div class="row"><button class="btn primary" type="submit">${esc(t('Create {name} from it', { name: nm }))}</button><a class="btn" href="/_tykerf/preview/${layoutName()}/${site.sharedTheme ? 'site' : encodeURIComponent(draft.theme)}/" target="_blank" rel="noopener">${esc(t('Preview at full size'))}</a></div>
-          </form>
-          ${taken.length ? `<form class="np-card" data-np="like">
-            <h3>${esc(t('Like a page of this site'))}</h3>
-            <p class="note">${esc(t('Its navigation, footer and look, with one empty section between them for the new content. A page without a navigation and a footer is copied whole.'))}</p>
-            <div class="np-chips">${taken.map((p) => `<button type="button" class="btn" data-like="${esc(p)}" aria-pressed="${p === draft.like}">${esc(p)}</button>`).join('')}</div>
-            <div class="row"><button class="btn primary" type="submit">${esc(t('Create {name} like {page}', { name: nm, page: draft.like }))}</button></div>
-          </form>` : ''}
-          <form class="np-card" data-np="copy">
-            <h3>${esc(t('From a copy of a web page'))}</h3>
-            <p class="note">${esc(t('TYKERF opens the site in a browser and cuts the page into rows, columns and boxes. The copy is a starting point, not a perfect clone: check it at desktop and phone widths.'))}</p>
-            <label class="fxlabel" for="np-url">${esc(t('Web address'))}</label>
-            <input id="np-url" name="url" type="url" value="${esc(draft.url)}" placeholder="https://example.com" spellcheck="false" autocomplete="url">
-            <label class="check"><input type="checkbox" name="structureOnly" ${draft.structureOnly ? 'checked' : ''}> ${esc(t('Only the layout: leave out the site\'s text, images and styles'))}</label>
-            <p class="note">${esc(t('A copy includes the site\'s text, images and design, which usually belong to someone else. Copy your own site to rebuild it; copy someone else\'s only to study or prototype, and publish it only with the owner\'s permission.'))}</p>
-            <div class="row"><button class="btn primary" type="submit">${esc(t('Copy the page'))}</button></div>
-          </form>
-        </div>
-      </div>`;
-    };
-    draw();
-    const error = (msg, field) => {
-      const el = $('.np-error', main);
-      el.hidden = !msg;
-      el.textContent = msg ?? '';
-      if (msg) (field ?? el).scrollIntoView({ block: 'center' }), field?.focus();
-    };
-    const addFiles = async (files) => {
-      for (const f of files) {
-        if (isZip(f)) {
-          if (f.size > 8 * 1024 * 1024) return error(t('The ZIP file is larger than 8 MB.'));
-          draft.zip = { name: f.name, data: await base64(f) };
-          continue;
-        }
-        if (draft.images.length >= 3) return error(t('Up to 3 images.'));
-        if (!IMAGE_TYPES.includes(f.type)) continue;
-        if (f.size > 5 * 1024 * 1024) return error(t('An image is larger than 5 MB.'));
-        draft.images.push({ mediaType: f.type, data: await base64(f) });
-      }
-      draw();
-    };
-    main.oninput = (e) => {
-      const f = e.target;
-      if (f.name === 'prompt') draft.prompt = f.value;
-      if (f.name === 'url') {
-        draft.url = f.value;
-        // a copy is named after the site until the name is changed by hand
-        if (!draft.named) {
-          try {
-            const n = new URL(f.value.trim()).hostname.replace(/^www\./, '').replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 40);
-            if (n) {
-              draft.name = taken.includes(n) ? `${n}-copy` : n;
-              $('#np-name', main).value = draft.name;
-              main.oninput({ target: { name: 'name', value: draft.name, auto: true } });
-            }
-          } catch {}
-        }
-      }
-      if (f.name === 'name') {
-        if (!f.auto) draft.named = true;
-        draft.name = f.value.trim();
-        // the address and the buttons say the new name
-        for (const p of main.querySelectorAll('.np-name .note')) p.firstChild.textContent = t('Its address will be /{name}/.', { name: draft.name || '…' });
-        const b = $('[data-np="layout"] [type="submit"]', main);
-        if (b) b.textContent = t('Create {name} from it', { name: draft.name || '…' });
-        const lb = $('[data-np="like"] [type="submit"]', main);
-        if (lb) lb.textContent = t('Create {name} like {page}', { name: draft.name || '…', page: draft.like });
-      }
-    };
-    main.onchange = (e) => {
-      const f = e.target;
-      if (f.type === 'file') return addFiles([...f.files]);
-      if (f.name === 'structureOnly') draft.structureOnly = f.checked;
-      if (f.name === 'shared') draft.shared = f.checked;
-      if (f.name === 'side') draft.side = f.checked;
-      if (f.name === 'theme') (draft.theme = f.value), draw();
-    };
-    main.onclick = (e) => {
-      const purpose = e.target.closest('[data-purpose]')?.dataset.purpose;
-      if (purpose !== undefined) return (draft.purpose = purpose), draw();
-      const frame = e.target.closest('[data-frame]')?.dataset.frame;
-      if (frame) return (draft.frame = frame), draw();
-      const like = e.target.closest('[data-like]')?.dataset.like;
-      if (like) return (draft.like = like), draw();
-      if (e.target.closest('[data-unpic]')) return draft.images.splice(Number(e.target.closest('[data-unpic]').dataset.unpic), 1), draw();
-      if (e.target.closest('[data-unzip]')) return (draft.zip = null), draw();
-      if (e.target.closest('.np-drop')) $('.np-drop input', main).click();
-    };
-    main.onkeydown = (e) => e.target.closest?.('.np-drop') && (e.key === 'Enter' || e.key === ' ') && (e.preventDefault(), $('.np-drop input', main).click());
-    main.ondragover = (e) => e.target.closest?.('.np-drop') && e.preventDefault();
-    main.ondrop = (e) => e.target.closest?.('.np-drop') && (e.preventDefault(), addFiles([...e.dataTransfer.files]));
-    main.onpaste = (e) => {
-      const files = [...(e.clipboardData?.files ?? [])].filter((f) => IMAGE_TYPES.includes(f.type));
-      if (files.length) e.preventDefault(), addFiles(files);
-    };
-    main.onsubmit = async (e) => {
-      e.preventDefault();
-      const kind = e.target.dataset.np;
-      const nameField = $('#np-name', main);
-      const name = draft.name;
-      if (!NAME.test(name)) return error(t('Use lowercase letters, digits and - for the name, starting with a letter or digit.'), nameField);
-      if (taken.includes(name)) return error(t('There is already a page called {name}.', { name }), nameField);
-      let body;
-      if (kind === 'kaity') {
-        if (!draft.prompt.trim() && !draft.images.length && !draft.zip) return error(t('Write what the page should be, or add an image of it.'), $('#np-prompt', main));
-        body = { name, prompt: draft.prompt.trim(), images: draft.images, ...(draft.zip ? { zip: draft.zip } : {}) };
-      } else if (kind === 'copy') {
-        if (!/^https?:\/\/[^\s/]+\S*$/i.test(draft.url.trim())) return error(t('Write the address of the page to copy, starting with https://'), $('#np-url', main));
-        body = { name, url: draft.url.trim(), structureOnly: draft.structureOnly };
-      } else if (kind === 'like') body = { name, like: draft.like };
-      else body = { name, layout: layoutName(), side: draft.side, shared: draft.shared, ...(site.sharedTheme ? {} : { theme: draft.theme }) };
-      for (const b of main.querySelectorAll('[type="submit"]')) b.disabled = true;
-      try {
-        await request('/_tykerf/site/new', body);
-        draft = null;
-        location.assign(`/_tykerf/edit/${encodeURIComponent(name)}/`);
-      } catch (err) {
-        for (const b of main.querySelectorAll('[type="submit"]')) b.disabled = false;
-        error(err.message, kind === 'copy' ? $('#np-url', main) : null);
-      }
-    };
-  },
-};
-
 export const SCREENS = {
   about: aboutScreen, tasks: tasksScreen, shared: sharedScreen, check: checkScreen, media: mediaScreen, links: linksScreen,
-  kaity: kaityScreen, history: historyScreen, settings: settingsScreen, publish: publishScreen, new: newScreen,
+  history: historyScreen, settings: settingsScreen, publish: publishScreen,
 };

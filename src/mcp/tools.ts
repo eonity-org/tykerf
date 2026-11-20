@@ -123,6 +123,8 @@ export interface TykerfServerOptions {
    * page's history (Workspace.tag), so that task's work can be taken back on its own, and ask_person is there.
    */
   tag?: string | null;
+  /** Any other run of Kaity's: her changes carry this tag in the history, so the run can be undone on its own (no ask_person). */
+  mark?: string | null;
   /** Only the tools that look (and close_task, ask_person): Kaity answering a question changes nothing. */
   readOnly?: boolean;
 }
@@ -273,7 +275,7 @@ export function createTykerfServer(start: Workspace | null, opts: TykerfServerOp
     return registerTool(name, config as never, ((...a: unknown[]) => {
       if (!folderOpen && !FOLDERLESS.has(name))
         return text(`error: no folder is open. open_folder opens one${folders ? ` (without a path: the default folder, ${folders.defaultDir})` : ''}; say which folder you open, so the person can name another first.`, true);
-      ws.tag = opts.tag ?? null;
+      ws.tag = opts.tag ?? opts.mark ?? null;
       return cb(...a);
     }) as never);
   }) as unknown as typeof server.registerTool;

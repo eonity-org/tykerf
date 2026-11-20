@@ -25,7 +25,7 @@ The quickest way to change a page is to **point at it**: click anything, write w
 | [Getting good results from Kaity](asking-kaity.md) | How to write a request or a task, leaving tasks block by block, checking her work, and recipes: a page from one sentence, from a picture, a consistent site |
 | [Layouts, components and the theme](layouts.md) | Layouts, ready-made sections, the site's colours and fonts, band tones, images |
 | [Copying a website](importing.md) | A page from an existing site, or one of its sections in a box, and what you may do with the copy |
-| [Your site](sites.md) | The site's sidebar and screens: pages, the home page, titles, every task of the site, the site's icon, styles and scripts for every page, the site kit (one navigation and footer shared by every page, small behaviours), links between pages, where Kaity is working, the trash |
+| [Your site](sites.md) | The site manager's Overview, the side panel and the site's screens: pages, the home page, titles, every task of the site, the site's icon, styles and scripts for every page, the site kit (one navigation and footer shared by every page, small behaviours), links between pages, where Kaity is working, the trash |
 | [Publishing and serving](publishing.md) | Publish to GitHub Pages, Cloudflare Pages or Netlify; serve the site with TYKERF and sign in to edit it |
 | [Exporting](exporting.md) | A page or a whole site as plain files for any web host |
 | [Pages and the notation](workspaces.md) | What is in a page folder, the slicing notation, box types |
@@ -43,12 +43,12 @@ npx playwright install chromium
 npm start -- ~/tykerf-sites/my-site      # open http://localhost:4400
 ```
 
-A new or empty folder is a new site. It opens on **New page**, with three ways to start the first page:
-- **Describe it, show it, or both:** Kaity builds the page from your words and pictures.
-- **From a kind of page:** a purpose (a place, a person, an event…) in a frame, with the theme the site will share.
-- **From a copy of a web page.**
+A new or empty folder is a new site. It opens on a welcome with three ways to start the first page:
+- **Describe it to Kaity:** a few questions, pictures or a PDF; Kaity builds the page.
+- **Start from a kind of page:** a purpose (a place, a person, an event…) in a frame, with the theme the site will share, beside a live preview.
+- **Copy a web page.**
 
-**+ Page** in the site's sidebar (the page's name in the editor's bar opens it) adds more pages, and all the pages share one theme. **Publish**, at the bottom of the sidebar, puts the site online. The first page is the site's home page, which its address opens. To start a site with its home page from a layout directly: `npm start -- my-site --layout launch --theme studio` (add `--name portfolio` to name that page other than `home`).
+After that the editor opens on the site manager's **Overview**. **+ New page** (in the side panel, or on the Overview) adds more pages, and all the pages share one theme. **Publish**, in the top bar, puts the site online. The first page is the site's home page, which its address opens. To start a site with its home page from a layout directly: `npm start -- my-site --layout launch --theme studio` (add `--name portfolio` to name that page other than `home`).
 
 <!-- tykerf:footer -->
 ---

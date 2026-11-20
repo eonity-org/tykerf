@@ -54,7 +54,7 @@ export function createFixPanel(ctx) {
   el.className = 'fixbar';
   el.setAttribute('aria-label', t('Fixing by hand'));
   el.hidden = true;
-  document.querySelector('.stage').prepend(el);
+  (ctx.mount ?? document.querySelector('.stage')).prepend(el);
   /** What it shows: { spot, box, tpl, code, same, dirty } */
   let S = null;
 

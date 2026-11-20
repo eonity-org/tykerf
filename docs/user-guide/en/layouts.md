@@ -18,7 +18,7 @@ A layout is a set of components arranged on a page. Once the page is made, it ke
 
 ## Start from a kind of page and a frame
 
-A page starts from **what it is** (a *purpose*: the sections that kind of page needs) in **what holds it** (a *frame*: the navigation bar, a footer, a side menu). On a new site (`npm start -- my-site` on a new or empty folder), **New page** offers them under **From a kind of page**, each described as you choose it, with the theme the site will share and **Preview at full size**; in a site, **+ Page** in the site's sidebar offers the same, in the site's theme. Kaity chooses the same way: she decides what the page is for first, then keeps only the sections it needs. To start a site with its home page directly (`<frame>+<purpose>`, or a frame alone):
+A page starts from **what it is** (a *purpose*: the sections that kind of page needs) in **what holds it** (a *frame*: the navigation bar, a footer, a side menu). On a new site (`npm start -- my-site` on a new or empty folder), **New page** offers them under **From a kind of page**, each described as you choose it, with the theme the site will share and a live preview (**Full size** opens it over the screen); in a site, **+ New page** offers the same, in the site's theme. Kaity chooses the same way: she decides what the page is for first, then keeps only the sections it needs. To start a site with its home page directly (`<frame>+<purpose>`, or a frame alone):
 
 ```bash
 npm start -- ~/tykerf-sites/my-site --layout basic+place --theme natural

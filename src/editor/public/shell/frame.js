@@ -224,7 +224,13 @@ export function createFrame(iframe, { isBlock, on, passive = () => false }) {
     rect(el) {
       if (!el?.isConnected) return null;
       const r = el.getBoundingClientRect();
-      return r.width || r.height ? r : null;
+      if (r.width || r.height) return r;
+      // a box with no box of its own (display: contents, say): the room its children take
+      const kids = [...el.children].map((c) => c.getBoundingClientRect()).filter((c) => c.width || c.height);
+      if (!kids.length) return null;
+      const left = Math.min(...kids.map((c) => c.left)), top = Math.min(...kids.map((c) => c.top));
+      const right = Math.max(...kids.map((c) => c.right)), bottom = Math.max(...kids.map((c) => c.bottom));
+      return { left, top, right, bottom, width: right - left, height: bottom - top };
     },
     /** Bring an element into sight, below what covers the top of the frame (`top` px). */
     show(el, top = 0) {

@@ -8,6 +8,16 @@
 
 ## Unreleased
 
+### One frame, one Kaity
+
+- **The editor opens on the site manager's Overview:** your pages as cards (a small picture of each, who changed it last, its open tasks, Open, View, Name and title, Duplicate, and more), New page, what to check before publishing, Kaity's latest work, and the guides. A site with no pages opens on a welcome with three ways to make its first page, instead of jumping to New page.
+- **The same frame on every screen:** one top bar (where you are, Kaity, Checks, one Undo, one Publish) and one side panel on the left (the pages, the open page's blocks, the site's screens, the Kaity center), docked, folded with its own control, above the content on a phone. No screen has its own Undo or Publish any more.
+- **One box to ask Kaity, everywhere:** choose what she may change (this box, **this page**, or the whole site) and **Attach** pictures, PDFs or a design ZIP; she reads a PDF's text. *This page* is new: she may change any block of the page and nothing on other pages.
+- **The Kaity center:** everything she was asked and did, on the whole site and every page, as one thread from the oldest to the newest, opened at the newest; long pasted text folds; each request has **Undo**. It opens from the top bar on every screen, and as a page; a page's *Kaity on this page* is the same thread. It replaces *Kaity's work*, which showed the same things twice.
+- **New page asks a few questions:** what the page is, who it is for, what it must include (suggested for that kind of page), how it should sound, and anything else with files; the brief they make is shown, editable, and is exactly what Kaity gets. **From a kind of page** shows a live preview that follows every choice (it respected the side menu option only now), at three widths, and **Full size** opens over the screen, never in a new tab. **Then ask Kaity to fill it** makes the page and opens it with the box to ask her ready.
+- **A page in the editor:** its tasks and Kaity's work on it beside it, the box to ask her under it, one line above it for what is going on. **Edit** (the full editor) docks its panel on the right, beside the page, with the page's blocks in the side panel. **View** replaces *Hide tykerf*: the site as visitors see it, and it stays while you follow links, until **Edit this page**.
+- **Kaity only names controls the editor has** (she once asked for "the clip icon").
+
 ### Kaity chooses a layout for the page you asked for
 
 - **She works out what the page is for first:** what a visitor does there, who it is for, the one thing they should do, the sections it needs and its tone. Then she starts from the layout and theme that match, makes only those sections (a bakery's page gets no pricing, customer logos or figures unless you ask), and says in her answer which layout and theme she started from, why, and what she left out.

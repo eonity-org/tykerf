@@ -29,31 +29,37 @@ A **site** is a folder of pages. Start TYKERF on a new or empty folder:
 npm start -- ~/tykerf-sites/bakery
 ```
 
-Open http://localhost:4400 (another port: add `--port 4500`). A new site opens on **New page**: what page you want, its name (`home` is fine), and how to start.
+Open http://localhost:4400 (another port: add `--port 4500`). A new site opens on a welcome: what tykerf is in three steps, the guides, and **Create your first page** with three ways to start. The first page becomes the home page.
 
 ## Three ways to start
 
-### 1. Show or describe it, and Kaity builds it
+### 1. Describe it to Kaity, and she builds it
 
-The quickest way, and the first choice when Kaity is ready.
+The quickest way, and the first choice when Kaity is ready. Five questions, each one optional:
 
-1. **Show it:** drop, paste or choose up to three pictures: a screenshot of a page you like, a sketch on paper, a mock-up. You can also drop a design exported as a ZIP file (from Google Stitch, for example): Kaity gets its pictures and reads its text files (the design notes, the page's HTML and CSS) to follow its colours, fonts and sections.
-2. **Describe it:** write what the page should be. Be concrete about who it is for, what it must say, and the feel:
-   > A page for our bakery in Murcia: warm and simple, our three best breads, opening hours and a map.
+1. **What is the page?** A place, a person, an event, an organisation, a concept, a post, a guide, or something else.
+2. **Who is it for, and what should they do?**
+3. **What must it include?** The sections that kind of page usually has are suggested, ticked: untick what you don't need, add your own.
+4. **How should it sound?** Professional, warm, bold, minimal or playful.
+5. **Anything else? Show her what you mean.** Write it, and **Attach files**: a screenshot of a page you like, a sketch, your CV as a PDF, or a design exported as a ZIP file (from Google Stitch, for example: Kaity gets its pictures and reads its text files to follow its colours, fonts and sections).
 
-   Either one is enough; both together work best.
-3. Choose **Build it with Kaity**. She works out what the page is for, starts from the layout that fits it with only the sections it needs, and says which and why. She picks the theme that fits, or takes the colours and fonts of your design.
+*What Kaity will get*, beside them, is the brief your answers make. It is exactly what she receives, and you can write over it:
+   > A place page for neighbours who want good bread, who should come to the shop.
+   > Sections: intro, what it offers, hours and location, contact.
+   > Tone: warm.
+
+Then choose **Build it with Kaity**. She works out what the page is for, starts from the layout that fits it with only the sections it needs, and says which and why. She picks the theme that fits, or takes the colours and fonts of your design.
 
 The page starts empty. Kaity starts from the page layout that fits your request best (a launch page, a magazine, a portfolio, a data page…), then shapes it and rewrites all its text for you.
 
-TYKERF makes the page at once and opens it in the editor. The bar says *Kaity is building* the page and the tray under it lists her steps, while the page fills in below. Meanwhile she:
+TYKERF makes the page at once and opens it in the editor. The line above the page says *Kaity is building* the page and the tray lists her steps, while the page fills in. Meanwhile she:
 - plans the sections and starts each from a ready-made component;
 - writes the text, alternates light and tinted bands, and puts a dark footer at the end;
 - looks at the result at desktop and phone width and fixes what looks wrong.
 
-It takes a few minutes and uses your AI account. **Stop Kaity** in the bar stops her; what she built so far stays.
+It takes a few minutes and uses your AI account. **Stop Kaity** stops her; what she built so far stays.
 
-When it is done, the bar says *Your page is ready* and the tray shows her summary; **Got it** puts it away. Then click anything on the page and say what should change, and give your tasks to Kaity (see [Tasks](editor.md#tasks)). **Full editor**, in the bar, is for every block in detail by hand.
+When it is done, the line above the page says *Your page is ready* and the tray shows her summary; **Got it** puts it away. Then click anything on the page and say what should change, and give your tasks to Kaity (see [Tasks](editor.md#tasks)), or ask her about the whole page in the box under it. **Edit**, in the top bar, is for every block in detail by hand.
 
 Every step is an ordinary change, so you can undo any of them.
 
@@ -63,9 +69,9 @@ Every step is an ordinary change, so you can undo any of them.
 
 **Best for:** a page you can picture or describe, or a design you saw somewhere and want something like it.
 
-### 2. A copy of a website
+### 2. Copy a web page
 
-TYKERF opens an existing page in a browser, measures it at desktop and phone widths, and cuts it into rows, columns and boxes you can edit. Write the address and choose **Copy the page**. Tick **Only the layout** to keep the structure without the site's text, images and styles. The page opens at once, and the bar and the tray follow the copy: opening the site, measuring it, cutting it into blocks, copying the styles. It usually takes under a minute; **Got it** puts the steps away. **Stop the copy** in the bar stops it and removes the unfinished page (to the site's `.trash/` folder).
+TYKERF opens an existing page in a browser, measures it at desktop and phone widths, and cuts it into rows, columns and boxes you can edit. Write the address and choose **Copy the page**. Tick **Only the layout** to keep the structure without the site's text, images and styles. The page opens at once, and the line above it and the tray follow the copy: opening the site, measuring it, cutting it into blocks, copying the styles. It usually takes under a minute; **Got it** puts the steps away. **Stop the copy** stops it and removes the unfinished page (to the site's `.trash/` folder).
 
 **Best for:**
 - moving your own site into TYKERF;
@@ -73,9 +79,9 @@ TYKERF opens an existing page in a browser, measures it at desktop and phone wid
 
 Read [what you may do with a copy](importing.md#what-you-may-do-with-the-copy) before you publish one: a copy of someone else's site is for studying and prototyping only. You can also copy just one part of a site into a box later (*Import a section…*, see [Copying a website](importing.md)).
 
-### 3. A layout
+### 3. Start from a kind of page
 
-Pick what the page is (a place, a person, an event, an organisation, a concept, a post or a guide, or *Just the frame* to start almost empty), what holds it (*simple*, *basic* or *full*), and, for a site's first page, its theme. Each choice is described as you pick it; **Preview at full size** shows the page. Then replace the placeholder text and images, or ask Kaity to fill them in ("fill this page for a bakery in Murcia").
+Pick what the page is (a place, a person, an event, an organisation, a concept, a post or a guide, or *Just the frame* to start almost empty), what holds it (*Simple*, *Basic* or *Full*, drawn small), and its theme. The **live preview** beside your choices follows every change, at desktop, tablet or phone width; **Full size** shows it over the whole window, and *Back to choices* keeps everything you chose. Then **Create … and open it** and replace the placeholder text and images, or **Then ask Kaity to fill it**: the page opens with the box to ask her about it ready ("fill this page for a bakery in Murcia").
 
 The seven themes each suit a tone: *Studio* (airy, modern), *Ivory* (editorial, warm paper), *Natural* (outdoors, green and clay), *Vivid* (loud, one strong colour), *Civic* (plain and clear, easy for everyone to read), *Playful* (friendly, round, pastel) and *Dark* (for developers). Any page works with any theme, so the pair sets the page's colour, type and density.
 
@@ -90,25 +96,25 @@ A page starts from **components**, ready-made sections such as an introduction, 
 
 | You have… | Start with |
 |---|---|
-| An idea, a sketch or a screenshot of a page you like | **Show or describe it** |
-| A site already (yours), or a layout you want to study | **A copy of a website** |
-| No AI set up yet, or you want to write every word | **A layout** |
+| An idea, a sketch, a screenshot or a PDF of what the page should say | **Describe it to Kaity** |
+| A site already (yours), or a layout you want to study | **Copy a web page** |
+| No AI set up yet, or you want to write every word | **Start from a kind of page** |
 
 None of these locks you in. Every page, however it started, is the same kind of TYKERF page: you can edit it by hand, ask Kaity about any block, use components and change the theme.
 
 ## More pages
 
-Click the page's name at the left of the bar, and **+ Page** in the site it opens. You get the same three ways. A new page from a layout gets the site's navigation and footer, shared: change them once and every page follows (see the [site kit](sites.md#the-site-kit)). To make a page like another one, ask Kaity: "a page about Porto like Lisbon".
+**+ New page**, at the top of the side panel and on the Overview, opens New page with the same ways, and one more: **Like a page of this site**. The side panel shows the new page as *being set up* until you make it. A new page from a kind of page gets the site's navigation and footer, shared: change them once and every page follows (see the [site kit](sites.md#the-site-kit)).
 
 **One theme for the whole site.** All the pages of a site share the theme the first page set: its colours, fonts and spacing. Change it in the full editor's **Page** tab of any page and every page follows. A page can still set its own colours or fonts with *This page only*, and the Page tab always says whether a page's look is inherited from the site (see [the theme](layouts.md#the-theme)).
 
 ## Your first changes: tasks
 
-Open the page: the editor's bar is on top, and tasks are all you need at first.
+Open the page: the top bar is on top, the page in the middle, and tasks are all you need at first.
 
 1. **Click** anything on the page (a title, a button, a section) and write what should change: "make this shorter", "add a Pricing link here". Press **Add task**. The task stays on its spot as a numbered pin.
 2. Leave as many as you like, at the window width where you see each problem.
-3. Press **Give them to Kaity**. She works through them one at a time, the page shows where she is, and the tray shows what she did with each one: check it, undo one, or answer her question.
+3. Press **Give them to Kaity** (on the right, under *Tasks on …*). She works through them one at a time, the page shows where she is, and the tray shows what she did with each one: check it, undo one, or answer her question.
 
 Every change she makes is a step you can undo. See [Tasks](editor.md#tasks).
 
@@ -120,8 +126,8 @@ Every change she makes is a step you can undo. See [Tasks](editor.md#tasks).
 
 - **[Tasks and the editor](editor.md):** tasks first; fixing one thing by hand; and the **full editor**, for exact changes to any block (select blocks, edit text and images where they are, resize, move, undo anything).
 - **[Getting good results from Kaity](asking-kaity.md):** how to write a task or a request, and recipes.
-- **[Manage the site](sites.md):** the page's name at the left of the bar opens the site: its pages to open, rename, duplicate or remove, the home page and titles, the tasks of every page, the site kit (a navigation and a footer shared by every page), the site's check, media, links between pages and its icon. The link box (⌘K) lists the site's pages, and renaming a page updates every link to it.
-- **[Put it online](publishing.md):** **Publish**, at the bottom of the site's sidebar, sends the site to GitHub Pages, Cloudflare Pages or Netlify; **Export the site** there gives a .zip of plain files for any web host.
+- **[Manage the site](sites.md):** the **Overview** (*Your site* in the top bar) and the side panel: the pages to open, view, rename, duplicate or remove, the home page and titles, what to check before publishing, Kaity's latest work, the site kit (a navigation and a footer shared by every page), the site's check, media, links between pages and its icon. The link box (⌘K) lists the site's pages, and renaming a page updates every link to it.
+- **[Put it online](publishing.md):** **Publish**, in the top bar, sends the site to GitHub Pages, Cloudflare Pages or Netlify; **Export the site** there gives a .zip of plain files for any web host.
 
 <!-- tykerf:footer -->
 ---

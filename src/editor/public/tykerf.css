@@ -616,8 +616,6 @@ textarea.code { flex: 1; min-height: 120px; font: var(--mono); tab-size: 2; whit
 :host(.embedded) .head :focus-visible { outline-color: var(--brand-2); }
 :host(.embedded) :is(.head-tools, .tabs, .actions, .handbook-link) .i, :host(.embedded) :is(.item, .blocks) .icon { display: none; }
 :host(.embedded) .item .chip.shared { font-size: 11px; font-weight: 600; padding: 0 6px; border-radius: 4px; margin-left: 6px; }
-/* compacted while the site's sidebar is open (the shell asks: tykerfSidebar) */
-.compacted-note { flex: none; color: var(--muted); font-size: 13px; white-space: nowrap; }
 /* what the full editor shares with the task box: the amber of the block in focus. The block's name in the header is
    underlined in it (as the frame round the block on the page), and a field being typed in, or anything reached with
    the keyboard, gets the task box's amber ring */
@@ -627,3 +625,13 @@ textarea.code { flex: 1; min-height: 120px; font: var(--mono); tab-size: 2; whit
 :host(.embedded) .menu button:focus-visible, :host(.embedded) .pop .mini:focus-visible { outline: none; }
 /* room for that ring where the fields scroll (it would be cut at their edges) */
 :host(.embedded) .fields { padding: 5px 6px 5px 5px; margin: -5px -6px -5px -5px; }
+
+/* v4 Edit mode: in the shell the panel is the inspector, docked on the right of the frame; the page lays out beside
+   it (tykerf.js dock: the page's html gets the panel's width as a margin). The shell's rail has the box tree and its
+   top bar the one Undo, so the panel keeps only the path and Dim / Blur. */
+:host(.docked) .panel { position: fixed; top: 0; right: 0; bottom: 0; left: auto; width: var(--dock-w, 400px) !important; height: 100vh !important; min-width: 0; max-height: none; resize: none; border: 0; border-left: 1px solid var(--line); border-radius: 0; box-shadow: -8px 0 24px rgb(16 48 63 / .08); }
+:host(.docked) .panel.min .body { display: grid; }
+:host(.docked) .head { cursor: default; }
+:host(.docked) .brand, :host(.docked) .head-tools > .undo, :host(.docked) .head-tools > .redo, :host(.docked) .head-tools > .minimize, :host(.docked) .head-tools > .closebtn { display: none; }
+:host(.docked) .body { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr); }
+:host(.docked) .tree { display: none; }

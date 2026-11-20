@@ -10,7 +10,7 @@ TYKERF can start a page from any website, or copy one section of a website into 
 
 ## A new page from a website
 
-On **New page** (a new site opens on it; later, **+ Page** in the site's sidebar), write the page's address under **From a copy of a web page** and choose **Copy the page**. TYKERF names the page after the site until you give it a name yourself. The page opens at once in the editor, and the bar and the tray follow the copy step by step (a few seconds to a minute); **Stop the copy** stops it and removes the unfinished page. When it is done, **Got it** puts the steps away.
+On **New page** (a new site's welcome leads there; later, **+ New page** in the side panel or on the Overview), choose **Copy a web page**, write the page's address and choose **Copy the page**. TYKERF names the page after the site until you give it a name yourself. The page opens at once in the editor, and the line above it and the tray follow the copy step by step (a few seconds to a minute); **Stop the copy** stops it and removes the unfinished page. When it is done, **Got it** puts the steps away.
 
 **Only the layout** keeps the blocks but leaves out the site's text, images and styles, for when you only want its structure.
 

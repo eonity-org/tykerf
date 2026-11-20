@@ -22,6 +22,7 @@ import { FolderStore, checkPath } from '../store.js';
 import { components, copyBehaviours, hasTheme, libraryBehaviours, pageLayouts, readOverrides, themeVariables, useComponent, withFonts, withOverrides } from '../library.js';
 import { NO_SITE_HEAD, type Workspace, joinStyle, splitStyle } from '../workspace.js';
 import { AI, type Runner } from './ai.js';
+import { readAttachments } from './attachments.js';
 
 export const json = (res: ServerResponse, code: number, body: unknown) => {
   res.writeHead(code, { 'content-type': 'application/json', 'cache-control': 'no-store' });
@@ -102,17 +103,11 @@ export function cornerButton(href: string, label: string, data: string): string 
     'document.body.append(a);';
 }
 
-/**
- * The page as a visitor sees it, after Hide tykerf in the v3 editor: a button back to the editor, and the same key
- * (Alt+Shift+T) that hid it.
- */
-function showTykerf(name: string): string {
-  const to = JSON.stringify(`/_tykerf/edit/${encodeURIComponent(name)}/`);
-  return `<script>(()=>{const to=${to};${cornerButton('to', 'Show tykerf', 'tykerfShow')}` +
-    `addEventListener('keydown',(e)=>{if(e.altKey&&e.shiftKey&&e.code==='KeyT'){e.preventDefault();location.href=to}})})()</script>`;
-}
 
-export function createPageHost(ws: Workspace, opts: { name: string; site?: () => SiteInfo; runner?: Runner; title?: () => string; admin?: (req: IncomingMessage) => boolean; visitorEnd?: string; onTaskRun?: (run: TaskRunState | null) => void }): PageHost {
+/** View mode's pill (public/shell/view.js): the page as visitors see it, the way back to editing, the other pages. */
+const viewPill = (name: string) => `<script type="module" src="/_tykerf/shell/view.js" data-page="${encodeURIComponent(name)}"></script>`;
+
+export function createPageHost(ws: Workspace, opts: { name: string; site?: () => SiteInfo; runner?: Runner; title?: () => string; admin?: (req: IncomingMessage) => boolean; viewing?: (req: IncomingMessage) => boolean; visitorEnd?: string; onTaskRun?: (run: TaskRunState | null) => void; onAi?: (data: unknown) => void }): PageHost {
   const store = ws.store;
 
   /**
@@ -466,6 +461,8 @@ export function createPageHost(ws: Workspace, opts: { name: string; site?: () =>
       broadcast('job', publicJob());
     }
     broadcast(event, data);
+    // the site hears when she starts, answers and ends on this page (the Kaity center's thread follows)
+    if (event === 'ai' && ['start', 'ai', 'error', 'end'].includes(m.role ?? '')) opts.onAi?.(data);
   };
   const ai = new AI(ws, aiEvents, opts.runner);
   // the site hears of every change to it too (its screens, and Give Kaity everything going page by page)
@@ -498,7 +495,8 @@ export function createPageHost(ws: Workspace, opts: { name: string; site?: () =>
       // (?tykerf=frame); after Hide tykerf the person sees it as a visitor does, with the way back (?tykerf=hidden);
       // the full editor, the expert way, is the shell's other mode (?mode=full): its frame loads the page with the
       // full editor's script (?tykerf=full-frame); ?tykerf=full and the older ?block=/?edit links lead there
-      const as = admin ? url.searchParams.get('tykerf') : null;
+      // View mode (a cookie, server.ts): the page as visitors see it, with the pill, until the person presses Edit
+      const as = admin ? url.searchParams.get('tykerf') ?? (opts.viewing?.(req) ? 'view' : null) : null;
       const shell = `/_tykerf/edit/${encodeURIComponent(opts.name)}/`;
       if (admin && (as === 'full' || (!as && (url.searchParams.has('block') || url.searchParams.has('edit'))))) {
         const block = url.searchParams.get('block');
@@ -507,7 +505,7 @@ export function createPageHost(ws: Workspace, opts: { name: string; site?: () =>
       }
       if (admin && !as) return res.writeHead(302, { location: shell, 'cache-control': 'no-store' }).end();
       res.writeHead(200, { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store' });
-      const end = !admin ? (opts.visitorEnd ?? '') : as === 'frame' ? '' : as === 'hidden' ? showTykerf(opts.name) : as === 'full-frame' ? '<script type="module" src="_tykerf/tykerf.js"></script>' : '';
+      const end = !admin ? (opts.visitorEnd ?? '') : as === 'frame' ? '' : as === 'hidden' || as === 'view' ? viewPill(opts.name) : as === 'full-frame' ? '<script type="module" src="_tykerf/tykerf.js"></script>' : '';
       return res.end(ws.page({ title: opts.title?.() ?? opts.name, bodyEnd: end }));
     }
     // the page's own files: images and other files the boxes refer to as assets/<file>
@@ -554,7 +552,7 @@ export function createPageHost(ws: Workspace, opts: { name: string; site?: () =>
       const img = ai.image(name);
       if (!img) return res.writeHead(404).end('not found');
       const ext = name.split('.').pop()!;
-      res.writeHead(200, { 'content-type': `image/${ext === 'jpg' ? 'jpeg' : ext}`, 'cache-control': 'max-age=31536000, immutable' });
+      res.writeHead(200, { 'content-type': ext === 'pdf' ? 'application/pdf' : `image/${ext === 'jpg' ? 'jpeg' : ext}`, 'cache-control': 'max-age=31536000, immutable', 'x-content-type-options': 'nosniff', 'content-security-policy': 'sandbox' });
       return res.end(img);
     }
     if (req.method === 'GET' && p === '/_tykerf/chat') return json(res, 200, ai.chat(url.searchParams.get('id') ?? ''));
@@ -682,9 +680,14 @@ export function createPageHost(ws: Workspace, opts: { name: string; site?: () =>
       copied = { token, place: (section, box) => placeSection(ws, r, section, box, 'user') };
       return json(res, 200, { ok: true, token, url: from, sections: r.sections ?? [] });
     }
+    // a request from a composer: on one box, or on the whole page (its top block: Kaity may change any block of it,
+    // and nothing else), with the files attached to it (attachments.ts)
     if (p === '/_tykerf/ask') {
-      ai.ask(a.id, String(a.prompt ?? ''), a.size, Array.isArray(a.images) ? a.images : []);
-      return json(res, 200, { ok: true });
+      const attached = readAttachments(a.files, a.images);
+      const asked = String(a.prompt ?? '').trim() || (attached.files.length ? 'Look at the attached files.' : '');
+      const id = a.id === '' || a.scope === 'page' ? ws.load().root.id : String(a.id ?? '');
+      ai.ask(id, attached.note ? `${asked}\n\n${attached.note}` : asked, a.size, attached.files, undefined, attached.context || undefined);
+      return json(res, 200, { ok: true, id });
     }
     if (p === '/_tykerf/ask/cancel') return json(res, 200, { ok: ai.cancel() });
     // stop the page's job (the AI stops; a copy is dropped), or forget it once the person has seen how it ended

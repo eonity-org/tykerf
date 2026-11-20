@@ -83,7 +83,7 @@ describe('a site served to visitors', () => {
     expect((await get('_tykerf/login?next=%2F%2Fevil.example', cookie)).headers.get('location')).toBe('/_tykerf/site/');
     expect(await (await get('_tykerf/site', cookie)).json()).toMatchObject({ pages: ['munich', 'rome'], signin: true });
     // the site manager's old address is the site's screens in the editor now
-    expect((await get('_tykerf/site/', cookie)).headers.get('location')).toBe('/_tykerf/edit/_site/tasks');
+    expect((await get('_tykerf/site/', cookie)).headers.get('location')).toBe('/_tykerf/edit/_site/');
     expect(await (await get('pages/', cookie)).text()).toContain('<a href="/_tykerf/site/" rel="nofollow">Site manager</a>');
     expect((await post('_tykerf/logout', {}, cookie)).headers.get('set-cookie')).toMatch(/Max-Age=0/);
     expect((await get('_tykerf/site', cookie)).status).toBe(401); // that session is over

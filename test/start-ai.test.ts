@@ -69,25 +69,28 @@ describe('show or describe it', () => {
     const { url, site } = await editor({ TYKERF_RUNNER: 'anthropic', TYKERF_API_KEY: 'k', TYKERF_API_BASE_URL: `http://127.0.0.1:${(api.address() as { port: number }).port}` });
     const page = await browser.newPage({ viewport: { width: 1280, height: 860 } });
     page.setDefaultTimeout(8000);
-    await page.goto(url); // a new site: New page
-    await page.waitForURL(/\/_tykerf\/edit\/_site\/new$/);
-    expect(await page.locator('.np-kaity [type="submit"]').isDisabled()).toBe(false); // the AI is ready
+    await page.goto(url); // a new site: its first run, and Describe it to Kaity
+    await page.locator('.ostart[data-start="describe"]').click();
+    await page.waitForURL(/\/_tykerf\/edit\/_site\/new\?start=describe$/);
+    expect(await page.locator('[data-go="kaity"]').isDisabled()).toBe(false); // the AI is ready
     await page.locator('#np-name').fill('bakery');
-    await page.locator('#np-prompt').fill('A page for our bakery in Murcia');
+    await page.locator('[name="brief"]').fill('A page for our bakery in Murcia');
     const shot = join(mkdtempSync(join(tmpdir(), 'tykerf-pic-')), 'sketch.png');
     writeFileSync(shot, PNG);
-    await page.locator('.np-drop input[type=file]').setInputFiles(shot);
-    await page.locator('.np-pics img').waitFor();
-    await page.locator('.np-kaity [type=submit]').click();
+    const chooser = page.waitForEvent('filechooser');
+    await page.locator('[data-attach]').click();
+    await (await chooser).setFiles(shot);
+    await page.locator('.np-attach .fchip', { hasText: 'sketch.png' }).waitFor();
+    await page.locator('[data-go="kaity"]').click();
     await page.waitForURL(`${url}_tykerf/edit/bakery/`);
 
-    // the page opens at once; the bar says Kaity is building it and the tray lists her steps, then her answer
-    await expect.poll(() => page.locator('.bar .status').textContent(), { timeout: 20_000 }).toContain('Your page is ready');
+    // the page opens at once; the status line says Kaity is building it and the tray lists her steps, then her answer
+    await expect.poll(() => page.locator('.pstatus .status').textContent(), { timeout: 20_000 }).toContain('Your page is ready');
     expect(await page.locator('.jobsteps li').allTextContents()).toEqual([expect.stringMatching(/^use component main hero/), expect.stringMatching(/^checking \d+ things left unfinished$/)]);
     expect(await page.locator('.tray .how').textContent()).toBe('I left the hero text for you to write.');
     // Got it; then the whole conversation is the top block's, to read from Kaity's work
     await page.locator('[data-bar="job-seen"]').click();
-    await page.locator('.bar .hint').waitFor();
+    await page.locator('.pstatus .hint').waitFor();
     await page.goto(`${url}_tykerf/edit/bakery/?conversation=${await top(url, 'bakery')}`);
     await page.locator('.convo .msg.ai').first().waitFor();
     expect(await page.locator('.convo .msg.ai .who').first().textContent()).toBe('Kaity'); // Kaity's replies carry her name and mark
@@ -124,21 +127,25 @@ describe('show or describe it', () => {
     page.setDefaultTimeout(8000);
     await page.goto(`${url}_tykerf/edit/_site/new`);
     await page.locator('#np-name').fill('paris');
+    await page.locator('[name="brief"]').fill('');
     const file = join(mkdtempSync(join(tmpdir(), 'tykerf-zip-')), 'stitch_paris.zip');
     writeFileSync(file, zip([
       { path: 'DESIGN.md', bytes: new TextEncoder().encode('# L\'Odyssée Parisienne\nPrimary: #0F1B29') },
       { path: 'code.html', bytes: new TextEncoder().encode('<h1>Paris en Données Rares</h1>') },
       { path: 'screen.png', bytes: new Uint8Array(PNG) },
     ]));
-    await page.locator('.np-drop input[type=file]').setInputFiles(file);
-    expect(await page.locator('.np-zip b').textContent()).toBe('stitch_paris.zip');
-    await page.locator('.np-kaity [type=submit]').click(); // no words needed: the ZIP is enough
+    const chooser = page.waitForEvent('filechooser');
+    await page.locator('[data-attach]').click();
+    await (await chooser).setFiles(file);
+    expect(await page.locator('.np-attach .fchip').textContent()).toBe('stitch_paris.zip×');
+    await page.locator('[name="brief"]').fill(''); // no words needed: the ZIP is enough
+    await page.locator('[data-go="kaity"]').click();
     await page.waitForURL(`${url}_tykerf/edit/paris/`);
-    await expect.poll(() => page.locator('.bar .status').textContent(), { timeout: 20_000 }).toContain('Your page is ready');
+    await expect.poll(() => page.locator('.pstatus .status').textContent(), { timeout: 20_000 }).toContain('Your page is ready');
 
     // the chat shows the request and the file names; the model gets the files' text and the picture
     await page.locator('[data-bar="job-seen"]').click();
-    await page.locator('.bar .hint').waitFor();
+    await page.locator('.pstatus .hint').waitFor();
     await page.goto(`${url}_tykerf/edit/paris/?conversation=${await top(url, 'paris')}`);
     await page.locator('.convo .msg.user').waitFor();
     expect(await page.locator('.convo .msg.user').textContent()).toContain('(Attached: stitch_paris.zip: DESIGN.md, code.html, screen.png)');
@@ -162,9 +169,9 @@ describe('show or describe it', () => {
     expect(r.ok).toBe(true);
     const page = await browser.newPage({ viewport: { width: 1280, height: 800 } });
     await page.goto(`${url}_tykerf/edit/slow/`);
-    await expect.poll(() => page.locator('.bar .status').textContent()).toContain('Kaity is building slow');
+    await expect.poll(() => page.locator('.pstatus .status').textContent()).toContain('Kaity is building slow');
     await page.locator('[data-bar="job-stop"]').click();
-    await expect.poll(() => page.locator('.bar .status').textContent(), { timeout: 10_000 }).toContain('Stopped');
+    await expect.poll(() => page.locator('.pstatus .status').textContent(), { timeout: 10_000 }).toContain('Stopped');
     expect(await page.locator('.tray .how').textContent()).toMatch(/What Kaity built so far stays/);
   });
 
@@ -176,11 +183,11 @@ describe('show or describe it', () => {
     expect(r.ok).toBe(true);
     const page = await browser.newPage({ viewport: { width: 1280, height: 800 } });
     await page.goto(`${url}_tykerf/edit/later/`);
-    await expect.poll(() => page.locator('.bar .status').textContent(), { timeout: 10_000 }).toContain('later is not finished');
+    await expect.poll(() => page.locator('.pstatus .status').textContent(), { timeout: 10_000 }).toContain('later is not finished');
     expect(await page.locator('.tray .how').textContent()).toBe('Kaity stopped before she finished: the model did not answer within 1 second. What she built so far stays: Continue lets her go on.');
     const asked = got.length;
     await page.locator('[data-bar="job-continue"]').click();
-    await expect.poll(() => page.locator('.bar .status').textContent(), { timeout: 10_000 }).toContain('Your page is ready');
+    await expect.poll(() => page.locator('.pstatus .status').textContent(), { timeout: 10_000 }).toContain('Your page is ready');
     expect(await page.locator('.tray .how').textContent()).toBe('All built.');
     // she went on with the same instructions (the build brief) and knew she had been stopped
     expect(got[asked].system).toMatch(/This page was just made for this request/);
@@ -201,14 +208,15 @@ describe('show or describe it', () => {
     expect((await post('tour/_tykerf/ask', { id: 'nav', prompt: 'make it shorter' })).ok).toBe(true);
     expect((await fetch(`${url}_tykerf/site`).then((x) => x.json())).kaity).toEqual({ site: false, pages: [{ page: 'tour', block: 'nav' }] });
 
-    // the site's Kaity screen lists her run as going on
+    // the Kaity center lists her run as going on, and the rail's Kaity center link says she works
     const screen = await browser.newPage();
     await screen.goto(`${url}_tykerf/edit/_site/kaity`);
-    const run = screen.locator('.runs .run.working');
+    const run = screen.locator('.screen .ti.her.working');
     await run.waitFor();
-    expect(await run.locator('.rhead').textContent()).toMatch(/^Working\s*tour · nav/);
-    expect(await run.locator('.rhead a').getAttribute('href')).toBe('/_tykerf/edit/tour/?conversation=nav');
-    expect(await screen.locator('.sidebar [data-screen="kaity"] .sstate').textContent()).toBe('working now');
+    expect(await run.locator('.scopechip').textContent()).toBe('tour · nav');
+    expect(await run.locator('[data-stop]').textContent()).toBe('Stop Kaity');
+    expect(await screen.locator('.screen .ti.you .req').last().textContent()).toBe('make it shorter');
+    await expect.poll(() => screen.locator('.rail [data-kaity] animate').count()).toBeGreaterThan(0);
     await screen.close();
 
     // in the full editor: her balls on the block in the tree
@@ -222,9 +230,12 @@ describe('show or describe it', () => {
     const { url } = await editor({ TYKERF_RUNNER: 'anthropic' }); // no key
     const page = await browser.newPage();
     await page.goto(`${url}_tykerf/edit/_site/new`);
-    expect(await page.locator('.np-kaity [type=submit]').isDisabled()).toBe(true);
-    expect(await page.locator('.np-kaity .warn').textContent()).toMatch(/not ready.*no key/);
-    expect(await page.locator('[data-np="layout"] [type=submit]').isDisabled()).toBe(false);
+    await page.locator('[data-go="kaity"]').waitFor();
+    expect(await page.locator('[data-go="kaity"]').isDisabled()).toBe(true);
+    expect(await page.locator('.np-side > .note').textContent()).toMatch(/not ready.*no key/);
+    await page.locator('[data-start="kind"]').click();
+    expect(await page.locator('[data-go="layout"]').isDisabled()).toBe(false);
+    expect(await page.locator('[data-go="fill"]').isDisabled()).toBe(true); // nor asked to fill it
     const r = await fetch(`${url}_tykerf/site/new`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ name: 'x', prompt: 'a page' }) });
     expect(r.status).toBe(422);
     expect((await r.json()).error).toMatch(/Kaity is not ready/);
@@ -247,7 +258,7 @@ describe("a task's review", () => {
     const page = await browser.newPage({ viewport: { width: 1280, height: 860 } });
     page.setDefaultTimeout(8000);
     await page.goto(`${url}_tykerf/edit/log/`);
-    await page.locator('[data-bar="tray"]').click();
+    await page.locator('.pstatus [data-bar="tray"]').click();
     expect(await page.locator('.card[data-card="1"] .pics img').count()).toBe(1);
     const before = got.length;
     replies.push(
@@ -255,7 +266,7 @@ describe("a task's review", () => {
       message([{ type: 'tool_use', id: 'a2', name: 'close_task', input: { n: 1, reply: 'Added the link.' } }]) as any,
       message([{ type: 'text', text: 'added' }], 'end_turn') as any,
     );
-    await page.locator('[data-bar="give"]').click();
+    await page.locator('.pside [data-side="give"]').click();
     // what she left unfinished in the task, on its card
     const left = page.locator('.card[data-card="1"] .left');
     await left.waitFor({ timeout: 15_000 });
@@ -301,12 +312,12 @@ describe('the site in the editor', () => {
     createPage(new Workspace(join(site, 'home')), 'blank');
     const page = await browser.newPage({ viewport: { width: 1280, height: 860 } });
     page.setDefaultTimeout(8000);
-    await page.goto(`${url}_tykerf/edit/_site/tasks`);
-    await expect.poll(() => page.locator('.sidebar .pname').allTextContents()).toEqual(['home']);
+    await page.goto(`${url}_tykerf/edit/_site/`);
+    await expect.poll(() => page.locator('.rail .rpage').allTextContents()).toEqual(['home']);
     for (const name of ['rome', 'prague']) createPage(new Workspace(join(site, name)), 'blank');
     await page.evaluate(() => window.dispatchEvent(new Event('focus')));
-    await expect.poll(() => page.locator('.sidebar .pname').allTextContents(), { timeout: 6000 }).toEqual(['home', 'prague', 'rome']);
-    await page.locator('.sidebar .popen', { hasText: 'rome' }).click();
+    await expect.poll(() => page.locator('.rail .rpage').allTextContents(), { timeout: 6000 }).toEqual(['home', 'prague', 'rome']);
+    await page.locator('.rail .rpage', { hasText: 'rome' }).click();
     await page.waitForURL(`${url}_tykerf/edit/rome/`);
   });
 });
@@ -424,9 +435,11 @@ describe('Kaity for the whole site', () => {
     const page = await browser.newPage({ viewport: { width: 1280, height: 800 } });
     page.setDefaultTimeout(10_000);
     await page.goto(`${url}_tykerf/edit/_site/kaity`);
-    await page.locator('.convo #ask-site-2').pressSequentially('Link every page from the navigation'); // real key presses
-    await page.locator('.convo [type="submit"]').click();
-    await page.locator('.convo [data-k="stop"]').waitFor();
+    const composer = page.locator('.screen .kview .composer');
+    expect(await composer.locator('.chip[aria-pressed="true"]').textContent()).toBe('Whole site');
+    await composer.locator('textarea').pressSequentially('Link every page from the navigation'); // real key presses
+    await composer.locator('textarea').press('Enter');
+    await page.locator('.screen [data-stop]').waitFor();
 
     // while she works on the site, renames and a page's own Kaity wait
     const rename = await post('_tykerf/site/rename', { name: 'rome', to: 'roma' });
@@ -440,9 +453,9 @@ describe('Kaity for the whole site', () => {
     const going = (await fetch(`${url}_tykerf/site/kaity`).then((r) => r.json())).runs[0];
     expect(going).toMatchObject({ page: null, request: 'Link every page from the navigation', state: 'working' });
 
-    await page.locator('.convo .msg.ai', { hasText: 'Both navigations now link to every page.' }).waitFor({ timeout: 20_000 });
+    await page.locator('.screen .ti.her .md', { hasText: 'Both navigations now link to every page.' }).waitFor({ timeout: 20_000 });
     for (const name of ['rome', 'munich']) expect(readFileSync(join(site, name, 'boxes', 'nav.html'), 'utf8')).toContain('<a href="/munich/">Munich</a>');
-    expect(await page.locator('.convo .msg.user').textContent()).toContain('Link every page from the navigation');
+    expect(await page.locator('.screen .ti.you .req').last().textContent()).toBe('Link every page from the navigation');
     // her conversation is the site's, kept in its folder
     expect(JSON.parse(readFileSync(join(site, '.tykerf', 'chats', 'site.json'), 'utf8')).messages.at(-1)).toMatchObject({ role: 'ai' });
     expect((await fetch(`${url}_tykerf/site/kaity`).then((r) => r.json())).runs[0]).toMatchObject({ page: null, state: 'done', steps: 5, answer: 'Both navigations now link to every page.' });

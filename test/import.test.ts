@@ -285,18 +285,19 @@ describe('the importer in the editor', () => {
 
   it('starts a page from a website on the New page screen, with the copying advice', async () => {
     const page = await browser.newPage({ viewport: { width: 1280, height: 860 } });
-    await page.goto(url); // a site with no pages yet opens on New page
-    await page.waitForURL(/\/_tykerf\/edit\/_site\/new$/);
+    await page.goto(url); // a site with no pages yet opens on its first run: Copy a web page is one of the starts
+    await page.locator('.ostart[data-start="copy"]').click();
+    await page.waitForURL(/\/_tykerf\/edit\/_site\/new\?start=copy$/);
     const card = page.locator('[data-np="copy"]');
     expect(await card.textContent()).toMatch(/owner's permission/);
     await card.locator('input[name=url]').fill(fixtureURL);
-    expect(await page.locator('#np-name').inputValue()).toBe('127-0-0-1'); // named after the site
-    await page.locator('#np-name').fill('copy');
+    expect(await page.locator('#np-name3').inputValue()).toBe('127-0-0-1'); // named after the site
+    await page.locator('#np-name3').fill('copy');
     await card.locator('[type=submit]').click();
-    // the page opens at once in the editor, with the copy's progress in the bar and the tray
+    // the page opens at once in the editor, with the copy's progress in the status line and the tray
     await page.waitForURL(`${url}_tykerf/edit/copy/`, { timeout: 15_000 });
-    await expect.poll(() => page.locator('.bar .status').textContent(), { timeout: 15_000 }).toMatch(/Copying 127\.0\.0\.1|Your page is ready/);
-    await expect.poll(() => page.locator('.bar .status').textContent(), { timeout: 60_000 }).toContain('Your page is ready');
+    await expect.poll(() => page.locator('.pstatus .status').textContent(), { timeout: 15_000 }).toMatch(/Copying 127\.0\.0\.1|Your page is ready/);
+    await expect.poll(() => page.locator('.pstatus .status').textContent(), { timeout: 60_000 }).toContain('Your page is ready');
     await expect.poll(() => page.locator('.jobsteps li').allTextContents().catch(() => []), { timeout: 15_000 })
       .toEqual(expect.arrayContaining([expect.stringMatching(/^Opening 127\.0\.0\.1/), 'Cutting the page into rows, columns and boxes', 'Writing the page']));
     expect(readFileSync(join(site, 'copy', 'layout.slice'), 'utf8')).toMatch(/^\/\/ imported from http:\/\/127\.0\.0\.1/);
@@ -306,7 +307,7 @@ describe('the importer in the editor', () => {
     await expect.poll(() => page.frameLocator('.frame').locator('h1').textContent(), { timeout: 15_000 }).toBe('Big claim');
     // Got it: the job is forgotten
     await page.locator('[data-bar="job-seen"]').click();
-    await page.locator('.bar .hint').waitFor();
+    await page.locator('.pstatus .hint').waitFor();
     expect((await fetch(`${url}copy/_tykerf/job`).then((r) => r.json())).job).toBeNull();
     await page.close();
   });

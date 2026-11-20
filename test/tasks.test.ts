@@ -193,11 +193,12 @@ describe('tasks in the editor', () => {
     await fresh.goto(`${base}?block=hero&tab=text`);
     await fresh.waitForURL(/\/_tykerf\/edit\/home\/\?mode=full$/);
     await expect.poll(() => fresh.frameLocator('.frame').locator('.work .w-name').inputValue()).toBe('hero');
-    expect(await fresh.locator('.bar .modes a[aria-current="page"]').textContent()).toBe('Full editor');
+    expect(await fresh.locator('.bar .modes a[aria-current="page"]').textContent()).toBe('Edit');
     // its tasks are in Tasks: the count leads there, the tray doesn't open here
-    expect(await fresh.locator('.bar .actions a.btn').first().getAttribute('href')).toBe('/_tykerf/edit/home/');
-    // its × goes back to Tasks
-    await fresh.frameLocator('.frame').locator('.panel .closebtn').click();
+    expect(await fresh.locator('.pstatus .actions a.btn').first().getAttribute('href')).toBe('/_tykerf/edit/home/');
+    // docked as the inspector, it has no × of its own: Tasks in the top bar goes back
+    expect(await fresh.frameLocator('.frame').locator('.panel .closebtn').isHidden()).toBe(true);
+    await fresh.locator('.bar .modes a', { hasText: 'Tasks' }).click();
     await fresh.waitForURL(/\/_tykerf\/edit\/home\/$/);
     await fresh.close();
   });

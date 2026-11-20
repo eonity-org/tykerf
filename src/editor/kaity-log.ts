@@ -17,7 +17,15 @@ export interface RunStart {
   /** The page she works on; null for a run on the whole site. */
   page: string | null;
   block: string | null;
+  /** What she may change: the whole site, one page, or one block of it. */
+  scope?: 'site' | 'page' | 'box';
+  /** The tag her changes carry in the pages' history (Workspace.tag): Undo takes the run back by it. */
+  tag?: string;
   request: string;
+  /** A run Kaity was not asked for in words: finishing what a run left (`fix`), going on after a stop (`continue`). */
+  origin?: 'fix' | 'continue';
+  /** Files attached to the request: their kept names (`.tykerf/images/`, the page's or the site's) and own names. */
+  files?: { file: string; name?: string }[];
   tasks?: number[];
 }
 
@@ -32,8 +40,17 @@ export interface RunFinish {
   steps: number;
 }
 
+/** A run taken back afterwards (the thread's Undo): its changes left the pages, its record stays. */
+export interface RunUndo {
+  run: string;
+  at: string;
+  undone: true;
+}
+
 export interface KaityRun extends RunStart {
   state: RunEnd | 'working' | 'cut short';
+  /** When the person took it back. */
+  undone?: string;
   ended?: string;
   answer?: string;
   error?: string;
@@ -47,7 +64,7 @@ const clip = (s: string, n: number) => (s.length > n ? `${s.slice(0, n - 1)}…`
 /** A new run's id: sortable by time, unique enough for one site. */
 export const runId = () => `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
 
-function write(site: string, line: RunStart | RunFinish) {
+function write(site: string, line: RunStart | RunFinish | RunUndo) {
   const store = new FolderStore(site);
   try {
     store.lock(() => {
@@ -65,6 +82,11 @@ export function logStart(site: string, s: Omit<RunStart, 'at'>) {
   write(site, { ...s, request: clip(s.request, 4000), at: new Date().toISOString() });
 }
 
+/** The person took a run back. */
+export function logUndo(site: string, run: string) {
+  write(site, { run, undone: true, at: new Date().toISOString() });
+}
+
 export function logEnd(site: string, f: Omit<RunFinish, 'at'>) {
   write(site, { ...f, ...(f.answer ? { answer: clip(f.answer, 4000) } : {}), ...(f.error ? { error: clip(f.error, 1000) } : {}), at: new Date().toISOString() });
 }
@@ -77,14 +99,17 @@ export function kaityRuns(site: string, live: Map<string, { step?: string; steps
   const raw = new FolderStore(site).read(LOG) ?? '';
   const runs = new Map<string, KaityRun>();
   for (const l of raw.split('\n')) {
-    let e: RunStart | RunFinish;
+    let e: RunStart | RunFinish | RunUndo;
     try {
       if (!l) continue;
       e = JSON.parse(l);
     } catch {
       continue;
     }
-    if ('end' in e) {
+    if ('undone' in e) {
+      const r = runs.get(e.run);
+      if (r) r.undone = e.at;
+    } else if ('end' in e) {
       const r = runs.get(e.run);
       if (r) Object.assign(r, { state: e.end, ended: e.at, block: e.block ?? r.block, answer: e.answer, error: e.error, steps: e.steps });
     } else runs.set(e.run, { ...e, state: 'cut short' });

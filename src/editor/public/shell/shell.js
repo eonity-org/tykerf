@@ -1,25 +1,56 @@
-// The v3 editor (shell.html at /_tykerf/edit/<page>/): one bar on top and the page below it in a frame, at its
-// real width. Leaving tasks is the normal way to work: click anything on the page, say what should change, and
-// hand the tasks to Kaity. She works through them one at a time (task-run.ts); the tray (from the top) shows each
-// task as she goes, then the review: what she changed, before and after, undo one, answer what she asks.
-// Everything tykerf draws over the page (outlines, pins, the task box) is in the shell's own document, over the
-// frame; the page itself is untouched.
+// A page in the v4 editor (shell.html at /_tykerf/edit/<page>/): the one frame (chrome.js: the top bar, the rail
+// with the page's blocks), the page in a frame in the middle, and beside it the page's tasks and Kaity on this page.
+// Three modes in the top bar: Tasks (the page to point at: click anything, say what should change, hand it to
+// Kaity, or ask her about the whole page in the composer under it), Edit (the full editor, its inspector docked on
+// the right inside the frame) and View (the site as visitors see it, until Edit). Kaity works through tasks one at
+// a time (task-run.ts); the tray shows each task as she goes, then the review. Everything tykerf draws over the
+// page (outlines, pins, the task box) is in the shell's own document, over the frame; the page itself is untouched.
 
-import { $, CHEVRON, MARK, esc, failed, kaityMark, plainLabel, request, shrinkImage, stillMotion, store, t, toast, watchVersion } from './common.js';
+import { $, esc, failed, kaityMark, plainLabel, request, stillMotion, t, toast, watchVersion } from './common.js';
+import { checkCount, createRail, pageModes, renderTop } from './chrome.js';
+import { createComposer, fileChip, readFiles, ACCEPT } from './composer.js';
 import { createFixPanel } from './fix.js';
 import { createFrame } from './frame.js';
-import { createSidebar } from './site.js';
+import { askKaity, createKaityCenter, loadThread, onKaityNews, scopeChip } from './kaity.js';
 import { atPath } from '../inline.js';
 import { markdown } from '../markdown.js';
 
 const PAGE = decodeURIComponent(location.pathname.match(/^\/_tykerf\/edit\/([^/]+)\//)?.[1] ?? '');
 const API = `/${encodeURIComponent(PAGE)}/_tykerf`;
 // the shell's two modes: Tasks (the page to point at, tasks, Kaity, fixing by hand) and the Full editor (?mode=full: the
-// full editor in the frame, every block in detail); the bar, the site and Hide tykerf are the same in both
+// full editor in the frame, every block in detail); the frame is the same in both
 const FULL = new URLSearchParams(location.search).get('mode') === 'full';
 const shellOf = (page, full = FULL) => `/_tykerf/edit/${encodeURIComponent(page)}/${full ? '?mode=full' : ''}`;
 for (const el of document.querySelectorAll('[aria-label]')) el.setAttribute('aria-label', t(el.getAttribute('aria-label')));
 $('.frame').title = t('The page');
+const MODE = FULL ? 'edit' : 'tasks';
+document.body.classList.add(`page-mode`, `mode-${MODE}`);
+
+// the one frame: the rail on the left, the page in the middle (the status line above it, the composer under it in
+// Tasks), the page's tasks and Kaity on this page on the right (the fix panel takes their place while fixing by hand)
+const work = document.createElement('div');
+work.className = 'work';
+$('.stage').replaceWith(work);
+const column = document.createElement('div');
+column.className = 'pagecol';
+const statusLine = document.createElement('div');
+statusLine.className = 'pstatus';
+statusLine.setAttribute('role', 'status');
+const side = document.createElement('aside');
+side.className = 'pside';
+side.setAttribute('aria-label', t('Tasks and Kaity on this page'));
+const sideCards = document.createElement('div');
+sideCards.className = 'pcards';
+side.append(sideCards);
+const stage = document.createElement('main');
+stage.className = 'stage';
+stage.innerHTML = '<div class="viewport"><iframe class="frame" title="" aria-label=""></iframe><div class="overlay"></div></div><section class="tray" hidden></section>';
+column.append(statusLine, stage);
+work.append(column);
+if (!FULL) work.append(side);
+$('.frame').title = t('The page');
+$('.frame').setAttribute('aria-label', t('The page'));
+$('.tray').setAttribute('aria-label', t('Tasks'));
 
 const api = (path, body) => request(API + path, body);
 
@@ -29,8 +60,10 @@ const S = {
   blocks: new Set(), // the page's block names (the tree), so a click finds its block
   tree: null, // the page's tree of blocks (page.ts panelTree)
   kit: null, // the site kit's view (/_tykerf/site/kit), for "the same on another page"
-  mode: store.get('sidebarMode', 'over'), // a sidebar over the page, or the page shrunk to fit beside it
   site: null, // { pages, current }
+  sel: null, // the block picked in the rail or on the page: the composer's "This box"
+  asking: null, // Kaity working on something asked from the composer (not a task): { block, step }
+  thread: null, // Kaity's thread on this page (Kaity on this page)
   head: null, // the page head's version: a change reloads the frame
   canUndo: false,
   lastChange: null,
@@ -133,6 +166,9 @@ function draw() {
   if (fixing && !tr) out.push(outline(fixing, 'target'));
   const hr = !S.box && !S.trying ? frame.rect(S.hover?.el) : null;
   if (hr) out.push(outline(hr, 'hover'));
+  // (found again by its block when the page's content was swapped meanwhile)
+  const fl = S.flash && Date.now() < S.flash.until ? frame.rect(S.flash.el?.isConnected ? S.flash.el : frame.taskEl(S.flash.block, S.flash.path ?? null)) : null;
+  if (fl) out.push(outline(fl, 'flash'));
   // where Kaity is: the element of the task she works on now
   const now = S.run?.running ? S.run.tasks.find((x) => x.state === 'now') : null;
   const nowTask = now && taskOf(now.n);
@@ -187,6 +223,12 @@ function followKaity() {
 function openBox(spot) {
   // fresh: a box just added, empty (nothing to point at on the page: the task box sits by the box it came from, `near`)
   S.box = { block: spot.block, path: spot.path, label: spot.label, draft: '', question: !!spot.question, touched: !!spot.question, images: [], fresh: !!spot.fresh, near: spot.near ?? null };
+  // the block picked on the page is the rail's and the composer's too ("This box")
+  if (S.sel !== spot.block) {
+    S.sel = spot.block;
+    rail.render();
+    composerScopes(composer.scope);
+  }
   renderBox();
   draw();
   $('.taskbox textarea').focus();
@@ -214,12 +256,14 @@ function renderBox() {
   const narrow = S.device !== 'full' ? `<span class="chip">${esc(t('{w} px', { w: frame.width }))}</span>` : '';
   const numTitle = isQ ? t('A question: Kaity answers it and changes nothing. Click to make it a task.') : t('Click to make it a question: Kaity answers it and changes nothing.');
   el.innerHTML = `
-    <p class="where"><button type="button" class="num${isQ ? ' q' : ''}" data-box="q" aria-pressed="${isQ}" title="${esc(numTitle)}" aria-label="${esc(numTitle)}">${isQ ? esc(t('Question')) : S.next}</button><b title="${esc(t('Kaity changes only {block} for it.', { block: b.block }))}">${esc(b.block)}</b>${b.label ? `<span class="what">› ${esc(plainLabel(b.label))}</span>` : ''}${narrow}<button type="button" class="x" data-box="cancel" aria-label="${esc(t('Cancel'))}" title="${esc(t('Cancel (Esc)'))}">×</button></p>
+    <p class="where"><button type="button" class="num${isQ ? ' q' : ''}" data-box="q" aria-pressed="${isQ}" title="${esc(numTitle)}" aria-label="${esc(numTitle)}">${isQ ? esc(t('Question')) : esc(t('New task'))}</button><b title="${esc(t('Kaity changes only {block} for it.', { block: b.block }))}">${esc(b.block)}</b>${b.label ? `<span class="what">› ${esc(plainLabel(b.label))}</span>` : ''}${narrow}<button type="button" class="x" data-box="cancel" aria-label="${esc(t('Cancel'))}" title="${esc(t('Cancel (Esc)'))}">×</button></p>
     <div class="field">
       <textarea id="task-text" rows="2" aria-label="${esc(t('The task'))}" placeholder="${esc(b.fresh ? t('What should go in this new box? Kaity fills it, or leave it empty.') : t('What should change here? End with ? to ask.'))}">${esc(b.draft)}</textarea>
-      ${b.images.length >= 5 ? '' : `<button type="button" class="addpic" data-box="pic" aria-label="${esc(t('Add a picture'))}" title="${esc(t('Add a picture: a screenshot, a sketch or a design to follow (up to 5; you can also paste or drop them here)'))}"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="9" cy="10" r="1.6"/><path d="m4 18 5-5 4 4 3-3 4 4"/></svg></button>`}
     </div>
-    ${b.images.length ? `<div class="pics">${b.images.map((im, i) => `<span class="thumb"><img src="data:${im.mediaType};base64,${im.data}" alt="${esc(t('Picture {n}', { n: i + 1 }))}"><button type="button" data-unpic="${i}" aria-label="${esc(t('Remove picture {n}', { n: i + 1 }))}">×</button></span>`).join('')}</div>` : ''}
+    <div class="kfoot">
+      <button type="button" class="btn attach" data-box="pic" ${b.images.length >= 5 ? 'disabled' : ''} aria-label="${esc(t('Attach'))}" title="${esc(t('Attach pictures or PDFs: a screenshot, a sketch, a document to follow (up to 5; you can also paste or drop them here)'))}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m20 11.5-7.8 7.8a5 5 0 0 1-7.1-7.1l8.5-8.5a3.3 3.3 0 0 1 4.7 4.7l-8.5 8.5a1.7 1.7 0 0 1-2.4-2.4l7.8-7.8"/></svg><span>${esc(t('Attach'))}</span></button>
+      ${b.images.map((f, i) => fileChip(f, i).replace('data-unfile', 'data-unpic')).join('')}
+    </div>
     <div class="row">
       <button type="button" class="link more" data-box="menu" aria-haspopup="menu" title="${esc(t('Fix it by hand, edit its words, add or delete boxes… (the same as a right-click on the page)'))}">${esc(t('More…'))} <span class="hint">${esc(t('or right-click'))}</span></button>
       <button type="button" class="btn" data-box="now">${esc(isQ ? t('Kaity, answer it now') : t('Kaity, do it now'))}</button>
@@ -243,7 +287,7 @@ function renderBox() {
     if (e.key === 'Escape') (e.preventDefault(), closeBox());
   };
   ta.onpaste = (e) => {
-    const files = [...(e.clipboardData?.files ?? [])].filter((f) => f.type.startsWith('image/'));
+    const files = [...(e.clipboardData?.files ?? [])];
     if (files.length) (e.preventDefault(), attachPictures(files));
   };
   el.ondragover = (e) => (e.preventDefault(), el.classList.add('drop'));
@@ -268,7 +312,7 @@ function renderBox() {
     if (act === 'add') addTask(false);
     if (act === 'now') addTask(true);
     if (act === 'pic') {
-      const input = Object.assign(document.createElement('input'), { type: 'file', accept: 'image/png,image/jpeg,image/gif,image/webp', multiple: true });
+      const input = Object.assign(document.createElement('input'), { type: 'file', accept: ACCEPT.replace(/,\.zip,application\/zip$/, ''), multiple: true });
       input.onchange = () => attachPictures([...input.files]);
       return input.click();
     }
@@ -291,21 +335,16 @@ function keepTyping() {
   ta.setSelectionRange(at, at);
 }
 
-/** Pictures for the task (pick, paste or drop): at most five, scaled down as Kaity's are. */
+/** Files for the task (pick, paste or drop): pictures, scaled down as Kaity's are, and PDFs; at most five. */
 async function attachPictures(files) {
   const b = S.box;
   if (!b) return;
-  for (const f of files) {
-    if (!f.type.startsWith('image/')) continue;
-    if (b.images.length >= 5) {
-      toast(t('At most 5 pictures per task'), true);
-      break;
-    }
-    try {
-      b.images.push(await shrinkImage(f));
-    } catch (err) {
-      failed(err);
-    }
+  try {
+    const zip = files.find((f) => /\.zip$/i.test(f.name));
+    if (zip) throw new Error(t('{file}: a design ZIP goes with a request to Kaity (the composer under the page), not with a task', { file: zip.name }));
+    b.images.push(...(await readFiles(files, 5 - b.images.length)));
+  } catch (err) {
+    failed(err);
   }
   if (S.box === b) keepTyping();
 }
@@ -331,7 +370,7 @@ async function addTask(now) {
   const b = S.box;
   if (!b?.draft.trim()) return void $('.taskbox textarea')?.focus();
   try {
-    const { result } = await api('/tasks/add', { block: b.block, path: b.path, label: b.label, width: frame.width, text: b.draft, question: b.question, images: b.images });
+    const { result } = await api('/tasks/add', { block: b.block, path: b.path, label: b.label, width: frame.width, text: b.draft, question: b.question, images: b.images.map((f) => ({ mediaType: f.type, data: f.data })) });
     closeBox();
     await loadTasks();
     if (now) await giveKaity([result.n]);
@@ -419,7 +458,9 @@ const numBadge = (x) => `<span class="num${x.kind === 'question' ? ' q' : ''}">$
 const convoBtn = (x) => `<button type="button" class="link" data-card-act="convo">${esc(t('See her conversation on {block}', { block: x.block }))}</button>`;
 
 /** A task's pictures, small, each opening at full size. */
-const pics = (x) => (x.images?.length ? `<div class="pics">${x.images.map((name, i) => `<a class="thumb" href="${API}/image/${encodeURIComponent(name)}" target="_blank" rel="noopener"><img src="${API}/image/${encodeURIComponent(name)}" alt="${esc(t('Picture {n} of task {task}', { n: i + 1, task: x.n }))}"></a>`).join('')}</div>` : '');
+const pics = (x) => (x.images?.length ? `<div class="pics">${x.images.map((name, i) => /\.pdf$/.test(name)
+  ? `<a class="fchip" href="${API}/image/${encodeURIComponent(name)}" target="_blank" rel="noopener">${esc(t('PDF {n}', { n: i + 1 }))}</a>`
+  : `<a class="thumb" href="${API}/image/${encodeURIComponent(name)}" target="_blank" rel="noopener"><img src="${API}/image/${encodeURIComponent(name)}" alt="${esc(t('Picture {n} of task {task}', { n: i + 1, task: x.n }))}"></a>`).join('')}</div>` : '');
 const btn = (act, label, cls = '', extra = '') => `<button type="button" class="btn small ${cls}" data-card-act="${act}" ${extra}>${esc(label)}</button>`;
 
 /** A task not given to Kaity (or before she starts): the person's own card. */
@@ -658,16 +699,11 @@ async function askMore(x) {
   }
 }
 
-function flash(el) {
-  setTimeout(() => {
-    const r = frame.rect(el);
-    if (!r) return;
-    const f = document.createElement('div');
-    f.className = 'outline flash';
-    Object.assign(f.style, { left: `${r.left - 3}px`, top: `${r.top - 3}px`, width: `${r.width + 6}px`, height: `${r.height + 6}px` });
-    overlay.append(f);
-    setTimeout(() => f.remove(), 2600);
-  }, stillMotion ? 0 : 450);
+/** Light an element up for a moment (shown from the tray, the rail, a site screen): drawn with the rest, so it follows a scroll. */
+function flash(el, block = el?.dataset?.sw ?? null, path = null) {
+  S.flash = { el, block, path, until: Date.now() + (stillMotion ? 2600 : 3050) };
+  setTimeout(draw, stillMotion ? 0 : 450);
+  setTimeout(draw, stillMotion ? 2650 : 3100);
 }
 
 function showTask(x) {
@@ -676,14 +712,14 @@ function showTask(x) {
   frame.show(el, trayHeight());
   S.lit = x.n;
   renderTray();
-  flash(el);
+  flash(el, x.block, x.path);
 }
 
 /** The widths the page can be seen at, from the bar: its own, a tablet held upright, a phone. */
 const DEVICES = {
-  full: { px: null, label: () => t('Full width'), icon: '<rect x="2" y="4" width="20" height="13" rx="1.5"/><path d="M8 20h8M12 17v3"/>' },
-  tablet: { px: 768, label: () => t('Tablet, upright (768 px)'), icon: '<rect x="5" y="2" width="14" height="20" rx="2"/><path d="M11 18.5h2"/>' },
-  phone: { px: 375, label: () => t('Phone (375 px)'), icon: '<rect x="7" y="3" width="10" height="18" rx="2"/><path d="M11 18h2"/>' },
+  full: { px: null, label: () => t('Desktop: the room the page has'), short: () => t('Desktop'), icon: '<rect x="2" y="4" width="20" height="13" rx="1.5"/><path d="M8 20h8M12 17v3"/>' },
+  tablet: { px: 768, label: () => t('Tablet, upright (768 px)'), short: () => '768', icon: '<rect x="5" y="2" width="14" height="20" rx="2"/><path d="M11 18.5h2"/>' },
+  phone: { px: 375, label: () => t('Phone (375 px)'), short: () => '375', icon: '<rect x="7" y="3" width="10" height="18" rx="2"/><path d="M11 18h2"/>' },
 };
 
 /** The page at that width (the frame lays out again at it; tasks written now say that width). */
@@ -834,77 +870,81 @@ function runSum(run) {
   ].filter(Boolean).join(', ') || t('nothing left to review');
 }
 
+/** The top bar (chrome.js), then the status line above the page: what Kaity or the person is doing on it now. */
 function renderBar() {
+  const info = rail?.info;
+  renderTop(bar, {
+    crumb: PAGE,
+    centre: pageModes({ page: PAGE, mode: MODE, device: S.device, devices: FULL ? null : DEVICES }),
+    undo: S.canUndo && !running() ? { label: S.lastChange } : null,
+    kaity: { count: info?.thread?.items?.length ?? 0, working: !!info?.thread?.running || running() || !!S.asking, open: !!center?.isOpen() },
+    checks: info ? checkCount(info.check) : null,
+    publishFrom: PAGE,
+  });
+  renderStatus();
+  renderSide();
+}
+
+function renderStatus() {
   const open = openTasks();
   const run = S.run;
   const count = open.length === 1 ? t('1 task') : t('{n} tasks', { n: open.length });
-  const undoTitle = S.lastChange ? t('Undo "{step}"', { step: S.lastChange }) : t('Nothing to undo');
-  const switcher = `<button type="button" class="switcher" data-bar="pages" aria-expanded="${sidebar?.isOpen() ?? false}" aria-label="${esc(t('Pages of the site: {page} is open', { page: PAGE }))}">${MARK}<span class="name">${esc(PAGE)}</span><span class="addr">/${esc(PAGE)}/</span>${CHEVRON}</button>`;
-  const hideBtn = `<button type="button" class="btn" data-bar="hide" aria-label="${esc(t('Hide tykerf'))}" title="${esc(t('See the page as a visitor does (Alt+Shift+T)'))}">${esc(t('Hide tykerf'))}</button>`;
-  // Tasks | Full editor: the shell's two modes (the fix in hand goes along to the full editor)
-  const modes = `<nav class="modes" aria-label="${esc(t('Mode'))}"><a href="${shellOf(PAGE, false)}" ${FULL ? '' : 'aria-current="page"'}>${esc(t('Tasks'))}</a><a href="${fullEditor(!FULL ? fix?.selected : null)}" ${FULL ? 'aria-current="page"' : ''} aria-label="${esc(t('Full editor'))}" title="${esc(t('Every block in detail: the box tree, text, code, sizes, look and the page\'s theme'))}">${esc(t('Full editor'))}</a></nav>`;
-  const stepsBtn = `<button type="button" class="btn" data-bar="tray" aria-expanded="${S.tray}">${esc(S.tray ? t('Hide the steps') : t('Show the steps'))}</button>`;
-  let middle, actions;
+  const stepsBtn = `<button type="button" class="btn small" data-bar="tray" aria-expanded="${S.tray}">${esc(S.tray ? t('Hide the steps') : t('Show the steps'))}</button>`;
+  let middle, actions = '';
   if (FULL && !running()) {
-    middle = `<p class="hint">${esc(t('Every block in detail: select one on the page or in the tree.'))}</p>`;
-    // the tray is Tasks' own (R9): from here the count leads there
-    actions = `<a class="btn" href="${shellOf(PAGE, false)}" title="${esc(t('Your tasks are in Tasks'))}">${esc(count)}</a>${hideBtn}`;
+    middle = `<p class="hint">${esc(t('Every block in detail: pick one in the side panel or on the page; its details are on the right.'))}</p>`;
+    actions = `<a class="btn small" href="${shellOf(PAGE, false)}" title="${esc(t('Your tasks are in Tasks'))}">${esc(count)}</a>`;
   } else if (fix?.isOpen()) {
-    middle = `<div class="status" role="status"><span>${esc(t('Fixing by hand · {what}', { what: fix.what() }))}</span><button type="button" class="btn main" data-bar="done-fixing">${esc(t('Done, back to tasks'))}</button></div>`;
-    actions = `<button type="button" class="btn" data-bar="tray" aria-expanded="${S.tray}">${esc(count)}</button>
-      <button type="button" class="btn" data-bar="undo" title="${esc(undoTitle)}" aria-label="${esc(undoTitle)}" ${S.canUndo ? '' : 'disabled'}>${esc(t('Undo'))}</button>${hideBtn}`;
+    middle = `<div class="status"><span>${esc(t('Fixing by hand · {what}', { what: fix.what() }))}</span></div>`;
+    actions = `<button type="button" class="btn main small" data-bar="done-fixing">${esc(t('Done, back to tasks'))}</button>`;
   } else if (S.job && !S.trying) {
     const ai = S.job.kind === 'ai', going = S.job.state === 'running';
     const last = S.job.steps.at(-1);
     const step = last ? (ai ? last.text : t(last.text, last.vars ?? {})) : '';
-    middle = `<div class="status" role="status">${kaityMark(going && ai)}<span>${esc(jobTitle(S.job))}</span>${going && step ? `<span class="chip">${esc(step)}</span>` : ''}</div>`;
-    const goOn = S.job.state === 'unfinished' ? `<button type="button" class="btn main" data-bar="job-continue">${esc(t('Continue'))}</button>` : '';
-    actions = `${going ? `<button type="button" class="btn on" data-bar="job-stop">${esc(ai ? t('Stop Kaity') : t('Stop the copy'))}</button>` : `${goOn}<button type="button" class="btn${goOn ? '' : ' main'}" data-bar="job-seen">${esc(t('Got it'))}</button>`}
-      <button type="button" class="btn" data-bar="tray" aria-expanded="${S.tray}">${esc(S.tray ? t('Hide the steps') : t('Show the steps'))}</button>${hideBtn}`;
+    middle = `<div class="status">${kaityMark(going && ai, true)}<span>${esc(jobTitle(S.job))}</span>${going && step ? `<span class="chip">${esc(step)}</span>` : ''}</div>`;
+    const goOn = S.job.state === 'unfinished' ? `<button type="button" class="btn main small" data-bar="job-continue">${esc(t('Continue'))}</button>` : '';
+    actions = `${going ? `<button type="button" class="btn small on" data-bar="job-stop">${esc(ai ? t('Stop Kaity') : t('Stop the copy'))}</button>` : `${goOn}<button type="button" class="btn small${goOn ? '' : ' main'}" data-bar="job-seen">${esc(t('Got it'))}</button>`}${stepsBtn}`;
   } else if (S.trying) {
-    middle = `<div class="status" role="status"><span>${esc(t('Trying the page: it works as for a visitor. Links to other pages only say where they lead.'))}</span></div>`;
-    actions = `<button type="button" class="btn main" data-bar="done-trying">${esc(t('Done trying'))}</button>`;
+    middle = `<div class="status"><span>${esc(t('Trying the page: it works as for a visitor. Links to other pages only say where they lead.'))}</span></div>`;
+    actions = `<button type="button" class="btn main small" data-bar="done-trying">${esc(t('Done trying'))}</button>`;
   } else if (running()) {
     const mine = run.tasks.filter((x) => x.state !== 'off' && !x.seen);
     const now = run.tasks.find((x) => x.state === 'now');
     const i = now ? mine.indexOf(now) + 1 : mine.filter((x) => !['waiting', 'now'].includes(x.state)).length + 1;
-    middle = `<div class="status" role="status">${kaityMark(true)}<span>${esc(t('Kaity is working · task {i} of {n}', { i: Math.min(i, mine.length), n: mine.length }))}</span>${now
+    middle = `<div class="status">${kaityMark(true, true)}<span>${esc(t('Kaity is working · task {i} of {n}', { i: Math.min(i, mine.length), n: mine.length }))}</span>${now
       ? `<span class="chip"><span class="num${now.question ? ' q' : ''}">${now.question ? '?' : now.n}</span><b>${esc(now.block)}</b> ${esc(now.text)}</span>` : ''}</div>`;
-    actions = `<button type="button" class="btn on" data-bar="stop">${esc(t('Stop Kaity'))}</button>
-      <button type="button" class="btn" data-bar="undo-all">${esc(t('Undo all she did'))}</button>${stepsBtn}`;
+    actions = `<button type="button" class="btn small on" data-bar="stop">${esc(t('Stop Kaity'))}</button>
+      <button type="button" class="btn small" data-bar="undo-all">${esc(t('Undo all she did'))}</button>${stepsBtn}`;
   } else if (run) {
     const kept = run.tasks.filter((x) => x.state === 'done' && !x.undone).length;
-    middle = `<div class="status" role="status">${kaityMark()}<span>${esc(t('Kaity stopped · {sum}', { sum: runSum(run) }))}</span></div>`;
-    actions = `<button type="button" class="btn main" data-bar="keep">${esc(kept === 0 ? t('Close the review') : kept === 1 ? t('Keep the change') : t('Keep the {n} changes', { n: kept }))}</button>
-      ${kept ? `<button type="button" class="btn" data-bar="undo-all">${esc(t('Undo all she did'))}</button>` : ''}${stepsBtn}${hideBtn}`;
+    middle = `<div class="status">${kaityMark(false, true)}<span>${esc(t('Kaity stopped · {sum}', { sum: runSum(run) }))}</span></div>`;
+    actions = `<button type="button" class="btn main small" data-bar="keep">${esc(kept === 0 ? t('Close the review') : kept === 1 ? t('Keep the change') : t('Keep the {n} changes', { n: kept }))}</button>
+      ${kept ? `<button type="button" class="btn small" data-bar="undo-all">${esc(t('Undo all she did'))}</button>` : ''}${stepsBtn}`;
+  } else if (S.asking) {
+    middle = `<div class="status">${kaityMark(true, true)}<span>${esc(S.asking.block === S.tree?.id ? t('Kaity is working on {page}', { page: PAGE }) : t('Kaity is working on {block}', { block: S.asking.block }))}</span>${S.asking.step ? `<span class="chip">${esc(S.asking.step)}</span>` : ''}</div>`;
+    actions = `<button type="button" class="btn small on" data-bar="ask-stop">${esc(t('Stop Kaity'))}</button>`;
   } else {
-    middle = `<p class="hint">${esc(t('Click anything on the page and say what should change.'))}</p>`;
-    actions = `<button type="button" class="btn${S.tray ? ' on' : ''}" data-bar="tray" aria-expanded="${S.tray}">${esc(S.tray ? t('{count} · close', { count }) : count)}</button>
-      <button type="button" class="btn main" data-bar="give" ${open.length ? '' : 'disabled'}>${esc(open.length === 1 ? t('Give it to Kaity') : t('Give them to Kaity'))}</button>
-      <button type="button" class="btn" data-bar="undo" title="${esc(undoTitle)}" aria-label="${esc(undoTitle)}" ${S.canUndo ? '' : 'disabled'}>${esc(t('Undo'))}</button>${hideBtn}`;
+    middle = `<p class="hint">${PENCIL}${esc(t('Click anything on the page and say what should change, or ask Kaity about the whole page below.'))}</p>`;
+    actions = open.length ? `<button type="button" class="btn small${S.tray ? ' on' : ''}" data-bar="tray" aria-expanded="${S.tray}">${esc(S.tray ? t('{count} · close', { count }) : t('{count} · see them all', { count }))}</button>` : '';
   }
-  // the page's width: full (with how small it is shown, shrunk to fit beside a panel), a tablet held upright, a phone;
-  // each says its own in a label of fixed width, so the box, and what comes after it, never move
-  const pct = Math.round((S.device === 'full' ? S.zoom || 1 : 1) * 100);
-  const sizeOf = (k, d) => (d.px ? String(d.px) : t('{n} %', { n: pct }));
-  const titleOf = (k, d) => (k === 'full' && pct < 100 ? `${d.label()} · ${t('The page is laid out at its real width and shrunk to fit beside the panel')}` : d.label());
-  const widths = `<div class="widths" role="group" aria-label="${esc(t('The page\'s width'))}">${Object.entries(DEVICES).map(([k, d]) =>
-    `<button type="button" data-device="${k}" aria-pressed="${S.device === k}" aria-label="${esc(titleOf(k, d))}" title="${esc(titleOf(k, d))}"><svg viewBox="0 0 24 24" aria-hidden="true">${d.icon}</svg><span class="size">${esc(sizeOf(k, d))}</span></button>`).join('')}</div>`;
-  bar.innerHTML = `${switcher}${modes}${widths}${middle}<div class="actions">${actions}</div>`;
+  statusLine.innerHTML = `${middle}<div class="actions">${actions}</div>`;
   // what the status says in full, where it ends in …
-  for (const s of bar.querySelectorAll('.status > span, .hint')) s.title = s.textContent;
+  for (const x of statusLine.querySelectorAll('.status > span, .hint')) x.title = x.textContent;
 }
+const PENCIL = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20h4L19 9l-4-4L4 16z"/><path d="m13.5 6.5 4 4"/></svg>';
 
 bar.addEventListener('click', async (e) => {
   const device = e.target.closest('[data-device]')?.dataset.device;
   if (device) return setDevice(device);
+  const act = e.target.closest('[data-top]')?.dataset.top;
+  if (act === 'undo') return undo();
+  if (act === 'kaity') return center.toggle();
+});
+
+statusLine.addEventListener('click', async (e) => {
   const act = e.target.closest('[data-bar]')?.dataset.bar;
   if (!act) return;
-  if (act === 'pages') return sidebar.toggle();
   if (act === 'tray') return S.tray ? closeTray() : ((S.stepsHidden = false), openTray());
-  if (act === 'give') return giveKaity(openTasks().map((x) => x.n));
-  if (act === 'hide') return hide();
-  if (act === 'undo') return undo();
   if (act === 'done-trying') return doneTrying();
   if (act === 'done-fixing') return fix.close();
   if (act === 'job-stop') return api('/job/stop', {}).catch(failed);
@@ -916,6 +956,7 @@ bar.addEventListener('click', async (e) => {
     renderTray();
     return renderBar();
   }
+  if (act === 'ask-stop') return api('/ask/cancel', {}).catch(failed);
   if (act === 'stop') return runAct('/taskrun/stop');
   if (act === 'undo-all') return undoAll();
   if (act === 'keep') {
@@ -934,77 +975,151 @@ async function undo() {
   }
 }
 
-const hide = () => (location.href = `/${encodeURIComponent(PAGE)}/?tykerf=hidden`);
-
-// ---------- the site sidebar, from the page switcher (site.js) ----------
-
-/**
- * "Over the page" or "Shrink the page to fit", at the top of both sidebars; the choice is remembered. In Full editor
- * mode the page is always over: the full editor is in the page's frame, so shrinking the page would shrink its panel
- * too. Shrink shows there greyed out, with why (aria-disabled, so its tooltip still shows).
- */
-const NO_SHRINK = () => t('In the full editor the page isn\'t shrunk: its panel would shrink with it.');
-const modeSwitch = () => `<div class="modesw" role="group" aria-label="${esc(t('The page beside this panel'))}">
-  <button type="button" data-mode="over" aria-pressed="${FULL || S.mode === 'over'}">${esc(t('Over the page'))}</button>
-  <button type="button" data-mode="shrink" aria-pressed="${!FULL && S.mode === 'shrink'}" ${FULL ? `aria-disabled="true" title="${esc(NO_SHRINK())}"` : ''}>${esc(t('Shrink the page to fit'))}</button></div>`;
-function setMode(m) {
-  if (FULL) return toast(NO_SHRINK());
-  S.mode = m;
-  store.set('sidebarMode', m);
-  for (const b of document.querySelectorAll('.modesw [data-mode]')) b.setAttribute('aria-pressed', String(b.dataset.mode === m));
-  layoutStage();
-}
+/** View mode: the site as visitors see it, from this page, until Edit (the pill's Edit this page). */
+const hide = () => location.assign(`/_tykerf/view?page=${encodeURIComponent(PAGE)}`);
 
 /**
- * The page beside an open sidebar. Over the page: the page stays as it is. Shrink to fit: it keeps its real width
- * (nothing reflows) and is scaled down into the room left beside the sidebar; what tykerf draws scales with it.
+ * The page in its column: at the room it has (Desktop), or at a tablet's or a phone's width in the middle, laid out at
+ * that width and shown smaller when the column is narrower (what tykerf draws over it scales with it).
  */
 function layoutStage() {
-  const vp = $('.viewport'), stage = $('.stage');
-  const panel = fix?.isOpen() ? fix.el : sidebar.isShown() ? sidebar.el : null;
-  const shrink = panel && S.mode === 'shrink' && S.device === 'full' && !FULL;
-  if (!shrink) {
+  const vp = $('.viewport'), st = $('.stage');
+  const px = FULL ? null : DEVICES[S.device]?.px;
+  if (!px) {
     vp.style.cssText = '';
     S.zoom = 1;
   } else {
-    const W = stage.clientWidth, H = stage.clientHeight, side = panel.offsetWidth, k = Math.max(0.2, (W - side) / W);
-    Object.assign(vp.style, { position: 'absolute', left: `${side}px`, top: '0', width: `${W}px`, height: `${H / k}px`, transform: `scale(${k})`, transformOrigin: '0 0', margin: '0' });
+    const W = st.clientWidth, H = st.clientHeight, k = Math.min(1, (W - 24) / px);
+    Object.assign(vp.style, { position: 'absolute', top: '0', left: `${Math.max(0, (W - px * k) / 2)}px`, width: `${px}px`, maxWidth: 'none', height: `${H / k}px`, transform: k < 1 ? `scale(${k})` : '', transformOrigin: '0 0', margin: '0' });
     S.zoom = k;
   }
-  // the tray comes down beside the sidebar (open or folded), never under it
-  $('.tray').style.left = sidebar.isShown() ? `${sidebar.el.offsetWidth}px` : '';
-  // the full editor compacts beside the open sidebar, and comes back as it was when it closes (tykerf.js siteSidebar)
-  try {
-    $('.frame').contentWindow?.tykerfSidebar?.(sidebarEdge());
-  } catch {}
   renderBar();
   draw();
 }
 
-/** Where the open site sidebar ends, in the frame's own pixels, in Full editor mode (null: closed, folded, or Tasks). */
-function sidebarEdge() {
-  if (!FULL || !sidebar?.isOpen()) return null;
-  return Math.round(sidebar.el.getBoundingClientRect().right - $('.frame').getBoundingClientRect().left);
+// ---------- the rail and the Kaity center ----------
+
+/** A block picked in the rail: shown and outlined on the page, and the composer's "This box"; in Edit, the full editor's. */
+function pickBlock(id) {
+  S.sel = id;
+  if (FULL) {
+    try {
+      $('.frame').contentWindow?.tykerfSelect?.(id);
+    } catch {}
+    return rail.render();
+  }
+  const el = frame.blockEl(id);
+  if (el) (frame.show(el, trayHeight()), flash(el));
+  rail.render();
+  composerScopes(composer.scope);
 }
-window.tykerfSidebarEdge = sidebarEdge;
+// the full editor says which block it has selected, so the rail follows it (tykerf.js)
+window.tykerfSelected = (id) => {
+  if (S.sel === id) return;
+  S.sel = id;
+  rail.render();
+};
 
-const sidebar = createSidebar({ page: PAGE, onChange: () => layoutStage(), modeSwitch, setMode, pageHref: (p) => shellOf(p, false) }); // a page always opens in Tasks (R1)
+const rail = createRail({ page: PAGE, pageHref: (p) => shellOf(p, false), tree: () => S.tree, selected: () => S.sel, onBlock: pickBlock, onKaity: () => center.toggle(), onChange: () => layoutStage() });
+work.prepend(rail.el);
+const center = createKaityCenter({ page: PAGE, onToggle: () => renderBar() });
 
-// ---------- fixing one thing by hand (fix.js) ----------
+// ---------- the composer under the page, and the side panel: the page's tasks and Kaity on this page ----------
+
+const composer = createComposer({
+  label: t('Ask Kaity about this page'),
+  scopes: [],
+  placeholder: (s) => (s === 'box' ? t('Ask Kaity about {block}…', { block: S.sel ?? '' }) : s === 'site' ? t('Ask Kaity about the whole site…') : t('Ask Kaity about {page}…', { page: PAGE })),
+  send: async (m) => {
+    if (running()) throw new Error(t('Kaity is working through the tasks; wait until she is done, or stop her'));
+    const r = await askKaity(m, { page: PAGE, box: S.sel });
+    if (m.scope === 'site') return void (toast(t('Kaity is on it: she works on the whole site')), center.open());
+    S.asking = { block: r.id ?? S.sel ?? S.tree?.id, step: '' };
+    renderBar();
+  },
+});
+/** What Kaity may change from here: the block picked (when there is one), this page, the whole site. */
+function composerScopes(want) {
+  composer.setScopes([...(S.sel && S.sel !== S.tree?.id ? [{ key: 'box', label: t('This box: {block}', { block: S.sel }) }] : []), { key: 'page', label: t('This page') }, { key: 'site', label: t('Whole site') }], want ?? 'page');
+}
+if (!FULL) column.append(composer.el);
+
+/** Kaity on this page: her thread here, the newest at the bottom, next to where you write. */
+function pageThread() {
+  const items = (S.thread?.items ?? []).filter((r) => r.page === PAGE).slice(-6);
+  if (!items.length) return `<p class="empty">${esc(t('Nothing yet on {page}. Leave a task on the page, or ask her below.', { page: PAGE }))}</p>`;
+  return `<ol class="pthread">${items.map((r) => {
+    const title = r.kind === 'task' ? t('Task {n}: {what}', { n: r.task, what: (r.answer || r.request).split(/(?<=[.!?])\s/)[0] }) : r.kind === 'ask' ? r.request : r.answer || r.request;
+    const ok = r.state === 'done' && !r.undone;
+    return `<li class="${r.state === 'working' ? 'working' : ''}"><span class="tick${ok ? ' ok' : ''}" aria-hidden="true">${r.state === 'working' ? kaityMark(true, true) : ok ? '✓' : '·'}</span>
+      <div><p class="etitle">${esc(String(title).slice(0, 120))}</p><p class="emeta">${scopeChip(r)}<span>${esc(r.undone ? t('undone') : r.state === 'working' ? t('working') : new Date(r.ended ?? r.at).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' }))}</span></p></div>
+      ${r.undoable ? `<button type="button" class="link" data-undo-run="${esc(r.run)}">${esc(t('Undo'))}</button>` : ''}</li>`;
+  }).join('')}</ol>`;
+}
+
+function renderSide() {
+  if (FULL || fix?.isOpen()) return void (sideCards.hidden = true);
+  sideCards.hidden = false;
+  const open = openTasks();
+  sideCards.innerHTML = `
+    <section class="pside-card"><header><h2>${esc(t('Tasks on {page}', { page: PAGE }))}</h2><span class="tag">${esc(open.length === 1 ? t('1 open') : t('{n} open', { n: open.length }))}</span></header>
+      ${open.length ? `<ul class="ptasks">${open.slice(0, 6).map((x) => `<li><button type="button" class="ptask" data-show-task="${x.n}"><span class="num${x.kind === 'question' ? ' q' : ''}">${x.kind === 'question' ? '?' : x.n}</span><span><b>${esc(x.block)}</b> — ${esc(x.text)}</span></button></li>`).join('')}</ul>
+        ${open.length > 6 ? `<button type="button" class="link" data-side="tray">${esc(t('See all {n}', { n: open.length }))}</button>` : ''}
+        <div class="row"><button type="button" class="btn main small" data-side="give" ${running() ? 'disabled' : ''}>${esc(open.length === 1 ? t('Give it to Kaity') : t('Give them to Kaity'))}</button><button type="button" class="btn small" data-side="myself">${esc(t('Do it myself'))}</button></div>`
+        : `<p class="empty">${esc(t('No open tasks. Click anything on the page and say what should change.'))}</p>`}
+    </section>
+    <section class="pside-card pk"><header><h2>${esc(t('Kaity on this page'))}</h2><button type="button" class="link" data-side="thread">${esc(t('Whole thread'))}</button></header>
+      ${pageThread()}
+      <p class="note">${esc(t('Oldest first. The newest is at the bottom, next to where you write.'))}</p>
+    </section>`;
+}
+
+side.addEventListener('click', async (e) => {
+  const n = Number(e.target.closest('[data-show-task]')?.dataset.showTask);
+  if (n) return openTray(n), showTask(taskOf(n));
+  const act = e.target.closest('[data-side]')?.dataset.side;
+  if (act === 'give') return giveKaity(openTasks().map((x) => x.n));
+  if (act === 'tray') return openTray();
+  if (act === 'thread') return center.open();
+  if (act === 'myself') {
+    const x = openTasks()[0];
+    const el = x && frame.taskEl(x.block, x.path);
+    if (x && el) return openFix({ block: x.block, path: x.path, label: x.label, el });
+    return location.assign(fullEditor(x?.block ?? null));
+  }
+  const undoRun = e.target.closest('[data-undo-run]')?.dataset.undoRun;
+  if (undoRun) {
+    try {
+      const r = await request('/_tykerf/site/kaity/undo', { run: undoRun });
+      toast(r.result === 1 ? t('Undone: 1 change she made') : t('Undone: {n} changes she made', { n: r.result }));
+    } catch (err) {
+      failed(err);
+    }
+    return loadThreadNow();
+  }
+});
+
+async function loadThreadNow() {
+  S.thread = await loadThread().catch(() => S.thread);
+  renderSide();
+}
+
+// ---------- fixing one thing by hand (fix.js): in the side panel ----------
 
 const fix = createFixPanel({
   api,
   frame,
   page: PAGE,
+  mount: side,
   tree: () => S.tree,
   blocks: () => [...S.blocks],
   pages: () => S.site?.pages ?? [PAGE],
   siteKit: () => S.kit,
   fullEditor,
-  modeSwitch,
-  setMode,
+  modeSwitch: () => '',
+  setMode: () => {},
   onChange: () => layoutStage(),
-  onClose: () => (sidebar.resume(), layoutStage()),
+  onClose: () => layoutStage(),
   toTask: (spot) => {
     const el = frame.taskEl(spot.block, spot.path);
     if (el) openBox({ ...spot, el });
@@ -1012,8 +1127,6 @@ const fix = createFixPanel({
 });
 
 async function openFix(spot) {
-  // the fix panel takes the left: the sidebar steps aside, and comes back as it was when the fix is done
-  sidebar.suspend();
   closeBox();
   if (S.tray) closeTray();
   S.kit ??= await request('/_tykerf/site/kit').catch(() => null);
@@ -1088,11 +1201,21 @@ events.addEventListener('changed', () => (clearTimeout(debounce), (debounce = se
 events.addEventListener('tasks', () => loadTasks().catch(failed));
 events.addEventListener('taskrun', (e) => setRun(JSON.parse(e.data)));
 events.addEventListener('job', (e) => setJob(JSON.parse(e.data)));
+// Kaity on something asked from the composer (a task run says so itself): the status line follows her
+events.addEventListener('ai', (e) => {
+  const m = JSON.parse(e.data);
+  if (running() || S.job?.state === 'running') return;
+  if (m.role === 'start' && !m.tasks) S.asking = { block: m.id, step: '' };
+  else if (m.role === 'step' && S.asking) S.asking.step = m.text;
+  else if (m.role === 'end') S.asking = null;
+  else return;
+  renderStatus();
+});
 // the page was renamed or removed (maybe from another tab): follow it
 events.addEventListener('moved', (e) => {
   const to = JSON.parse(e.data).url;
   const m = /^\/([^/]+)\/$/.exec(to);
-  location.replace(m ? shellOf(decodeURIComponent(m[1])) : '/_tykerf/edit/_site/tasks');
+  location.replace(m ? shellOf(decodeURIComponent(m[1])) : '/_tykerf/edit/_site/');
 });
 
 addEventListener('resize', () => layoutStage());
@@ -1128,7 +1251,7 @@ function openMenu(spot, x, y, { at = null } = {}) {
     ${item('hand', t('Fix it by hand'))}
     ${isPage ? '' : `<hr>${item('below', t('Add a box below…'))}${item('beside', t('Add a box beside…'))}${item('delete', t('Delete this box…'), 'danger')}`}
     <hr>${item('full', t('Open {block} in the full editor', { block: spot.block }))}
-    ${item('hide', t('Hide tykerf'))}`;
+    ${item('hide', t('View the site as visitors see it'))}`;
   // where the pointer is, in the window: the frame's place on the stage, at the page's zoom
   const f = $('.frame').getBoundingClientRect(), k = S.zoom || 1;
   ctxMenu.hidden = false;
@@ -1229,9 +1352,11 @@ document.addEventListener('pointerdown', (e) => !ctxMenu.hidden && !ctxMenu.cont
 function arrive() {
   if (FULL) return;
   const q = new URLSearchParams(location.search);
-  const show = q.get('show'), task = q.get('task'), talk = q.get('conversation');
-  if (!show && !task && !talk) return;
+  const show = q.get('show'), task = q.get('task'), talk = q.get('conversation'), ask = q.get('ask');
+  if (!show && !task && !talk && !ask) return;
   window.history.replaceState(null, '', location.pathname);
+  // New page's "Then ask Kaity to fill it": the composer, on the whole page
+  if (ask) return void (composerScopes('page'), composer.focus());
   // from Kaity's work: her conversation on that block (on the page or not: the conversation stays)
   if (talk) return void conversation(talk);
   const block = show ?? task;
@@ -1248,5 +1373,13 @@ await loadState();
 await loadTasks();
 setJob((await api('/job').catch(() => ({ job: null }))).job, { arriving: true });
 frame.load(frameSrc());
-// the sidebar as the person left it on the last page: it stays until they close it
-void sidebar.restore();
+composerScopes();
+void rail.refresh().then(renderBar);
+void loadThreadNow();
+// the thread on this page follows Kaity anywhere on the site (a task run, the whole site, another tab)
+let threadSoon = 0;
+onKaityNews((kind, m) => {
+  if (kind === 'ai' && m?.role === 'step') return;
+  clearTimeout(threadSoon);
+  threadSoon = setTimeout(() => void Promise.all([loadThreadNow(), rail.refresh().then(renderBar)]), 300);
+});

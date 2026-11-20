@@ -15,6 +15,9 @@ const full = (page) => `/_tykerf/edit/${encodeURIComponent(page)}/?mode=full`;
 // inside the shell's frame (?tykerf=full-frame, the shell's Full editor mode): the shell's bar does what this panel's
 // own navigation did (the pages, the site, back to tasks), so that stays out of sight, and moving on is the shell's
 const EMBEDDED = new URLSearchParams(location.search).get('tykerf') === 'full-frame' && window.top !== window;
+/** v4 Edit mode: in the shell, the panel is docked on the right of the page as its inspector (see dock). */
+const DOCKED = EMBEDDED;
+const DOCK_W = 400;
 const go = (url) => (EMBEDDED ? window.top.location.assign(url) : location.assign(url));
 const $ = (sel, el = ui) => el.querySelector(sel);
 const esc = (s) => String(s).replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
@@ -178,7 +181,6 @@ ui.innerHTML = `
   <header class="head">
     <span class="brand" title="TYKERF">${ICON.tykerf}<span class="wordmark">tykerf</span></span>
     <nav class="path" aria-label="${t('path')}"></nav>
-    <span class="compacted-note" hidden>${t('Compacted while the site is open')}</span>
     <div class="head-tools">
       <div class="seg" role="radiogroup" aria-label="${t('outside the selection')}">
         <button data-view="dim" title="${t('Darken everything outside the selection')}">${t('Dim')}</button>
@@ -545,6 +547,8 @@ const iconOf = (n) => (n.kind === 'box' ? ICON.box : ICON[n.arrangement] ?? ICON
 function select(id, { scroll = false, tab } = {}) {
   if (!info(id)) return;
   S.sel = id;
+  // the shell's rail shows the same block selected (v4 Edit mode)
+  if (EMBEDDED) try { window.top.tykerfSelected?.(id); } catch {}
   for (const a of ancestors(id)) S.open.add(a);
   if (tab) per(id).tab = tab;
   renderPath();
@@ -2781,10 +2785,28 @@ addEventListener('keydown', (e) => {
 // ---------- panel: drag, collapse, toggle ----------
 
 let panelPos = store.get('panel', null);
-/** While the shell's site sidebar is open: how the panel was before it compacted for it (see siteSidebar). */
-let bySite = null;
+
+/**
+ * Docked (v4 Edit mode): the panel stands on the right of the frame, the page's width less the panel's (its html gets
+ * that margin), so the inspector never covers the page; it is never compacted or moved.
+ */
+function dock() {
+  host.classList.add('docked');
+  let st = document.getElementById('tykerf-dock');
+  if (!st) {
+    st = document.createElement('style');
+    st.id = 'tykerf-dock';
+    document.head.append(st);
+  }
+  st.textContent = `html{margin-right:${DOCK_W}px !important}`;
+  panel.style.setProperty('--dock-w', `${DOCK_W}px`);
+  S.min = false;
+  panel.classList.remove('min');
+  if (!S.on) setOn(true);
+}
 
 function keepPanelOnScreen() {
+  if (DOCKED) return void Object.assign(panel.style, { left: '', top: '' });
   const r = panel.getBoundingClientRect();
   const x = Math.max(8, Math.min(panelPos?.x ?? innerWidth - r.width - 24, innerWidth - r.width - 8));
   const y = Math.max(8, Math.min(panelPos?.y ?? (innerWidth < 700 ? innerHeight - r.height - 8 : 24), innerHeight - Math.min(r.height, 48) - 8));
@@ -2793,8 +2815,8 @@ function keepPanelOnScreen() {
 }
 
 $('.head').addEventListener('pointerdown', (e) => {
-  // what can be pressed in the header (buttons, the link back to tasks, fields) is pressed, not dragged
-  if (e.target.closest('button, a, input, select, textarea') || e.button !== 0) return;
+  // what can be pressed in the header (buttons, the link back to tasks, fields) is pressed, not dragged; docked, it stays
+  if (e.target.closest('button, a, input, select, textarea') || e.button !== 0 || DOCKED) return;
   // a drag is not a text selection: without this, dragging past the window's edge selects the whole page
   e.preventDefault();
   getSelection()?.removeAllRanges();
@@ -2814,7 +2836,6 @@ $('.head').addEventListener('pointerdown', (e) => {
     head.removeEventListener('pointerup', end);
     head.removeEventListener('lostpointercapture', end);
     store.set('panel', panelPos);
-    if (bySite) bySite.pos = panelPos; // moved by the person: it stays there when the sidebar closes
   };
   head.addEventListener('pointermove', move);
   head.addEventListener('pointerup', end);
@@ -2840,7 +2861,6 @@ function setMin(v, save = true) {
   S.min = v;
   if (save) {
     store.set('min', v);
-    if (bySite) (bySite = null), ($('.compacted-note').hidden = true);
   }
   panel.classList.toggle('min', v);
   const b = $('.minimize');
@@ -2851,28 +2871,6 @@ function setMin(v, save = true) {
 }
 $('.minimize').addEventListener('click', () => setMin(!S.min));
 
-/**
- * The shell's site sidebar (Full editor mode), open up to `edge` px from the left of this window, or closed (null):
- * open, the panel compacts to its header beside it, so the page stays in view (one panel at a time); closed, it goes
- * back as it was. See more, or anything that opens the panel, is the person's choice and ends this.
- */
-function siteSidebar(edge) {
-  if (edge != null && !bySite && S.on) {
-    bySite = { min: S.min, pos: panelPos };
-    setMin(true, false);
-  }
-  if (edge != null && bySite && panel.getBoundingClientRect().left < edge + 16) {
-    panelPos = { x: edge + 16, y: panelPos?.y ?? panel.getBoundingClientRect().top };
-    keepPanelOnScreen();
-  }
-  if (edge == null && bySite) {
-    const was = bySite;
-    bySite = null;
-    panelPos = was.pos;
-    setMin(was.min, false);
-  }
-  $('.compacted-note').hidden = !bySite;
-}
 // × leaves the full editor for Tasks (the shell's other mode); what was changed stays
 $('.closebtn').addEventListener('click', () => go(SHELL));
 
@@ -3130,11 +3128,11 @@ renderView();
 panel.hidden = true;
 setOn(S.on);
 keepPanelOnScreen();
-// the shell says when its site sidebar opens and closes; a page opened while it is open starts compacted, unless it
-// was opened to work on a block
+// in the shell (v4 Edit mode) the panel is the inspector, docked on the right; the shell's rail has the tree and its
+// top bar the one Undo; selecting a block in the rail selects it here
 if (EMBEDDED) {
-  window.tykerfSidebar = siteSidebar;
-  if (!asked.get('block')) siteSidebar(window.top.tykerfSidebarEdge?.() ?? null);
+  window.tykerfSelect = (id) => select(id, { scroll: true });
+  dock();
 }
 // a page that is still being made (the AI building it, a copy) opens with its progress
 api('/job').then((j) => renderJob(j.job)).catch(() => {});
