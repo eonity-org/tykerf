@@ -636,23 +636,11 @@ textarea.code { flex: 1; min-height: 120px; font: var(--mono); tab-size: 2; whit
 :host(.docked) .body { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr); }
 :host(.docked) .tree { display: none; }
 
-/* v4 round 2, Edit mode: the panel is the inspector in the shell's side panel ("Block: <name>"), not over the page:
-   it flows in its section, without its own header tools; the block's quick actions are a toolbar on the block */
-:host(.railed) { display: block; }
-:host(.railed) .panel { position: static; width: auto !important; height: auto !important; min-width: 0; min-height: 0; max-width: none; max-height: none; resize: none; border: 0; border-radius: 0; box-shadow: none; background: transparent; overflow: visible; display: block; }
-:host(.railed) .head { padding: 0 0 6px; background: none; border: 0; cursor: default; }
-:host(.railed) .brand, :host(.railed) .head-tools { display: none; }
-:host(.railed) .path { font-family: var(--mono); font-size: 12px; }
-:host(.railed) .body { display: block; overflow: visible; }
-:host(.railed) .tree, :host(.railed) .work .actions { display: none; }
-:host(.railed) .work { padding: 0; overflow: visible; }
-:host(.railed) .toast { position: static; margin-top: 8px; }
-.btool { position: absolute; z-index: 3; display: flex; flex-wrap: wrap; width: max-content; align-items: center; gap: 4px; max-width: calc(100vw - 8px); padding: 4px; border-radius: 8px; background: #0A5475; box-shadow: 0 6px 18px rgb(16 48 63 / .3); pointer-events: auto; font: 500 13px/1.2 tykerf-plex-sans, system-ui, sans-serif; }
-.btool[hidden] { display: none; }
-.btool .bname { padding: 0 8px; color: #fff; font: 600 12px/1 tykerf-plex-mono, ui-monospace, monospace; }
-.btool button { display: inline-flex; align-items: center; gap: 4px; min-height: 28px; padding: 3px 9px; border: 0; border-radius: 6px; background: rgb(255 255 255 / .14); color: #fff; font: inherit; cursor: pointer; }
-.btool button:hover:not(:disabled) { background: rgb(255 255 255 / .26); }
-.btool button:disabled { opacity: .45; cursor: default; }
-.btool button.danger { background: #FDECEA; color: #B42318; }
-.btool button:focus-visible { outline: 3px solid #EA9A27; outline-offset: 1px; }
-.btool .i { width: 14px; height: 14px; }
+/* v4 Edit mode: the v3 full editor, whole (its header, the tree beside the block's details, the block's actions), in
+   a window the shell floats over the page in its own document, so the page's widths never shrink it: the panel fills
+   that window (the shell drags it by this header, resizes and compacts it); the one Undo is the top bar's */
+:host(.railed) { display: block; height: 100%; }
+:host(.railed) .panel { position: static; width: 100% !important; height: 100% !important; min-width: 0; min-height: 0; max-width: none; max-height: none; resize: none; border: 0; border-radius: 0; box-shadow: none; }
+:host(.railed) .panel.min { height: auto !important; }
+:host(.railed) .head { cursor: move; }
+:host(.railed) .head-tools > .undo, :host(.railed) .head-tools > .redo { display: none; }

@@ -4,7 +4,7 @@
 // fixing by hand, the Site; with the rail folded the same sections drop from the top bar's "This page ▾".
 // Three modes in the top bar: Tasks (the page to point at: click anything and leave a task, or ask Kaity in the
 // one-line composer under the page, on the box picked, the page or the site), Edit (the full editor: its inspector
-// floating over the page in this window, the block's quick actions in a toolbar on it) and View (the site as visitors see it,
+// the v3 full editor, whole, floating over the page in this window) and View (the site as visitors see it,
 // until Edit). Kaity works through tasks one at a time (task-run.ts); what she did waits in Kaity on this page, to
 // keep or undo. Everything tykerf draws over the page (outlines, pins, the task box) is in the shell's own document,
 // over the frame; the page itself is untouched.
@@ -56,41 +56,48 @@ holder.hidden = true;
 holder.append(fixMount);
 document.body.append(holder);
 
-// ---------- Edit mode: the inspector floats over the page (as in v3), in this window, so the page's widths leave it
-// at its own size; dragged by its bar, resized from its corner, compacted to its bar; where and how big it is is
-// remembered (tykerf.inspector) ----------
+// ---------- Edit mode: the v3 full editor, whole, floats over the page in this window (not in the page's frame, so
+// the page's widths leave it at its own size): one box, its header (the path, Dim/Blur, Compact, ×), the tree and the
+// block's details and actions; dragged by its header, resized from its corner, compacted with its own button; where
+// and how big it is is remembered (tykerf.editor) ----------
 
 const float = document.createElement('section');
 float.className = 'ifloat';
-float.setAttribute('aria-label', t('Block details'));
-float.innerHTML = `<header class="ifbar"><span class="iftitle"></span>
-  <button type="button" class="ificon" data-if="min" aria-expanded="true"></button></header>`;
+float.setAttribute('aria-label', t('The full editor'));
 float.append(inspector);
-const FLOAT = { w: 420, h: 600, x: null, y: null, min: false, ...store.get('inspector', {}) };
+const FLOAT = { w: 820, h: 480, x: null, y: null, ...store.get('editor', {}) };
+/** The full editor's panel in its window (tykerf.js puts it there), or null before it has come. */
+const editorPanel = () => inspector.querySelector('tykerf-inspector-root')?.shadowRoot?.querySelector('.panel') ?? null;
+const compacted = () => !!editorPanel()?.classList.contains('min');
 function placeFloat() {
   const W = innerWidth, H = innerHeight, top = $('.bar').offsetHeight;
-  const w = Math.min(Math.max(300, FLOAT.w), W - 16), h = Math.min(Math.max(200, FLOAT.h), H - top - 16);
+  const min = compacted();
+  const w = Math.min(Math.max(360, FLOAT.w), W - 16), h = Math.min(Math.max(220, FLOAT.h), H - top - 16);
   const x = Math.max(8, Math.min(FLOAT.x ?? W - w - 24, W - w - 8));
-  const y = Math.max(top + 8, Math.min(FLOAT.y ?? top + 60, H - (FLOAT.min ? 44 : h) - 8));
-  Object.assign(float.style, { left: `${x}px`, top: `${y}px`, width: `${w}px`, height: FLOAT.min ? '' : `${h}px` });
-  float.classList.toggle('min', FLOAT.min);
-  const b = $('[data-if="min"]', float);
-  b.textContent = FLOAT.min ? '+' : '–';
-  b.setAttribute('aria-expanded', String(!FLOAT.min));
-  b.setAttribute('aria-label', FLOAT.min ? t('Show the block\'s details') : t('Compact: only this bar'));
-  b.title = b.getAttribute('aria-label');
+  const y = Math.max(top + 8, Math.min(FLOAT.y ?? top + 60, H - (min ? 56 : h) - 8));
+  Object.assign(float.style, { left: `${x}px`, top: `${y}px`, width: `${w}px`, height: min ? '' : `${h}px` });
+  float.classList.toggle('min', min);
 }
-const saveFloat = () => store.set('inspector', FLOAT);
-function renderFloat() {
-  $('.iftitle', float).textContent = S.sel ? t('Block: {name}', { name: S.sel }) : t('Block details');
-}
+const saveFloat = () => store.set('editor', { w: FLOAT.w, h: FLOAT.h, x: FLOAT.x, y: FLOAT.y });
 if (FULL) {
   document.body.append(float);
   placeFloat();
   addEventListener('resize', placeFloat);
-  // dragged by its bar (the page's frame lets the pointer go while it moves)
-  float.querySelector('.ifbar').addEventListener('pointerdown', (e) => {
-    if (e.button !== 0 || e.target.closest('button') || matchMedia('(max-width: 600px)').matches) return;
+  // its Compact (the panel's own button) and its coming in: the window follows
+  new MutationObserver(() => {
+    const p = editorPanel();
+    if (p && !p.dataset.watched) {
+      p.dataset.watched = '1';
+      new MutationObserver(placeFloat).observe(p, { attributes: true, attributeFilter: ['class'] });
+    }
+    placeFloat();
+  }).observe(inspector, { childList: true });
+  // dragged by the panel's header, not by its buttons (the page's frame lets the pointer go while it moves)
+  float.addEventListener('pointerdown', (e) => {
+    const path = e.composedPath();
+    const onHead = path.some((x) => x.classList?.contains('head')) && !path.some((x) => /^(BUTTON|INPUT|SELECT|TEXTAREA|A)$/.test(x.nodeName ?? ''));
+    if (e.button !== 0 || !onHead || matchMedia('(max-width: 600px)').matches) return;
+    e.preventDefault();
     const r = float.getBoundingClientRect(), dx = e.clientX - r.left, dy = e.clientY - r.top;
     document.body.classList.add('dragging');
     const move = (m) => {
@@ -107,32 +114,16 @@ if (FULL) {
     addEventListener('pointermove', move);
     addEventListener('pointerup', up);
   });
-  float.addEventListener('click', (e) => {
-    if (!e.target.closest('[data-if="min"]')) return;
-    FLOAT.min = !FLOAT.min;
-    placeFloat();
-    saveFloat();
-  });
   // resized from its corner (CSS resize): the size is kept
   let sized = 0;
   new ResizeObserver(() => {
-    if (FLOAT.min || matchMedia('(max-width: 600px)').matches) return;
+    if (compacted() || matchMedia('(max-width: 600px)').matches) return;
     clearTimeout(sized);
     sized = setTimeout(() => {
       const r = float.getBoundingClientRect();
       if (Math.abs(r.width - FLOAT.w) > 2 || Math.abs(r.height - FLOAT.h) > 2) (FLOAT.w = Math.round(r.width)), (FLOAT.h = Math.round(r.height)), saveFloat();
     }, 200);
   }).observe(float);
-}
-/** Details, Rename…, Delete… on a block: the floating details open (out of Compact) and come into view. */
-function showFloat() {
-  if (!FULL) return;
-  FLOAT.min = false;
-  placeFloat();
-  saveFloat();
-  float.classList.remove('flash');
-  void float.offsetWidth;
-  float.classList.add('flash');
 }
 $('.frame').title = t('The page');
 $('.frame').setAttribute('aria-label', t('The page'));
@@ -982,7 +973,7 @@ function renderStatus() {
   const stepsBtn = `<button type="button" class="btn small" data-bar="tray" aria-expanded="${S.tray}">${esc(S.tray ? t('Hide the steps') : t('Show the steps'))}</button>`;
   let middle, actions = '';
   if (FULL && !running()) {
-    middle = `<p class="hint">${esc(t('Pick a block on the page or in Blocks. Quick actions sit on the block; its details float over the page: drag them anywhere.'))}</p>`;
+    middle = `<p class="hint">${esc(t('Every block in detail, in the editor over the page: drag it by its header anywhere, or compact it.'))}</p>`;
     actions = `<a class="btn small" href="${shellOf(PAGE, false)}" title="${esc(t('Your tasks are in Tasks'))}">${esc(count)}</a>`;
   } else if (fix?.isOpen()) {
     middle = `<div class="status"><span>${esc(t('Fixing by hand · {what}', { what: fix.what() }))}</span></div>`;
@@ -1098,7 +1089,6 @@ function pickBlock(id) {
     try {
       $('.frame').contentWindow?.tykerfSelect?.(id);
     } catch {}
-    renderFloat();
     return renderSections();
   }
   const el = frame.blockEl(id);
@@ -1112,10 +1102,7 @@ window.tykerfSelected = (id) => {
   S.sel = id;
   for (const a of ancestorsOf(id)) S.collapsed.delete(a);
   renderSections();
-  renderFloat();
 };
-// Details, Rename…, Delete… on a block (the full editor's toolbar on the page): its floating details
-window.tykerfShowBlock = () => showFloat();
 
 /** The blocks around a block, from the page down. */
 function ancestorsOf(id, n = S.tree, path = []) {
@@ -1589,7 +1576,6 @@ await loadTasks();
 setJob((await api('/job').catch(() => ({ job: null }))).job, { arriving: true });
 frame.load(frameSrc());
 composerScopes();
-if (FULL) renderFloat();
 void rail.refresh().then(renderBar);
 void loadThreadNow();
 // the thread on this page follows Kaity anywhere on the site (a task run, the whole site, another tab)

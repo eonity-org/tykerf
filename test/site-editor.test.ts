@@ -286,7 +286,7 @@ describe('a new site', () => {
     await page.locator('a[href="/_tykerf/export.zip?page=home"]').waitFor();
   });
 
-  it('in Edit mode, floats the inspector over the page (as in v3) and puts the quick actions on the block', async () => {
+  it('in Edit mode, floats the v3 full editor, whole, over the page: one box with its tree, details and actions', async () => {
     // on its own, the full editor keeps its dark header
     await page.goto(`${url}home/?tykerf=full-frame`);
     await page.locator('section.panel').waitFor();
@@ -301,71 +301,65 @@ describe('a new site', () => {
     expect(await page.locator('.bar .modes [aria-current]').textContent()).toBe('Edit');
     // the widths stay in the top bar in Edit mode
     expect(await page.locator('.bar .widths button').allTextContents()).toEqual(['Desktop', '768', '375']);
-    // one sidebar, the page's sections; the inspector floats over the page in the shell's window, nothing is docked
+    // the editor floats over the page in the shell's window: nothing in the page's frame, nothing docked beside it
     expect(await fr.locator('section.panel').count()).toBe(0);
     expect(await fr.locator('html').evaluate((h) => getComputedStyle(h).marginRight)).toBe('0px');
     expect(await page.locator('.stage').evaluate((s) => s.clientWidth)).toBeGreaterThanOrEqual(1080);
     expect(Math.round((await page.locator('.rail').boundingBox())!.width)).toBe(280);
     const float = page.locator('.ifloat');
     expect(await float.locator('#tykerf-inspector section.panel').count()).toBe(1);
-    // no Undo, Redo, Compact or × of its own (the top bar has the one Undo), no tree (the rail has it)
-    for (const gone of ['.head-tools > .undo', '.head-tools > .redo', '.head-tools > .minimize', '.head-tools > .closebtn', '.tree', '.work .actions']) expect(await inspector.locator(gone).first().isHidden(), gone).toBe(true);
+    // one box, as in v3: its header (path, Dim/Blur, Compact, ×), the tree, the block's actions and details; no
+    // Undo or Redo of its own (the top bar has the one Undo), and nothing drawn on the block
+    for (const shown of ['.head .path', '.head-tools > .minimize', '.head-tools > .closebtn', '.tree', '.work .actions', '.work .tabs']) expect(await inspector.locator(shown).first().isVisible(), shown).toBe(true);
+    for (const gone of ['.head-tools > .undo', '.head-tools > .redo']) expect(await inspector.locator(gone).first().isHidden(), gone).toBe(true);
     expect(await page.getByRole('button', { name: /^Undo|^Nothing to undo/ }).count()).toBe(1);
+    expect(await fr.locator('.btool').count()).toBe(0);
     // the rail's tree has every block, as the inspector's path has them: intro inside its containers
     await page.locator('.rail [data-block="intro"]').click();
     await expect.poll(() => inspector.locator('.path').textContent()).toMatch(/^page\/(.+\/)?body\/intro$/);
-    expect(await float.locator('.iftitle').textContent()).toBe('Block: intro');
     const path = (await inspector.locator('.path').textContent())!.split('/');
     const tree = await page.locator('.rail .tree [data-block]').evaluateAll((b) => b.map((x) => (x as HTMLElement).dataset.block));
     for (const id of path.slice(1)) expect(tree).toContain(id);
     for (let i = 2; i < path.length; i++) expect(await page.locator(`.rail .tree li:has(> .tline [data-block="${path[i - 1]}"]) [data-block="${path[i]}"]`).count()).toBe(1);
-    // the floating window: dragged by its bar (where it is is remembered), compacted to its bar; the page's widths
-    // leave it at its own size
+    // dragged by its header (where it is is remembered); the page's widths leave it at its own size; Compact
     const at = (await float.boundingBox())!;
-    const bar = (await float.locator('.ifbar').boundingBox())!;
-    await page.mouse.move(bar.x + 30, bar.y + 15);
+    const brand = (await inspector.locator('.head .brand').boundingBox())!;
+    await page.mouse.move(brand.x + 10, brand.y + 8);
     await page.mouse.down();
-    await page.mouse.move(bar.x - 170, bar.y + 85, { steps: 6 });
+    await page.mouse.move(brand.x - 190, brand.y + 78, { steps: 6 });
     await page.mouse.up();
     await expect.poll(async () => Math.round((await float.boundingBox())!.x)).toBe(Math.round(at.x - 200));
-    expect(JSON.parse(await page.evaluate(() => localStorage.getItem('tykerf.inspector') ?? '{}')).x).toBe(Math.round(at.x - 200));
+    expect(JSON.parse(await page.evaluate(() => localStorage.getItem('tykerf.editor') ?? '{}')).x).toBe(Math.round(at.x - 200));
     await page.locator('.bar [data-device="phone"]').click();
     await expect.poll(() => page.locator('.frame').evaluate((f: HTMLIFrameElement) => f.contentWindow!.innerWidth)).toBe(375);
     expect(Math.round((await float.boundingBox())!.width)).toBe(Math.round(at.width));
     await page.locator('.bar [data-device="full"]').click();
-    await float.locator('[data-if="min"]').click();
-    expect(await float.locator('#tykerf-inspector').isHidden()).toBe(true);
-    // the quick actions sit on the block in the page: move it down, then up again
-    const tool = fr.locator('.btool');
-    await expect.poll(() => tool.isVisible()).toBe(true);
-    expect(await tool.locator('.bname').textContent()).toBe('intro');
+    await inspector.locator('.head-tools > .minimize').click();
+    await expect.poll(async () => (await float.boundingBox())!.height).toBeLessThan(80);
+    await inspector.locator('.head-tools > .minimize').click();
+    await expect.poll(async () => Math.round((await float.boundingBox())!.height)).toBe(Math.round(at.height));
+    // its actions: move the block down, then up again
     const order = () => page.locator('.rail .tree li:has(> .tline [data-block="body"]) > ul > li > .tline [data-block]').evaluateAll((b) => b.map((x) => (x as HTMLElement).dataset.block));
     const was = await order();
-    await tool.locator('[data-act="later"]').click();
+    await inspector.locator('.work .actions [data-act="later"]').click();
     await expect.poll(order).not.toEqual(was);
-    await tool.locator('[data-act="earlier"]').click();
+    await inspector.locator('.work .actions [data-act="earlier"]').click();
     await expect.poll(order).toEqual(was);
-    // Details opens the floating window again, out of Compact
-    await tool.locator('[data-act="details"]').click();
-    await expect.poll(() => float.locator('#tykerf-inspector').isVisible()).toBe(true);
-    const field = inspector.locator('.work .tab-body textarea, .work .tab-body input').first();
-    await field.waitFor();
+    await inspector.locator('.work .tab-body textarea, .work .tab-body input').first().waitFor();
     // the editor's selection shows in the rail, and the rail's selects in the editor
     await page.locator('.rail [data-block="footer"]').click();
     await expect.poll(() => inspector.locator('.path [aria-current]').textContent()).toBe('footer');
     await inspector.locator('.path button').first().click();
     await expect.poll(() => page.locator('.rail .tree [aria-current]').count()).toBe(0);
-    // a block is deleted from its toolbar, after asking in the inspector (the rail shows it)
+    // a block is deleted from its actions, after asking
     await page.locator('.rail [data-block="contact"]').click();
-    await expect.poll(() => tool.locator('.bname').textContent()).toBe('contact');
-    await tool.locator('[data-act="remove"]').click();
+    await inspector.locator('.work .actions [data-act="remove"]').click();
     await inspector.locator('.sheet:not([hidden])').waitFor();
-    // with the rail folded the page takes the whole width; the toolbar and the floating window stay
+    // with the rail folded the page takes the whole width; the editor stays
     await page.locator('.rail [data-rail="fold"]').click();
-    expect(await tool.isVisible()).toBe(true);
     expect(await float.isVisible()).toBe(true);
     await page.locator('.rail [data-rail="unfold"]').click();
-    await page.evaluate(() => localStorage.removeItem('tykerf.inspector'));
+    await page.evaluate(() => localStorage.removeItem('tykerf.editor'));
     await page.setViewportSize({ width: 1280, height: 900 });
     await page.goto('about:blank'); // the page follows a removal: leave it first
     await post('_tykerf/site/remove', { name: 'me' });

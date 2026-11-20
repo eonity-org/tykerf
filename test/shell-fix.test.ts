@@ -79,7 +79,7 @@ describe('fixing by hand in the v3 editor', () => {
     // its inspector floats over the page, in the shell's window
     await poll(() => page.locator('#tykerf-inspector .work .w-name').inputValue()).toBe('hero');
     expect(await page.locator('#tykerf-inspector .work .tabs [data-tab="code"]').getAttribute('aria-selected')).toBe('true');
-    expect(await page.locator('.ifloat .iftitle').textContent()).toBe('Block: hero');
+    expect(await page.locator('#tykerf-inspector .path [aria-current]').textContent()).toBe('hero');
     // the quick fix has no copies of those editors
     await page.locator('.bar .modes a', { hasText: 'Tasks' }).click();
     await page.waitForURL(/\/_tykerf\/edit\/first\/$/);

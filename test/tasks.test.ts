@@ -197,9 +197,8 @@ describe('tasks in the editor', () => {
     expect(await fresh.locator('.bar .modes a[aria-current="page"]').textContent()).toBe('Edit');
     // its tasks are in Tasks: the count leads there, the tray doesn't open here
     expect(await fresh.locator('.pstatus .actions a.btn').first().getAttribute('href')).toBe('/_tykerf/edit/home/');
-    // in the rail, it has no × of its own: Tasks in the top bar goes back
-    expect(await fresh.locator('#tykerf-inspector .panel .closebtn').isHidden()).toBe(true);
-    await fresh.locator('.bar .modes a', { hasText: 'Tasks' }).click();
+    // its × goes back to Tasks, as the top bar's Tasks does
+    await fresh.locator('#tykerf-inspector .panel .closebtn').click();
     await fresh.waitForURL(/\/_tykerf\/edit\/home\/$/);
     await fresh.close();
   });
