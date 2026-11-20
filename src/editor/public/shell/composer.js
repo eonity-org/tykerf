@@ -3,7 +3,7 @@
 // This page, Whole site), an Attach button (and dropping or pasting files on it) for pictures, PDFs and a design as a
 // ZIP file, and Enter to send (Shift+Enter for a new line). What it sends and where is the caller's (`send`).
 
-import { esc, failed, shrinkImage, t, toast } from './common.js';
+import { esc, failed, kaityMark, shrinkImage, t, toast } from './common.js';
 
 export const PICTURES = ['image/png', 'image/jpeg', 'image/gif', 'image/webp'];
 const isZip = (f) => /\.zip$/i.test(f.name) || ['application/zip', 'application/x-zip-compressed'].includes(f.type);
@@ -54,11 +54,13 @@ export const fileChip = (f, i, removable = true) => `<span class="fchip">${f.typ
 /**
  * A composer. `scopes`: [{ key, label }] for "Kaity may change" (none: no chips); `scope`: the chosen one;
  * `placeholder(scope)`; `send({ prompt, files, scope })` (a promise; the composer empties when it resolves);
- * `submit`: the button's words; `compact`: one line (the Overview); `max`: how many files.
+ * `submit`: the button's words; `compact`: one line (the Overview); `line`: one line docked under a page (round 2),
+ * Kaity's mark, the words, "Kaity may change" as a drop-down, Attach as an icon and Ask, growing while you type or
+ * attach; `max`: how many files.
  */
-export function createComposer({ scopes = [], scope = scopes[0]?.key, placeholder = () => t('Ask Kaity…'), send, submit = () => t('Ask Kaity'), compact = false, max = 5, label = t('Ask Kaity'), keepFiles = false }) {
+export function createComposer({ scopes = [], scope = scopes[0]?.key, placeholder = () => t('Ask Kaity…'), send, submit = () => t('Ask Kaity'), compact = false, line = false, max = 5, label = t('Ask Kaity'), keepFiles = false }) {
   const el = document.createElement('form');
-  el.className = `composer${compact ? ' compact' : ''}`;
+  el.className = `composer${compact ? ' compact' : ''}${line ? ' line' : ''}`;
   el.setAttribute('aria-label', label);
   const S = { scopes, scope, files: [], busy: false, text: '' };
 
@@ -67,6 +69,25 @@ export function createComposer({ scopes = [], scope = scopes[0]?.key, placeholde
     if (typed) S.text = typed.value;
     const focused = document.activeElement === typed;
     const at = typed?.selectionStart ?? S.text.length;
+    el.classList.toggle('aimed', S.scope === 'box');
+    if (line) {
+      el.innerHTML = `
+        ${S.files.length ? `<div class="kfiles">${S.files.map((f, i) => fileChip(f, i)).join('')}</div>` : ''}
+        <div class="cline">
+          <span class="cmark" aria-hidden="true">${kaityMark(S.busy, true)}</span>
+          <textarea name="prompt" rows="1" aria-label="${esc(label)}" placeholder="${esc(placeholder(S.scope))}">${esc(S.text)}</textarea>
+          ${S.scopes.length > 1 ? `<label class="cscope"><span class="vh">${esc(t('Kaity may change'))}</span><select data-scope-select title="${esc(t('Kaity may change'))}">${S.scopes.map((s) => `<option value="${esc(s.key)}" ${s.key === S.scope ? 'selected' : ''}>${esc(s.label)}</option>`).join('')}</select></label>` : ''}
+          <button type="button" class="btn icon attach" data-c="attach" ${S.files.length >= max ? 'disabled' : ''} aria-label="${esc(t('Attach'))}" title="${esc(t('Attach pictures, PDFs or a design as a ZIP file (or drop or paste them here)'))}">${CLIP}</button>
+          <button type="submit" class="btn primary" ${S.busy ? 'disabled' : ''}>${esc(submit(S.scope))}</button>
+        </div>`;
+      grow();
+      if (focused) {
+        const ta = el.querySelector('textarea');
+        ta.focus();
+        ta.setSelectionRange(at, at);
+      }
+      return;
+    }
     el.innerHTML = `
       ${S.scopes.length > 1 ? `<div class="kscope" role="group" aria-label="${esc(t('Kaity may change'))}"><span>${esc(t('Kaity may change'))}</span>${S.scopes.map((s) => `<button type="button" class="chip" data-scope="${esc(s.key)}" aria-pressed="${s.key === S.scope}">${esc(s.label)}</button>`).join('')}</div>` : ''}
       <textarea name="prompt" rows="${compact ? 1 : 2}" aria-label="${esc(label)}" placeholder="${esc(placeholder(S.scope))}">${esc(S.text)}</textarea>
@@ -81,6 +102,14 @@ export function createComposer({ scopes = [], scope = scopes[0]?.key, placeholde
       ta.focus();
       ta.setSelectionRange(at, at);
     }
+  }
+
+  /** The one line grows with what is typed (up to a few lines), and goes back to one line when it is sent. */
+  function grow() {
+    const ta = el.querySelector('textarea');
+    if (!line || !ta) return;
+    ta.style.height = 'auto';
+    ta.style.height = `${Math.min(ta.scrollHeight, 180)}px`;
   }
 
   async function add(list) {
@@ -114,7 +143,10 @@ export function createComposer({ scopes = [], scope = scopes[0]?.key, placeholde
     if (e.target.matches('textarea') && e.key === 'Enter' && !e.shiftKey && !e.isComposing) (e.preventDefault(), go());
   });
   el.addEventListener('input', (e) => {
-    if (e.target.matches('textarea')) S.text = e.target.value;
+    if (e.target.matches('textarea')) (S.text = e.target.value), grow();
+  });
+  el.addEventListener('change', (e) => {
+    if (e.target.matches('[data-scope-select]')) (S.scope = e.target.value), render(), el.querySelector('textarea').focus();
   });
   el.addEventListener('click', (e) => {
     const s = e.target.closest('[data-scope]')?.dataset.scope;

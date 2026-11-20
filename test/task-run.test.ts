@@ -198,6 +198,7 @@ describe('Kaity working through the tasks', () => {
       },
       'Task 3:': async (t) => {
         if (/Their answer: \$90/.test((reqs.at(-1) as RunRequest).prompt)) {
+          await t.call('set_content', { id: 'pricing', html: '<p>$90 a year</p>' });
           await t.call('close_task', { n: 3, reply: 'Added $90 a year.' });
           return;
         }
@@ -216,7 +217,7 @@ describe('Kaity working through the tasks', () => {
     run.start([1, 2, 3]);
     expect(() => ai.ask('cta', 'something else')).toThrow(/working through the tasks/);
     expect(ai.running()).not.toBeNull(); // between her requests too: undo and other runs wait
-    await until(() => !run.state()!.running);
+    await until(() => !run.state()?.running);
 
     // one request per task, in the task's block, tagged; the question last and read-only
     expect(reqs.map((r) => [r.prompt.split('\n')[0], r.scope, r.tag?.replace(/^.*#/, '#'), !!r.readOnly])).toEqual([
@@ -239,7 +240,7 @@ describe('Kaity working through the tasks', () => {
 
     // the person answers: she goes on with that task, with her question and the answer
     run.answer(3, '$90');
-    await until(() => !run.state()!.running);
+    await until(() => !run.state()?.running);
     expect(reqs.at(-1)!.prompt).toMatch(/You asked the person: What is the yearly price\?\nTheir answer: \$90/);
     expect(run.state()!.tasks.find((t) => t.n === 3)).toMatchObject({ state: 'done', summary: 'Added $90 a year.' });
 
@@ -271,16 +272,17 @@ describe('Kaity working through the tasks', () => {
     run.skip(2);
     expect(() => run.keep()).toThrow(/working through the tasks/);
     run.stop();
-    await until(() => !run.state()!.running);
+    await until(() => !run.state()?.running);
     expect(run.state()!.tasks.map((t) => [t.n, t.state])).toEqual([[1, 'waiting'], [2, 'off']]);
     expect(tasks(ws, { open: true }).map((x) => x.n)).toEqual([1, 2]);
     expect(ai.running()).toBeNull();
     // given again, the waiting task and the one taken off go on
-    const { runner: r2, reqs } = scripted({ 'Task 1:': async (t) => void (await t.call('close_task', { n: 1 })), 'Task 2:': async (t) => void (await t.call('close_task', { n: 2 })) });
+    const done = (id: string, n: number) => async (t: Parameters<Parameters<typeof scripted>[0][string]>[0]) => (await t.call('set_content', { id, html: `<p>${n}</p>` }), void (await t.call('close_task', { n })));
+    const { runner: r2, reqs } = scripted({ 'Task 1:': done('hero', 1), 'Task 2:': done('cta', 2) });
     const run2 = new TaskRun(ws, new AI(ws, () => {}, r2), () => {}, { shots: false });
     expect(run2.state()!.tasks.map((t) => t.state)).toEqual(['waiting', 'off']); // kept across a restart
     run2.start([1, 2]);
-    await until(() => !run2.state()!.running);
+    await until(() => !run2.state()?.running);
     expect(reqs.map((r) => r.prompt.split(':')[0])).toEqual(['Task 1', 'Task 2']);
     expect(tasks(ws, { open: true })).toEqual([]);
   });
@@ -296,18 +298,21 @@ describe('Kaity working through the tasks', () => {
         await t.call('set_content', { id: 'hero', html: '<h1>New</h1>' });
         await t.call('close_task', { n: 1, reply: 'Rewrote it.' });
       },
-      'Task 2:': async (t) => void (await t.call('close_task', { n: 2, reply: 'Done too.' })),
+      'Task 2:': async (t) => {
+        await t.call('set_content', { id: 'cta', html: '<p>Call us</p>' });
+        await t.call('close_task', { n: 2, reply: 'Done too.' });
+      },
     });
     const run = new TaskRun(ws, new AI(ws, () => {}, runner), () => {}, { shots: false });
     run.start([1, 2]);
-    await until(() => !run.state()!.running);
+    await until(() => !run.state()?.running);
     // nothing changed in that stretch, so she didn't go on by herself; the next task went on
     expect(run.state()!.tasks.map((t) => [t.n, t.state, t.summary])).toEqual([
       [1, 'unfinished', 'the model did not answer within 3 minutes; ask again to continue'],
       [2, 'done', 'Done too.'],
     ]);
     run.start([1]);
-    await until(() => !run.state()!.running);
+    await until(() => !run.state()?.running);
     expect(run.state()!.tasks.find((t) => t.n === 1)).toMatchObject({ state: 'done', summary: 'Rewrote it.' });
     expect(reqs.map((r) => r.prompt.split(':')[0])).toEqual(['Task 1', 'Task 2', 'Task 1']);
   });
@@ -318,7 +323,7 @@ describe('Kaity working through the tasks', () => {
     const { runner } = scripted({ 'Task 1:': async () => 'There is no logo file on the page: can you add one?' });
     const run = new TaskRun(ws, new AI(ws, () => {}, runner), () => {}, { shots: false });
     run.start([1]);
-    await until(() => !run.state()!.running);
+    await until(() => !run.state()?.running);
     expect(run.state()!.tasks[0]).toMatchObject({ state: 'needs-you', asked: 'There is no logo file on the page: can you add one?' });
     run.leave(1);
     expect(run.state()!.tasks[0].state).toBe('off');
@@ -348,7 +353,7 @@ describe('Kaity working through the tasks', () => {
     expect(() => addTask(ws, { block: 'cta', text: 'x', images: ['../secret.png'] })).toThrow(/bad picture names/);
     const run = new TaskRun(ws, ai, () => {}, { shots: false });
     run.start([1]);
-    await until(() => !run.state()!.running);
+    await until(() => !run.state()?.running);
     // the picture went with the task
     expect(reqs[0].images).toEqual([{ mediaType: 'image/png', data: png }]);
     const t1 = run.state()!.tasks[0];
@@ -357,7 +362,7 @@ describe('Kaity working through the tasks', () => {
 
     // Fix them: one more request on the block, tagged with the task; then nothing is left
     run.fix(1);
-    await until(() => !run.state()!.running);
+    await until(() => !run.state()?.running);
     expect(reqs.at(-1)!.prompt).toMatch(/^Fix what was left unfinished/);
     expect(reqs.at(-1)!.tag).toBe(reqs[0].tag);
     expect(run.state()!.tasks[0].state).toBe('done');
@@ -368,7 +373,7 @@ describe('Kaity working through the tasks', () => {
     // Leave them: kept as it is, and not reported again
     addTask(ws, { block: 'cta', text: 'One more link' });
     run.start([2]);
-    await until(() => !run.state()!.running);
+    await until(() => !run.state()?.running);
     expect(run.state()!.tasks[1].left?.items.map((i) => i.text)).toEqual(['cta: the link "More" goes nowhere']);
     run.leaveLeft(2);
     expect(run.state()!.tasks[1].left?.state).toBe('left');
@@ -380,15 +385,29 @@ describe('Kaity working through the tasks', () => {
     expect(ws.content('cta')).toBe(cta);
   });
 
-  it('closes the review once the person has seen everything in it', async () => {
+  it('closes the review once the person has seen everything in it, and by itself when nothing in it waits for them', async () => {
     const ws = landing();
     addTask(ws, { block: 'hero', text: 'How tall is it?', question: true });
-    const { runner } = scripted({ 'Question 1:': async (t) => void (await t.call('close_task', { n: 1, reply: '71 px.' })) });
+    addTask(ws, { block: 'cta', text: 'Remove the footer' });
+    const { runner } = scripted({
+      'Question 1:': async (t) => void (await t.call('close_task', { n: 1, reply: '71 px.' })),
+      // she closes it without changing anything: she couldn't do it, and the task stays open
+      'Task 2:': async (t) => void (await t.call('close_task', { n: 2, reply: 'I cannot remove the footer from cta.' })),
+    });
     const run = new TaskRun(ws, new AI(ws, () => {}, runner), () => {}, { shots: false });
-    run.start([1]);
-    await until(() => !run.state()!.running);
-    run.seen(1);
-    expect(run.state()).toBeNull();
+    run.start([1, 2]);
+    // an answer and a task she couldn't do are in her thread: the review closes by itself
+    await expect.poll(() => run.state(), { timeout: 20_000 }).toBeNull();
+    expect(tasks(ws, { open: true }).map((x) => x.n)).toEqual([2]);
+    // a change waits for the person until they have seen it
+    addTask(ws, { block: 'cta', text: 'Say "Call us"' });
+    const { runner: r2 } = scripted({ 'Task 3:': async (t) => (await t.call('set_content', { id: 'cta', html: '<p>Call us</p>' }), void (await t.call('close_task', { n: 3, reply: 'Done.' }))) });
+    const run2 = new TaskRun(ws, new AI(ws, () => {}, r2), () => {}, { shots: false });
+    run2.start([3]);
+    await until(() => !run2.state()?.running);
+    expect(run2.state()!.tasks.map((t) => [t.n, t.state])).toEqual([[3, 'done']]);
+    run2.seen(3);
+    expect(run2.state()).toBeNull();
     // one an older editor left behind closes when the page opens
     ws.store.write('.tykerf/taskrun.json', JSON.stringify({ key: 'k', since: '', running: false, tasks: [{ n: 1, state: 'answered', block: 'hero', text: 'x', steps: 0, seen: true }] }));
     expect(new TaskRun(ws, new AI(ws, () => {}, runner), () => {}, { shots: false }).state()).toBeNull();

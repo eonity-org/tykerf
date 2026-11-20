@@ -4,6 +4,7 @@
 // short (the editor stopped while she worked).
 
 import { FolderStore } from '../store.js';
+import type { RunNote } from '../run-note.js';
 
 const LOG = '.tykerf/kaity.jsonl';
 /** The log keeps about this many runs: past twice as many lines, the oldest go. */
@@ -27,6 +28,12 @@ export interface RunStart {
   /** Files attached to the request: their kept names (`.tykerf/images/`, the page's or the site's) and own names. */
   files?: { file: string; name?: string }[];
   tasks?: number[];
+  /** A question: she answers it and changes nothing (no change is no failure). */
+  onlyAsked?: true;
+  /** The run this one sends again: wider (Widen to this page) or with the person's OK for a shared block. */
+  again?: string;
+  /** The shared blocks the person OK'd changing on every page. */
+  sharedOk?: string[];
 }
 
 export interface RunFinish {
@@ -38,6 +45,10 @@ export interface RunFinish {
   answer?: string;
   error?: string;
   steps: number;
+  /** How many of her steps changed something (a run on the whole site changes its kit, which no page's history has). */
+  acted?: number;
+  /** What the tools noted (run-note.ts): she couldn't do it, a change was refused, a shared block waits for an OK. */
+  note?: RunNote;
 }
 
 /** A run taken back afterwards (the thread's Undo): its changes left the pages, its record stays. */
@@ -55,6 +66,8 @@ export interface KaityRun extends RunStart {
   answer?: string;
   error?: string;
   steps?: number;
+  acted?: number;
+  note?: RunNote;
   /** While she works: what she is doing right now. */
   step?: string;
 }
@@ -111,7 +124,7 @@ export function kaityRuns(site: string, live: Map<string, { step?: string; steps
       if (r) r.undone = e.at;
     } else if ('end' in e) {
       const r = runs.get(e.run);
-      if (r) Object.assign(r, { state: e.end, ended: e.at, block: e.block ?? r.block, answer: e.answer, error: e.error, steps: e.steps });
+      if (r) Object.assign(r, { state: e.end, ended: e.at, block: e.block ?? r.block, answer: e.answer, error: e.error, steps: e.steps, ...(e.acted ? { acted: e.acted } : {}), ...(e.note ? { note: e.note } : {}) });
     } else runs.set(e.run, { ...e, state: 'cut short' });
   }
   for (const r of runs.values()) {
@@ -119,4 +132,21 @@ export function kaityRuns(site: string, live: Map<string, { step?: string; steps
     if (r.state === 'cut short' && now) Object.assign(r, { state: 'working', step: now.step, steps: now.steps, block: now.block ?? r.block });
   }
   return [...runs.values()].reverse().slice(0, limit);
+}
+
+/**
+ * How a run came out, for the thread: `changed` (her changes are in the pages' history, or were and were undone),
+ * `asks` (a shared block's change waits for the person's OK), `declined` (she couldn't do it: she said so, or the tools
+ * refused what she tried, and nothing changed), `answered` (nothing changed, nothing refused: an answer or a question),
+ * `failed` (an error, or cut short), `stopped` (the person stopped her), `working`. Only `changed` gets ✓ and Undo.
+ */
+export type RunOutcome = 'working' | 'changed' | 'asks' | 'declined' | 'answered' | 'failed' | 'stopped';
+export function outcomeOf(r: KaityRun, changed: boolean): RunOutcome {
+  if (r.state === 'working') return 'working';
+  if (r.state === 'failed' || r.state === 'cut short' || r.state === 'unfinished') return 'failed';
+  if (r.state === 'stopped') return 'stopped';
+  if (changed) return 'changed';
+  if (r.note?.shared) return 'asks';
+  if (r.note?.cant || r.note?.refused) return 'declined';
+  return 'answered';
 }

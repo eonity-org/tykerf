@@ -1,17 +1,21 @@
-// A page in the v4 editor (shell.html at /_tykerf/edit/<page>/): the one frame (chrome.js: the top bar, the rail
-// with the page's blocks), the page in a frame in the middle, and beside it the page's tasks and Kaity on this page.
-// Three modes in the top bar: Tasks (the page to point at: click anything, say what should change, hand it to
-// Kaity, or ask her about the whole page in the composer under it), Edit (the full editor, its inspector docked on
-// the right inside the frame) and View (the site as visitors see it, until Edit). Kaity works through tasks one at
-// a time (task-run.ts); the tray shows each task as she goes, then the review. Everything tykerf draws over the
-// page (outlines, pins, the task box) is in the shell's own document, over the frame; the page itself is untouched.
+// A page in the v4 editor (shell.html at /_tykerf/edit/<page>/): the one frame (chrome.js: the top bar, the rail) and
+// the page, which takes the rest of the width (round 2: nothing is docked on its right). Everything about the page is
+// in the rail's sections (sections.js): Tasks on this page, Kaity on this page, Blocks, the block's details (Edit),
+// fixing by hand, the Site; with the rail folded the same sections drop from the top bar's "This page ▾".
+// Three modes in the top bar: Tasks (the page to point at: click anything and leave a task, or ask Kaity in the
+// one-line composer under the page, on the box picked, the page or the site), Edit (the full editor: its inspector
+// in the rail's "Block" section, the block's quick actions in a toolbar on it) and View (the site as visitors see it,
+// until Edit). Kaity works through tasks one at a time (task-run.ts); what she did waits in Kaity on this page, to
+// keep or undo. Everything tykerf draws over the page (outlines, pins, the task box) is in the shell's own document,
+// over the frame; the page itself is untouched.
 
-import { $, esc, failed, kaityMark, plainLabel, request, stillMotion, t, toast, watchVersion } from './common.js';
-import { checkCount, createRail, pageModes, renderTop } from './chrome.js';
+import { $, CHEVRON, esc, failed, kaityMark, plainLabel, request, stamp, stillMotion, store, t, toast, watchVersion } from './common.js';
+import { checkState, createRail, pageModes, renderTop } from './chrome.js';
 import { createComposer, fileChip, readFiles, ACCEPT } from './composer.js';
 import { createFixPanel } from './fix.js';
 import { createFrame } from './frame.js';
-import { askKaity, createKaityCenter, loadThread, onKaityNews, scopeChip } from './kaity.js';
+import { askKaity, createKaityCenter, itemActions, itemNeeds, loadThread, onKaityNews, outcome, scopeChip, threadAction } from './kaity.js';
+import { createAccordion } from './sections.js';
 import { atPath } from '../inline.js';
 import { markdown } from '../markdown.js';
 
@@ -26,8 +30,8 @@ $('.frame').title = t('The page');
 const MODE = FULL ? 'edit' : 'tasks';
 document.body.classList.add(`page-mode`, `mode-${MODE}`);
 
-// the one frame: the rail on the left, the page in the middle (the status line above it, the composer under it in
-// Tasks), the page's tasks and Kaity on this page on the right (the fix panel takes their place while fixing by hand)
+// the one frame: the rail on the left (the page's sections), the page in the rest (the status line above it, the
+// composer under it in Tasks); the inspector (Edit) and the fix panel are kept nodes the rail's sections show
 const work = document.createElement('div');
 work.className = 'work';
 $('.stage').replaceWith(work);
@@ -36,18 +40,21 @@ column.className = 'pagecol';
 const statusLine = document.createElement('div');
 statusLine.className = 'pstatus';
 statusLine.setAttribute('role', 'status');
-const side = document.createElement('aside');
-side.className = 'pside';
-side.setAttribute('aria-label', t('Tasks and Kaity on this page'));
-const sideCards = document.createElement('div');
-sideCards.className = 'pcards';
-side.append(sideCards);
 const stage = document.createElement('main');
 stage.className = 'stage';
 stage.innerHTML = '<div class="viewport"><iframe class="frame" title="" aria-label=""></iframe><div class="overlay"></div></div><section class="tray" hidden></section>';
 column.append(statusLine, stage);
 work.append(column);
-if (!FULL) work.append(side);
+// where the full editor's inspector goes (tykerf.js moves its panel here), and the fix panel
+const inspector = document.createElement('div');
+inspector.id = 'tykerf-inspector';
+const fixMount = document.createElement('div');
+fixMount.className = 'fixmount';
+// kept in the document while no section shows them (the rail folded), so the full editor always finds its place
+const holder = document.createElement('div');
+holder.hidden = true;
+holder.append(inspector, fixMount);
+document.body.append(holder);
 $('.frame').title = t('The page');
 $('.frame').setAttribute('aria-label', t('The page'));
 $('.tray').setAttribute('aria-label', t('Tasks'));
@@ -84,6 +91,7 @@ const S = {
   followed: null, // the task Kaity was last followed to
   scrolledAt: 0, // when the person last scrolled the page themselves
   undoAllAfterStop: false,
+  collapsed: new Set(store.get(`collapsed.${PAGE}`, [])), // the containers folded in the Blocks tree (this page's)
 };
 const openTasks = () => S.tasks.filter((x) => !x.done && !x.gone);
 const running = () => !!S.run?.running;
@@ -223,12 +231,12 @@ function followKaity() {
 function openBox(spot) {
   // fresh: a box just added, empty (nothing to point at on the page: the task box sits by the box it came from, `near`)
   S.box = { block: spot.block, path: spot.path, label: spot.label, draft: '', question: !!spot.question, touched: !!spot.question, images: [], fresh: !!spot.fresh, near: spot.near ?? null };
-  // the block picked on the page is the rail's and the composer's too ("This box")
+  // the block picked on the page is the rail's and the composer's too: the composer is aimed at it ("This box")
   if (S.sel !== spot.block) {
     S.sel = spot.block;
-    rail.render();
-    composerScopes(composer.scope);
+    renderSections();
   }
+  composerScopes('box');
   renderBox();
   draw();
   $('.taskbox textarea').focus();
@@ -266,7 +274,6 @@ function renderBox() {
     </div>
     <div class="row">
       <button type="button" class="link more" data-box="menu" aria-haspopup="menu" title="${esc(t('Fix it by hand, edit its words, add or delete boxes… (the same as a right-click on the page)'))}">${esc(t('More…'))} <span class="hint">${esc(t('or right-click'))}</span></button>
-      <button type="button" class="btn" data-box="now">${esc(isQ ? t('Kaity, answer it now') : t('Kaity, do it now'))}</button>
       <button type="button" class="btn primary" data-box="add" title="${esc(t('⌘↵ / Ctrl+↵'))}">${esc(isQ ? t('Add question') : t('Add task'))}</button>
     </div>`;
   const ta = $('textarea', el);
@@ -310,7 +317,6 @@ function renderBox() {
       return keepTyping();
     }
     if (act === 'add') addTask(false);
-    if (act === 'now') addTask(true);
     if (act === 'pic') {
       const input = Object.assign(document.createElement('input'), { type: 'file', accept: ACCEPT.replace(/,\.zip,application\/zip$/, ''), multiple: true });
       input.onchange = () => attachPictures([...input.files]);
@@ -398,6 +404,8 @@ function setRun(run) {
     S.followed = null;
     if (!S.stepsHidden) S.tray = true;
   }
+  // her work done, the steps close: what she did is in Kaity on this page
+  if (!running() && was && !S.job) S.tray = false;
   if (!running() && was && S.undoAllAfterStop) {
     S.undoAllAfterStop = false;
     void undoAll();
@@ -598,7 +606,7 @@ function renderTray() {
       <ol class="jobsteps">${S.job.steps.map((s, i) => `<li class="${s.refused ? 'refused' : ''}${i === S.job.steps.length - 1 && S.job.state === 'running' ? ' now' : ''}">${s.refused ? `<b>${esc(t('Refused:'))}</b> ` : ''}${esc(ai ? s.text : t(s.text, s.vars ?? {}))}</li>`).join('') || `<li>${esc(t('Starting…'))}</li>`}</ol>`;
     return draw();
   }
-  if (S.run && mine.length) {
+  if (running() && mine.length) {
     const inRun = new Set(S.run.tasks.map((x) => x.n));
     const others = open.filter((x) => !inRun.has(x.n));
     const title = running() ? t('Kaity is working through {n} on {page}', { n: mine.length === 1 ? t('1 task') : t('{n} tasks', { n: mine.length }), page: PAGE }) : t('What Kaity did on {page}', { page: PAGE });
@@ -628,7 +636,9 @@ tray.addEventListener('input', (e) => {
   if (e.target.matches('[data-answer]')) S.answers[n] = e.target.value;
   if (e.target.matches('[data-more]') && S.more) S.more.draft = e.target.value;
 });
-tray.addEventListener('click', async (e) => {
+tray.addEventListener('click', (e) => void cardClick(e));
+/** What a task's card does (the tray's cards, and a task's item in Kaity on this page). */
+async function cardClick(e) {
   if (e.target.closest('[data-tray="copy"]')) return copyAll();
   const b = e.target.closest('[data-card-act]');
   if (!b) return;
@@ -667,7 +677,7 @@ tray.addEventListener('click', async (e) => {
   } catch (err) {
     failed(err);
   }
-});
+}
 
 /** Do what Kaity suggested: share a box with every page (as Shared blocks does), open one, go to a page. */
 async function nextStep(x) {
@@ -875,14 +885,15 @@ function renderBar() {
   const info = rail?.info;
   renderTop(bar, {
     crumb: PAGE,
-    centre: pageModes({ page: PAGE, mode: MODE, device: S.device, devices: FULL ? null : DEVICES }),
+    centre: pageModes({ page: PAGE, mode: MODE, device: S.device, devices: DEVICES }),
     undo: S.canUndo && !running() ? { label: S.lastChange } : null,
-    kaity: { count: info?.thread?.items?.length ?? 0, working: !!info?.thread?.running || running() || !!S.asking, open: !!center?.isOpen() },
-    checks: info ? checkCount(info.check) : null,
+    kaity: { count: info?.thread?.items?.length ?? 0, waiting: info?.thread?.waiting ?? 0, working: !!info?.thread?.running || running() || !!S.asking, open: !!center?.isOpen() },
+    checks: info ? checkState(info.check) : null,
     publishFrom: PAGE,
+    page: { tasks: openTasks().length, open: !pageMenu.hidden },
   });
   renderStatus();
-  renderSide();
+  renderSections();
 }
 
 function renderStatus() {
@@ -892,7 +903,7 @@ function renderStatus() {
   const stepsBtn = `<button type="button" class="btn small" data-bar="tray" aria-expanded="${S.tray}">${esc(S.tray ? t('Hide the steps') : t('Show the steps'))}</button>`;
   let middle, actions = '';
   if (FULL && !running()) {
-    middle = `<p class="hint">${esc(t('Every block in detail: pick one in the side panel or on the page; its details are on the right.'))}</p>`;
+    middle = `<p class="hint">${esc(t('Pick a block on the page or in Blocks. Quick actions sit on the block; its details open in the side panel.'))}</p>`;
     actions = `<a class="btn small" href="${shellOf(PAGE, false)}" title="${esc(t('Your tasks are in Tasks'))}">${esc(count)}</a>`;
   } else if (fix?.isOpen()) {
     middle = `<div class="status"><span>${esc(t('Fixing by hand · {what}', { what: fix.what() }))}</span></div>`;
@@ -915,11 +926,11 @@ function renderStatus() {
       ? `<span class="chip"><span class="num${now.question ? ' q' : ''}">${now.question ? '?' : now.n}</span><b>${esc(now.block)}</b> ${esc(now.text)}</span>` : ''}</div>`;
     actions = `<button type="button" class="btn small on" data-bar="stop">${esc(t('Stop Kaity'))}</button>
       <button type="button" class="btn small" data-bar="undo-all">${esc(t('Undo all she did'))}</button>${stepsBtn}`;
-  } else if (run) {
-    const kept = run.tasks.filter((x) => x.state === 'done' && !x.undone).length;
-    middle = `<div class="status">${kaityMark(false, true)}<span>${esc(t('Kaity stopped · {sum}', { sum: runSum(run) }))}</span></div>`;
-    actions = `<button type="button" class="btn main small" data-bar="keep">${esc(kept === 0 ? t('Close the review') : kept === 1 ? t('Keep the change') : t('Keep the {n} changes', { n: kept }))}</button>
-      ${kept ? `<button type="button" class="btn small" data-bar="undo-all">${esc(t('Undo all she did'))}</button>` : ''}${stepsBtn}`;
+  } else if (run && waitingN()) {
+    // what she did waits in Kaity on this page, to keep or undo there (no review of its own)
+    const n = waitingN();
+    middle = `<p class="hint">${kaityMark(false, true)}<span>${esc(run.stopped ? t('You stopped Kaity. {n} waiting for you in Kaity on this page.', { n }) : n === 1 ? t('Kaity is done: 1 thing waits for you in Kaity on this page.') : t('Kaity is done: {n} things wait for you in Kaity on this page.', { n }))}</span></p>`;
+    actions = `<button type="button" class="btn small main" data-bar="review">${esc(t('Review'))}</button>`;
   } else if (S.asking) {
     middle = `<div class="status">${kaityMark(true, true)}<span>${esc(S.asking.block === S.tree?.id ? t('Kaity is working on {page}', { page: PAGE }) : t('Kaity is working on {block}', { block: S.asking.block }))}</span>${S.asking.step ? `<span class="chip">${esc(S.asking.step)}</span>` : ''}</div>`;
     actions = `<button type="button" class="btn small on" data-bar="ask-stop">${esc(t('Stop Kaity'))}</button>`;
@@ -939,12 +950,14 @@ bar.addEventListener('click', async (e) => {
   const act = e.target.closest('[data-top]')?.dataset.top;
   if (act === 'undo') return undo();
   if (act === 'kaity') return center.toggle();
+  if (act === 'page') return pageButton(e.target.closest('[data-top]'));
 });
 
 statusLine.addEventListener('click', async (e) => {
   const act = e.target.closest('[data-bar]')?.dataset.bar;
   if (!act) return;
   if (act === 'tray') return S.tray ? closeTray() : ((S.stepsHidden = false), openTray());
+  if (act === 'review') return showSection('kaity');
   if (act === 'done-trying') return doneTrying();
   if (act === 'done-fixing') return fix.close();
   if (act === 'job-stop') return api('/job/stop', {}).catch(failed);
@@ -984,7 +997,7 @@ const hide = () => location.assign(`/_tykerf/view?page=${encodeURIComponent(PAGE
  */
 function layoutStage() {
   const vp = $('.viewport'), st = $('.stage');
-  const px = FULL ? null : DEVICES[S.device]?.px;
+  const px = DEVICES[S.device]?.px;
   if (!px) {
     vp.style.cssText = '';
     S.zoom = 1;
@@ -997,7 +1010,7 @@ function layoutStage() {
   draw();
 }
 
-// ---------- the rail and the Kaity center ----------
+// ---------- the rail: the page's sections; the drop-down from "This page ▾"; the Kaity center ----------
 
 /** A block picked in the rail: shown and outlined on the page, and the composer's "This box"; in Edit, the full editor's. */
 function pickBlock(id) {
@@ -1006,30 +1019,166 @@ function pickBlock(id) {
     try {
       $('.frame').contentWindow?.tykerfSelect?.(id);
     } catch {}
-    return rail.render();
+    return renderSections();
   }
   const el = frame.blockEl(id);
   if (el) (frame.show(el, trayHeight()), flash(el));
-  rail.render();
-  composerScopes(composer.scope);
+  renderSections();
+  composerScopes(id === S.tree?.id ? 'page' : 'box');
 }
 // the full editor says which block it has selected, so the rail follows it (tykerf.js)
 window.tykerfSelected = (id) => {
   if (S.sel === id) return;
   S.sel = id;
-  rail.render();
+  for (const a of ancestorsOf(id)) S.collapsed.delete(a);
+  renderSections();
 };
+// Details, Rename…, Delete… on a block (the full editor's toolbar on the page): its details in the rail
+window.tykerfShowBlock = () => showSection('block');
 
-const rail = createRail({ page: PAGE, pageHref: (p) => shellOf(p, false), tree: () => S.tree, selected: () => S.sel, onBlock: pickBlock, onKaity: () => center.toggle(), onChange: () => layoutStage() });
+/** The blocks around a block, from the page down. */
+function ancestorsOf(id, n = S.tree, path = []) {
+  if (!n) return [];
+  if (n.id === id) return path;
+  for (const c of n.children ?? []) {
+    const p = ancestorsOf(id, c, [...path, n.id]);
+    if (p.length || c.id === id) return p.length ? p : [...path, n.id];
+  }
+  return [];
+}
+
+/** Every block of the page in a tree, as the inspector's path has it: containers too, each one folding. */
+function treeHTML() {
+  if (!S.tree) return `<p class="empty">${esc(t('Loading…'))}</p>`;
+  const row = (n, depth) => {
+    const kids = n.children ?? [];
+    const open = !S.collapsed.has(n.id);
+    const twist = kids.length ? `<button type="button" class="twist" data-twist="${esc(n.id)}" aria-expanded="${open}" aria-label="${esc(open ? t('Fold {block}', { block: n.id }) : t('Unfold {block}', { block: n.id }))}">${CHEVRON}</button>` : '<span class="twist"></span>';
+    return `<li style="--d:${depth}"><div class="tline${n.id === S.sel ? ' sel' : ''}">${twist}<button type="button" class="tname" data-block="${esc(n.id)}" ${n.id === S.sel ? 'aria-current="true"' : ''}><span>${esc(n.id)}</span>${n.shared ? `<span class="rstate">${esc(t('shared'))}</span>` : ''}</button></div>
+      ${kids.length && open ? `<ul>${kids.map((c) => row(c, depth + 1)).join('')}</ul>` : ''}</li>`;
+  };
+  return `<ul class="tree">${(S.tree.children ?? []).map((c) => row(c, 0)).join('')}</ul>`;
+}
+const blockCount = () => Math.max(0, S.blocks.size - 1);
+
+/** Tasks on this page: the open ones, and what to do with them. */
+function tasksHTML() {
+  const open = openTasks();
+  if (!open.length) return `<p class="empty">${esc(t('No open tasks. Click anything on the page and say what should change.'))}</p>`;
+  return `<ul class="ptasks">${open.slice(0, 8).map((x) => `<li><button type="button" class="ptask" data-show-task="${x.n}"><span class="num${x.kind === 'question' ? ' q' : ''}">${x.kind === 'question' ? '?' : x.n}</span><span><b>${esc(x.block)}</b> — ${esc(x.text)}</span></button></li>`).join('')}</ul>
+    ${open.length > 8 ? `<button type="button" class="link" data-side="tray">${esc(t('See all {n}', { n: open.length }))}</button>` : ''}
+    <div class="row"><button type="button" class="btn main small" data-side="give" ${running() ? 'disabled' : ''}>${esc(open.length === 1 ? t('Give it to Kaity') : t('Give them to Kaity'))}</button><button type="button" class="btn small" data-side="myself">${esc(t('Do it myself'))}</button></div>`;
+}
+
+/** Kaity on this page: her thread here, the newest at the bottom; what waits for the person shows what to do. */
+const pageItems = () => (S.thread?.items ?? []).filter((r) => r.page === PAGE);
+function kaityHTML() {
+  const all = pageItems();
+  // the last few, and every one still waiting for the person
+  const items = all.filter((r, i) => i >= all.length - 6 || r.review || r.asks || r.question !== undefined);
+  // a task given to her again is one tag over several runs: the last one is the task's item
+  const lastOfTag = new Map(all.filter((r) => r.tag).map((r) => [r.tag, r.run]));
+  const list = items.length ? `<ol class="pthread">${items.map((r) => {
+    const oc = outcome(r);
+    // a task of the run still on the page: what the review had (before and after, on a phone, her suggestion, what she left)
+    const rt = r.kind === 'task' && S.run && r.tag?.startsWith(`${S.run.key}#`) && lastOfTag.get(r.tag) === r.run ? S.run.tasks.find((y) => y.n === r.task) : null;
+    // a task by its own words, and her reply under it (close_task's); a request by what was asked, and her answer
+    const first = (x) => String(x ?? '').split(/(?<=[.!?])\s/)[0];
+    const words = r.kind === 'task' ? taskOf(r.task)?.text ?? rt?.text : null;
+    const title = r.kind === 'task' ? t('Task {n}: {what}', { n: r.task, what: words ?? first(r.answer || r.request) }) : r.kind === 'ask' ? r.request : r.answer || r.request;
+    const reply = rt?.summary ?? r.answer;
+    const said = (r.kind === 'ask' || words) && reply && r.state !== 'working' ? first(reply).slice(0, 160) : '';
+    const x = rt ? taskOf(rt.n) ?? { n: rt.n, block: rt.block, label: '', text: rt.text } : null;
+    const extras = !rt || running() ? '' : `${nextSteps(rt)}${rt.state === 'done' && !rt.undone ? `${check(x)}${rt.before && rt.after ? btn('compare', t('Before and after')) : ''}` : ''}${convoBtn(x)}`;
+    return `<li class="${esc(oc.cls)}${r.state === 'working' ? ' working' : ''}"${rt ? ` data-card="${rt.n}"` : ''}><span class="tick ${esc(oc.cls)}" aria-hidden="true">${r.state === 'working' ? kaityMark(true, true) : esc(oc.mark)}</span>
+      <div><p class="etitle">${esc(String(title).slice(0, 120))}</p>
+        ${said ? `<p class="eanswer">${esc(said)}</p>` : ''}
+        <p class="emeta">${scopeChip(r)}${oc.o !== 'working' ? `<span class="otag ${esc(oc.cls)}">${esc(oc.word)}</span>` : ''}<span>${r.state === 'working' ? esc(r.step ?? t('working')) : stamp(r.ended ?? r.at)}</span></p>
+        ${rt?.left && !rt.undone ? leftNote(rt) : ''}${itemNeeds(r)}<div class="iacts">${itemActions(r)}${extras}</div></div></li>`;
+  }).join('')}</ol>` : `<p class="empty">${esc(t('Nothing yet on {page}. Leave a task on the page, or ask her below.', { page: PAGE }))}</p>`;
+  return `${list}<button type="button" class="link" data-side="thread">${esc(t('Whole thread on {page}', { page: PAGE }))}</button>`;
+}
+const waitingN = () => pageItems().filter((r) => r.review || r.asks || r.question !== undefined).length;
+
+/** The page's sections, the same for the rail and the drop-down (sections.js). */
+const SECTIONS = () => [
+  { key: 'tasks', title: () => t('Tasks on this page'), count: () => openTasks().length, body: tasksHTML, open: true },
+  { key: 'kaity', title: () => t('Kaity on this page'), count: () => waitingN() || pageItems().length, body: kaityHTML, open: true },
+  { key: 'fix', title: () => t('Fixing by hand · {what}', { what: fix.what() }), el: fixMount, shown: () => fix.isOpen(), open: true },
+  { key: 'blocks', title: () => t('Blocks'), count: blockCount, body: treeHTML, open: FULL },
+  { key: 'block', title: () => t('Block: {name}', { name: S.sel ?? '' }), el: inspector, shown: () => FULL, open: true },
+  { key: 'site', title: () => t('Site'), summary: () => t('pages, shared blocks, media…'), body: () => rail.siteHTML(), open: false },
+];
+const accordion = createAccordion({ sections: SECTIONS, label: t('This page') });
+const menuAccordion = createAccordion({ sections: SECTIONS, only: ['tasks', 'kaity', 'blocks'], label: t('This page') });
+
+/** The drop-down from the top bar's "This page ▾" (the rail folded): the same sections, and Pin to the side panel. */
+const pageMenu = document.createElement('div');
+pageMenu.className = 'pmenu';
+pageMenu.hidden = true;
+pageMenu.setAttribute('role', 'dialog');
+pageMenu.setAttribute('aria-label', t('This page'));
+pageMenu.innerHTML = `<header><b>${esc(PAGE)}</b><button type="button" class="link" data-menu="pin">${esc(t('Pin to the side panel'))}</button></header>`;
+pageMenu.append(menuAccordion.el);
+document.body.append(pageMenu);
+
+function openPageMenu(at = null, section = null) {
+  if (section) menuAccordion.show(section);
+  else menuAccordion.render();
+  pageMenu.hidden = false;
+  const b = (at ?? bar.querySelector('[data-top="page"]'))?.getBoundingClientRect();
+  if (b) Object.assign(pageMenu.style, { top: `${Math.round(b.bottom + 6)}px`, left: `${Math.round(Math.max(8, Math.min(b.left, innerWidth - pageMenu.offsetWidth - 8)))}px` });
+  renderBar();
+  pageMenu.querySelector('.acc-h')?.focus();
+}
+function closePageMenu() {
+  if (pageMenu.hidden) return;
+  pageMenu.hidden = true;
+  renderBar();
+}
+/** The top bar's "This page": the drop-down while the rail is folded, else the rail's Tasks section. */
+function pageButton(btn) {
+  if (!rail.isFolded()) return showSection('tasks');
+  return pageMenu.hidden ? openPageMenu(btn) : closePageMenu();
+}
+/** A section brought into view: in the rail (unfolded for it when it is folded), or the inspector's Block section. */
+async function showSection(key) {
+  closePageMenu();
+  if (rail.isFolded()) await rail.unfold();
+  accordion.show(key, { focus: key !== 'block' });
+}
+pageMenu.addEventListener('click', (e) => {
+  if (e.target.closest('[data-menu="pin"]')) return void showSection('tasks');
+  void sectionClick(e);
+});
+pageMenu.addEventListener('keydown', (e) => e.key === 'Escape' && (closePageMenu(), bar.querySelector('[data-top="page"]')?.focus()));
+document.addEventListener('pointerdown', (e) => !pageMenu.hidden && !pageMenu.contains(e.target) && !e.target.closest?.('[data-top="page"], [data-strip]') && closePageMenu());
+
+/** The sections drawn again (in the rail, and in the drop-down when it is open). */
+function renderSections() {
+  if (rail.isFolded()) rail.render();
+  else accordion.render();
+  if (!pageMenu.hidden) menuAccordion.render();
+}
+
+const rail = createRail({
+  page: PAGE, pageHref: (p) => shellOf(p, false), accordion, wide: FULL,
+  onKaity: () => center.toggle(),
+  onStrip: (key, btn) => (pageMenu.hidden ? openPageMenu(btn, key) : closePageMenu()),
+  counts: () => ({ tasks: openTasks().length, kaity: waitingN() }),
+  onChange: () => layoutStage(),
+});
 work.prepend(rail.el);
-const center = createKaityCenter({ page: PAGE, onToggle: () => renderBar() });
+const center = createKaityCenter({ page: PAGE, onToggle: (open) => ((composer.el.hidden = open || FULL), renderBar()) });
 
-// ---------- the composer under the page, and the side panel: the page's tasks and Kaity on this page ----------
+// ---------- the composer under the page: one line, aimed at the box picked, the page or the whole site ----------
 
 const composer = createComposer({
   label: t('Ask Kaity about this page'),
+  line: true,
   scopes: [],
   placeholder: (s) => (s === 'box' ? t('Ask Kaity about {block}…', { block: S.sel ?? '' }) : s === 'site' ? t('Ask Kaity about the whole site…') : t('Ask Kaity about {page}…', { page: PAGE })),
+  submit: () => t('Ask'),
   send: async (m) => {
     if (running()) throw new Error(t('Kaity is working through the tasks; wait until she is done, or stop her'));
     const r = await askKaity(m, { page: PAGE, box: S.sel });
@@ -1040,43 +1189,32 @@ const composer = createComposer({
 });
 /** What Kaity may change from here: the block picked (when there is one), this page, the whole site. */
 function composerScopes(want) {
-  composer.setScopes([...(S.sel && S.sel !== S.tree?.id ? [{ key: 'box', label: t('This box: {block}', { block: S.sel }) }] : []), { key: 'page', label: t('This page') }, { key: 'site', label: t('Whole site') }], want ?? 'page');
+  composer.setScopes([...(S.sel && S.sel !== S.tree?.id ? [{ key: 'box', label: t('This box: {block}', { block: S.sel }) }] : []), { key: 'page', label: t('This page') }, { key: 'site', label: t('Whole site') }], want ?? composer.scope ?? 'page');
 }
 if (!FULL) column.append(composer.el);
 
-/** Kaity on this page: her thread here, the newest at the bottom, next to where you write. */
-function pageThread() {
-  const items = (S.thread?.items ?? []).filter((r) => r.page === PAGE).slice(-6);
-  if (!items.length) return `<p class="empty">${esc(t('Nothing yet on {page}. Leave a task on the page, or ask her below.', { page: PAGE }))}</p>`;
-  return `<ol class="pthread">${items.map((r) => {
-    const title = r.kind === 'task' ? t('Task {n}: {what}', { n: r.task, what: (r.answer || r.request).split(/(?<=[.!?])\s/)[0] }) : r.kind === 'ask' ? r.request : r.answer || r.request;
-    const ok = r.state === 'done' && !r.undone;
-    return `<li class="${r.state === 'working' ? 'working' : ''}"><span class="tick${ok ? ' ok' : ''}" aria-hidden="true">${r.state === 'working' ? kaityMark(true, true) : ok ? '✓' : '·'}</span>
-      <div><p class="etitle">${esc(String(title).slice(0, 120))}</p><p class="emeta">${scopeChip(r)}<span>${esc(r.undone ? t('undone') : r.state === 'working' ? t('working') : new Date(r.ended ?? r.at).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' }))}</span></p></div>
-      ${r.undoable ? `<button type="button" class="link" data-undo-run="${esc(r.run)}">${esc(t('Undo'))}</button>` : ''}</li>`;
-  }).join('')}</ol>`;
+/** A task she couldn't do in its box, asked on the whole page instead: the composer, with the task's words. */
+function askOnPage(page, n) {
+  if (page !== PAGE) return location.assign(`${shellOf(page, false)}?widen=${n}`);
+  const x = taskOf(n);
+  composerScopes('page');
+  composer.text = x ? x.text : '';
+  composer.focus();
 }
 
-function renderSide() {
-  if (FULL || fix?.isOpen()) return void (sideCards.hidden = true);
-  sideCards.hidden = false;
-  const open = openTasks();
-  sideCards.innerHTML = `
-    <section class="pside-card"><header><h2>${esc(t('Tasks on {page}', { page: PAGE }))}</h2><span class="tag">${esc(open.length === 1 ? t('1 open') : t('{n} open', { n: open.length }))}</span></header>
-      ${open.length ? `<ul class="ptasks">${open.slice(0, 6).map((x) => `<li><button type="button" class="ptask" data-show-task="${x.n}"><span class="num${x.kind === 'question' ? ' q' : ''}">${x.kind === 'question' ? '?' : x.n}</span><span><b>${esc(x.block)}</b> — ${esc(x.text)}</span></button></li>`).join('')}</ul>
-        ${open.length > 6 ? `<button type="button" class="link" data-side="tray">${esc(t('See all {n}', { n: open.length }))}</button>` : ''}
-        <div class="row"><button type="button" class="btn main small" data-side="give" ${running() ? 'disabled' : ''}>${esc(open.length === 1 ? t('Give it to Kaity') : t('Give them to Kaity'))}</button><button type="button" class="btn small" data-side="myself">${esc(t('Do it myself'))}</button></div>`
-        : `<p class="empty">${esc(t('No open tasks. Click anything on the page and say what should change.'))}</p>`}
-    </section>
-    <section class="pside-card pk"><header><h2>${esc(t('Kaity on this page'))}</h2><button type="button" class="link" data-side="thread">${esc(t('Whole thread'))}</button></header>
-      ${pageThread()}
-      <p class="note">${esc(t('Oldest first. The newest is at the bottom, next to where you write.'))}</p>
-    </section>`;
-}
-
-side.addEventListener('click', async (e) => {
+/** The clicks in the page's sections, wherever they are shown (the rail, the drop-down). */
+async function sectionClick(e) {
+  const twist = e.target.closest('[data-twist]')?.dataset.twist;
+  if (twist) {
+    if (S.collapsed.has(twist)) S.collapsed.delete(twist);
+    else S.collapsed.add(twist);
+    store.set(`collapsed.${PAGE}`, [...S.collapsed]);
+    return renderSections();
+  }
+  const b = e.target.closest('[data-block]')?.dataset.block;
+  if (b) return pickBlock(b);
   const n = Number(e.target.closest('[data-show-task]')?.dataset.showTask);
-  if (n) return openTray(n), showTask(taskOf(n));
+  if (n) return showTask(taskOf(n));
   const act = e.target.closest('[data-side]')?.dataset.side;
   if (act === 'give') return giveKaity(openTasks().map((x) => x.n));
   if (act === 'tray') return openTray();
@@ -1087,30 +1225,23 @@ side.addEventListener('click', async (e) => {
     if (x && el) return openFix({ block: x.block, path: x.path, label: x.label, el });
     return location.assign(fullEditor(x?.block ?? null));
   }
-  const undoRun = e.target.closest('[data-undo-run]')?.dataset.undoRun;
-  if (undoRun) {
-    try {
-      const r = await request('/_tykerf/site/kaity/undo', { run: undoRun });
-      toast(r.result === 1 ? t('Undone: 1 change she made') : t('Undone: {n} changes she made', { n: r.result }));
-    } catch (err) {
-      failed(err);
-    }
-    return loadThreadNow();
-  }
-});
+  if (await threadAction(e, { ask: askOnPage })) return loadThreadNow();
+  if (e.target.closest('[data-card-act]')) return cardClick(e);
+}
+accordion.el.addEventListener('click', (e) => void sectionClick(e));
 
 async function loadThreadNow() {
   S.thread = await loadThread().catch(() => S.thread);
-  renderSide();
+  renderBar();
 }
 
-// ---------- fixing one thing by hand (fix.js): in the side panel ----------
+// ---------- fixing one thing by hand (fix.js): in the rail's section ----------
 
 const fix = createFixPanel({
   api,
   frame,
   page: PAGE,
-  mount: side,
+  mount: fixMount,
   tree: () => S.tree,
   blocks: () => [...S.blocks],
   pages: () => S.site?.pages ?? [PAGE],
@@ -1118,8 +1249,8 @@ const fix = createFixPanel({
   fullEditor,
   modeSwitch: () => '',
   setMode: () => {},
-  onChange: () => layoutStage(),
-  onClose: () => layoutStage(),
+  onChange: () => renderBar(),
+  onClose: () => (renderBar(), layoutStage()),
   toTask: (spot) => {
     const el = frame.taskEl(spot.block, spot.path);
     if (el) openBox({ ...spot, el });
@@ -1131,6 +1262,7 @@ async function openFix(spot) {
   if (S.tray) closeTray();
   S.kit ??= await request('/_tykerf/site/kit').catch(() => null);
   await fix.open(spot);
+  await showSection('fix');
 }
 
 // ---------- keys: in the shell and in the page ----------
@@ -1139,6 +1271,7 @@ function keys(e) {
   const inField = /^(INPUT|TEXTAREA|SELECT)$/.test(e.target?.nodeName ?? '') || e.target?.isContentEditable;
   if (e.altKey && e.shiftKey && e.code === 'KeyT') return e.preventDefault(), hide();
   if (e.key === 'Escape') {
+    if (!pageMenu.hidden) return closePageMenu();
     if (S.box) return closeBox();
     if (fix.isOpen()) return fix.close();
     if (S.trying) return doneTrying();
@@ -1352,9 +1485,11 @@ document.addEventListener('pointerdown', (e) => !ctxMenu.hidden && !ctxMenu.cont
 function arrive() {
   if (FULL) return;
   const q = new URLSearchParams(location.search);
-  const show = q.get('show'), task = q.get('task'), talk = q.get('conversation'), ask = q.get('ask');
-  if (!show && !task && !talk && !ask) return;
+  const show = q.get('show'), task = q.get('task'), talk = q.get('conversation'), ask = q.get('ask'), widen = q.get('widen');
+  if (!show && !task && !talk && !ask && !widen) return;
   window.history.replaceState(null, '', location.pathname);
+  // from the Kaity center: a task she couldn't do in its box, asked on the whole page
+  if (widen) return void askOnPage(PAGE, Number(widen));
   // New page's "Then ask Kaity to fill it": the composer, on the whole page
   if (ask) return void (composerScopes('page'), composer.focus());
   // from Kaity's work: her conversation on that block (on the page or not: the conversation stays)

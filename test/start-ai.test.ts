@@ -266,9 +266,10 @@ describe("a task's review", () => {
       message([{ type: 'tool_use', id: 'a2', name: 'close_task', input: { n: 1, reply: 'Added the link.' } }]) as any,
       message([{ type: 'text', text: 'added' }], 'end_turn') as any,
     );
-    await page.locator('.pside [data-side="give"]').click();
-    // what she left unfinished in the task, on its card
-    const left = page.locator('.card[data-card="1"] .left');
+    await page.locator('.rail [data-side="give"]').click();
+    // what she left unfinished in the task, on its item in Kaity on this page
+    const item = (n: number) => page.locator(`.rail [data-section="kaity"] li[data-card="${n}"]`);
+    const left = item(1).locator('.left');
     await left.waitFor({ timeout: 15_000 });
     expect(await left.locator('b').textContent()).toBe('Kaity left 1 thing unfinished');
     expect(await left.locator('li').allTextContents()).toEqual(['main: the link "Read on" goes nowhere']);
@@ -281,7 +282,7 @@ describe("a task's review", () => {
       message([{ type: 'text', text: 'fixed' }], 'end_turn') as any,
     );
     await left.locator('[data-card-act="fix-left"]').click();
-    await expect.poll(() => page.locator('.card[data-card="1"] .left').count(), { timeout: 15_000 }).toBe(0);
+    await expect.poll(() => item(1).locator('.left').count(), { timeout: 15_000 }).toBe(0);
     expect(JSON.stringify(got.at(-2).messages)).toContain('These were left unfinished');
 
     // Leave them: another task leaves one; it stays as it is
@@ -291,14 +292,14 @@ describe("a task's review", () => {
       message([{ type: 'tool_use', id: 'b2', name: 'close_task', input: { n: 2, reply: 'Added a second link.' } }]) as any,
       message([{ type: 'text', text: 'added more' }], 'end_turn') as any,
     );
-    await page.locator('.tray .card[data-card="2"]').waitFor();
+    await page.locator('.rail [data-show-task="2"]').waitFor();
     await post('log/_tykerf/taskrun/start', { tasks: [2] });
-    const left2 = page.locator('.card[data-card="2"] .left');
+    const left2 = item(2).locator('.left');
     await left2.locator('[data-card-act="leave-left"]').click({ timeout: 15_000 });
     await expect.poll(() => left2.locator('b').textContent()).toBe('1 thing left as it is');
 
     // her conversation on the block: every task on it, and what she left
-    await page.locator('.card[data-card="2"] [data-card-act="convo"]').click();
+    await item(2).locator('[data-card-act="convo"]').click();
     await page.locator('.convo .msg.ai', { hasText: 'added more' }).waitFor();
     expect(await page.locator('.convo h2').textContent()).toBe('Kaity on main');
     expect(await page.locator('.convo .msg.check b').allTextContents()).toContain('1 thing left as it is');

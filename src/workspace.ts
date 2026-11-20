@@ -163,6 +163,9 @@ export type SiteLink = SiteLike;
 /** A page head with this marker keeps its own look: the site's shared head is left out (imported copies). */
 export const NO_SITE_HEAD = '<meta name="tykerf-site-theme" content="off">';
 
+/** A step of the page's tasks (tasks.ts), not of the page itself. */
+const TASK_STEP = /^(add (task|question)|close task|reopen task|remove task|change task|clear \d+ done task)/;
+
 export class Workspace {
   readonly store: Store;
   /** The site this page belongs to, when it is a page of a site: its shared head comes first. */
@@ -371,7 +374,8 @@ export class Workspace {
 
   /** The tags the page's history still holds (Kaity's runs whose changes are there to be undone). */
   tags(): Set<string> {
-    return new Set(this.entries().map((e) => e.tag).filter((t): t is string => !!t));
+    // a task closed or reopened is bookkeeping, not a change to the page (tasks.ts labels its steps "… task N")
+    return new Set(this.entries().filter((e) => !TASK_STEP.test(e.label ?? '')).map((e) => e.tag).filter((t): t is string => !!t));
   }
 
   /**

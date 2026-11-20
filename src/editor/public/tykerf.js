@@ -15,11 +15,34 @@ const full = (page) => `/_tykerf/edit/${encodeURIComponent(page)}/?mode=full`;
 // inside the shell's frame (?tykerf=full-frame, the shell's Full editor mode): the shell's bar does what this panel's
 // own navigation did (the pages, the site, back to tasks), so that stays out of sight, and moving on is the shell's
 const EMBEDDED = new URLSearchParams(location.search).get('tykerf') === 'full-frame' && window.top !== window;
-/** v4 Edit mode: in the shell, the panel is docked on the right of the page as its inspector (see dock). */
-const DOCKED = EMBEDDED;
+/**
+ * v4 Edit mode: in the shell the panel is the inspector. The shell's rail has a place for it (#tykerf-inspector, the
+ * "Block" section): the panel moves there (RAILED: one sidebar, the page keeps the whole width) and the block's quick
+ * actions sit in a toolbar on the block in the page. Without that place it is docked on the right of the page (see dock).
+ */
+const RAIL_SLOT = (() => {
+  if (!EMBEDDED) return null;
+  try {
+    return window.top.document.getElementById('tykerf-inspector');
+  } catch {
+    return null;
+  }
+})();
+const RAILED = !!RAIL_SLOT;
+const DOCKED = EMBEDDED && !RAILED;
 const DOCK_W = 400;
 const go = (url) => (EMBEDDED ? window.top.location.assign(url) : location.assign(url));
-const $ = (sel, el = ui) => el.querySelector(sel);
+/** The panel's own shadow root when it is in the shell's rail (the rest stays in `ui`, on the page). */
+let rui = null;
+const $ = (sel, el) => (el ? el.querySelector(sel) : ui.querySelector(sel) ?? rui?.querySelector(sel) ?? null);
+/** The shell, when the page is in it: its rail unfolds to the block's details (Details, Rename…, Delete… on the block). */
+const shell = () => {
+  try {
+    return EMBEDDED ? window.top : null;
+  } catch {
+    return null;
+  }
+};
 const esc = (s) => String(s).replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
 const store = {
   get: (k, d) => { try { return JSON.parse(localStorage.getItem(`tykerf.${k}`)) ?? d; } catch { return d; } },
@@ -77,7 +100,8 @@ host.style.cssText = 'position:absolute;left:0;top:0;width:0;height:0;z-index:21
 const ui = host.attachShadow({ mode: 'open' });
 if (EMBEDDED) host.classList.add('embedded');
 const sheet = new CSSStyleSheet();
-sheet.replaceSync(await (await fetch(`${API}/tykerf.css`)).text());
+const CSS_TEXT = await (await fetch(`${API}/tykerf.css`)).text();
+sheet.replaceSync(CSS_TEXT);
 ui.adoptedStyleSheets = [sheet];
 
 const ICON = {
@@ -172,6 +196,7 @@ ui.innerHTML = `
   <div class="nhover"><span class="tag"></span></div>
   <div class="pins"></div>
   <div class="kwork" aria-hidden="true"></div>
+  <div class="btool" role="toolbar" hidden></div>
 </div>
 <div class="dock">
   <button class="toggle" title="${t('TYKERF: edit this page with people and Kaity')}">${ICON.tykerf}<span>${t('Edit with TYKERF')}</span></button>
@@ -215,6 +240,20 @@ document.body.appendChild(host);
 
 const layer = $('.layer');
 const panel = $('.panel');
+// the shell's rail: the panel moves into its "Block" section, in a shadow root of the shell's own document (a
+// stylesheet made here can't be used there, so it takes the same CSS as a <style>); the page keeps the whole width
+if (RAILED) {
+  const top = window.top.document;
+  const rhost = top.createElement('tykerf-inspector-root');
+  rhost.className = 'embedded railed';
+  rui = rhost.attachShadow({ mode: 'open' });
+  const st = top.createElement('style');
+  st.textContent = CSS_TEXT;
+  rui.append(st, panel);
+  RAIL_SLOT.replaceChildren(rhost);
+  // a new page in the frame (a reload, another page) brings its own panel: this one goes with the page it belongs to
+  addEventListener('pagehide', () => rhost.remove());
+}
 const page = () => document.getElementById('sw--page');
 
 // ---------- geometry ----------
@@ -263,6 +302,7 @@ function draw() {
     shade('r', r.x + r.w, r.y, W - r.x - r.w, r.h);
   } else for (const k of 'tblr') shade(k, 0, 0, 0, 0);
   placeFrame($('.frame.sel'), r);
+  drawBlockTool(r);
   const hv = $('.hover');
   const hr = S.hover && S.hover !== S.sel ? rectOf(S.hover) : null;
   hv.style.display = hr ? 'block' : 'none';
@@ -280,6 +320,37 @@ function draw() {
   placeToolbar();
   placeTool();
 }
+
+/**
+ * RAILED: the selected block's quick actions in a toolbar on the block (above it, or inside its top edge when there
+ * is no room), with Details, which opens the block in the shell's side panel (unfolding it when it is folded).
+ */
+function drawBlockTool(r) {
+  const bt = $('.btool');
+  if (!RAILED || !r || !S.sel || !$('.tbar').hidden) return void (bt.hidden = true);
+  const n = info(S.sel);
+  const key = JSON.stringify([S.sel, S.buffer.length, S.kit.site, n?.node.shared ?? null, n?.parent?.children.map((c) => c.id) ?? null]);
+  if (bt.dataset.key !== key) {
+    bt.dataset.key = key;
+    bt.setAttribute('aria-label', t('Quick actions on {block}', { block: S.sel }));
+    bt.innerHTML = `<b class="bname">${esc(S.sel)}</b>${blockActions(S.sel)}<button data-act="details" title="${t('Its text, code, size and look, in the side panel')}">${t('Details')}</button>`;
+  }
+  bt.hidden = false;
+  const h = bt.offsetHeight || 34, w = bt.offsetWidth;
+  // above the block; on a block taller than the window, it stays at the window's top while the block is in view
+  const top = r.y - h - 6 >= scrollY ? r.y - h - 6 : Math.max(r.y + 6, Math.min(scrollY + 6, r.y + r.h - h - 6));
+  bt.style.left = `${Math.max(scrollX + 4, Math.min(r.x, scrollX + innerWidth - w - 4))}px`;
+  bt.style.top = `${top}px`;
+}
+$('.btool').addEventListener('pointerdown', (e) => e.stopPropagation());
+$('.btool').addEventListener('click', (e) => {
+  e.stopPropagation();
+  const b = e.target.closest('[data-act]');
+  if (!b || b.disabled) return;
+  // what needs the panel (a name to type, a sheet to confirm) opens the block there
+  if (['details', 'rename', 'remove', 'paste', 'share', 'import'].includes(b.dataset.act)) shell()?.tykerfShowBlock?.();
+  if (b.dataset.act !== 'details') act(b.dataset.act, S.sel, b.dataset);
+});
 
 let raf = 0;
 const redraw = () => {
@@ -636,21 +707,15 @@ const BOX_TABS = [['text', () => t('Text')], ['code', () => t('Code')], ['size',
 const CONTAINER_TABS = [['blocks', () => t('Blocks')], ['size', () => t('Size & look')]];
 const ROOT_TABS = [['blocks', () => t('Blocks')], ['page', () => t('Page')], ['size', () => t('Size & look')]];
 
-function renderWork() {
-  const w = $('.work');
-  if (!S.sel || !info(S.sel)) return (w.innerHTML = `<p class="empty">${t('Select a block in the page or in the tree.')}</p>`);
-  const id = S.sel;
+/** A block's quick actions (add, move, rename, share, delete…): in the panel, or on the block in the page (RAILED). */
+function blockActions(id) {
   const n = info(id).node;
-  const p = per(id);
-  const tabs = n.kind === 'box' ? BOX_TABS : id === S.tree.id ? ROOT_TABS : CONTAINER_TABS;
-  if (!tabs.some(([k]) => k === p.tab)) p.tab = tabs[0][0];
   const parent = info(id).parent;
   const pos = parent ? parent.children.findIndex((c) => c.id === id) : -1;
   const isRoot = !parent;
-
   const lineUp = n.kind === 'container' && /row|column/.test(n.arrangement);
   const inRow = parent?.arrangement === 'row';
-  const actions = [
+  return [
     // the page has nothing beside or below it: boxes are added inside it
     !isRoot ? `<button data-act="insert" data-as="row" title="${t('New empty box to the right')}">${ic('beside')}${t('Add beside')}</button>` : '',
     !isRoot ? `<button data-act="insert" data-as="column" title="${t('New empty box below')}">${ic('below')}${t('Add below')}</button>` : '',
@@ -664,6 +729,21 @@ function renderWork() {
     n.kind === 'box' && S.kit.site && !n.shared ? `<button data-act="share" title="${t('Make this box a shared block: every page of the site can show it, and a change to it changes them all')}">${ic('site')}${t('Share…')}</button>` : '',
     !isRoot ? `<button data-act="remove" class="danger" title="${t('Delete (code goes into the previous box) or remove (code goes to the buffer)')}">${ic('delete')}${t('Delete…')}</button>` : '',
   ].join('');
+}
+
+function renderWork() {
+  const w = $('.work');
+  if (!S.sel || !info(S.sel)) return (w.innerHTML = `<p class="empty">${t('Select a block in the page or in the tree.')}</p>`);
+  const id = S.sel;
+  const n = info(id).node;
+  const p = per(id);
+  const tabs = n.kind === 'box' ? BOX_TABS : id === S.tree.id ? ROOT_TABS : CONTAINER_TABS;
+  if (!tabs.some(([k]) => k === p.tab)) p.tab = tabs[0][0];
+  const parent = info(id).parent;
+  const pos = parent ? parent.children.findIndex((c) => c.id === id) : -1;
+  const isRoot = !parent;
+
+  const actions = blockActions(id);
   const users = n.shared ? S.kit.users[n.shared] ?? [] : [];
   // the pages it reaches, by name when there are a few (always on hover), linked to the block in the site kit
   const kitHref = `/_tykerf/edit/_site/shared?from=${encodeURIComponent(PAGE_NAME)}`;
@@ -2757,7 +2837,7 @@ for (const type of ['click', 'dblclick', 'auxclick', 'mousedown', 'mouseup', 'po
 }
 
 const typing = () => {
-  const a = ui.activeElement ?? document.activeElement;
+  const a = ui.activeElement ?? rui?.activeElement ?? document.activeElement;
   return a && (a.tagName === 'TEXTAREA' || a.tagName === 'INPUT' || a.isContentEditable);
 };
 
@@ -3132,7 +3212,12 @@ keepPanelOnScreen();
 // top bar the one Undo; selecting a block in the rail selects it here
 if (EMBEDDED) {
   window.tykerfSelect = (id) => select(id, { scroll: true });
-  dock();
+  if (DOCKED) dock();
+  else {
+    S.min = false;
+    panel.classList.remove('min');
+    if (!S.on) setOn(true);
+  }
 }
 // a page that is still being made (the AI building it, a copy) opens with its progress
 api('/job').then((j) => renderJob(j.job)).catch(() => {});

@@ -31,9 +31,9 @@ export interface Tools {
  * the same store), so the editor's lock on the block during a run (a guard on the editor's object)
  * doesn't refuse the AI's own changes; the store lock still keeps every change whole.
  */
-export async function openTools(ws: Workspace, scope: string, home?: string, task: { tag?: string; mark?: string; readOnly?: boolean } = {}): Promise<Tools> {
+export async function openTools(ws: Workspace, scope: string, home?: string, task: { tag?: string; mark?: string; readOnly?: boolean; sharedOk?: string[] } = {}): Promise<Tools> {
   // a run on the whole site has no block to keep to, and works on the site's pages from its folder
-  const server = createTykerfServer(new Workspace(ws.store, { site: ws.site, page: ws.pageName }), { scope: scope || null, home: home ?? null, tag: task.tag ?? null, mark: task.mark ?? null, readOnly: task.readOnly });
+  const server = createTykerfServer(new Workspace(ws.store, { site: ws.site, page: ws.pageName }), { scope: scope || null, home: home ?? null, tag: task.tag ?? null, mark: task.mark ?? null, readOnly: task.readOnly, sharedOk: task.sharedOk ?? null });
   const [a, b] = InMemoryTransport.createLinkedPair();
   const client = new Client({ name: 'tykerf-editor', version: '0.3.0' });
   await Promise.all([server.connect(a), client.connect(b)]);

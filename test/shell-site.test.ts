@@ -28,7 +28,10 @@ function kaity(body: { messages: { role: string; content: { type: string; text?:
   const turn = msgs.slice(i + 1).filter((m) => m.role === 'assistant').length;
   // her answer to the question on second's hero suggests sharing it, and going to first
   const suggest = prompt.startsWith('Question') ? { suggest: [{ do: 'share', name: 'hero' }, { do: 'page', name: 'first' }] } : {};
-  return n && turn === 0 ? message([{ type: 'tool_use', id: 'c', name: 'close_task', input: { n, reply: `Did task ${n}.`, ...suggest } }]) : message([{ type: 'text', text: 'done' }], 'end_turn');
+  // a task asks for a change: she makes one in the task's block (a task closed with nothing changed is one she couldn't do)
+  const block = /Do what it asks in ([\w-]+)/.exec(prompt)?.[1];
+  const change = block ? [{ type: 'tool_use', id: 'e', name: 'set_content', input: { id: block, html: `<p>Task ${n}, done</p>` } }] : [];
+  return n && turn === 0 ? message([...change, { type: 'tool_use', id: 'c', name: 'close_task', input: { n, reply: `Did task ${n}.`, ...suggest } }]) : message([{ type: 'text', text: 'done' }], 'end_turn');
 }
 
 describe('the site in the v3 editor', () => {
@@ -211,8 +214,8 @@ describe('the site in the v3 editor', () => {
   it('does what her answer suggests in one click: shares the box, goes to the page', async () => {
     await page.goto(`${base}/_tykerf/edit/second/`);
     await page.frameLocator('.frame').locator('[data-sw="hero"]').waitFor();
-    await page.locator('.pstatus [data-bar="tray"]').click();
-    const q = page.locator('.card[data-card="2"]');
+    // her answer to the question is in Kaity on this page, with what it points at
+    const q = page.locator('.rail [data-section="kaity"] li[data-card="2"]');
     const share = q.locator('[data-card-act="next"]', { hasText: 'Share hero with every page' });
     await share.click();
     await expect.poll(() => existsSync(join(site, 'kit', 'blocks', 'hero.html'))).toBe(true);

@@ -88,7 +88,7 @@ describe('a new site', () => {
     await page.goto(`${url}_tykerf/edit/_site/new?start=kind&from=home`);
     await page.locator('.pvframe').waitFor();
     expect(await page.locator('[data-theme="site"]').getAttribute('aria-pressed')).toBe('true'); // the site's theme first
-    expect(await page.locator('.pvframe').getAttribute('src')).toBe('/_tykerf/preview/basic+place/site/?side=0'); // the first purpose in the default frame, never launch
+    expect(await page.locator('.pvframe').getAttribute('src')).toBe('/_tykerf/preview/basic/site/?side=0'); // no kind chosen yet: the default frame, never launch
     await page.locator('#np-name2').fill('home');
     await page.locator('[data-go="layout"]').click();
     expect(await page.locator('.np-error').first().textContent()).toMatch(/already a page called home/);
@@ -242,7 +242,7 @@ describe('a new site', () => {
     await page.locator('.ocard[data-page="about-us"] [data-pact="more"]').click();
     await page.locator('.ocard[data-page="about-us"] [data-pact="remove"]').click();
     // the link is in the shared navigation, so on every page that shows it
-    expect(await page.locator('.confirm .hint').textContent()).toMatch(/2 links to it from home, team will point nowhere/);
+    expect(await page.locator('.pconfirm .hint').textContent()).toMatch(/2 links to it from home, team will point nowhere/);
     await page.locator('[data-pact="remove-yes"]').click();
     await expect.poll(() => page.locator('.ocard h3 a').allTextContents(), { timeout: 8000 }).toEqual(['home', 'team']);
     expect(await page.locator('.rail .rpage').allTextContents()).toEqual(['homeHome', 'team']);
@@ -286,32 +286,69 @@ describe('a new site', () => {
     await page.locator('a[href="/_tykerf/export.zip?page=home"]').waitFor();
   });
 
-  it('in Edit mode, is the inspector docked on the right of the frame: the page beside it, the tree in the rail', async () => {
+  it('in Edit mode, has the inspector in the rail and the quick actions on the block: nothing on the page\'s right', async () => {
     // on its own, the full editor keeps its dark header
     await page.goto(`${url}home/?tykerf=full-frame`);
     await page.locator('section.panel').waitFor();
     const dark = await page.locator('section.panel .head').evaluate((h) => getComputedStyle(h).backgroundColor);
     expect(dark).toBe('rgb(10, 84, 117)');
-    await page.goto(`${url}_tykerf/edit/home/?mode=full`);
+    await post('_tykerf/site/new', { name: 'me', layout: 'basic+person' });
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.goto(`${url}_tykerf/edit/me/?mode=full`);
     const fr = page.frameLocator('.frame');
-    await fr.locator('section.panel').waitFor();
+    const inspector = page.locator('#tykerf-inspector');
+    await inspector.locator('section.panel').waitFor();
     expect(await page.locator('.bar .modes [aria-current]').textContent()).toBe('Edit');
-    expect(await fr.locator('section.panel .head').evaluate((h) => getComputedStyle(h).backgroundColor)).toBe('rgb(242, 247, 249)');
-    // one toolbar: no Undo, Redo, Compact or × of its own (the top bar has the one Undo), no tree (the rail has it)
-    for (const gone of ['.head-tools > .undo', '.head-tools > .redo', '.head-tools > .minimize', '.head-tools > .closebtn', '.tree']) expect(await fr.locator(gone).isHidden(), gone).toBe(true);
+    // the widths stay in the top bar in Edit mode
+    expect(await page.locator('.bar .widths button').allTextContents()).toEqual(['Desktop', '768', '375']);
+    // one sidebar: the page's sections, the Block section with the inspector; nothing docked over or beside the page
+    expect(await fr.locator('section.panel').count()).toBe(0);
+    expect(await fr.locator('html').evaluate((h) => getComputedStyle(h).marginRight)).toBe('0px');
+    expect(await page.locator('.stage').evaluate((s) => s.clientWidth)).toBeGreaterThanOrEqual(1080);
+    expect(Math.round((await page.locator('.rail').boundingBox())!.width)).toBe(340);
+    // no Undo, Redo, Compact or × of its own (the top bar has the one Undo), no tree (the rail has it)
+    for (const gone of ['.head-tools > .undo', '.head-tools > .redo', '.head-tools > .minimize', '.head-tools > .closebtn', '.tree', '.work .actions']) expect(await inspector.locator(gone).first().isHidden(), gone).toBe(true);
     expect(await page.getByRole('button', { name: /^Undo|^Nothing to undo/ }).count()).toBe(1);
-    // docked on the right, the page laid out beside it, not under it
-    const frameBox = (await page.locator('.frame').boundingBox())!;
-    const panel = (await fr.locator('section.panel').boundingBox())!;
-    expect(Math.round(panel.x + panel.width)).toBe(Math.round(frameBox.x + frameBox.width));
-    expect(await fr.locator('html').evaluate((h) => getComputedStyle(h).marginRight)).toBe('400px');
-    const body = (await fr.locator('body').boundingBox())!;
-    expect(body.x + body.width).toBeLessThanOrEqual(panel.x + 1);
-    // the rail's tree selects in the editor, and the editor's selection shows in the rail
+    // the rail's tree has every block, as the inspector's path has them: intro inside its containers
+    await page.locator('.rail [data-block="intro"]').click();
+    await expect.poll(() => inspector.locator('.path').textContent()).toMatch(/^page\/(.+\/)?body\/intro$/);
+    expect(await page.locator('.rail [data-acc="block"] .acc-t').textContent()).toBe('Block: intro');
+    const path = (await inspector.locator('.path').textContent())!.split('/');
+    const tree = await page.locator('.rail .tree [data-block]').evaluateAll((b) => b.map((x) => (x as HTMLElement).dataset.block));
+    for (const id of path.slice(1)) expect(tree).toContain(id);
+    for (let i = 2; i < path.length; i++) expect(await page.locator(`.rail .tree li:has(> .tline [data-block="${path[i - 1]}"]) [data-block="${path[i]}"]`).count()).toBe(1);
+    // the quick actions sit on the block in the page: move it down, then up again
+    const tool = fr.locator('.btool');
+    await expect.poll(() => tool.isVisible()).toBe(true);
+    expect(await tool.locator('.bname').textContent()).toBe('intro');
+    const order = () => page.locator('.rail .tree li:has(> .tline [data-block="body"]) > ul > li > .tline [data-block]').evaluateAll((b) => b.map((x) => (x as HTMLElement).dataset.block));
+    const was = await order();
+    await tool.locator('[data-act="later"]').click();
+    await expect.poll(order).not.toEqual(was);
+    await tool.locator('[data-act="earlier"]').click();
+    await expect.poll(order).toEqual(was);
+    // edit and save its words in the rail's inspector
+    const field = inspector.locator('.work .tab-body textarea, .work .tab-body input').first();
+    await field.waitFor();
+    // the editor's selection shows in the rail, and the rail's selects in the editor
     await page.locator('.rail [data-block="footer"]').click();
-    await expect.poll(() => fr.locator('.path [aria-current]').textContent()).toBe('footer');
-    await fr.locator('.path button').first().click();
-    await expect.poll(() => page.locator('.rail .rblocks [aria-current]').count()).toBe(0);
+    await expect.poll(() => inspector.locator('.path [aria-current]').textContent()).toBe('footer');
+    await inspector.locator('.path button').first().click();
+    await expect.poll(() => page.locator('.rail .tree [aria-current]').count()).toBe(0);
+    // a block is deleted from its toolbar, after asking in the inspector (the rail shows it)
+    await page.locator('.rail [data-block="contact"]').click();
+    await expect.poll(() => tool.locator('.bname').textContent()).toBe('contact');
+    await tool.locator('[data-act="remove"]').click();
+    await inspector.locator('.sheet:not([hidden])').waitFor();
+    expect(await page.locator('.rail [data-acc="block"]').getAttribute('aria-expanded')).toBe('true');
+    // folded, the toolbar stays, and Details unfolds the rail to the block
+    await page.locator('.rail [data-rail="fold"]').click();
+    expect(await tool.isVisible()).toBe(true);
+    await tool.locator('[data-act="details"]').click();
+    await expect.poll(() => page.locator('.rail').getAttribute('class')).not.toContain('folded');
+    await page.setViewportSize({ width: 1280, height: 900 });
+    await page.goto('about:blank'); // the page follows a removal: leave it first
+    await post('_tykerf/site/remove', { name: 'me' });
   });
 
   it('tells which AI answers, never its key', async () => {
@@ -349,11 +386,20 @@ describe('a new site', () => {
     await page.evaluate(() => window.dispatchEvent(new Event('focus'))); // coming back: the list looks again
     await expect.poll(() => rail.locator('.rpage').allTextContents(), { timeout: 5000 }).not.toContain('journal-copy');
 
+    // ⋯ is a menu: Escape closes it, and so does a click elsewhere
+    await card('journal').locator('[data-pact="more"]').click();
+    await card('journal').locator('.pmore[role="menu"]').waitFor();
+    await page.keyboard.press('Escape');
+    expect(await card('journal').locator('.pmore').count()).toBe(0);
+    expect(await card('journal').locator('[data-pact="more"]').evaluate((b) => b === document.activeElement)).toBe(true);
+    await card('journal').locator('[data-pact="more"]').click();
+    await sb.locator('h2').first().click();
+    expect(await card('journal').locator('.pmore').count()).toBe(0);
     // removing asks first
     await card('journal').locator('[data-pact="more"]').click();
     await card('journal').locator('[data-pact="remove"]').click();
-    expect(await sb.locator('.confirm p').first().textContent()).toBe("Remove journal? It goes to the site's trash, and links to it stop working.");
-    expect(await sb.locator('.confirm .hint').textContent()).toBe('No other page links to it.');
+    expect(await sb.locator('.pconfirm p').first().textContent()).toBe("Remove journal? It goes to the site's trash, and links to it stop working.");
+    expect(await sb.locator('.pconfirm .hint').textContent()).toBe('No other page links to it.');
     await sb.locator('[data-pact="remove-yes"]').click();
     await expect.poll(() => sb.locator('.ocard h3 a').allTextContents()).not.toContain('journal');
     expect(existsSync(join(site, 'journal'))).toBe(false);
@@ -625,7 +671,7 @@ describe('a new site', () => {
     expect(await home.locator('.md strong').textContent()).toBe('shorter');
     expect(await home.locator('.when').textContent()).toContain('4 steps');
     expect(await site_.locator('.scopechip').textContent()).toBe('Whole site');
-    expect(await site_.locator('.note').textContent()).toBe('Cut short: tykerf stopped while she worked.'); // no run going on now
+    expect(await site_.locator('.note').textContent()).toBe('Cut short: tykerf was closed while she worked.'); // no run going on now
     // opened at the newest, next to the composer
     expect(await page.locator('.screen .kscroll').evaluate((e) => e.scrollHeight - e.scrollTop - e.clientHeight)).toBeLessThan(40);
     await page.locator('.screen .kfilters [data-filter="site"]').click();

@@ -25,6 +25,8 @@ const WIRE = {
   full: '<rect x="2" y="2" width="56" height="6" rx="1"/><rect x="2" y="10" width="56" height="6" rx="1" class="b2"/><rect x="2" y="18" width="11" height="14" rx="1"/><rect x="15" y="18" width="30" height="14" rx="1" class="b"/><rect x="47" y="18" width="11" height="14" rx="1"/><rect x="2" y="34" width="56" height="5" rx="1"/>',
 };
 const PREVIEW_W = { desktop: 1440, tablet: 768, phone: 375 };
+/** The composers' Attach mark (composer.js). */
+const CLIP = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m20 11.5-7.8 7.8a5 5 0 0 1-7.1-7.1l8.5-8.5a3.3 3.3 0 0 1 4.7 4.7l-8.5 8.5a1.7 1.7 0 0 1-2.4-2.4l7.8-7.8"/></svg>';
 
 let draft = null; // what the person has chosen and written, kept while the screen draws again
 
@@ -57,15 +59,16 @@ export const newScreen = {
       start: ['describe', 'kind', 'copy', 'like'].includes(params.get('start')) ? params.get('start') : 'describe',
       name: firstName, named: false,
       // Describe it to Kaity
-      kind: purposes[0].name, who: '', sections: [], sectionsFor: null, extra: [], tone: 'professional', more: '', files: [], brief: '', briefEdited: false,
+      // the kind of page: one choice for Describe and From a kind of page (none at first: Describe's question can be skipped)
+      kind: null, who: '', sections: [], sectionsFor: null, extra: [], tone: 'professional', more: '', files: [], brief: '', briefEdited: false,
       // From a kind of page
-      purpose: purposes[0].name, frame: firstFrame, side: false, shared: true, theme: site.sharedTheme ? 'site' : (offered.some((x) => x.name === 'studio') ? 'studio' : offered[0].name), device: 'desktop',
+      frame: firstFrame, side: false, shared: true, theme: site.sharedTheme ? 'site' : (offered.some((x) => x.name === 'studio') ? 'studio' : offered[0].name), device: 'desktop',
       // Copy a web page, Like a page
       url: '', structureOnly: false, like: taken.includes(from) ? from : taken.includes(site.home) ? site.home : taken[0] ?? '',
     };
     if (!taken.includes(draft.like)) draft.like = taken[0] ?? '';
     ctx.setPending?.(draft.name || '…');
-    const P = () => purposes.find((x) => x.name === draft.purpose) ?? null;
+    const P = () => purposes.find((x) => x.name === draft.kind) ?? null;
     const F = () => frames.find((x) => x.name === draft.frame) ?? frames[0];
     const layoutName = () => (P() ? `${F().name}+${P().name}` : F().name);
     const sideOn = () => !!F().side?.length && draft.side;
@@ -102,7 +105,7 @@ export const newScreen = {
             <div class="chips">${TONES().map(([k, l]) => `<button type="button" class="chip" data-tone="${k}" aria-pressed="${draft.tone === k}">${esc(l)}</button>`).join('')}</div></section>
           <section><span class="qn">5</span><h2><label for="np-more">${esc(t('Anything else? Show her what you mean'))}</label></h2>
             <textarea id="np-more" name="more" rows="3" placeholder="${esc(t('e.g. Use the content of my CV, translated into Spanish. No top navigation: it is a one-page site.'))}">${esc(draft.more)}</textarea>
-            <div class="np-attach" data-drop><button type="button" class="btn" data-attach>${esc(t('Attach files'))}</button><span class="note">${esc(t('PDF, images or a ZIP of a design · up to 5 · or drop them here'))}</span>
+            <div class="np-attach" data-drop><button type="button" class="btn attach" data-attach>${CLIP}<span>${esc(t('Attach'))}</span></button><span class="note">${esc(t('PDF, images or a ZIP of a design · up to 5 · or drop them here'))}</span>
               ${draft.files.length ? `<div class="files">${draft.files.map((f, i) => fileChip(f, i)).join('')}</div>` : ''}</div></section>
           <section class="np-namerow">${nameField('np-name')}</section>
           <p class="np-error" role="alert" hidden></p>
@@ -127,7 +130,7 @@ export const newScreen = {
       return `<div class="np-kind">
         <form class="np-controls" data-np="layout">
           <h2>${esc(t('1 · What the page is'))}</h2>
-          <div class="chips">${purposes.map((x) => `<button type="button" class="chip" data-purpose="${esc(x.name)}" aria-pressed="${x.name === draft.purpose}">${esc(t(x.label))}</button>`).join('')}<button type="button" class="chip" data-purpose="" aria-pressed="${!p}">${esc(t('Just the frame'))}</button></div>
+          <div class="chips">${purposes.map((x) => `<button type="button" class="chip" data-purpose="${esc(x.name)}" aria-pressed="${x.name === draft.kind}">${esc(t(x.label))}</button>`).join('')}<button type="button" class="chip" data-purpose="" aria-pressed="${!p}">${esc(t('Just the frame'))}</button></div>
           <p class="note">${p ? `<b>${esc(t(p.label))}:</b> ${esc(t(p.description))}` : esc(t('An empty body to build in, section by section.'))}</p>
           <h2>${esc(t('2 · What holds it'))}</h2>
           <div class="fcards">${frames.map((x) => `<button type="button" class="fcard" data-frame="${esc(x.name)}" aria-pressed="${x.name === f.name}"><svg viewBox="0 0 60 41" aria-hidden="true">${WIRE[x.name] ?? WIRE.basic}</svg><b>${esc(t(x.label))}</b><span>${esc(t(x.name === 'simple' ? 'Just the page' : x.name === 'basic' ? 'Bar, page, footer' : 'With menus and aside'))}</span></button>`).join('')}</div>
@@ -300,7 +303,9 @@ export const newScreen = {
       const el = (sel) => e.target.closest(sel);
       if (el('[data-start]')) return (draft.start = el('[data-start]').dataset.start), draw();
       if (el('[data-kind]')) {
-        draft.kind = el('[data-kind]').dataset.kind;
+        // a second click on the kind chosen takes it back: the question stays skipped
+        const k = el('[data-kind]').dataset.kind;
+        draft.kind = draft.kind === k ? null : k;
         suggest();
         return draw();
       }
@@ -326,7 +331,7 @@ export const newScreen = {
         return input.click();
       }
       if (el('[data-unfile]')) return draft.files.splice(Number(el('[data-unfile]').dataset.unfile), 1), draw();
-      if (el('[data-purpose]')) return (draft.purpose = el('[data-purpose]').dataset.purpose), draw();
+      if (el('[data-purpose]')) return (draft.kind = el('[data-purpose]').dataset.purpose || null), suggest(), draw();
       if (el('[data-frame]')) return (draft.frame = el('[data-frame]').dataset.frame), draw();
       if (el('[data-theme]')) return (draft.theme = el('[data-theme]').dataset.theme), draw();
       if (el('[data-pdevice]')) return (draft.device = el('[data-pdevice]').dataset.pdevice), draw();

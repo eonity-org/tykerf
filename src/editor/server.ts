@@ -24,7 +24,7 @@ import { KIT_LOADER, type KitKind, kitCSS, kitFonts, kitLibraryScripts, kitList,
 import { DEFAULT_FRAME, DEFAULT_THEME, EMPTY_LAYOUT, createPage, frames, hasTheme, layoutSections, offeredLayouts, pageLayout, purposes, libraryAsset, setTheme, theme, themes } from '../library.js';
 import { Workspace } from '../workspace.js';
 import { AI, type Runner, SITE_CHAT } from './ai.js';
-import { type KaityRun, kaityRuns, logUndo } from './kaity-log.js';
+import { type KaityRun, kaityRuns, logUndo, outcomeOf } from './kaity-log.js';
 import { readAttachments } from './attachments.js';
 import { createAuth, loginPage } from './auth.js';
 import { ASSET_TYPES, pageFileRefs } from '../assets.js';
@@ -197,7 +197,23 @@ const VIEW_COOKIE = 'tykerf_view';
 const viewing = (req: IncomingMessage) => new RegExp(`(?:^|;\\s*)${VIEW_COOKIE}=1(?:;|$)`).test(req.headers.cookie ?? '');
 
 /** The last design check (POST /_tykerf/site/design), for the Overview's "Before you publish" and the top bar's Checks. */
+/** The last design check of the site's pages (kept in the site, so a restart doesn't forget it). */
+const DESIGN_FILE = '.tykerf/design-check.json';
 let lastDesign: { at: string; fixes: number; notes: number } | null = null;
+const readDesign = () => {
+  if (lastDesign) return lastDesign;
+  try {
+    lastDesign = JSON.parse(new FolderStore(dir).read(DESIGN_FILE) ?? 'null');
+  } catch {}
+  return lastDesign;
+};
+/** The design check with whether a page changed after it (out of date: the top bar, the rail and the Overview say so). */
+function designNow() {
+  const d = readDesign();
+  if (!d) return null;
+  const stale = sitePages(dir).some((pg) => (pageWorkspace(dir, pg).history(1)[0]?.at ?? '') > d.at);
+  return { ...d, stale };
+}
 /** The site's last step, when it changed the head: what the Page tab's site Undo would take back (else null). */
 const headStep = () => {
   const top = new Site(dir).history.peekUndo();
@@ -248,6 +264,17 @@ function hostOf(name: string): PageHost | null {
   return h;
 }
 
+/** A run that is one task of a page's task run still waiting for review: the page's host and the task's number. */
+function taskInReview(r: KaityRun): { host: PageHost; n: number } | null {
+  if (!r.page || !r.tag?.includes('#') || !sitePages(dir).includes(r.page)) return null;
+  const host = hostOf(r.page);
+  const st = host?.taskRun.state();
+  const n = Number(r.tag.split('#')[1]);
+  if (!host || !st || st.running || !r.tag.startsWith(`${st.key}#`)) return null;
+  const x = st.tasks.find((y) => y.n === n);
+  return x && !x.undone && !x.seen ? { host, n } : null;
+}
+
 // ---------- Kaity through the tasks of several pages, one page after the other (the v3 editor's Give Kaity everything) ----------
 
 /** The pages still to go, the one she works on first; empty when no site-wide run is going. */
@@ -285,7 +312,7 @@ const STATIC: Record<string, string> = {
   '/_tykerf/shell/boot.js': 'text/javascript', '/_tykerf/shell/common.js': 'text/javascript', '/_tykerf/shell/shell.js': 'text/javascript',
   '/_tykerf/shell/frame.js': 'text/javascript', '/_tykerf/shell/fix.js': 'text/javascript', '/_tykerf/shell/site.js': 'text/javascript', '/_tykerf/shell/screens.js': 'text/javascript', '/_tykerf/shell/shell.css': 'text/css',
   // v4: the one frame (top bar, rail), the one Kaity (composer, thread, Kaity center), the Overview, New page, View mode
-  '/_tykerf/shell/chrome.js': 'text/javascript', '/_tykerf/shell/composer.js': 'text/javascript', '/_tykerf/shell/kaity.js': 'text/javascript',
+  '/_tykerf/shell/chrome.js': 'text/javascript', '/_tykerf/shell/composer.js': 'text/javascript', '/_tykerf/shell/kaity.js': 'text/javascript', '/_tykerf/shell/sections.js': 'text/javascript',
   '/_tykerf/shell/overview.js': 'text/javascript', '/_tykerf/shell/newpage.js': 'text/javascript', '/_tykerf/shell/view.js': 'text/javascript',
 };
 
@@ -554,7 +581,7 @@ async function serveGlobal(req: IncomingMessage, res: ServerResponse, p: string,
   // the whole site's check (check-site.ts): what to fix before publishing
   if (req.method === 'GET' && p === '/_tykerf/site/check') {
     const { checkSite, FINDING_KINDS } = await import('../check-site.js');
-    return json(res, 200, { ok: true, findings: checkSite(dir), kinds: FINDING_KINDS, design: lastDesign }), true;
+    return json(res, 200, { ok: true, findings: checkSite(dir), kinds: FINDING_KINDS, design: designNow() }), true;
   }
   // Check the design (design.ts): every page in a browser at 1440 and 375 px, on demand (it takes a few seconds a page)
   if (req.method === 'POST' && p === '/_tykerf/site/design') {
@@ -569,6 +596,9 @@ async function serveGlobal(req: IncomingMessage, res: ServerResponse, p: string,
       }
       const all = pages.flatMap((x) => x.findings);
       lastDesign = { at: new Date().toISOString(), fixes: all.filter((f) => f.group === 'fix').length, notes: all.filter((f) => f.group === 'style').length };
+      try {
+        new FolderStore(dir).write(DESIGN_FILE, JSON.stringify(lastDesign));
+      } catch {}
       return json(res, 200, { ok: true, pages, rules: DESIGN_RULES }), true;
     } finally {
       await browser.close();
@@ -759,8 +789,56 @@ async function serveGlobal(req: IncomingMessage, res: ServerResponse, p: string,
     const tagsOf = (pg: string) => held.get(pg) ?? (held.set(pg, pageWorkspace(dir, pg).tags()), held.get(pg)!);
     const pages = sitePages(dir);
     const kept = (r: KaityRun) => !!r.tag && (r.page ? pages.includes(r.page) && tagsOf(r.page).has(r.tag) : pages.some((pg) => tagsOf(pg).has(r.tag!)));
-    const items = runs.map((r) => ({ ...r, kind: kind(r), task: r.tag?.includes('#') ? Number(r.tag.split('#')[1]) : undefined, undoable: !r.undone && r.state !== 'working' && kept(r) }));
-    return json(res, 200, { ok: true, items, pages: sitePages(dir), running: items.filter((r) => r.state === 'working').length }), true;
+    // a page's task run waiting for the person: what she did there is to keep or undo (Needs review), or she asks
+    // something (task-run.ts); read from the page's own file, so a page not open has it too
+    const reviews = new Map<string, TaskRunState | null>();
+    const reviewOf = (pg: string) => {
+      if (!reviews.has(pg)) {
+        let st: TaskRunState | null = hosts.get(pg)?.taskRun.state() ?? null;
+        if (!hosts.has(pg)) try { st = JSON.parse(pageWorkspace(dir, pg).store.read('.tykerf/taskrun.json') ?? 'null'); } catch {}
+        reviews.set(pg, st);
+      }
+      return reviews.get(pg) ?? null;
+    };
+    // a run sent again (Widen, the OK for a shared block) has its answer in the new run: the old one offers nothing more
+    const again = new Set(runs.map((r) => r.again).filter(Boolean));
+    // a task given to her again (her question answered, Continue) is one tag over several runs: the last one holds it
+    const lastOfTag = new Map(runs.filter((r) => r.tag).map((r) => [r.tag!, r.run]));
+    const items = runs.map((r) => {
+      const task = r.tag?.includes('#') ? Number(r.tag.split('#')[1]) : undefined;
+      const last = !r.tag || lastOfTag.get(r.tag) === r.run;
+      const changed = last ? kept(r) || !!r.undone || (!r.page && (r.acted ?? 0) > 0) : (r.acted ?? 0) > 0;
+      // a task asks for a change: one she closed with nothing changed is one she couldn't do (a question isn't)
+      const outcome = ((o) => (o === 'answered' && task && !r.onlyAsked ? 'declined' : o))(outcomeOf(r, changed));
+      const st = task && r.page ? reviewOf(r.page) : null;
+      const inReview = last && st && !st.running && r.tag?.startsWith(`${st.key}#`) ? st.tasks.find((x) => x.n === task) : null;
+      return {
+        ...r, kind: kind(r), task, outcome,
+        undoable: last && !r.undone && r.state !== 'working' && kept(r),
+        // waiting for the person: Keep or Undo (a task she did in a run not yet kept), or her question on a task
+        ...(inReview && inReview.state === 'done' && !inReview.undone && !inReview.seen && kept(r) ? { review: true } : {}),
+        ...(inReview && inReview.state === 'needs-you' ? { question: inReview.asked ?? '' } : {}),
+        // what to offer: send it again on the whole page (she couldn't in one box), or with the OK for a shared block
+        ...(!again.has(r.run) && r.page && r.scope === 'box' && !task && outcome === 'declined' && (r.note?.cant?.widen ?? 'page') === 'page' ? { widen: true } : {}),
+        ...(!again.has(r.run) && r.page && r.note?.shared && !r.undone && r.state !== 'working' ? { asks: r.note.shared } : {}),
+      };
+    });
+    return json(res, 200, { ok: true, items, pages: sitePages(dir), running: items.filter((r) => r.state === 'working').length, waiting: items.filter((r) => r.review || r.asks || r.question !== undefined).length }), true;
+  }
+  // Keep what Kaity did in a task of a page's run (Needs review → kept): the person has seen it (task-run.ts seen);
+  // when every task of the run is seen, the run's review closes
+  if (req.method === 'POST' && p === '/_tykerf/site/kaity/keep') {
+    const a = await body(req);
+    const r = kaityRuns(dir, new Map(), 400).find((x) => x.run === String(a.run ?? ''));
+    const inRun = r ? taskInReview(r) : null;
+    if (!inRun) return json(res, 422, { ok: false, error: 'nothing of that run is waiting for review' }), true;
+    try {
+      inRun.host.taskRun.seen(inRun.n);
+    } catch (e) {
+      return json(res, 409, { ok: false, error: (e as Error).message }), true;
+    }
+    siteEvent('ai', { role: 'kept', run: r!.run });
+    return json(res, 200, { ok: true }), true;
   }
   // Undo one of Kaity's runs from the thread: what her changes carry (its tag) is taken back on its page, or on every
   // page for a run on the whole site, as one new step each (Workspace.revertTagged); the site's own steps (its kit,
@@ -773,6 +851,18 @@ async function serveGlobal(req: IncomingMessage, res: ServerResponse, p: string,
     const pages = r.page ? [r.page] : sitePages(dir);
     const busy = pages.find((pg) => hosts.get(pg)?.ai.running()) ?? (siteAI.running() ? 'the whole site' : null);
     if (busy) return json(res, 409, { ok: false, error: `Kaity is working on ${busy}; undo waits until she is done` }), true;
+    // a task of the page's run still in review: undone there, so the run knows (task-run.ts)
+    const inRun = taskInReview(r);
+    if (inRun) {
+      try {
+        inRun.host.taskRun.undoTask(inRun.n);
+      } catch (e) {
+        return json(res, 409, { ok: false, error: (e as Error).message }), true;
+      }
+      logUndo(dir, r.run);
+      siteEvent('ai', { role: 'undone', run: r.run });
+      return json(res, 200, { ok: true, result: 1 }), true;
+    }
     let n = 0;
     const problems: string[] = [];
     for (const pg of pages.filter((x) => sitePages(dir).includes(x))) {

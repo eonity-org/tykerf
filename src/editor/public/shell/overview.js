@@ -2,7 +2,7 @@
 // site's pages as cards, New page, what to look at before publishing, Kaity's latest work with a composer, and the
 // guides. A site with no pages shows the first run instead: what tykerf is, the guides, and three ways to start.
 
-import { DOC_CARD, DOC_LINKS, docLink, esc, failed, hardToReach, kaityMark, request, t, toast, when } from './common.js';
+import { DOC_CARD, DOC_LINKS, docLink, esc, failed, hardToReach, kaityMark, request, stamp, t, toast } from './common.js';
 import { createComposer } from './composer.js';
 import { askKaity, loadThread, scopeChip } from './kaity.js';
 
@@ -15,30 +15,32 @@ const PAGE = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 3h7l4 4v14
 
 let acting = null; // { page, what: 'name' | 'remove' | 'more', links? }: a card's open form or confirmation
 
-/** Who made the last change, in words. */
-const byWhom = (c) => (!c ? '' : c.author === 'ai' ? t('Changed {when} by Kaity', { when: when(c.at) }) : t('Changed {when} by you', { when: when(c.at) }));
+/** Who made the last change, in words (the exact time on hover). */
+const byWhom = (c) => (!c ? '' : (c.author === 'ai' ? esc(t('Changed {when} by Kaity', { when: '\u0000' })) : esc(t('Changed {when} by you', { when: '\u0000' }))).replace('\u0000', stamp(c.at)));
 
 function pageCard(p, info) {
-  const { site, tasks } = info;
+  const { site, tasks, thread } = info;
   const home = site.home === p;
   const open = tasks?.pages?.find((x) => x.page === p)?.tasks.length ?? 0;
+  // Kaity's work on it waiting for the person: changes to keep or undo, her questions, a shared block's OK
+  const waiting = (thread?.items ?? []).filter((r) => r.page === p && (r.review || r.asks || r.question !== undefined)).length;
   const title = site.titles?.[p] ?? '';
-  const meta = [byWhom(site.changed?.[p]), open === 1 ? t('1 open task') : t('{n} open tasks', { n: open })].filter(Boolean).join(' · ');
+  const meta = [byWhom(site.changed?.[p]), esc(open === 1 ? t('1 open task') : t('{n} open tasks', { n: open })), waiting ? `<a class="owait" href="${edit(p)}">${esc(waiting === 1 ? t('1 waiting for your review') : t('{n} waiting for your review', { n: waiting }))}</a>` : ''].filter(Boolean).join(' · ');
   const form = acting?.page !== p ? '' : acting.what === 'name' ? `
     <form class="pform" data-page="${esc(p)}">
       <label>${esc(t('Name (its address)'))}<input name="to" value="${esc(p)}" pattern="[a-z0-9][a-z0-9-]*" required></label>
       <label>${esc(t('Title (in the browser tab and search results)'))}<input name="title" value="${esc(site.ownTitles?.[p] ?? '')}" placeholder="${esc(title)}"></label>
       <div class="row"><button class="btn primary small" type="submit">${esc(t('Save'))}</button><button class="btn small" type="button" data-pact="cancel">${esc(t('Cancel'))}</button></div>
     </form>` : acting.what === 'remove' ? `
-    <div class="confirm" role="alert"><p>${esc(t('Remove {page}? It goes to the site\'s trash, and links to it stop working.', { page: p }))}</p>
+    <div class="pmore pconfirm" role="alertdialog" aria-label="${esc(t('Remove {page}', { page: p }))}"><p>${esc(t('Remove {page}? It goes to the site\'s trash, and links to it stop working.', { page: p }))}</p>
       <p class="hint">${esc(linksTo(p))}</p>
       <div class="row"><button class="btn small danger" type="button" data-pact="remove-yes">${esc(t('Remove {page}', { page: p }))}</button><button class="btn small" type="button" data-pact="cancel">${esc(t('Cancel'))}</button></div></div>` : acting.what === 'more' ? `
-    <div class="pmore" role="menu">${home ? '' : `<button type="button" role="menuitem" data-pact="home">${esc(t('Make it home'))}</button>`}<button type="button" role="menuitem" class="danger" data-pact="remove">${esc(t('Remove…'))}</button></div>` : '';
+    <div class="pmore" role="menu" aria-label="${esc(t('More for {page}', { page: p }))}">${home ? '' : `<button type="button" role="menuitem" data-pact="home">${esc(t('Make it home'))}</button>`}<button type="button" role="menuitem" class="danger" data-pact="remove">${esc(t('Remove…'))}</button></div>` : '';
   return `<article class="ocard" data-page="${esc(p)}">
     <a class="othumb" href="${edit(p)}" tabindex="-1" aria-hidden="true"><iframe src="/${encodeURIComponent(p)}/?tykerf=frame" loading="lazy" sandbox="allow-same-origin" scrolling="no" tabindex="-1" title=""></iframe></a>
     <h3><a href="${edit(p)}">${esc(p)}</a> <span class="addr">/${esc(p)}/</span>${home ? `<span class="hometag">${esc(t('Home'))}</span>` : ''}</h3>
     ${title && title !== p ? `<p class="otitle">${esc(title)}</p>` : ''}
-    <p class="note">${esc(meta)}</p>
+    <p class="note">${meta}</p>
     <div class="row">
       <a class="btn primary small" href="${edit(p)}">${esc(t('Open'))}</a>
       <a class="btn small" href="/_tykerf/view?page=${encodeURIComponent(p)}">${EYE}${esc(t('View'))}</a>
@@ -60,20 +62,26 @@ function linksTo(p) {
 /** Before you publish: the site's check in four lines, each with what to do about it. */
 function beforePublish(info) {
   const { site, check, links } = info;
-  const row = (label, state, action = '', bad = false) => `<li><span>${esc(label)}</span><span class="pstate${bad ? ' bad' : ''}">${esc(state)}</span>${action}</li>`;
+  // a state's tone: good (done, green), bad (to fix), warn (out of date, worth a look), neutral (not done yet)
+  const row = (label, state, action = '', tone = 'good') => `<li><span>${esc(label)}</span><span class="pstate ${tone}">${esc(state)}</span>${action}</li>`;
   const go = (screen, label) => `<a class="link" href="/_tykerf/edit/_site/${screen}" data-screen="${screen}">${esc(label)}</a>`;
   const d = check?.design;
   const brief = site.brief && Object.keys(site.brief).length;
   const good = links?.links?.filter((l) => !l.broken && l.to !== l.page) ?? [];
   const hard = hardToReach(site.pages, links?.links, site.home);
   const others = (check?.findings ?? []).filter((f) => f.kind !== 'lang').length;
+  // the design check reads as the top bar's and the rail's Checks do (chrome.js checkState)
+  const design = !d ? row(t('Design check'), t('Not checked yet'), go('check', t('Check')), 'neutral')
+    : d.fixes ? row(t('Design check'), t('{n} to fix', { n: d.fixes }), go('check', t('Review')), 'bad')
+    : d.stale ? row(t('Design check'), t('Out of date'), go('check', t('Check again')), 'warn')
+    : row(t('Design check'), t('All good'), '', 'good');
   return `<section class="ocheck"><h2>${esc(t('Before you publish'))}</h2><p class="note">${esc(t('What visitors and search engines will notice.'))}</p>
     <ul>
-      ${d ? row(t('Design check'), d.fixes ? t('{n} to fix', { n: d.fixes }) : t('All good'), d.fixes ? go('check', t('Review')) : '', !!d.fixes) : row(t('Design check'), t('Not checked yet'), go('check', t('Check')))}
-      ${row(t('About this site'), brief ? t('Written') : t('Not written yet'), go('about', brief ? t('Change') : t('Write it')))}
-      ${row(t('Links between pages'), !good.length ? t('None yet') : hard.length ? t('{n} hard to reach', { n: hard.length }) : t('Every page can be reached'), go('links', t('Review')), !!hard.length)}
-      ${row(t('Language'), site.langSet ? site.lang : t('Not set'), site.langSet ? '' : go('settings', t('Set it')), !site.langSet)}
-      ${others ? row(t('Other checks'), others === 1 ? t('1 thing to look at') : t('{n} things to look at', { n: others }), go('check', t('Review')), true) : ''}
+      ${design}
+      ${row(t('About this site'), brief ? t('Written') : t('Not written yet'), go('about', brief ? t('Change') : t('Write it')), brief ? 'good' : 'neutral')}
+      ${row(t('Links between pages'), !good.length ? t('None yet') : hard.length ? t('{n} hard to reach', { n: hard.length }) : t('Every page can be reached'), go('links', t('Review')), !good.length ? 'neutral' : hard.length ? 'bad' : 'good')}
+      ${row(t('Language'), site.langSet ? site.lang : t('Not set'), site.langSet ? '' : go('settings', t('Set it')), site.langSet ? 'good' : 'warn')}
+      ${others ? row(t('Other checks'), others === 1 ? t('1 thing to look at') : t('{n} things to look at', { n: others }), go('check', t('Review')), 'bad') : ''}
     </ul></section>`;
 }
 
@@ -82,7 +90,7 @@ function kaityLately(thread) {
   const last = (thread?.items ?? []).slice(-3).reverse();
   const title = (r) => (r.kind === 'task' ? t('Task {n}', { n: r.task }) + (r.answer ? ` — ${r.answer.split(/(?<=[.!?])\s/)[0]}` : '') : r.kind === 'ask' ? r.request : r.answer || r.request);
   return `<section class="olately"><header><h2>${esc(t('Kaity lately'))}</h2><a class="link" href="/_tykerf/edit/_site/kaity" data-open-kaity>${esc(t('Open Kaity center'))}</a></header>
-    ${last.length ? `<ul>${last.map((r) => `<li>${kaityMark(r.state === 'working', true)}<div><p class="emeta">${scopeChip(r)}<span>${esc([when(r.ended ?? r.at), r.steps ? (r.steps === 1 ? t('1 step') : t('{n} steps', { n: r.steps })) : ''].filter(Boolean).join(' · '))}</span></p><p class="etitle">${esc(String(title(r)).slice(0, 140))}</p></div></li>`).join('')}</ul>`
+    ${last.length ? `<ul>${last.map((r) => `<li>${kaityMark(r.state === 'working', true)}<div><p class="emeta">${scopeChip(r)}<span>${stamp(r.ended ?? r.at)}${r.steps ? ` · ${esc(r.steps === 1 ? t('1 step') : t('{n} steps', { n: r.steps }))}` : ''}</span></p><p class="etitle">${esc(String(title(r)).slice(0, 140))}</p></div></li>`).join('')}</ul>`
       : `<p class="empty">${esc(t('Nothing yet. Ask her about the whole site below, or open a page and ask about it.'))}</p>`}
     <div class="olcomposer"></div></section>`;
 }
@@ -166,6 +174,28 @@ export const overviewScreen = {
     });
     main.querySelector('.olcomposer').append(composer.el);
     fitThumbs(main);
+    // the card's ⋯ menu (and Remove's question) is a menu: on it the keys move, Escape or a click elsewhere closes it
+    const pop = main.querySelector('.ocard .pmore');
+    pop?.querySelector('button')?.focus();
+    const closePop = (back = false) => {
+      const card = pop?.closest('[data-page]');
+      acting = null;
+      pop?.remove();
+      card?.querySelector('[data-pact="more"]')?.setAttribute('aria-expanded', 'false');
+      if (back) card?.querySelector('[data-pact="more"]')?.focus();
+      document.removeEventListener('pointerdown', outside, true);
+    };
+    const outside = (e) => pop && !pop.contains(e.target) && !e.target.closest?.('[data-pact="more"]') && closePop();
+    if (pop) {
+      document.addEventListener('pointerdown', outside, true);
+      pop.addEventListener('keydown', (e) => {
+        const items = [...pop.querySelectorAll('button')];
+        const i = items.indexOf(document.activeElement);
+        if (e.key === 'Escape') return e.preventDefault(), closePop(true);
+        if (e.key === 'ArrowDown') (e.preventDefault(), items[(i + 1) % items.length]?.focus());
+        if (e.key === 'ArrowUp') (e.preventDefault(), items[(i - 1 + items.length) % items.length]?.focus());
+      });
+    }
     main.onclick = async (e) => {
       if (e.target.closest('[data-open-kaity]') && ctx.openKaity) return e.preventDefault(), ctx.openKaity();
       const sc = e.target.closest('[data-screen]')?.dataset.screen;

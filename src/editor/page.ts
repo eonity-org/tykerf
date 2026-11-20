@@ -22,6 +22,7 @@ import { FolderStore, checkPath } from '../store.js';
 import { components, copyBehaviours, hasTheme, libraryBehaviours, pageLayouts, readOverrides, themeVariables, useComponent, withFonts, withOverrides } from '../library.js';
 import { NO_SITE_HEAD, type Workspace, joinStyle, splitStyle } from '../workspace.js';
 import { AI, type Runner } from './ai.js';
+import { kaityRuns } from './kaity-log.js';
 import { readAttachments } from './attachments.js';
 
 export const json = (res: ServerResponse, code: number, body: unknown) => {
@@ -683,6 +684,21 @@ export function createPageHost(ws: Workspace, opts: { name: string; site?: () =>
     // a request from a composer: on one box, or on the whole page (its top block: Kaity may change any block of it,
     // and nothing else), with the files attached to it (attachments.ts)
     if (p === '/_tykerf/ask') {
+      // a request of the thread sent again: on the whole page (Widen to this page), or with the person's OK for the
+      // shared block it waited on; the same words and the same files
+      if (a.again) {
+        const r = ws.site ? kaityRuns(ws.site.dir, new Map(), 400).find((x) => x.run === String(a.again)) : null;
+        if (!r || r.page !== (ws.pageName ?? null)) return json(res, 404, { ok: false, error: 'that request is not in Kaity\'s thread any more' });
+        const files = (r.files ?? []).flatMap((f) => {
+          const x = ai.attachment(f.file);
+          return x ? [{ ...x, ...(f.name ? { name: f.name } : {}) }] : [];
+        });
+        const root = ws.load().root.id;
+        const id = a.scope === 'box' && r.block && r.block !== root ? r.block : root;
+        const ok = [...new Set([...(r.sharedOk ?? []), ...(a.ok && r.note?.shared ? [r.note.shared.block] : [])])];
+        ai.ask(id, r.request, undefined, files, undefined, undefined, { again: r.run, ...(ok.length ? { sharedOk: ok } : {}) });
+        return json(res, 200, { ok: true, id });
+      }
       const attached = readAttachments(a.files, a.images);
       const asked = String(a.prompt ?? '').trim() || (attached.files.length ? 'Look at the attached files.' : '');
       const id = a.id === '' || a.scope === 'page' ? ws.load().root.id : String(a.id ?? '');

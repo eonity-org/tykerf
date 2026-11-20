@@ -3,7 +3,7 @@
 // part said next to whatever hands her work. Each screen is { title(), render(main, ctx), onAi?(message) }, and
 // draws itself again from the server on every render.
 
-import { $, esc, failed, hardToReach, kaityMark, keptTwice, plainLabel, request, size, t, toast, when } from './common.js';
+import { $, esc, failed, hardToReach, kaityMark, keptTwice, plainLabel, request, size, stamp, t, toast, when } from './common.js';
 
 const edit = (page, q = '') => `/_tykerf/edit/${encodeURIComponent(page)}/${q}`;
 const cap = (s) => (s ? s[0].toUpperCase() + s.slice(1) : s);
@@ -435,11 +435,11 @@ const historyScreen = {
         <button type="button" class="btn primary" data-h="undo" ${h.undo ? '' : 'disabled'}>${esc(h.undo ? t('Undo "{step}"', { step: h.undo.label }) : t('Nothing to undo'))}</button>
         <button type="button" class="btn" data-h="redo" ${h.redo ? '' : 'disabled'}>${esc(h.redo ? t('Redo "{step}"', { step: h.redo.label }) : t('Nothing to redo'))}</button>
       </div>
-      ${h.steps.length ? `<ol class="steps">${h.steps.map((s) => `<li><b>${esc(s.label)}</b> <span class="note">${esc(s.author === 'ai' ? t('Kaity') : t('you'))} · ${esc(when(s.at))}</span></li>`).join('')}</ol>` : `<p class="empty">${esc(t('No steps yet.'))}</p>`}
+      ${h.steps.length ? `<ol class="steps">${h.steps.map((s) => `<li><b>${esc(s.label)}</b> <span class="note">${esc(s.author === 'ai' ? t('Kaity') : t('you'))} · ${stamp(s.at)}</span></li>`).join('')}</ol>` : `<p class="empty">${esc(t('No steps yet.'))}</p>`}
       ${trash.pages.length ? `<section class="trashsec">
         <h2>${esc(t('Removed pages'))}</h2>
         <p class="note">${esc(t('They wait in the site\'s .trash folder, whole, until it is emptied.'))}</p>
-        <ul class="steps">${trash.pages.map((x) => `<li><b>${esc(x.page)}</b> <span class="note">${esc(x.removed ? when(x.removed) : '')}</span></li>`).join('')}</ul>
+        <ul class="steps">${trash.pages.map((x) => `<li><b>${esc(x.page)}</b> <span class="note">${x.removed ? stamp(x.removed) : ''}</span></li>`).join('')}</ul>
         ${emptying ? `<div class="confirm" role="alert"><p>${esc(t('Delete {n} removed pages for good? This cannot be undone.', { n: trash.pages.length }))}</p><div class="row"><button type="button" class="btn danger" data-h="empty-yes">${esc(t('Delete them for good'))}</button><button type="button" class="btn" data-h="empty-no">${esc(t('Cancel'))}</button></div></div>`
           : `<button type="button" class="btn danger" data-h="empty">${esc(t('Empty the trash for good…'))}</button>`}
       </section>` : ''}`;

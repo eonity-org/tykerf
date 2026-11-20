@@ -3,7 +3,7 @@
 // (screens.js), New page (newpage.js) and the Kaity center as a page (kaity.js).
 
 import { $, failed, request, t, toast, watchVersion } from './common.js';
-import { SCREEN_TITLES, checkCount, createRail, renderTop } from './chrome.js';
+import { SCREEN_TITLES, checkState, createRail, renderTop } from './chrome.js';
 import { createKaityCenter, kaityScreen, onKaityNews } from './kaity.js';
 import { newScreen } from './newpage.js';
 import { overviewScreen } from './overview.js';
@@ -30,8 +30,8 @@ export async function siteMode() {
     renderTop(bar, {
       crumb: crumb ?? SCREEN_TITLES[screen]?.() ?? '',
       undo: history?.undo ?? null,
-      kaity: { count: info?.thread?.items?.length ?? 0, working: !!info?.thread?.running, open: center.isOpen() },
-      checks: info ? checkCount(info.check) : null,
+      kaity: { count: info?.thread?.items?.length ?? 0, waiting: info?.thread?.waiting ?? 0, working: !!info?.thread?.running, open: center.isOpen() },
+      checks: info ? checkState(info.check) : null,
       publishFrom: from,
     });
   }

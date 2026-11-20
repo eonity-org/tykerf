@@ -59,7 +59,7 @@ After the first build, most of your requests will be **tasks**: you click an ele
 The fastest way to a good page is two passes:
 
 1. **The whole page, once.** On **New page**, describe it to Kaity, with everything you know and the files that show it. Kaity picks a layout, builds every section, checks the result at desktop and phone width and goes once over what she left unfinished.
-2. **Then tasks.** Look at the page and click what you'd change, one task each. Small, specific ones: "the title is too long, keep it under six words", "make this a dark band", "add a fourth card about the earthquake of 1755". Give them to Kaity all at once, or one with *Kaity, do it now*; review each, and answer her when she asks. To go on about one block, *Ask for more* on its card: the new task continues the same conversation.
+2. **Then tasks.** Look at the page and click what you'd change, one task each. Small, specific ones: "the title is too long, keep it under six words", "make this a dark band", "add a fourth card about the earthquake of 1755". Give them to Kaity all at once, or pick the element and ask in the line under the page (it is aimed at that box); keep or undo each change in *Kaity on this page*, and answer her when she asks. To go on about one block, ask again with that box picked: it continues the same conversation.
 
 Undo is your friend: every step Kaity takes is a separate undo step, so if one change goes wrong you don't lose the others. ⌘Z goes back one step; *Undo this one* on a task's card takes back that task's work; her conversation on the block shows each step she took.
 

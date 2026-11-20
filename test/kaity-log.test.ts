@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { AI, type RunEvents, type RunRequest, type Runner, SITE_CHAT } from '../src/editor/ai.js';
-import { kaityRuns, logEnd, logStart } from '../src/editor/kaity-log.js';
+import { kaityRuns, logEnd, logStart, outcomeOf } from '../src/editor/kaity-log.js';
 import { Site, newSitePage } from '../src/site.js';
 import { Workspace } from '../src/workspace.js';
 
@@ -66,5 +66,29 @@ describe("Kaity's log", () => {
       ['home', 'Try again', 'stopped', 'stopped'],
       ['home', 'Make the title bigger', 'done', null],
     ]);
+  });
+});
+
+describe('how a run came out (round 2)', () => {
+  const run = (o: Partial<Parameters<typeof outcomeOf>[0]>) => ({ run: 'r', at: '', page: 'home', block: 'hero', request: 'x', state: 'done', ...o }) as Parameters<typeof outcomeOf>[0];
+  it('only a change is a change: what she declined, answered or was refused never reads as done', () => {
+    expect(outcomeOf(run({}), true)).toBe('changed');
+    expect(outcomeOf(run({}), false)).toBe('answered');
+    expect(outcomeOf(run({ note: { cant: { reason: 'The banner is shared.', widen: 'page' } } }), false)).toBe('declined');
+    expect(outcomeOf(run({ note: { refused: '"footer" is outside the scope "hero"' } }), false)).toBe('declined');
+    expect(outcomeOf(run({ note: { shared: { block: 'nav', pages: ['about', 'home'] } } }), false)).toBe('asks');
+    // she changed the rest, the shared part waits: changed (the thread still offers the OK)
+    expect(outcomeOf(run({ note: { shared: { block: 'nav', pages: ['about', 'home'] } } }), true)).toBe('changed');
+    expect(outcomeOf(run({ state: 'failed' }), true)).toBe('failed');
+    expect(outcomeOf(run({ state: 'cut short' }), false)).toBe('failed');
+    expect(outcomeOf(run({ state: 'stopped' }), true)).toBe('stopped');
+    expect(outcomeOf(run({ state: 'working' }), false)).toBe('working');
+  });
+
+  it('logs what the tools noted, and whether it was a question', () => {
+    const site = tmp();
+    logStart(site, { run: 'a', page: 'home', block: 'hero', scope: 'box', request: 'Center the banner', onlyAsked: true });
+    logEnd(site, { run: 'a', end: 'done', block: 'hero', steps: 2, acted: 0, note: { cant: { reason: 'Shared.', widen: 'page' } } });
+    expect(kaityRuns(site)[0]).toMatchObject({ onlyAsked: true, note: { cant: { reason: 'Shared.', widen: 'page' } } });
   });
 });

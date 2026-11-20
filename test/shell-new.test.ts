@@ -68,6 +68,8 @@ describe('a new page in the v4 editor', () => {
   it('opens from + New page in the rail, in the same frame, the page shown as being set up', async () => {
     await page.goto(`${base}/_tykerf/edit/first/`);
     await page.frameLocator('.frame').locator('[data-sw="hero"]').waitFor();
+    // on a page, + New page is in the rail's Site section
+    await page.locator('.rail [data-acc="site"]').click();
     await page.locator('.rail [data-screen="new"]').click();
     await page.waitForURL(/\/_tykerf\/edit\/_site\/new\?from=first$/);
     await main().locator('h1', { hasText: 'New page' }).waitFor();
@@ -86,7 +88,15 @@ describe('a new page in the v4 editor', () => {
 
   it('asks five questions and shows the brief they make, which is what Kaity gets, with the files attached', async () => {
     const brief = () => main().locator('[name="brief"]').inputValue();
+    // no kind chosen at first: the question can be skipped; a second click takes a choice back
+    expect(await main().locator('[data-kind][aria-pressed="true"]').count()).toBe(0);
+    await main().locator('[data-kind="place"]').click();
+    await main().locator('[data-kind="place"]').click();
+    expect(await main().locator('[data-kind][aria-pressed="true"]').count()).toBe(0);
     await main().locator('[data-kind="person"]').click();
+    // Attach is the composers' button, with the clip
+    expect(await main().locator('[data-attach]').textContent()).toBe('Attach');
+    expect(await main().locator('[data-attach] svg').count()).toBe(1);
     // the sections suggested are the person purpose's own, all ticked
     expect(await main().locator('[data-section]').allTextContents()).toEqual(['Intro', 'About', 'Experience', 'Work', 'Contact']);
     await main().locator('[data-section="Work"]').click();
@@ -131,9 +141,15 @@ describe('a new page in the v4 editor', () => {
     await page.goto(`${base}/_tykerf/edit/_site/new?start=kind`);
     const src = () => main().locator('.pvframe').getAttribute('src');
     await main().locator('.pvframe').waitFor();
-    expect(await src()).toMatch(/^\/_tykerf\/preview\/(simple|basic|full)\+place\/site\/\?side=0$/);
+    // no kind chosen yet: just the frame
+    expect(await src()).toMatch(/^\/_tykerf\/preview\/(simple|basic|full)\/site\/\?side=0$/);
     await main().locator('[data-purpose="person"]').click();
     expect(await src()).toMatch(/\+person\//);
+    // one choice for both tabs: Describe has it too
+    await main().locator('[data-start="describe"]').click();
+    expect(await main().locator('[data-kind][aria-pressed="true"]').getAttribute('data-kind')).toBe('person');
+    await main().locator('[data-start="kind"]').click();
+    await main().locator('.pvframe').waitFor();
     await main().locator('[data-frame="full"]').click();
     expect(await src()).toBe('/_tykerf/preview/full+person/site/?side=0');
     // the side menu and the side note are in the preview only when they are ticked
@@ -143,6 +159,8 @@ describe('a new page in the v4 editor', () => {
     await main().locator('[data-theme="ivory"]').click();
     expect(await src()).toBe('/_tykerf/preview/full+person/ivory/?side=1');
     expect(await main().locator('.np-controls .warn').textContent()).toBe('A page in another theme no longer matches the rest of the site.');
+    // a warning, not an error: not red
+    expect(await main().locator('.np-controls .warn').evaluate((e) => getComputedStyle(e).color)).not.toBe('rgb(180, 35, 24)');
     await main().locator('[data-theme="site"]').click();
     // the widths, and Full size over this screen: never a new tab, and Back keeps every choice
     await main().locator('[data-pdevice="phone"]').click();
@@ -163,6 +181,13 @@ describe('a new page in the v4 editor', () => {
     await main().locator('[data-purpose="organization"]').click();
     await page.locator('#np-name2').fill('about');
     expect(await main().locator('[data-go="layout"]').textContent()).toBe('Create about and open it');
+    // the create actions stay in view at the bottom of the screen (here at 1400×863), scrolled or not
+    const size = page.viewportSize()!;
+    await page.setViewportSize({ width: 1400, height: 863 });
+    await main().evaluate((m) => m.closest('.screen, main')?.scrollTo?.(0, 0));
+    const go = (await main().locator('[data-go="layout"]').boundingBox())!;
+    expect(go.y + go.height).toBeLessThanOrEqual(863);
+    await page.setViewportSize(size);
     await main().locator('[data-go="layout"]').click();
     await page.waitForURL(/\/_tykerf\/edit\/about\/$/);
     await page.frameLocator('.frame').locator('[data-sw]').first().waitFor();
@@ -177,7 +202,7 @@ describe('a new page in the v4 editor', () => {
     await main().locator('[data-go="fill"]').click();
     await page.waitForURL(/\/_tykerf\/edit\/team\/$/);
     await expect.poll(() => page.evaluate(() => !!document.activeElement?.closest('.pagecol .composer'))).toBe(true);
-    expect(await page.locator('.pagecol .composer .chip[aria-pressed="true"]').textContent()).toBe('This page');
+    expect(await page.locator('.pagecol .composer select option:checked').textContent()).toBe('This page');
   });
 
   it('starts one like a page of the site: its navigation, footer and look, one empty section between', async () => {

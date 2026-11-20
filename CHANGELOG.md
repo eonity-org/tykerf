@@ -8,6 +8,18 @@
 
 ## Unreleased
 
+### The page gets the width, and Kaity says what really happened
+
+- **Nothing docked on the page's right.** Everything about a page is in the side panel on the left, as sections that open and close: Tasks on this page, Kaity on this page, Blocks (now every block, the containers too, each folding, as the editor's path has them) and Site. Folded, the panel is a strip of icons and the page takes the whole width; **This page ▾** in the top bar drops the same sections. Which sections you leave open, and the fold, are remembered.
+- **Edit mode in one sidebar:** the selected block's details (its path, Text, Code, Size & look, Revert and Save) are the side panel's **Block** section, and its quick actions (add, move, rename, share, delete, **Details**) sit in a small bar on the block itself. The page's widths (Desktop, 768, 375) stay in the top bar in Edit mode.
+- **One place to ask Kaity at a time.** The box under the page is one line, with what she may change as a drop-down; picking a block aims it there (*This box: hero*). The task box only adds tasks, and the box hides while the Kaity center is open.
+- **Only a change gets a ✓.** Kaity's work says how it came out: done, **Needs review** (with **Keep** and **Undo** right on it), **Kaity asks**, **couldn't do it**, **asks first**, answered or not done. A request or task she couldn't do no longer shows as done with Undo, and the task stays open. The review bar, with its *Kaity stopped*, is gone: what waits for you is in Kaity on this page and the Kaity center, and the Overview's page cards and the top bar's Kaity count it.
+- **Widen to this page:** a request she couldn't do in one box is sent again on the whole page with one click.
+- **Shared blocks: the same rule everywhere.** Asked about the whole page, Kaity no longer changes a shared block (the navigation, the footer) that other pages show without asking: she does the rest, says which pages that part would change, and **Change it on the 2 pages** lets her.
+- **One check status.** The top bar, the side panel and the Overview say the same: *not checked yet* until the design is checked, *out of date* once a page changed after it. The design check is kept with the site. Nothing not done yet shows in green.
+- **The Kaity center remembers where you came from:** opened from a page, it shows that page's part and asks about that page. One time format everywhere: minutes or hours ago under a day, a date after, the exact time on hover.
+- **New page:** the kind of page is one choice for *Describe it to Kaity* and *From a kind of page*, and none is chosen at first; Attach is the same clip button as everywhere; the create buttons stay at the bottom of the screen. A theme that won't match the site is a warning, not an error. The page cards' **⋯** is a real menu.
+
 ### One frame, one Kaity
 
 - **The editor opens on the site manager's Overview:** your pages as cards (a small picture of each, who changed it last, its open tasks, Open, View, Name and title, Duplicate, and more), New page, what to check before publishing, Kaity's latest work, and the guides. A site with no pages opens on a welcome with three ways to make its first page, instead of jumping to New page.
@@ -15,7 +27,7 @@
 - **One box to ask Kaity, everywhere:** choose what she may change (this box, **this page**, or the whole site) and **Attach** pictures, PDFs or a design ZIP; she reads a PDF's text. *This page* is new: she may change any block of the page and nothing on other pages.
 - **The Kaity center:** everything she was asked and did, on the whole site and every page, as one thread from the oldest to the newest, opened at the newest; long pasted text folds; each request has **Undo**. It opens from the top bar on every screen, and as a page; a page's *Kaity on this page* is the same thread. It replaces *Kaity's work*, which showed the same things twice.
 - **New page asks a few questions:** what the page is, who it is for, what it must include (suggested for that kind of page), how it should sound, and anything else with files; the brief they make is shown, editable, and is exactly what Kaity gets. **From a kind of page** shows a live preview that follows every choice (it respected the side menu option only now), at three widths, and **Full size** opens over the screen, never in a new tab. **Then ask Kaity to fill it** makes the page and opens it with the box to ask her ready.
-- **A page in the editor:** its tasks and Kaity's work on it beside it, the box to ask her under it, one line above it for what is going on. **Edit** (the full editor) docks its panel on the right, beside the page, with the page's blocks in the side panel. **View** replaces *Hide tykerf*: the site as visitors see it, and it stays while you follow links, until **Edit this page**.
+- **A page in the editor:** its tasks and Kaity's work on it beside it, the box to ask her under it, one line above it for what is going on. **Edit** (the full editor) shows the page's blocks in the side panel. **View** replaces *Hide tykerf*: the site as visitors see it, and it stays while you follow links, until **Edit this page**.
 - **Kaity only names controls the editor has** (she once asked for "the clip icon").
 
 ### Kaity chooses a layout for the page you asked for

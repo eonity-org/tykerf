@@ -419,7 +419,7 @@ describe("Kaity's rule on shared blocks", () => {
     newSitePage(dir, 'about', 'company', 'studio');
     const { openTools } = await import('../src/editor/tools-client.js');
     const home = pageWorkspace(dir, 'home');
-    const page = await openTools(home, home.load().root.id); // the page block selected, as from the editor
+    const page = await openTools(home, home.load().root.id); // the page block selected (another agent: no editor run)
     expect((await page.call('set_content', { id: 'footer', html: '<footer>© Bakery</footer>' })).text)
       .toBe('ok: content of "footer" set; shared block footer: this changes 2 pages (about, home); say so in your answer');
     expect((await page.call('edit_content', { id: 'footer', old: 'Bakery', new: 'Bakery 2026' })).text).toMatch(/^ok: 1 change in "footer"; shared block footer: this changes 2 pages/);
@@ -432,9 +432,39 @@ describe("Kaity's rule on shared blocks", () => {
     await block.close();
     const narrow = await openTools(pageWorkspace(dir, 'home'), 'footer');
     expect((await narrow.call('set_content', { id: 'footer', html: '<footer>x</footer>' })).text)
-      .toMatch(/refused: "footer" shows the shared block "footer", which other pages of the site show too, and the scope is "footer"\. Changing it is for a request about every page: ask the user to select the page block \("page"\)/);
+      .toMatch(/refused: "footer" shows the shared block "footer", which other pages of the site show too, and the scope is "footer"\. Changing it is for a request about every page: say so in one sentence; the user can widen the request to the whole page with one click/);
     await narrow.close();
     expect(kitRead(dir, 'blocks', 'footer')).toBe('<footer>© Bakery 2026</footer>');
+  });
+
+  it('in Kaity\'s run on a whole page, waits for the person\'s OK before a shared block changes, and notes the pages it would reach', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'tykerf-kit-ok-'));
+    newSitePage(dir, 'home', 'launch', 'studio');
+    newSitePage(dir, 'about', 'company', 'studio');
+    const { openTools } = await import('../src/editor/tools-client.js');
+    const { takeNote } = await import('../src/run-note.js');
+    const { FolderStore } = await import('../src/store.js');
+    const home = pageWorkspace(dir, 'home');
+    const run = await openTools(home, home.load().root.id, undefined, { mark: 'run-1' });
+    expect((await run.call('set_content', { id: 'footer', html: '<footer>© Bakery</footer>' })).text)
+      .toMatch(/refused: "footer" shows the shared block "footer", which 2 pages about, home show\. A change to it reaches every one of them, so it waits for the user's OK/);
+    await run.close();
+    expect(kitRead(dir, 'blocks', 'footer')).not.toBe('<footer>© Bakery</footer>');
+    // the run's note says which block and which pages: the thread offers the OK
+    expect(takeNote(new FolderStore(dir), 'run-1')).toEqual({ shared: { block: 'footer', pages: ['about', 'home'] } });
+    // with the OK for that block, the same request changes it
+    const ok = await openTools(home, home.load().root.id, undefined, { mark: 'run-2', sharedOk: ['footer'] });
+    expect((await ok.call('set_content', { id: 'footer', html: '<footer>© Bakery</footer>' })).text).toMatch(/^ok: content of "footer" set; shared block footer: this changes 2 pages/);
+    await ok.close();
+    expect(pageWorkspace(dir, 'about').content('footer')).toBe('<footer>© Bakery</footer>');
+    // in one box, a refusal is noted too (she couldn't: the thread offers Widen to this page), and cant_do says why
+    const box = await openTools(home, 'hero', undefined, { mark: 'run-3' });
+    expect((await box.call('set_content', { id: 'footer', html: '<footer>x</footer>' })).text).toMatch(/refused/);
+    expect((await box.call('cant_do', { reason: 'The footer is outside hero.', widen: 'page' })).text).toMatch(/^noted/);
+    await box.close();
+    const note = takeNote(new FolderStore(dir), 'run-3');
+    expect(note?.cant).toEqual({ reason: 'The footer is outside hero.', widen: 'page' });
+    expect(note?.refused).toMatch(/outside the scope/);
   });
 });
 

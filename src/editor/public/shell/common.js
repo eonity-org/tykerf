@@ -81,12 +81,15 @@ export const docLink = (file) => `${DOCS}/${file}`;
 /** When something happened, in words: "just now", "5 minutes ago", or the date. */
 export function when(at) {
   const s = (Date.now() - new Date(at).getTime()) / 1000;
-  if (!(s >= 0)) return '';
+  if (!(s >= -60)) return '';
   if (s < 60) return t('just now');
   if (s < 3600) return Math.round(s / 60) === 1 ? t('a minute ago') : t('{n} minutes ago', { n: Math.round(s / 60) });
   if (s < 86400) return Math.round(s / 3600) === 1 ? t('an hour ago') : t('{n} hours ago', { n: Math.round(s / 3600) });
-  return new Date(at).toLocaleDateString();
+  return new Date(at).toLocaleDateString([], { day: 'numeric', month: 'short', year: new Date(at).getFullYear() === new Date().getFullYear() ? undefined : 'numeric' });
 }
+
+/** The one way tykerf says when (v4 round 2): relative under a day, the date beyond, the exact time on hover. */
+export const stamp = (at) => (at ? `<time datetime="${esc(at)}" title="${esc(new Date(at).toLocaleString([], { dateStyle: 'full', timeStyle: 'short' }))}">${esc(when(at))}</time>` : '');
 
 /** A file's size in words. */
 export const size = (b) => (b < 1024 ? `${b} B` : b < 1048576 ? `${Math.round(b / 1024)} KB` : `${(b / 1048576).toFixed(1)} MB`);

@@ -4,7 +4,7 @@
 // and the Overview's "Kaity lately" are the same thread, filtered. Runs she was asked for in words show as the
 // person's message and her answer; task runs and her own passes show as compact events. Each can be undone.
 
-import { $, esc, failed, kaityMark, plainLabel, request, store, t, toast, when } from './common.js';
+import { $, esc, failed, kaityMark, plainLabel, request, stamp, store, t, toast } from './common.js';
 import { createComposer, fileChip } from './composer.js';
 import { markdown } from '../markdown.js';
 
@@ -41,30 +41,112 @@ function dayOf(at) {
   if (d.toDateString() === y.toDateString()) return t('Yesterday');
   return d.toLocaleDateString();
 }
-const clock = (at) => new Date(at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+/**
+ * How a run came out (the server's `outcome`, kaity-log.ts outcomeOf), as a mark and a word: only a change gets ✓.
+ * Runs logged before outcomes were: worked out from their state.
+ */
+export function outcome(r) {
+  const o = r.outcome ?? (r.state === 'working' ? 'working' : r.state === 'done' ? (r.undoable || r.undone ? 'changed' : 'answered') : r.state === 'stopped' ? 'stopped' : 'failed');
+  if (r.review) return { o, cls: 'review', mark: '✓', word: t('Needs review') };
+  if (r.question !== undefined) return { o, cls: 'ask', mark: '?', word: t('Kaity asks') };
+  return {
+    working: { o, cls: 'working', mark: '', word: t('working') },
+    changed: r.undone ? { o, cls: '', mark: '↺', word: t('undone') } : { o, cls: 'ok', mark: '✓', word: t('done') },
+    asks: { o, cls: 'ask', mark: '?', word: t('asks first') },
+    declined: { o, cls: 'no', mark: '!', word: t('couldn\'t do it') },
+    answered: { o, cls: '', mark: '·', word: t('answered') },
+    failed: { o, cls: 'bad', mark: '×', word: t('not done') },
+    stopped: { o, cls: '', mark: '■', word: t('you stopped her') },
+  }[o] ?? { o, cls: '', mark: '·', word: '' };
+}
+
+/**
+ * What can be done about a run, on its item (the page's "Kaity on this page", the Kaity center): Keep and Undo for a
+ * change waiting for review, Undo for one done, the OK for a shared block she asks about, Widen to this page for a
+ * request she couldn't do in one box, a task she couldn't do asked on the whole page.
+ */
+export function itemActions(r) {
+  const out = [];
+  if (r.review) out.push(`<button type="button" class="btn small main" data-keep-run="${esc(r.run)}">${esc(t('Keep'))}</button>`);
+  if (r.undoable) out.push(`<button type="button" class="${r.review ? 'btn small' : 'link'}" data-undo-run="${esc(r.run)}">${esc(t('Undo'))}</button>`);
+  if (r.asks) out.push(`<button type="button" class="btn small main" data-ok-run="${esc(r.run)}" data-page="${esc(r.page)}">${esc(r.asks.pages.length === 1 ? t('Change it on that page') : t('Change it on the {n} pages', { n: r.asks.pages.length }))}</button>`);
+  if (r.widen) out.push(`<button type="button" class="btn small" data-widen-run="${esc(r.run)}" data-page="${esc(r.page)}" title="${esc(t('Send the same request again, on the whole page'))}">${esc(t('Widen to this page'))}</button>`);
+  if (r.kind === 'task' && outcome(r).o === 'declined' && r.page && r.question === undefined) out.push(`<button type="button" class="btn small" data-widen-task="${esc(r.task)}" data-page="${esc(r.page)}" title="${esc(t('Ask Kaity about the whole page instead'))}">${esc(t('Widen to this page'))}</button>`);
+  return out.join('');
+}
+
+/** What she needs from the person on the item: the pages a shared block's change reaches, or her question on a task. */
+export function itemNeeds(r) {
+  if (r.asks) return `<p class="note warn">${esc(r.asks.pages.length === 1 ? t('{block} is a shared block: changing it changes {pages} too.', { block: r.asks.block, pages: r.asks.pages.join(', ') }) : t('{block} is a shared block: changing it changes {n} pages ({pages}).', { block: r.asks.block, n: r.asks.pages.length, pages: r.asks.pages.join(', ') }))}</p>`;
+  if (r.question !== undefined) return `<p class="asked">${esc(r.question || r.answer || '')}</p>
+    <label class="vh" for="ans-${esc(r.run)}">${esc(t('Your answer to Kaity'))}</label>
+    <textarea id="ans-${esc(r.run)}" data-answer-for="${esc(r.run)}" rows="2" placeholder="${esc(t('Write the answer, or say how to work it out'))}"></textarea>
+    <div class="row"><button type="button" class="btn small primary" data-answer-run="${esc(r.run)}" data-page="${esc(r.page)}" data-task="${esc(r.task)}">${esc(t('Answer and continue'))}</button></div>`;
+  return '';
+}
+
+/**
+ * The clicks on a thread's items, wherever they are shown: Undo, Keep, the OK, Widen, an answer. `ask(page, n)`: a
+ * task she couldn't do in its box, asked on the whole page instead. Resolves true when the click was one of these.
+ */
+export async function threadAction(e, { ask = null } = {}) {
+  const b = e.target.closest('[data-undo-run], [data-keep-run], [data-ok-run], [data-widen-run], [data-answer-run], [data-widen-task]');
+  if (!b) return false;
+  const page = b.dataset.page;
+  try {
+    if (b.dataset.undoRun) {
+      const r = await request('/_tykerf/site/kaity/undo', { run: b.dataset.undoRun });
+      toast(r.result === 1 ? t('Undone: 1 change she made') : t('Undone: {n} changes she made', { n: r.result }));
+    } else if (b.dataset.keepRun) {
+      await request('/_tykerf/site/kaity/keep', { run: b.dataset.keepRun });
+      toast(t('Kept'));
+    } else if (b.dataset.okRun) {
+      await request(`/${encodeURIComponent(page)}/_tykerf/ask`, { again: b.dataset.okRun, ok: true });
+      toast(t('Kaity is on it: she may change the shared block now'));
+    } else if (b.dataset.widenRun) {
+      await request(`/${encodeURIComponent(page)}/_tykerf/ask`, { again: b.dataset.widenRun, scope: 'page' });
+      toast(t('Kaity is on it, on the whole page'));
+    } else if (b.dataset.answerRun) {
+      const ta = b.closest('li, .ti, article')?.querySelector('[data-answer-for]');
+      const answer = ta?.value.trim();
+      if (!answer) return ta?.focus(), true;
+      await request(`/${encodeURIComponent(page)}/_tykerf/taskrun/answer`, { n: Number(b.dataset.task), answer });
+    } else if (b.dataset.widenTask) {
+      if (ask) ask(page, Number(b.dataset.widenTask));
+      else location.assign(`/_tykerf/edit/${encodeURIComponent(page)}/?widen=${encodeURIComponent(b.dataset.widenTask)}`);
+    }
+  } catch (err) {
+    failed(err);
+  }
+  return true;
+}
 
 /** What the person sent: folded when it is long, with its files. */
 function youSaid(r, open) {
   const long = r.request.length > FOLD;
   return `<li class="ti you" data-run="${esc(r.run)}">
-    <p class="who"><b>${esc(t('You'))}</b>${scopeChip(r)}<span class="when">${esc(clock(r.at))}</span></p>
+    <p class="who"><b>${esc(t('You'))}</b>${scopeChip(r)}<span class="when">${stamp(r.at)}</span></p>
     <p class="req${long && !open ? ' folded' : ''}">${esc(r.request)}</p>
     ${long ? `<button type="button" class="link" data-unfold="${esc(r.run)}">${esc(open ? t('Show less') : t('Pasted text · {n} characters · Show all', { n: r.request.length.toLocaleString() }))}</button>` : ''}
     ${r.files?.length ? `<div class="files">${r.files.map((f) => `<a class="fchip" href="${fileUrl(r, f)}" target="_blank" rel="noopener">${esc(f.name ?? f.file)}</a>`).join('')}</div>` : ''}
   </li>`;
 }
 
-const undoBtn = (r) => (r.undoable ? `<button type="button" class="link" data-undo-run="${esc(r.run)}">${esc(t('Undo'))}</button>` : r.undone ? `<span class="note">${esc(t('Undone'))}</span>` : '');
 const stopBtn = (r) => `<button type="button" class="btn small" data-stop="${esc(r.page ?? '')}">${esc(t('Stop Kaity'))}</button>`;
 
-/** Her side: working now, her answer, or why she stopped. */
+/** Her side: working now, her answer (with how it came out), or why she couldn't. */
 function kaitySaid(r) {
-  const head = `<p class="who">${kaityMark(r.state === 'working', true)}<b>Kaity</b>${scopeChip(r)}<span class="when">${esc(clock(r.ended ?? r.at))}${r.steps ? ` · ${esc(steps(r.steps))}` : ''}</span></p>`;
+  const oc = outcome(r);
+  const head = `<p class="who">${kaityMark(r.state === 'working', true)}<b>Kaity</b>${scopeChip(r)}${oc.o !== 'working' ? `<span class="otag ${oc.cls}">${esc(oc.word)}</span>` : ''}<span class="when">${stamp(r.ended ?? r.at)}${r.steps ? ` · ${esc(steps(r.steps))}` : ''}</span></p>`;
   if (r.state === 'working') return `<li class="ti her working">${head}<p class="note" data-live="${esc(r.page ?? '')}">${esc(r.step ?? t('Starting…'))}</p><div class="row">${stopBtn(r)}</div></li>`;
-  const why = r.state === 'cut short' ? t('Cut short: tykerf stopped while she worked.') : r.state === 'stopped' ? t('Stopped.') : r.state === 'unfinished' ? t('She stopped before she finished: {why}', { why: r.error ?? '' }) : r.error ?? '';
-  return `<li class="ti her">${head}
-    ${r.answer ? `<div class="md">${markdown(r.answer)}</div>` : ''}${why ? `<p class="note${r.state === 'failed' ? ' bad' : ''}">${esc(why)}</p>` : ''}
-    <div class="row">${undoBtn(r)}${r.page && r.block ? `<a class="link" href="/_tykerf/edit/${encodeURIComponent(r.page)}/?conversation=${encodeURIComponent(r.block)}">${esc(t('Her conversation on {block}', { block: r.block }))}</a>` : ''}</div></li>`;
+  // why it didn't happen, in plain words: tykerf closed while she worked, a step limit, an error
+  const why = r.state === 'cut short' ? t('Cut short: tykerf was closed while she worked.') : r.state === 'stopped' ? '' : r.state === 'unfinished' ? t('She ran out of steps before she finished: {why}', { why: r.error ?? '' }) : r.error ?? '';
+  const cant = oc.o === 'declined' && !r.answer ? (r.note?.cant?.reason ?? r.note?.refused ?? '') : '';
+  return `<li class="ti her ${oc.cls}">${head}
+    ${r.answer ? `<div class="md">${markdown(r.answer)}</div>` : ''}${cant ? `<p class="note">${esc(cant)}</p>` : ''}${why ? `<p class="note${r.state === 'failed' ? ' bad' : ''}">${esc(why)}</p>` : ''}
+    ${itemNeeds(r)}
+    <div class="row">${itemActions(r)}${r.page && r.block ? `<a class="link" href="/_tykerf/edit/${encodeURIComponent(r.page)}/?conversation=${encodeURIComponent(r.block)}">${esc(t('Her conversation on {block}', { block: r.block }))}</a>` : ''}</div></li>`;
 }
 
 /** A run she wasn't asked for in words (a task, finishing what she left, going on): one compact line. */
@@ -72,11 +154,11 @@ function eventLine(r) {
   const title = r.kind === 'task' ? t('Task {n}: {what}', { n: r.task, what: gist(r.answer || r.request) })
     : r.kind === 'fix' ? t('Finished what was left: {what}', { what: gist(r.answer || '…') })
     : t('Went on: {what}', { what: gist(r.answer || '…') });
-  const ok = r.state === 'done' && !r.undone;
-  return `<li class="ti event${r.state === 'working' ? ' working' : ''}">
-    <span class="tick${ok ? ' ok' : ''}" aria-hidden="true">${r.state === 'working' ? kaityMark(true, true) : ok ? '✓' : '·'}</span>
-    <div><p class="etitle">${esc(title)}</p><p class="emeta">${scopeChip(r)}<span>${esc(r.state === 'working' ? r.step ?? t('working') : [when(r.ended ?? r.at), steps(r.steps)].filter(Boolean).join(' · '))}</span></p></div>
-    <div class="eacts">${r.state === 'working' ? stopBtn(r) : undoBtn(r)}</div>
+  const oc = outcome(r);
+  return `<li class="ti event ${oc.cls}${r.state === 'working' ? ' working' : ''}">
+    <span class="tick ${oc.cls}" aria-hidden="true">${r.state === 'working' ? kaityMark(true, true) : esc(oc.mark)}</span>
+    <div><p class="etitle">${esc(title)}</p><p class="emeta">${scopeChip(r)}${oc.word && oc.o !== 'working' ? `<span class="otag ${oc.cls}">${esc(oc.word)}</span>` : ''}<span>${r.state === 'working' ? esc(r.step ?? t('working')) : `${stamp(r.ended ?? r.at)}${r.steps ? ` · ${esc(steps(r.steps))}` : ''}`}</span></p>${itemNeeds(r)}</div>
+    <div class="eacts">${r.state === 'working' ? stopBtn(r) : itemActions(r)}</div>
   </li>`;
 }
 
@@ -121,7 +203,8 @@ export function createThreadView({ full = false, page = null, filter = null, onA
   const el = document.createElement('div');
   el.className = `kview${full ? ' full' : ''}`;
   const S = { data: null, filter: filter ?? store.get('kaityFilter', 'all'), unfolded: new Set() };
-  if (page && !filter) S.filter = 'all';
+  // opened from a page: that page's part of the thread, and the composer on that page (the filters show the rest)
+  if (page && !filter) S.filter = page;
   const list = document.createElement('div');
   list.className = 'kscroll';
   const filters = document.createElement('div');
@@ -181,16 +264,7 @@ export function createThreadView({ full = false, page = null, filter = null, onA
     }
     const un = e.target.closest('[data-unfold]')?.dataset.unfold;
     if (un) return S.unfolded.has(un) ? S.unfolded.delete(un) : S.unfolded.add(un), render();
-    const undo = e.target.closest('[data-undo-run]')?.dataset.undoRun;
-    if (undo) {
-      try {
-        const r = await request('/_tykerf/site/kaity/undo', { run: undo });
-        toast(r.result === 1 ? t('Undone: 1 change she made') : t('Undone: {n} changes she made', { n: r.result }));
-      } catch (err) {
-        failed(err);
-      }
-      return reload();
-    }
+    if (await threadAction(e)) return reload();
     const stop = e.target.closest('[data-stop]');
     if (stop) return request(stop.dataset.stop ? `/${encodeURIComponent(stop.dataset.stop)}/_tykerf/ask/cancel` : '/_tykerf/site/ask/cancel', {}).catch(failed);
     const tk = e.target.closest('[data-tasks]')?.dataset.tasks;
@@ -266,8 +340,8 @@ export function createKaityCenter({ page = null, onToggle = () => {} } = {}) {
   async function summary() {
     const d = await loadThread().catch(() => null);
     if (!d) return;
-    const done = d.items.filter((r) => r.state !== 'working').length;
-    $('.ksum', el).textContent = t('{n} running · {m} done', { n: d.running, m: done });
+    const parts = [d.running ? t('{n} working', { n: d.running }) : '', d.waiting ? t('{n} waiting for you', { n: d.waiting }) : ''].filter(Boolean);
+    $('.ksum', el).textContent = parts.join(' · ');
   }
   el.addEventListener('click', (e) => e.target.closest('[data-kc="close"]') && api.close());
   el.addEventListener('keydown', (e) => e.key === 'Escape' && api.close());
@@ -299,7 +373,9 @@ export const kaityScreen = {
   async render(main) {
     const q = new URLSearchParams(location.search);
     main.innerHTML = `<header class="khead page"><h1>${esc(t('Kaity center'))}</h1><p class="note">${esc(t('Everything Kaity was asked and did, on the whole site and on every page, oldest first: the newest is at the bottom, next to where you write.'))}</p></header>`;
-    fullView = createThreadView({ full: true, page: null, filter: q.get('filter') ?? null });
+    // from a page (?from=juanpri): its part of the thread first, and the composer on it
+    const from = q.get('from');
+    fullView = createThreadView({ full: true, page: from || null, filter: q.get('filter') ?? null });
     main.append(fullView.el);
     await fullView.reload();
     fullView.composer.focus();

@@ -37,11 +37,11 @@ Open http://localhost:4400 (another port: add `--port 4500`). A new site opens o
 
 The quickest way, and the first choice when Kaity is ready. Five questions, each one optional:
 
-1. **What is the page?** A place, a person, an event, an organisation, a concept, a post, a guide, or something else.
+1. **What is the page?** A place, a person, an event, an organisation, a concept, a post, a guide, or something else. Nothing is chosen at first; a second click takes a choice back. It is the same choice as *What the page is* in **Start from a kind of page**: switching tabs keeps it.
 2. **Who is it for, and what should they do?**
 3. **What must it include?** The sections that kind of page usually has are suggested, ticked: untick what you don't need, add your own.
 4. **How should it sound?** Professional, warm, bold, minimal or playful.
-5. **Anything else? Show her what you mean.** Write it, and **Attach files**: a screenshot of a page you like, a sketch, your CV as a PDF, or a design exported as a ZIP file (from Google Stitch, for example: Kaity gets its pictures and reads its text files to follow its colours, fonts and sections).
+5. **Anything else? Show her what you mean.** Write it, and **Attach** (the clip, as in every box to ask Kaity): a screenshot of a page you like, a sketch, your CV as a PDF, or a design exported as a ZIP file (from Google Stitch, for example: Kaity gets its pictures and reads its text files to follow its colours, fonts and sections).
 
 *What Kaity will get*, beside them, is the brief your answers make. It is exactly what she receives, and you can write over it:
    > A place page for neighbours who want good bread, who should come to the shop.
@@ -81,7 +81,7 @@ Read [what you may do with a copy](importing.md#what-you-may-do-with-the-copy) b
 
 ### 3. Start from a kind of page
 
-Pick what the page is (a place, a person, an event, an organisation, a concept, a post or a guide, or *Just the frame* to start almost empty), what holds it (*Simple*, *Basic* or *Full*, drawn small), and its theme. The **live preview** beside your choices follows every change, at desktop, tablet or phone width; **Full size** shows it over the whole window, and *Back to choices* keeps everything you chose. Then **Create … and open it** and replace the placeholder text and images, or **Then ask Kaity to fill it**: the page opens with the box to ask her about it ready ("fill this page for a bakery in Murcia").
+Pick what the page is (a place, a person, an event, an organisation, a concept, a post or a guide, or *Just the frame* to start almost empty; until you pick one, the preview shows just the frame), what holds it (*Simple*, *Basic* or *Full*, drawn small), and its theme. The **live preview** beside your choices follows every change, at desktop, tablet or phone width; **Full size** shows it over the whole window, and *Back to choices* keeps everything you chose. Then **Create … and open it** (it stays at the bottom of the screen) and replace the placeholder text and images, or **Then ask Kaity to fill it**: the page opens with the box to ask her about it ready ("fill this page for a bakery in Murcia").
 
 The seven themes each suit a tone: *Studio* (airy, modern), *Ivory* (editorial, warm paper), *Natural* (outdoors, green and clay), *Vivid* (loud, one strong colour), *Civic* (plain and clear, easy for everyone to read), *Playful* (friendly, round, pastel) and *Dark* (for developers). Any page works with any theme, so the pair sets the page's colour, type and density.
 
@@ -104,7 +104,7 @@ None of these locks you in. Every page, however it started, is the same kind of 
 
 ## More pages
 
-**+ New page**, at the top of the side panel and on the Overview, opens New page with the same ways, and one more: **Like a page of this site**. The side panel shows the new page as *being set up* until you make it. A new page from a kind of page gets the site's navigation and footer, shared: change them once and every page follows (see the [site kit](sites.md#the-site-kit)).
+**+ New page**, on the Overview and in the side panel (on a page, in its *Site* section), opens New page with the same ways, and one more: **Like a page of this site**. The side panel shows the new page as *being set up* until you make it. A new page from a kind of page gets the site's navigation and footer, shared: change them once and every page follows (see the [site kit](sites.md#the-site-kit)).
 
 **One theme for the whole site.** All the pages of a site share the theme the first page set: its colours, fonts and spacing. Change it in the full editor's **Page** tab of any page and every page follows. A page can still set its own colours or fonts with *This page only*, and the Page tab always says whether a page's look is inherited from the site (see [the theme](layouts.md#the-theme)).
 

@@ -21,6 +21,7 @@ import { removeMediaFile, siteMedia } from '../site.js';
 import { HOME_PAGE, type SiteBrief, setBrief, setFrame, recordFrame, blockUsers, linkBlock, newSitePage, pageTitle, pagesWithOwnTheme, pageWorkspace, readSite, setLang, setTitle, shareTheme, removePage, renamePage, shareBlock, movedFiles, siteHead, siteKind, unlinkBlock, unsafeSVG, siteOf, sitePages, usePage } from '../site.js';
 import { DEFAULT_THEME, behavioursIn, componentCode, componentNotes, copyBehaviours, components, createPage, fontWarning, hasTheme, DEFAULT_FRAME, frameOf, frames, layoutSections, layoutShared, libraryBehaviours, offeredLayouts, pageLayout, pageLayouts, pagePurpose, purposeOf, purposeSkill, purposes, readOverrides, readTheme, setTheme, themeTarget, themes, offeredThemes, useComponent, useLayout } from '../library.js';
 import { FolderStore, MemoryStore } from '../store.js';
+import { type RunNote, addNote } from '../run-note.js';
 import { Workspace } from '../workspace.js';
 import { addFile, readSource } from '../files.js';
 import { checkSite, sayFindings } from '../check-site.js';
@@ -127,13 +128,18 @@ export interface TykerfServerOptions {
   mark?: string | null;
   /** Only the tools that look (and close_task, ask_person): Kaity answering a question changes nothing. */
   readOnly?: boolean;
+  /**
+   * The shared blocks the person said this run may change (the thread's "Change it on every page"): in an editor run
+   * on a whole page, a change to any other shared block is refused and waits for their OK (run-note.ts).
+   */
+  sharedOk?: string[] | null;
 }
 
 /** Where ask_person leaves a task run's question for the editor (ai.ts reads it when the run ends). */
 export const askFile = (tag: string) => `.tykerf/asks/${encodeURIComponent(tag)}.json`;
 
 /** The tools a read-only server keeps besides those that only look. */
-const READ_ONLY_TOO = new Set(['close_task', 'ask_person']);
+const READ_ONLY_TOO = new Set(['close_task', 'ask_person', 'cant_do']);
 
 /** The tools that answer with no folder open: they need no page. */
 const FOLDERLESS = new Set(['open_folder', 'list_themes', 'list_layouts', 'list_components', 'get_skill']);
@@ -293,30 +299,50 @@ export function createTykerfServer(start: Workspace | null, opts: TykerfServerOp
   }
   const scope = (l?: Layout) => scopeInfo(l)?.id ?? null;
 
+  /** A run of Kaity's in the editor (its changes carry a tag): it leaves a note of what it couldn't do (run-note.ts). */
+  const runTag = opts.tag ?? opts.mark ?? null;
+  const editorRun = !!runTag;
+  /** Where the note goes: the site's folder (the editor reads it there for a page or the whole site), else the page's. */
+  const note = (n: RunNote) => {
+    if (!runTag) return;
+    try {
+      addNote(ws.site ? new FolderStore(ws.site.dir) : ws.store, runTag, n);
+    } catch {}
+  };
+  /** A change refused for being outside the scope: noted, so the run doesn't read as done. */
+  const refusal = (m: string) => (note({ refused: m.replace(/^refused: /, '').slice(0, 300) }), new Error(m));
+
   /** Save a change if it stays inside the scope (when one is set) and passes the box types. */
   function commit(prev: Layout, next: Layout, label: string, scopeNext?: string) {
     const sc = scope(prev);
     if (sc) {
       const v = scopeViolation(prev, next, sc, scopeNext ?? sc);
-      if (v) throw new Error(`refused: ${v}. Only "${pathOf(prev, sc)}" may change; ask the user to widen the scope.`);
+      if (v) throw refusal(`refused: ${v}. Only "${pathOf(prev, sc)}" may change; ask the user to widen the scope.`);
     }
     ws.save(next, label);
   }
 
   function assertInScope(l: Layout, target: string) {
     const sc = scope(l);
-    if (sc && !inScope(l, sc, target)) throw new Error(`refused: "${target}" is outside the scope "${pathOf(l, sc)}"; ask the user to widen the scope.`);
+    if (sc && !inScope(l, sc, target)) throw refusal(`refused: "${target}" is outside the scope "${pathOf(l, sc)}"; ask the user to widen the scope.`);
   }
 
-  /** A box that shows a shared block changes every page that shows it: only from a run on the whole site. */
   /**
-   * A shared block changes every page that shows it: as for the theme, only when the scope is the whole page (or
-   * there is none). Inside a smaller block the change is refused, with the ways on.
+   * A shared block changes every page that shows it. Inside a block smaller than the page the change is refused, with
+   * the ways on. In an editor run on the whole page it waits for the person's OK (sharedOk): the run ends saying which
+   * pages it would reach, and the thread offers to send the request again with the OK. The same rule at every scope.
    */
   function assertMayChangeShared(l: Layout, target: string) {
     const use = ws.sharedBlock(target, l);
     const sc = scope(l);
-    if (use && sc && sc !== l.root.id) throw new Error(`refused: "${target}" shows the shared block "${use}", which other pages of the site show too, and the scope is "${sc}". Changing it is for a request about every page: ask the user to select the page block ("${l.root.id}"); if only this page should change, ask them to make it this page's own copy first (right-click → Make this page's own copy)`);
+    if (!use || !sc) return;
+    if (sc !== l.root.id) throw refusal(`refused: "${target}" shows the shared block "${use}", which other pages of the site show too, and the scope is "${sc}". Changing it is for a request about every page: say so in one sentence; the user can widen the request to the whole page with one click. If only this page should change, they can make it this page's own copy first (right-click → Make this page's own copy)`);
+    if (!editorRun || opts.sharedOk?.includes(use)) return;
+    const pages = ws.site ? Object.keys(blockUsers(ws.site.dir, use)) : [];
+    // only this page shows it (a site's first page): nothing else changes, so nothing to ask
+    if (!pages.some((p) => p !== ws.pageName)) return;
+    note({ shared: { block: use, pages } });
+    throw new Error(`refused: "${target}" shows the shared block "${use}", which ${pages.length === 1 ? 'the page' : `${pages.length} pages`} ${pages.join(', ')} show. A change to it reaches every one of them, so it waits for the user's OK: don't change it, and don't work around it. Finish what else was asked, then say in one sentence that this part would change ${pages.length === 1 ? 'that page' : `those ${pages.length} pages`}; the user can OK it with one click`);
   }
 
   /** After a change to a box that shows a shared block, what it reached: "" or "; shared block nav: this changes 3 pages (a, b, c)". */
@@ -417,7 +443,7 @@ export function createTykerfServer(start: Workspace | null, opts: TykerfServerOp
     const l = ws.load();
     const sc = scope(l);
     const root = l.root.id;
-    if (sc && sc !== root) throw new Error(`refused: the theme changes the whole page, and the scope is "${sc}". Ask the user to select the page block ("${root}") to change the theme, or restyle "${sc}" in its own code.`);
+    if (sc && sc !== root) throw refusal(`refused: the theme changes the whole page, and the scope is "${sc}". Ask the user to select the page block ("${root}") to change the theme, or restyle "${sc}" in its own code.`);
   }
 
   server.registerTool('get_theme', { title: 'Read the theme', annotations: READ, description: 'The page theme: CSS variables (colours, fonts, radius, spacing, content width) that every box uses, as name: value. Empty when the page has no theme.' },
@@ -530,7 +556,7 @@ export function createTykerfServer(start: Workspace | null, opts: TykerfServerOp
     return ws.transaction(() => {
       const l = ws.load();
       const sc = scope(l);
-      if (sc && sc !== l.root.id) throw new Error(`refused: a layout replaces the whole page, and the scope is "${sc}". Ask the user to select the page block ("${l.root.id}").`);
+      if (sc && sc !== l.root.id) throw refusal(`refused: a layout replaces the whole page, and the scope is "${sc}". Ask the user to select the page block ("${l.root.id}").`);
       // a theme given here is applied too (models pass it rather than calling use_theme after)
       const preset = themeName ? themes().find((t) => t.name === themeName) : undefined;
       if (themeName && !preset) throw new Error(`unknown theme "${themeName}" (known: ${offeredThemes().map((t) => t.name).join(', ')})`);
@@ -558,7 +584,7 @@ export function createTykerfServer(start: Workspace | null, opts: TykerfServerOp
     if (!(ws.store instanceof FolderStore) || !ws.site) throw new Error('this page is not part of a site, so there is no other page to copy');
     const l = ws.load();
     const sc = scope(l);
-    if (sc && sc !== l.root.id) throw new Error(`refused: copying a page replaces the whole page, and the scope is "${sc}". Ask the user to select the page block ("${l.root.id}").`);
+    if (sc && sc !== l.root.id) throw refusal(`refused: copying a page replaces the whole page, and the scope is "${sc}". Ask the user to select the page block ("${l.root.id}").`);
     usePage(ws, dirname(ws.dir), page, { theme: withTheme, author: 'ai' });
     return `ok: the page now has the blocks of "${page}"${withTheme ? ', and its theme' : ''}; rewrite their text for this page\n\n${outline(ws.load())}`;
   })));
@@ -588,7 +614,7 @@ export function createTykerfServer(start: Workspace | null, opts: TykerfServerOp
     const sc = scope(l);
     const themed = hasTheme(ws.siteHead() + ws.head());
     if (!themed && sc && sc !== l.root.id)
-      throw new Error(`refused: this page has no theme yet, and adding its variables changes the page head, which is outside the scope "${sc}". Ask the user to select the page block ("${l.root.id}"), or to use the component from the editor panel.`);
+      throw refusal(`refused: this page has no theme yet, and adding its variables changes the page head, which is outside the scope "${sc}". Ask the user to select the page block ("${l.root.id}"), or to use the component from the editor panel.`);
     useComponent(ws, target, name, 'ai');
     const use = components().find((c) => c.name === name)?.use;
     return `ok: "${target}" now holds the ${name} component${themed ? '' : ' (the theme variables were added to the page head)'}${use ? `\nHow to use it: ${use}` : ''}\n\n${ws.content(target)}`;
@@ -971,7 +997,7 @@ export function createTykerfServer(start: Workspace | null, opts: TykerfServerOp
     if (!name) throw new Error('no page is open: say which page (list_pages lists them)');
     const l = ws.load();
     const sc = scope(l);
-    if (sc && sc !== l.root.id) throw new Error(`refused: the title is the whole page's, and the scope is "${sc}". Ask the user to select the page block ("${l.root.id}") to change it.`);
+    if (sc && sc !== l.root.id) throw refusal(`refused: the title is the whole page's, and the scope is "${sc}". Ask the user to select the page block ("${l.root.id}") to change it.`);
     if (runScope && name !== open) throw new Error(`refused: this run works on the page "${open}"`);
     setTitle(site, name, title, 'ai');
     return readSite(site).titles[name] ? `ok: "${name}" is titled "${pageTitle(site, name)}"` : `ok: "${name}" is titled by its first heading again: "${pageTitle(site, name)}"`;
@@ -1013,7 +1039,7 @@ export function createTykerfServer(start: Workspace | null, opts: TykerfServerOp
     if (ws.store.exists('layout.slice')) {
       const l = ws.load();
       const sc = scope(l);
-      if (sc && sc !== l.root.id) throw new Error(`refused: the site's settings are the whole site's, and the scope is "${sc}". Ask the user to select the page block ("${l.root.id}") to change them.`);
+      if (sc && sc !== l.root.id) throw refusal(`refused: the site's settings are the whole site's, and the scope is "${sc}". Ask the user to select the page block ("${l.root.id}") to change them.`);
     }
     const given = Object.entries(a).filter(([k, v]) => Object.hasOwn(SITE_SETTINGS, k) && typeof v === 'string');
     if (!given.length) throw new Error(`nothing to change: give ${Object.keys(SITE_SETTINGS).join(', ')}`);
@@ -1308,6 +1334,20 @@ export function createTykerfServer(start: Workspace | null, opts: TykerfServerOp
     }
     return `closed ${sayTask(closeTask(ws, n, 'ai', reply, scope(), suggest))}`;
   }));
+
+  if (editorRun) {
+    server.registerTool('cant_do', {
+      title: 'Say you can\'t do it', annotations: { readOnlyHint: true, openWorldHint: false },
+      description: 'When you can\'t do what was asked: it needs blocks outside the one you may change, a shared block, another page, or something these tools can\'t do. Say why in one sentence, and which scope would let you do it (page: the whole page; site: the whole site). Then end your turn without changing anything: the person sees it as not done, with a way to widen the request.',
+      inputSchema: {
+        reason: z.string().min(1).max(400).describe('why, in one sentence the person will read'),
+        widen: z.enum(['page', 'site']).optional().describe('the scope that would let you do it, if any'),
+      },
+    }, guard(({ reason, widen }: { reason: string; widen?: 'page' | 'site' }) => {
+      note({ cant: { reason: reason.trim(), ...(widen ? { widen } : {}) } });
+      return 'noted: end your turn now, saying in one sentence why you can\'t do it; change nothing';
+    }));
+  }
 
   if (opts.tag) {
     const tag = opts.tag;

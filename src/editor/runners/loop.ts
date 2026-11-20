@@ -119,7 +119,7 @@ export function runLoop<M>(runner: string, wire: Wire<M>, req: RunRequest, on: R
     // what has been said so far, kept whatever ends the run: a run stopped half-way is continued knowing what it did
     let keepSoFar: (() => void) | null = null;
     try {
-      tools = await openTools(req.ws, req.scope, req.home, { tag: req.tag, mark: req.mark, readOnly: req.readOnly });
+      tools = await openTools(req.ws, req.scope, req.home, { tag: req.tag, mark: req.mark, readOnly: req.readOnly, sharedOk: req.sharedOk });
       const saved = req.memory.load() as Memory<M> | null;
       const past = saved?.runner === runner ? saved.exchanges : [];
       const now: M[] = [wire.user(req.prompt, req.images)];

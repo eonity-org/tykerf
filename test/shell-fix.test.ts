@@ -1,4 +1,4 @@
-// Fixing one thing by hand in the v4 editor (shell/fix.js): only the element clicked, in the side panel beside the
+// Fixing one thing by hand in the v4 editor (shell/fix.js): only the element clicked, in the rail's section beside the
 // page, saved into its box's code; the bigger fixes in the full editor, on the box and the tab for them; what tykerf
 // draws at its own size over a page shown smaller; and the right-click menu's small changes.
 
@@ -53,8 +53,9 @@ describe('fixing by hand in the v3 editor', () => {
     await panel().locator('.fxtitle').waitFor();
     expect(await panel().locator('.fxtitle').textContent()).toBe('the link "The main action"');
     expect(await page.locator('.pstatus .status').textContent()).toContain('Fixing by hand · the link "The main action"');
-    // in the side panel, beside the page: the page keeps its width
-    expect(await page.locator('.pside .fixbar').isVisible()).toBe(true);
+    // in the rail's section, beside the page: the page keeps its width
+    expect(await page.locator('.rail [data-section="fix"] .fixbar').isVisible()).toBe(true);
+    expect(await page.locator('.rail [data-acc="fix"] .acc-t').textContent()).toBe('Fixing by hand · the link "The main action"');
     expect(await panel().locator('.fxnote').last().textContent()).toBe('hero is the same on second. This fix stays on first unless you share the box.');
     await panel().locator('[name="text"]').fill('Start for free');
     await panel().locator('[name="href"]').selectOption('#sw-pricing');
@@ -73,15 +74,17 @@ describe('fixing by hand in the v3 editor', () => {
     expect(await panel().locator('.fxmore a').evaluateAll((a) => a.map((x) => x.getAttribute('href')))).toEqual([`${full}&tab=size`, `${full}&tab=text`, `${full}&tab=code`, full]);
     await panel().locator('[data-full="code"]').click();
     await page.waitForURL(/\/_tykerf\/edit\/first\/\?mode=full$/);
-    await expect.poll(() => frame().locator('.work .w-name').inputValue()).toBe('hero');
-    expect(await frame().locator('.work .tabs [data-tab="code"]').getAttribute('aria-selected')).toBe('true');
+    // its inspector is in the rail's Block section (round 2: nothing on the page's right)
+    await expect.poll(() => page.locator('#tykerf-inspector .work .w-name').inputValue()).toBe('hero');
+    expect(await page.locator('#tykerf-inspector .work .tabs [data-tab="code"]').getAttribute('aria-selected')).toBe('true');
+    expect(await page.locator('.rail [data-acc="block"] .acc-t').textContent()).toBe('Block: hero');
     // the quick fix has no copies of those editors
     await page.locator('.bar .modes a', { hasText: 'Tasks' }).click();
     await page.waitForURL(/\/_tykerf\/edit\/first\/$/);
     await frame().locator('[data-sw="hero"]').waitFor();
   });
 
-  it('opens beside the page, in the side panel, and the page is not covered or moved', async () => {
+  it('opens beside the page, in the rail, and the page is not covered or moved', async () => {
     const before = await page.locator('.frame').evaluate((f: HTMLIFrameElement) => f.contentWindow!.innerWidth);
     await frame().locator('[data-sw="hero"] h1').click({ button: 'right' });
     await page.locator('.ctxmenu [data-ctx="hand"]').click();
@@ -89,9 +92,9 @@ describe('fixing by hand in the v3 editor', () => {
     expect(await panel().locator('[data-view], [data-mode]').count()).toBe(0);
     expect(await page.locator('.frame').evaluate((f: HTMLIFrameElement) => f.contentWindow!.innerWidth)).toBe(before);
     const p = (await panel().boundingBox())!, stage = (await page.locator('.stage').boundingBox())!;
-    expect(p.x).toBeGreaterThanOrEqual(stage.x + stage.width);
-    // the page's tasks and Kaity wait under it while fixing
-    expect(await page.locator('.pcards').isHidden()).toBe(true);
+    expect(p.x + p.width).toBeLessThanOrEqual(stage.x);
+    // nothing is docked on the page's right
+    expect(await page.locator('.pside').count()).toBe(0);
   });
 
   it('leaves it as a task for Kaity instead', async () => {
@@ -111,7 +114,7 @@ describe('fixing by hand in the v3 editor', () => {
     await page.goto(page.url().replace(/\?.*$/, ''));
     await frame().locator('[data-sw="hero"] h1').waitFor();
     await page.locator('.bar [data-device="tablet"]').click();
-    // laid out at 768 px, shown smaller to fit the column beside the rail and the side panel
+    // laid out at 768 px, shown smaller to fit the column beside the rail
     await expect.poll(() => page.locator('.frame').evaluate((f: HTMLIFrameElement) => f.contentWindow!.innerWidth)).toBe(768);
     expect(await page.locator('.viewport').evaluate((v) => getComputedStyle(v).transform)).toMatch(/^matrix\(0\.[5-9]/);
     await frame().locator('[data-sw="hero"] h1').click();

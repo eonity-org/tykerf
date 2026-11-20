@@ -23,6 +23,7 @@ import { type TaskNow, sayTask, tasks } from '../tasks.js';
 import { insideSignature } from '../scope.js';
 import { FolderStore } from '../store.js';
 import { logEnd, logStart, runId } from './kaity-log.js';
+import { type RunNote, takeNote } from '../run-note.js';
 import type { Change, Workspace } from '../workspace.js';
 
 const MCP_SERVER = join(dirname(fileURLToPath(import.meta.url)), '..', 'mcp', 'server.ts');
@@ -62,7 +63,7 @@ If the box has a type, follow it (get_types), and reuse the pattern of sibling b
 For a new section (hero, features, FAQ, pricing, footer...), start from a ready-made component (list_components, use_component) and adapt its text and images, instead of writing it from scratch.
 If the page has a theme (CSS variables such as --color-accent, --color-surface, --font-heading, --radius, --gap, --max-width; sibling boxes use them), use those variables instead of fixed colours and fonts, so the page stays consistent and the theme can restyle it: sizes from --text-hero, --text-title, --text-lead; section padding from --space-section; buttons rounded by --radius-button. Paint a section's background with var(--section-bg, transparent), so the band tones work: tag a section #tone-alt, #tone-soft or #tone-dark (at most one or two dark bands per page) to alternate bands. Images the boxes use live in assets/.
 Every link needs a real target: a section of this page (give the section an id and link to #that-id) or a page of the site (/page/). A link to a page the site doesn't have yet (a sign-up page, an about page) points at the address that page will have (/signup/), and your answer names those pages, so the user can make them: never leave a link at # or empty. A profile or page on another website (Instagram, a map) is linked at its full address (https://instagram.com/…), never as a page of this site.
-To change those colours, fonts or spacing for the whole page, use get_theme and set_theme; that is only allowed when the request is about the whole page (the page block is selected). From a smaller block, say that the user can select the page block for page-wide changes.`;
+To change those colours, fonts or spacing for the whole page, use get_theme and set_theme; that is only allowed when the request is about the whole page (the page block is selected). From a smaller block, call cant_do with widen "page": the user can widen the request to the whole page with one click.`;
 
 /**
  * What the person has in the editor to send Kaity things, so she only ever mentions controls that exist (she once
@@ -89,6 +90,8 @@ export interface RunRequest {
   mark?: string;
   /** Only the tools that look: Kaity answering a question changes nothing. */
   readOnly?: boolean;
+  /** The shared blocks the person OK'd changing on every page (tools.ts sharedOk). */
+  sharedOk?: string[];
 }
 
 /**
@@ -198,7 +201,7 @@ export class ClaudeCodeRunner implements Runner {
       on.end();
       return { cancel: () => {} };
     }
-    const args = ['tsx', MCP_SERVER, '--dir', req.dir, ...(req.scope ? ['--scope', req.scope] : []), ...(req.tag ? ['--tag', req.tag] : []), ...(req.mark ? ['--mark', req.mark] : []), ...(req.readOnly ? ['--read-only'] : [])];
+    const args = ['tsx', MCP_SERVER, '--dir', req.dir, ...(req.scope ? ['--scope', req.scope] : []), ...(req.tag ? ['--tag', req.tag] : []), ...(req.mark ? ['--mark', req.mark] : []), ...(req.readOnly ? ['--read-only'] : []), ...(req.sharedOk?.length ? ['--shared-ok', req.sharedOk.join(',')] : [])];
     const cfg = JSON.stringify({ mcpServers: { tykerf: { command: 'npx', args } } });
     // The request goes in on stdin as a stream-json user message, so it can carry pictures.
     const argv = ['-p', '--input-format', 'stream-json', '--output-format', 'stream-json', '--verbose', '--tools', '', '--strict-mcp-config',
@@ -305,12 +308,16 @@ export interface RunOptions {
   onEnd?(r: RunEnd): void;
   /** A run Kaity was not asked for in words (the thread shows it as an event, not as the person's message). */
   origin?: 'fix' | 'continue';
+  /** The shared blocks the person OK'd changing on every page (the thread's "Change it on every page"). */
+  sharedOk?: string[];
+  /** The run this one sends again (Widen, or with the OK for a shared block): the thread shows them together. */
+  again?: string;
 }
 
 /** What a request left unfinished (a check in the block's conversation, found again by its time). */
 export interface CheckNote { at: string; items: { key: string; text: string }[] }
 /** `unfinished`: it stopped for a passing reason (too many steps, a slow or busy model) and couldn't go on by itself: Continue picks it up. */
-export interface RunEnd { answer: string; error: string; failed: boolean; stopped: boolean; unfinished?: boolean; check?: CheckNote }
+export interface RunEnd { answer: string; error: string; failed: boolean; stopped: boolean; unfinished?: boolean; check?: CheckNote; note?: RunNote }
 
 /** How many times a run that stopped for a passing reason goes on by itself (TYKERF_CONTINUES; 0: never). */
 export function maxContinues(env: NodeJS.ProcessEnv = process.env): number {
@@ -327,7 +334,7 @@ function continuePrompt(why: string): string {
 }
 
 /** Steps that only look (read, list, check, look at): a stretch of only these changed nothing. */
-const LOOKING = /^(refused: |get |list |resolve|estimate|screenshot|evaluate|check |render|focus|unfocus)/;
+const LOOKING = /^(refused: |get |list |resolve|estimate|screenshot|evaluate|check |render|focus|unfocus|cant do|close task|ask person|open page)/;
 
 export class AI {
   private run: { cancel(): void; id: string; since: string; key: string; steps: number; step?: string; stopped?: boolean } | null = null;
@@ -482,7 +489,7 @@ export class AI {
     const mark = opts.tag ?? `run-${run.key}`;
     const scope = site ? 'site' : id === this.ws.load().root.id ? 'page' : 'box';
     const attached = files.map((file, i) => ({ file, ...(images[i].name ? { name: images[i].name } : {}) }));
-    if (logSite) logStart(logSite, { run: run.key, page: site ? null : (this.ws.pageName ?? null), block: site ? null : id, scope, tag: mark, ...(opts.origin ? { origin: opts.origin } : {}), request: prompt.trim(), ...(attached.length ? { files: attached } : {}), ...(this.runTasks ? { tasks: this.runTasks } : {}) });
+    if (logSite) logStart(logSite, { run: run.key, page: site ? null : (this.ws.pageName ?? null), block: site ? null : id, scope, tag: mark, ...(opts.origin ? { origin: opts.origin } : {}), ...(opts.again ? { again: opts.again } : {}), ...(opts.readOnly ? { onlyAsked: true as const } : {}), ...(opts.sharedOk?.length ? { sharedOk: opts.sharedOk } : {}), request: prompt.trim(), ...(attached.length ? { files: attached } : {}), ...(this.runTasks ? { tasks: this.runTasks } : {}) });
     let answer = '', problem = '';
     if (brief) this.briefs.set(id, brief);
     else this.briefs.delete(id);
@@ -492,6 +499,7 @@ export class AI {
     const continues = maxContinues();
     let stretch = run.since;
     let changes = 0;
+    let acted = 0; // her steps that changed something, over the whole run (a run on the whole site: its kit too)
     let unfinished = false;
     // a block is locked for the editor while Kaity works on it; a run on the whole site has no block
     const unlock = site ? () => {} : this.ws.addGuard(lockBlock(() => this.follow()));
@@ -510,12 +518,13 @@ export class AI {
     };
     const start = (text: string, pictures: Attachment[]) => {
       let done = false;
-      run.cancel = this.runner.start({ ws: this.ws, dir, scope: site ? '' : run.id, home: site, system, prompt: text, images: pictures, session: this.chat(now()).session, memory, ...(opts.tag ? { tag: opts.tag } : { mark }), ...(opts.readOnly ? { readOnly: true } : {}) }, {
+      run.cancel = this.runner.start({ ws: this.ws, dir, scope: site ? '' : run.id, home: site, system, prompt: text, images: pictures, session: this.chat(now()).session, memory, ...(opts.tag ? { tag: opts.tag } : { mark }), ...(opts.readOnly ? { readOnly: true } : {}), ...(opts.sharedOk?.length ? { sharedOk: opts.sharedOk } : {}) }, {
         session: (s) => this.save(now(), { ...this.chat(now()), session: s }),
         step: (t, at) => {
           run.steps++;
           run.step = t;
-          if (!LOOKING.test(t)) changes++;
+          if (!LOOKING.test(t)) changes++, acted++;
+          else if (t.startsWith('refused: ')) acted = Math.max(0, acted - 1); // the change before it didn't happen
           this.add(now(), 'step', t, undefined, at);
           opts.onStep?.(t);
         },
@@ -567,11 +576,16 @@ export class AI {
             const check = left.length ? this.addCheck(last, left, 'open') : null;
             ended = true;
             unlock();
-            if (logSite) logEnd(logSite, { run: run.key, end: run.stopped ? 'stopped' : unfinished ? 'unfinished' : failed ? 'failed' : 'done', block: site ? null : last, ...(answer ? { answer } : {}), ...(problem ? { error: problem } : {}), steps: run.steps });
+            // what the tools noted (run-note.ts): she couldn't do it, a change was refused, a shared block waits for an OK
+            let note: RunNote | null = null;
+            try {
+              note = takeNote(logSite ? new FolderStore(logSite) : this.ws.store, mark);
+            } catch {}
+            if (logSite) logEnd(logSite, { run: run.key, end: run.stopped ? 'stopped' : unfinished ? 'unfinished' : failed ? 'failed' : 'done', block: site ? null : last, ...(answer ? { answer } : {}), ...(problem ? { error: problem } : {}), steps: run.steps, ...(acted ? { acted } : {}), ...(note ? { note } : {}) });
             this.run = null;
             this.runTasks = null;
             this.emit('ai', { id: last, role: 'end', ...(unfinished ? { unfinished: true } : {}) });
-            opts.onEnd?.({ answer, error: problem, failed, stopped: !!run.stopped, ...(unfinished ? { unfinished: true } : {}), ...(check ? { check } : {}) });
+            opts.onEnd?.({ answer, error: problem, failed, stopped: !!run.stopped, ...(unfinished ? { unfinished: true } : {}), ...(check ? { check } : {}), ...(note ? { note } : {}) });
           };
           // the site run's pages are checked by check_page; a question changes nothing
           const placeholders = failed || site || opts.readOnly ? [] : this.left(before);
@@ -611,7 +625,7 @@ export class AI {
       'Only this block may change: changes outside it are refused.',
       CODE_RULES,
       'Make the change, then look at it with screenshot (at 1440 and 375 px) and check it with evaluate; when you changed how something looks, run check_design too and fix what it lists as must fix. Fix what looks wrong. Answer in 1-3 short sentences saying what you changed.',
-      'If the user only asks a question, answer it without changing anything. If the request cannot be done inside this block, say so.',
+      'If the user only asks a question, answer it without changing anything. If the request cannot be done (it needs blocks outside this one, another page, or something the tools can\'t do), call cant_do with why and the scope that would let you, change nothing, and say so in one sentence.',
       CONTROLS,
       ...this.otherPages(),
       ...(this.ws.site ? briefLines(this.ws.site.dir) : []),
@@ -635,8 +649,8 @@ export class AI {
     if (!any) return [];
     const slots = 'Some shared blocks have slots (get_layout: slots: …): the parts each page fills itself, such as a title. set_slot fills one for this page, from any block, and the other pages keep theirs; set_content and edit_content inside a slot do the same.';
     return [slots, id === layout.root.id
-      ? 'Boxes marked use=<name> show a shared block of the site: a change to one changes every page that shows it (the tool\'s reply names them). Change one only when the request is about every page, and say in your answer which pages it reached.'
-      : 'Boxes marked use=<name> show a shared block of the site, which every page shows: from this block you can\'t change one. If the request needs it, say the user can select the page block for a change on every page, or make it this page\'s own copy (right-click → Make this page\'s own copy).'];
+      ? 'Boxes marked use=<name> show a shared block of the site: a change to one changes every page that shows it. Such a change waits for the user\'s OK: the tools refuse it until they give it, and name the pages it would reach. When that happens, don\'t work around it: finish the rest and say in one sentence which pages that part would change.'
+      : 'Boxes marked use=<name> show a shared block of the site, which every page shows: from this block you can\'t change one. If the request needs it, call cant_do with widen "page" (the user can widen the request to the whole page with one click), or say they can make it this page\'s own copy (right-click → Make this page\'s own copy).'];
   }
 
   /** What the page has left unfinished now that it didn't have before, less what the person chose to keep. */

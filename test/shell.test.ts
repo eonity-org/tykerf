@@ -1,6 +1,7 @@
 // A page in the v4 editor (public/shell.html, shell/*.js at /_tykerf/edit/<page>/): the one frame (the top bar, the
-// rail with the page's blocks), the page in a frame, tasks left by clicking it, the side panel and the tray, the one
-// Undo, and View mode, which stays while following links until Edit.
+// rail with the page's sections), the page in a frame at the rest of the width, tasks left by clicking it, the rail's
+// sections and the drop-down from "This page", the tray, the one Undo, and View mode, which stays while following
+// links until Edit.
 
 import { type ChildProcess, spawn } from 'node:child_process';
 import { mkdtempSync } from 'node:fs';
@@ -47,7 +48,7 @@ describe('the v3 editor', () => {
 
   const frame = () => page.frameLocator('.frame');
 
-  it('shows the one frame: the top bar, the rail with the page\'s blocks, the page, its tasks and the composer', async () => {
+  it('shows the one frame: the top bar, the rail with the page\'s sections, the page at the rest of the width, and the composer', async () => {
     await page.goto(`${base}/_tykerf/edit/home/`);
     await frame().locator('[data-sw="hero"]').waitFor();
     // the top bar: where you are, the page's modes and widths, then Kaity, Checks, one Undo, one Publish
@@ -56,18 +57,32 @@ describe('the v3 editor', () => {
     expect(await page.locator('.bar .modes [aria-current]').textContent()).toBe('Tasks');
     expect(await page.locator('.bar .widths button').allTextContents()).toEqual(['Desktop', '768', '375']);
     expect(await page.locator('.bar [data-top="kaity"]').count()).toBe(1);
+    expect(await page.locator('.bar [data-top="page"]').textContent()).toBe('This page');
     expect(await page.getByRole('button', { name: /^Undo|^Nothing to undo/ }).count()).toBe(1);
     expect(await page.getByRole('link', { name: 'Publish' }).count()).toBe(1);
-    // the rail: the pages, the open one with its blocks, the site's screens, the Kaity center
-    await expect.poll(() => page.locator('.rail .rpage[aria-current]').textContent()).toContain('home');
-    expect(await page.locator('.rail .rblocks [data-block]').count()).toBeGreaterThan(3);
+    // the rail is the page's: back to the site, its name, Home and address, then its sections; nothing on the right
+    await expect.poll(() => page.locator('.rail .rpname').textContent()).toBe('homeHome/home/');
+    expect(await page.locator('.rail .rback').textContent()).toBe('Site');
+    expect(await page.locator('.rail .acc-t').allTextContents()).toEqual(['Tasks on this page', 'Kaity on this page', 'Blocks', 'Site']);
+    expect(await page.locator('.pside').count()).toBe(0);
+    // Blocks: every block, containers too (unfolded to read it)
+    await page.locator('.rail [data-acc="blocks"]').click();
+    expect(await page.locator('.rail .tree [data-block]').count()).toBeGreaterThan(3);
+    // Site holds the rest of the site's rail: its pages, its screens, the Kaity center
+    await page.locator('.rail [data-acc="site"]').click();
     expect(await page.locator('.rail .rlist a').allTextContents()).toContain('Kaity center');
-    // the status line, the side panel, the composer under the page
+    expect(await page.locator('.rail .rpage[aria-current]').textContent()).toContain('home');
+    for (const k of ['blocks', 'site']) await page.locator(`.rail [data-acc="${k}"]`).click();
+    // the status line, the sections, the composer under the page: one line, its scope a drop-down
     expect(await page.locator('.pstatus .hint').textContent()).toBe('Click anything on the page and say what should change, or ask Kaity about the whole page below.');
-    expect(await page.locator('.pside-card h2').first().textContent()).toBe('Tasks on home');
-    expect(await page.locator('.pside-card .empty').first().textContent()).toBe('No open tasks. Click anything on the page and say what should change.');
-    expect(await page.locator('.pagecol .composer .kscope .chip').allTextContents()).toEqual(['This page', 'Whole site']);
-    expect(await page.locator('.pagecol .composer [data-c="attach"]').textContent()).toBe('Attach');
+    expect(await page.locator('.rail [data-section="tasks"] .empty').textContent()).toBe('No open tasks. Click anything on the page and say what should change.');
+    expect(await page.locator('.pagecol .composer.line select option').allTextContents()).toEqual(['This page', 'Whole site']);
+    expect(await page.locator('.pagecol .composer [data-c="attach"]').getAttribute('aria-label')).toBe('Attach');
+    expect(Math.round((await page.locator('.pagecol .composer').boundingBox())!.height)).toBeLessThanOrEqual(52);
+    // at 1440 px with the rail open the page has at least 1080 px
+    await page.setViewportSize({ width: 1440, height: 900 });
+    expect(await page.locator('.stage').evaluate((s) => s.clientWidth)).toBeGreaterThanOrEqual(1080);
+    await page.setViewportSize({ width: 1280, height: 900 });
     // the page in the frame has no editor of its own, and is laid out at the room its column has
     expect(await frame().locator('tykerf-root').count()).toBe(0);
     const inner = await page.locator('.frame').evaluate((f: HTMLIFrameElement) => f.contentWindow!.innerWidth);
@@ -88,11 +103,13 @@ describe('the v3 editor', () => {
     expect(await box.locator('.where .what').textContent()).toMatch(/^› the heading ".+"$/);
     expect(await box.locator('.where .chip').count()).toBe(0);
     expect(await box.locator('textarea').getAttribute('placeholder')).toBe('What should change here? End with ? to ask.');
-    expect(await box.locator('button').evaluateAll((b) => b.map((x) => (x as HTMLElement).dataset.box))).toEqual(['q', 'cancel', 'pic', 'menu', 'now', 'add']);
+    expect(await box.locator('button').evaluateAll((b) => b.map((x) => (x as HTMLElement).dataset.box))).toEqual(['q', 'cancel', 'pic', 'menu', 'add']);
     expect(await box.locator('[data-box="pic"]').textContent()).toBe('Attach');
-    // the block picked is the rail's and the composer's too
-    await expect.poll(() => page.locator('.rail .rblocks [aria-current]').textContent()).toBe('hero');
-    expect(await page.locator('.pagecol .composer .kscope .chip').allTextContents()).toEqual(['This box: hero', 'This page', 'Whole site']);
+    // the block picked is the composer's too: it is aimed at it (one Kaity input besides the task box)
+    expect(await page.locator('.pagecol .composer select option').allTextContents()).toEqual(['This box: hero', 'This page', 'Whole site']);
+    expect(await page.locator('.pagecol .composer select').inputValue()).toBe('box');
+    expect(await page.locator('.pagecol .composer textarea').getAttribute('placeholder')).toBe('Ask Kaity about hero…');
+    expect(await page.locator('textarea:visible').count()).toBe(2);
     await box.locator('textarea').fill('Make the headline fit on two lines on a phone');
     // More… opens the right-click menu from the box, which stays with what is written in it
     expect(await box.locator('[data-box="menu"]').textContent()).toBe('More… or right-click');
@@ -109,9 +126,10 @@ describe('the v3 editor', () => {
     await page.locator('.pin[data-pin="1"]').waitFor();
     expect(await page.locator('.taskbox').count()).toBe(0);
     expect(await page.locator('.pstatus [data-bar="tray"]').textContent()).toBe('1 task · see them all');
-    // the side panel lists it, with its number, as the pin does
-    expect(await page.locator('.ptask').textContent()).toBe('1hero — Make the headline fit on two lines on a phone');
-    expect(await page.locator('.pside-card .tag').first().textContent()).toBe('1 open');
+    // Tasks on this page lists it, with its number, as the pin does; the top bar's This page counts it
+    expect(await page.locator('.rail .ptask').textContent()).toBe('1hero — Make the headline fit on two lines on a phone');
+    expect(await page.locator('.rail [data-acc="tasks"] .acc-n').textContent()).toBe('1');
+    expect(await page.locator('.bar [data-top="page"] .tcount').textContent()).toBe('1 task');
     expect(tasks(ws)[0]).toMatchObject({ n: 1, block: 'hero', text: 'Make the headline fit on two lines on a phone' });
     expect(tasks(ws)[0].width).toBe(Math.round(await page.locator('.stage').evaluate((s) => s.clientWidth)));
     expect(tasks(ws)[0].label).toMatch(/^h1 "/);
@@ -167,10 +185,39 @@ describe('the v3 editor', () => {
   });
 
   it('picks a block in the rail: it is shown on the page, and the composer\'s This box', async () => {
+    await page.locator('.rail [data-acc="blocks"]').click();
     await page.locator('.rail [data-block="footer"]').click();
     expect(await page.locator('.rail [data-block="footer"]').getAttribute('aria-current')).toBe('true');
     await page.locator('.outline.flash').waitFor();
-    expect(await page.locator('.pagecol .composer .kscope .chip').first().textContent()).toBe('This box: footer');
+    expect(await page.locator('.pagecol .composer select option:checked').textContent()).toBe('This box: footer');
+    // the open sections are remembered across a reload
+    await page.reload();
+    await frame().locator('[data-sw="hero"]').waitFor();
+    expect(await page.locator('.rail [data-acc="blocks"]').getAttribute('aria-expanded')).toBe('true');
+    await page.locator('.rail [data-acc="blocks"]').click();
+  });
+
+  it('folds the rail to a strip: the page takes the width, and This page drops the same sections from the top bar', async () => {
+    const w = await page.locator('.stage').evaluate((s) => s.clientWidth);
+    await page.locator('.rail [data-rail="fold"]').click();
+    expect(await page.locator('.rail .rstrip [data-strip]').evaluateAll((b) => b.map((x) => (x as HTMLElement).dataset.strip))).toEqual(['tasks', 'kaity', 'blocks']);
+    await expect.poll(() => page.locator('.stage').evaluate((s) => s.clientWidth)).toBeGreaterThan(w + 150);
+    await page.locator('.bar [data-top="page"]').click();
+    const menu = page.locator('.pmenu');
+    await menu.waitFor();
+    expect(await menu.locator('.acc-t').allTextContents()).toEqual(['Tasks on this page', 'Kaity on this page', 'Blocks']);
+    expect(await menu.locator('.ptask').count()).toBe(2);
+    await page.keyboard.press('Escape');
+    expect(await menu.isHidden()).toBe(true);
+    // the strip's icons drop it too; Pin to the side panel unfolds the rail
+    await page.locator('.rail [data-strip="tasks"]').click();
+    await menu.locator('[data-menu="pin"]').click();
+    expect(await menu.isHidden()).toBe(true);
+    await expect.poll(() => page.locator('.rail').getAttribute('class')).not.toContain('folded');
+    // with the rail open, This page goes to its Tasks section
+    await page.locator('.bar [data-top="page"]').click();
+    expect(await page.locator('.pmenu').isHidden()).toBe(true);
+    expect(await page.locator('.rail [data-acc="tasks"]').getAttribute('aria-expanded')).toBe('true');
   });
 
   it('views the site as a visitor does, and stays in View while following links, until Edit', async () => {
@@ -239,7 +286,7 @@ describe('the v3 editor', () => {
     expect(await narrow.locator('.rail').getAttribute('class')).toContain('folded');
     for (const b of ['[data-top="undo"]', '[data-top="publish"]', '[data-top="kaity"]']) expect(await narrow.locator(b).isVisible()).toBe(true);
     await narrow.locator('.rail [data-rail="unfold"]').click();
-    expect(await narrow.locator('.rail .rpage').first().isVisible()).toBe(true);
+    expect(await narrow.locator('.rail .acc-h').first().isVisible()).toBe(true);
     expect(await narrow.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
     await narrow.close();
   });
