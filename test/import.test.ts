@@ -307,7 +307,7 @@ describe('the importer in the editor', () => {
     await expect.poll(() => page.frameLocator('.frame').locator('h1').textContent(), { timeout: 15_000 }).toBe('Big claim');
     // Got it: the job is forgotten
     await page.locator('[data-bar="job-seen"]').click();
-    await page.locator('.pstatus .hint').waitFor();
+    await page.locator('.pstatus').waitFor({ state: 'hidden' });
     expect((await fetch(`${url}copy/_tykerf/job`).then((r) => r.json())).job).toBeNull();
     await page.close();
   });

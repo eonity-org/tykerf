@@ -178,9 +178,9 @@ describe('Kaity in the v4 editor', () => {
     expect(tasks(ws, { open: true }).map((x) => x.n)).toEqual([1]);
     await poll(() => kaityItem(1).locator('[data-keep-run]').count()).toBe(0);
     await kaityItem(2).locator('[data-keep-run]').first().click();
-    await page.locator('.pstatus .hint', { hasText: 'Click anything' }).waitFor();
+    await page.locator('.pstatus').waitFor({ state: 'hidden' });
     expect(await page.locator('.tray').isHidden()).toBe(true);
-    expect(await page.locator('.pstatus [data-bar="tray"]').textContent()).toBe('1 task · see them all');
+    expect(await page.locator('.rail [data-side="tray"]').textContent()).toBe('See them all');
     expect(await page.locator('.pin.done').count()).toBe(0);
     expect(await page.locator('.rail [data-keep-run]').count()).toBe(0);
   });

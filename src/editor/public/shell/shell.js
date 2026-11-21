@@ -21,14 +21,25 @@ import { markdown } from '../markdown.js';
 
 const PAGE = decodeURIComponent(location.pathname.match(/^\/_tykerf\/edit\/([^/]+)\//)?.[1] ?? '');
 const API = `/${encodeURIComponent(PAGE)}/_tykerf`;
-// the shell's two modes: Tasks (the page to point at, tasks, Kaity, fixing by hand) and the Full editor (?mode=full: the
-// full editor in the frame, every block in detail); the frame is the same in both
-const FULL = new URLSearchParams(location.search).get('mode') === 'full';
+// the shell's three modes: Tasks (the page to point at, tasks, Kaity, fixing by hand), Edit (?mode=full: the full
+// editor in the frame, every block in detail) and View (?mode=view: the page as visitors see it, working); the frame,
+// the page's bordered box and its mode label are the same in all three
+const ASKED = new URLSearchParams(location.search).get('mode');
+const FULL = ASKED === 'full';
+const VIEW = ASKED === 'view';
 const shellOf = (page, full = FULL) => `/_tykerf/edit/${encodeURIComponent(page)}/${full ? '?mode=full' : ''}`;
+const viewOf = (page) => `/_tykerf/edit/${encodeURIComponent(page)}/?mode=view`;
 for (const el of document.querySelectorAll('[aria-label]')) el.setAttribute('aria-label', t(el.getAttribute('aria-label')));
 $('.frame').title = t('The page');
-const MODE = FULL ? 'edit' : 'tasks';
+const MODE = FULL ? 'edit' : VIEW ? 'view' : 'tasks';
 document.body.classList.add(`page-mode`, `mode-${MODE}`);
+
+const PENCIL = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20h4L19 9l-4-4L4 16z"/><path d="m13.5 6.5 4 4"/></svg>';
+const MODE_TAG = {
+  tasks: () => `<span>${PENCIL}${esc(t('Tasks'))}</span>`,
+  edit: () => `<span><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="8" height="8" rx="1.5"/><rect x="13" y="3" width="8" height="8" rx="1.5"/><rect x="3" y="13" width="18" height="8" rx="1.5"/></svg>${esc(t('Edit'))}</span>`,
+  view: () => `<span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s3.6-6.5 10-6.5S22 12 22 12s-3.6 6.5-10 6.5S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>${esc(t('View'))}</span><a href="/_tykerf/view?page=${encodeURIComponent(PAGE)}&visitor=1" target="_blank" rel="noopener" title="${esc(t('The page on its own, as visitors get it, in a new tab'))}">${esc(t('Open in a new tab'))} ↗</a>`,
+};
 
 // the one frame: the rail on the left (the page's sections), the page in the rest (the status line above it, the
 // composer under it in Tasks); the fix panel is a kept node a rail's section shows; in Edit the inspector floats
@@ -43,7 +54,11 @@ statusLine.setAttribute('role', 'status');
 const stage = document.createElement('main');
 stage.className = 'stage';
 stage.innerHTML = '<div class="viewport"><iframe class="frame" title="" aria-label=""></iframe><div class="overlay"></div></div><section class="tray" hidden></section>';
-column.append(statusLine, stage);
+// the mode's label, on the page's box's border: what the person is doing (Tasks, Edit, View)
+const modeTag = document.createElement('div');
+modeTag.className = 'modetag';
+modeTag.innerHTML = MODE_TAG[MODE]();
+column.append(statusLine, stage, modeTag);
 work.append(column);
 // where the full editor's inspector goes (tykerf.js moves its panel here), and the fix panel
 const inspector = document.createElement('div');
@@ -175,8 +190,16 @@ const labelTag = (label) => /^([a-z0-9-]+)/.exec(label ?? '')?.[1] ?? '';
 
 const frame = createFrame($('.frame'), {
   isBlock: (id) => S.blocks.has(id),
-  passive: () => FULL,
+  passive: () => FULL || VIEW,
   on: {
+    // View: a link to another page of the site opens it in View; one to somewhere else, in a new tab
+    ...(VIEW ? { follow(a) {
+      const u = new URL(a.href, location.href);
+      if (u.origin !== location.origin) return void window.open(u.href, '_blank', 'noopener');
+      const p = decodeURIComponent(u.pathname.match(/^\/([^/_][^/]*)\/?$/)?.[1] ?? '');
+      if (p && (S.site?.pages ?? []).includes(p)) return void location.assign(viewOf(p) + u.hash);
+      toast(t('It leads to {href}', { href: u.href }));
+    } } : {}),
     hover(spot) {
       if (spot?.el === S.hover?.el) return;
       S.hover = spot;
@@ -230,7 +253,7 @@ const outline = (r, cls) => `<div class="outline ${cls}" style="left:${r.left - 
 
 function draw() {
   // the full editor draws its own outlines and pins in the page
-  if (FULL) return void (overlay.innerHTML = '');
+  if (FULL || VIEW) return void (overlay.innerHTML = '');
   const out = [];
   // the page shrunk to fit beside a panel: labels (pins, Kaity's tag) are drawn back at their own size, each anchored
   // at the corner that touches its element, so they stay readable and still point at it
@@ -960,8 +983,9 @@ function renderBar() {
     kaity: { count: info?.thread?.items?.length ?? 0, waiting: info?.thread?.waiting ?? 0, working: !!info?.thread?.running || running() || !!S.asking, open: !!center?.isOpen() },
     checks: info ? checkState(info.check) : null,
     publishFrom: PAGE,
-    page: { tasks: openTasks().length, open: !pageMenu.hidden },
+    page: VIEW ? null : { tasks: openTasks().length, open: !pageMenu.hidden },
   });
+  document.querySelector('.mhint') && bar.querySelector('[data-top="help"]')?.setAttribute('aria-expanded', String(!document.querySelector('.mhint').hidden));
   renderStatus();
   renderSections();
 }
@@ -971,11 +995,9 @@ function renderStatus() {
   const run = S.run;
   const count = open.length === 1 ? t('1 task') : t('{n} tasks', { n: open.length });
   const stepsBtn = `<button type="button" class="btn small" data-bar="tray" aria-expanded="${S.tray}">${esc(S.tray ? t('Hide the steps') : t('Show the steps'))}</button>`;
-  let middle, actions = '';
-  if (FULL && !running()) {
-    middle = `<p class="hint">${esc(t('Every block in detail, in the editor over the page: drag it by its header anywhere, or compact it.'))}</p>`;
-    actions = `<a class="btn small" href="${shellOf(PAGE, false)}" title="${esc(t('Your tasks are in Tasks'))}">${esc(count)}</a>`;
-  } else if (fix?.isOpen()) {
+  // the line shows only while something is going on (in every mode): the page's box is the rest of the time all there is
+  let middle = '', actions = '';
+  if (fix?.isOpen()) {
     middle = `<div class="status"><span>${esc(t('Fixing by hand · {what}', { what: fix.what() }))}</span></div>`;
     actions = `<button type="button" class="btn main small" data-bar="done-fixing">${esc(t('Done, back to tasks'))}</button>`;
   } else if (S.job && !S.trying) {
@@ -1004,15 +1026,17 @@ function renderStatus() {
   } else if (S.asking) {
     middle = `<div class="status">${kaityMark(true, true)}<span>${esc(S.asking.block === S.tree?.id ? t('Kaity is working on {page}', { page: PAGE }) : t('Kaity is working on {block}', { block: S.asking.block }))}</span>${S.asking.step ? `<span class="chip">${esc(S.asking.step)}</span>` : ''}</div>`;
     actions = `<button type="button" class="btn small on" data-bar="ask-stop">${esc(t('Stop Kaity'))}</button>`;
-  } else {
-    middle = `<p class="hint">${PENCIL}${esc(t('Click anything on the page and say what should change, or ask Kaity about the whole page below.'))}</p>`;
-    actions = open.length ? `<button type="button" class="btn small${S.tray ? ' on' : ''}" data-bar="tray" aria-expanded="${S.tray}">${esc(S.tray ? t('{count} · close', { count }) : t('{count} · see them all', { count }))}</button>` : '';
+  } else if (S.tray && !VIEW) {
+    // the tray opened on the tasks (a pin, the rail's See them all): the way to close it
+    middle = `<div class="status"><span>${esc(t('Tasks on {page}', { page: PAGE }))}</span></div>`;
+    actions = `<button type="button" class="btn small on" data-bar="tray" aria-expanded="true">${esc(t('{count} · close', { count }))}</button>`;
   }
-  statusLine.innerHTML = `${middle}<div class="actions">${actions}</div>`;
+  const html = middle || actions ? `${middle}<div class="actions">${actions}</div>` : '';
+  if (statusLine.dataset.html !== html) (statusLine.innerHTML = html), (statusLine.dataset.html = html);
+  statusLine.hidden = !html;
   // what the status says in full, where it ends in …
   for (const x of statusLine.querySelectorAll('.status > span, .hint')) x.title = x.textContent;
 }
-const PENCIL = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20h4L19 9l-4-4L4 16z"/><path d="m13.5 6.5 4 4"/></svg>';
 
 bar.addEventListener('click', async (e) => {
   const device = e.target.closest('[data-device]')?.dataset.device;
@@ -1021,7 +1045,48 @@ bar.addEventListener('click', async (e) => {
   if (act === 'undo') return undo();
   if (act === 'kaity') return center.toggle();
   if (act === 'page') return pageButton(e.target.closest('[data-top]'));
+  if (act === 'help') return hint.hidden ? showHint() : closeHint();
 });
+
+// ---------- the mode's hint: what the person does in it, under its button; shown by itself the first time in each
+// mode (remembered in this browser, tykerf.hints), and again from the (?) beside the modes ----------
+
+const HINTS = {
+  tasks: () => t('Click anything on the page and say what should change. Tasks wait as numbered pins until you give them to Kaity, or ask her about the whole page below.'),
+  edit: () => t('Every block in detail: pick one on the page or in the editor\'s tree, then change its text, code, size and look. Drag the editor by its header, or compact it.'),
+  view: () => t('The page as visitors see it: links, buttons and forms work, and nothing you click changes it.'),
+};
+const hint = document.createElement('div');
+hint.className = `mhint ${MODE}`;
+hint.setAttribute('role', 'dialog');
+hint.setAttribute('aria-label', t('What you do in this mode'));
+hint.hidden = true;
+hint.innerHTML = `<p>${esc(HINTS[MODE]())}</p><button type="button" class="btn small" data-hint="ok">${esc(t('Got it'))}</button>`;
+document.body.append(hint);
+function placeHint() {
+  if (hint.hidden) return;
+  const a = bar.querySelector('.modes [aria-current]')?.getBoundingClientRect();
+  if (!a) return;
+  const w = hint.offsetWidth, mid = a.left + a.width / 2;
+  const x = Math.max(8, Math.min(mid - w / 2, innerWidth - w - 8));
+  Object.assign(hint.style, { left: `${x}px`, top: `${a.bottom + 10}px` });
+  hint.style.setProperty('--ax', `${mid - x}px`);
+}
+function showHint() {
+  hint.hidden = false;
+  bar.querySelector('[data-top="help"]')?.setAttribute('aria-expanded', 'true');
+  placeHint();
+}
+function closeHint() {
+  if (hint.hidden) return;
+  hint.hidden = true;
+  store.set('hints', { ...store.get('hints', {}), [MODE]: true });
+  bar.querySelector('[data-top="help"]')?.setAttribute('aria-expanded', 'false');
+}
+hint.addEventListener('click', (e) => e.target.closest('[data-hint="ok"]') && closeHint());
+addEventListener('resize', placeHint);
+// the first time in this mode (a browser a program drives, the tests' and the screenshots', never gets it by itself)
+if (!navigator.webdriver && !store.get('hints', {})[MODE]) setTimeout(showHint, 600);
 
 statusLine.addEventListener('click', async (e) => {
   const act = e.target.closest('[data-bar]')?.dataset.bar;
@@ -1058,8 +1123,8 @@ async function undo() {
   }
 }
 
-/** View mode: the site as visitors see it, from this page, until Edit (the pill's Edit this page). */
-const hide = () => location.assign(`/_tykerf/view?page=${encodeURIComponent(PAGE)}`);
+/** Alt+Shift+T: View mode (the page as visitors see it), and back to Tasks from there. */
+const hide = () => location.assign(VIEW ? shellOf(PAGE, false) : viewOf(PAGE));
 
 /**
  * The page in its column: at the room it has (Desktop), or at a tablet's or a phone's width in the middle, laid out at
@@ -1134,7 +1199,7 @@ function tasksHTML() {
   const open = openTasks();
   if (!open.length) return `<p class="empty">${esc(t('No open tasks. Click anything on the page and say what should change.'))}</p>`;
   return `<ul class="ptasks">${open.slice(0, 8).map((x) => `<li><button type="button" class="ptask" data-show-task="${x.n}"><span class="num${x.kind === 'question' ? ' q' : ''}">${x.kind === 'question' ? '?' : x.n}</span><span><b>${esc(x.block)}</b> — ${esc(x.text)}</span></button></li>`).join('')}</ul>
-    ${open.length > 8 ? `<button type="button" class="link" data-side="tray">${esc(t('See all {n}', { n: open.length }))}</button>` : ''}
+    <button type="button" class="link" data-side="tray">${esc(open.length > 8 ? t('See all {n}', { n: open.length }) : t('See them all'))}</button>
     <div class="row"><button type="button" class="btn main small" data-side="give" ${running() ? 'disabled' : ''}>${esc(open.length === 1 ? t('Give it to Kaity') : t('Give them to Kaity'))}</button><button type="button" class="btn small" data-side="myself">${esc(t('Do it myself'))}</button></div>`;
 }
 
@@ -1236,7 +1301,8 @@ const rail = createRail({
   onChange: () => layoutStage(),
 });
 work.prepend(rail.el);
-const center = createKaityCenter({ page: PAGE, onToggle: (open) => ((composer.el.hidden = open || FULL), renderBar()) });
+rail.el.hidden = VIEW; // View: the page, and nothing beside it
+const center = createKaityCenter({ page: PAGE, onToggle: (open) => ((composer.el.hidden = open || FULL || VIEW), renderBar()) });
 
 // ---------- the composer under the page: one line, aimed at the box picked, the page or the whole site ----------
 
@@ -1258,7 +1324,7 @@ const composer = createComposer({
 function composerScopes(want) {
   composer.setScopes([...(S.sel && S.sel !== S.tree?.id ? [{ key: 'box', label: t('This box: {block}', { block: S.sel }) }] : []), { key: 'page', label: t('This page') }, { key: 'site', label: t('Whole site') }], want ?? composer.scope ?? 'page');
 }
-if (!FULL) column.append(composer.el);
+if (!FULL && !VIEW) column.append(composer.el);
 
 /** A task she couldn't do in its box, asked on the whole page instead: the composer, with the task's words. */
 function askOnPage(page, n) {
@@ -1338,6 +1404,7 @@ function keys(e) {
   const inField = /^(INPUT|TEXTAREA|SELECT)$/.test(e.target?.nodeName ?? '') || e.target?.isContentEditable;
   if (e.altKey && e.shiftKey && e.code === 'KeyT') return e.preventDefault(), hide();
   if (e.key === 'Escape') {
+    if (!hint.hidden) return closeHint();
     if (!pageMenu.hidden) return closePageMenu();
     if (S.box) return closeBox();
     if (fix.isOpen()) return fix.close();

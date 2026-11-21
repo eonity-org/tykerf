@@ -217,7 +217,7 @@ const FOLD = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4v16M20 12
 const UNFOLD = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 4h5v5M9 20H4v-5M20 4l-6 6M4 20l6-6"/></svg>';
 const BLOCKS = '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="8" height="8" rx="1.5"/><rect x="13" y="3" width="8" height="8" rx="1.5"/><rect x="3" y="13" width="18" height="8" rx="1.5"/></svg>';
 
-/** The page's modes in the top bar's centre: Tasks · Edit · View, then its width. */
+/** The page's modes in the top bar's centre: Tasks · Edit · View and (?), the mode's hint again; then its width. */
 export function pageModes({ page, mode, device, devices }) {
   const enc = encodeURIComponent(page);
   const link = (m, href, label, extra = '') => `<a href="${href}" ${mode === m ? 'aria-current="page"' : ''} ${extra}>${label}</a>`;
@@ -225,8 +225,8 @@ export function pageModes({ page, mode, device, devices }) {
   const modes = `<nav class="modes" aria-label="${esc(t('Mode'))}">
     ${link('tasks', `/_tykerf/edit/${enc}/`, esc(t('Tasks')))}
     ${link('edit', `/_tykerf/edit/${enc}/?mode=full`, esc(t('Edit')), `title="${esc(t('Every block in detail: the box tree, text, code, sizes, look and the page\'s theme'))}"`)}
-    ${link('view', `/_tykerf/view?page=${enc}`, `${eye}${esc(t('View'))}`, `title="${esc(t('See the site as a visitor does, until you press Edit'))}"`)}
-  </nav>`;
+    ${link('view', `/_tykerf/edit/${enc}/?mode=view`, `${eye}${esc(t('View'))}`, `title="${esc(t('The page as visitors see it: links, buttons and forms work'))}"`)}
+  </nav><button type="button" class="mhelp" data-top="help" aria-label="${esc(t('What you do in this mode'))}" title="${esc(t('What you do in this mode'))}">?</button>`;
   const widths = devices ? `<div class="widths" role="group" aria-label="${esc(t('The page\'s width'))}">${Object.entries(devices).map(([k, d]) =>
     `<button type="button" data-device="${k}" aria-pressed="${device === k}" aria-label="${esc(d.label())}" title="${esc(d.label())}"><svg viewBox="0 0 24 24" aria-hidden="true">${d.icon}</svg><span class="size">${esc(d.short())}</span></button>`).join('')}</div>` : '';
   return modes + widths;

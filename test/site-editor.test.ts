@@ -308,10 +308,10 @@ describe('a new site', () => {
     expect(Math.round((await page.locator('.rail').boundingBox())!.width)).toBe(280);
     const float = page.locator('.ifloat');
     expect(await float.locator('#tykerf-inspector section.panel').count()).toBe(1);
-    // one box, as in v3: its header (path, Dim/Blur, Compact, ×), the tree, the block's actions and details; no
-    // Undo or Redo of its own (the top bar has the one Undo), and nothing drawn on the block
-    for (const shown of ['.head .path', '.head-tools > .minimize', '.head-tools > .closebtn', '.tree', '.work .actions', '.work .tabs']) expect(await inspector.locator(shown).first().isVisible(), shown).toBe(true);
-    for (const gone of ['.head-tools > .undo', '.head-tools > .redo']) expect(await inspector.locator(gone).first().isHidden(), gone).toBe(true);
+    // one box, as in v3: its header (path, Dim/Blur, Compact), the tree, the block's actions and details; no Undo or
+    // Redo of its own (the top bar has the one Undo), no × (the top bar's modes), and nothing drawn on the block
+    for (const shown of ['.head .path', '.head-tools > .minimize', '.tree', '.work .actions', '.work .tabs']) expect(await inspector.locator(shown).first().isVisible(), shown).toBe(true);
+    for (const gone of ['.head-tools > .undo', '.head-tools > .redo', '.head-tools > .closebtn']) expect(await inspector.locator(gone).first().isHidden(), gone).toBe(true);
     expect(await page.getByRole('button', { name: /^Undo|^Nothing to undo/ }).count()).toBe(1);
     expect(await fr.locator('.btool').count()).toBe(0);
     // the rail's tree has every block, as the inspector's path has them: intro inside its containers

@@ -27,7 +27,8 @@ const BLOCK_EVENTS = ['click', 'dblclick', 'auxclick', 'mousedown', 'mouseup', '
  * Show the page `src` in `iframe`. `on` gets: `hover(spot|null)`, `pick(spot, x, y)` (a click; x, y in the frame's
  * viewport), `dblpick(spot)` (a double click), `moved()` (scroll, resize or new content: redraw), `key(event)` (a key pressed in the page),
  * `loaded()` (a new document), `scrolled()` (the person scrolled the page themselves), `leads(href)` (while trying
- * the page, a link to somewhere else was clicked: it doesn't go). `isBlock(id)` says which `[data-sw]` ids are blocks.
+ * the page, a link to somewhere else was clicked: it doesn't go), `follow(a)` (passive, View mode: a link that leaves
+ * the page was clicked; the shell takes it). `isBlock(id)` says which `[data-sw]` ids are blocks.
  */
 export function createFrame(iframe, { isBlock, on, passive = () => false }) {
   let win = null, doc = null, observer = null;
@@ -62,6 +63,17 @@ export function createFrame(iframe, { isBlock, on, passive = () => false }) {
     // the full editor in the frame (the shell's Full editor mode) points at the page itself: the shell only follows it
     if (passive()) {
       doc.addEventListener('keydown', (e) => e.altKey && e.shiftKey && e.code === 'KeyT' && on.key(e), true);
+      // View: the page works as for a visitor; a link that leaves the page is the shell's (`follow(a)`: another page
+      // of the site opens in View, so the frame never loads one without its shell)
+      if (on.follow) doc.addEventListener('click', (e) => {
+        const a = e.button === 0 && !e.defaultPrevented ? e.target.closest?.('a[href]') : null;
+        const href = a?.getAttribute('href') ?? '';
+        if (!a || href.startsWith('#') || /^(mailto|tel|javascript):/i.test(href) || a.hasAttribute('download')) return;
+        const u = new URL(a.href);
+        if (u.origin === win.location.origin && u.pathname === win.location.pathname && u.hash) return; // a place on this page
+        e.preventDefault();
+        on.follow(a);
+      });
       win.addEventListener('scroll', () => on.moved(), { passive: true });
       return on.loaded();
     }

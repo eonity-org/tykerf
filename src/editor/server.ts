@@ -1128,11 +1128,15 @@ createServer(async (req, res) => {
     // the site manager's Overview, as /_tykerf/site/ always does (a site with no pages shows its first-run welcome there)
     if (p === '/' && readSite(dir).home && (!admin || viewing(req))) return redirect(res, `/${readSite(dir).home}/`);
     if (p === '/' || p === MANAGER) return redirect(res, url.searchParams.has('kit') ? '/_tykerf/edit/_site/shared' : '/_tykerf/edit/_site/');
-    // View mode on (the Overview's View site, a page's View) and off (the pill's Edit this page, Back to the site manager)
+    // View: a page (else the home page) in the shell's View mode (the Overview's View site, a page's View); with
+    // `visitor=1` (View's Open in a new tab) the page on its own, as visitors get it, with the pill, until its Edit
+    // this page or Back to the site manager turns it off
     if (req.method === 'GET' && p === '/_tykerf/view') {
       const pg = url.searchParams.get('page');
-      const to = pg && sitePages(dir).includes(pg) ? `/${pg}/` : readSite(dir).home ? `/${readSite(dir).home}/` : sitePages(dir)[0] ? `/${sitePages(dir)[0]}/` : '/_tykerf/edit/_site/';
-      return res.writeHead(302, { location: to, 'set-cookie': `${VIEW_COOKIE}=1; Path=/; SameSite=Lax`, 'cache-control': 'no-store' }).end(), undefined;
+      const name = pg && sitePages(dir).includes(pg) ? pg : readSite(dir).home ?? sitePages(dir)[0] ?? null;
+      if (!name) return redirect(res, '/_tykerf/edit/_site/');
+      if (url.searchParams.get('visitor') !== '1') return redirect(res, `/_tykerf/edit/${encodeURIComponent(name)}/?mode=view`);
+      return res.writeHead(302, { location: `/${name}/`, 'set-cookie': `${VIEW_COOKIE}=1; Path=/; SameSite=Lax`, 'cache-control': 'no-store' }).end(), undefined;
     }
     if (req.method === 'GET' && p === '/_tykerf/view/off') {
       const next = url.searchParams.get('next') ?? '';

@@ -350,13 +350,21 @@ body > .outdated { grid-row: 2; }
 .trashsec { margin-top: 28px; }
 .md p { margin: 4px 0; }
 
-/* Tasks | Full editor: the shell's two modes, in the bar */
+/* Tasks | Edit | View: a page's modes, in the bar, and (?): the mode's hint */
 .bar .modes { display: inline-flex; border: 1px solid rgb(255 255 255 / .55); border-radius: 8px; overflow: hidden; }
 .bar .modes a { padding: 6px 12px; color: #fff; font-size: 14px; font-weight: 600; text-decoration: none; white-space: nowrap; }
 .bar .modes a + a { border-left: 1px solid rgb(255 255 255 / .55); }
 .bar .modes a[aria-current=page] { background: #fff; color: var(--bar); }
 .bar .modes a:not([aria-current]):hover { background: rgb(255 255 255 / .12); }
 .bar .modes a:focus-visible { outline: 3px solid var(--task); outline-offset: -3px; }
+.bar .mhelp { flex: none; width: 24px; height: 24px; margin-left: -4px; padding: 0; border: 1px solid rgb(255 255 255 / .55); border-radius: 50%; background: none; color: #fff; font: 600 13px/1 var(--sans); cursor: pointer; }
+.bar .mhelp:hover, .bar .mhelp[aria-expanded=true] { background: rgb(255 255 255 / .16); }
+.bar .mhelp:focus-visible { outline: 3px solid var(--task); outline-offset: 2px; }
+.mhint { position: fixed; z-index: 60; width: min(320px, calc(100vw - 16px)); padding: 12px 14px; border: 1px solid var(--line-strong); border-top: 3px solid var(--mode); border-radius: 10px; background: #fff; color: var(--ink); box-shadow: 0 12px 32px rgb(16 48 63 / .22); }
+.mhint::before { content: ''; position: absolute; top: -13px; left: calc(var(--ax, 50%) - 7px); width: 12px; height: 12px; background: var(--mode); transform: rotate(45deg); z-index: -1; }
+.mhint p { margin: 0 0 10px; font-size: 14px; line-height: 1.45; }
+.mhint .btn { float: right; }
+.mhint::after { content: ''; display: block; clear: both; }
 /* the page's width: full, a tablet held upright, a phone */
 .bar .widths { display: inline-flex; flex: none; border: 1px solid rgb(255 255 255 / .55); border-radius: 8px; overflow: hidden; }
 .bar .widths button { display: inline-flex; align-items: center; gap: 4px; padding: 5px 8px; border: 0; background: none; color: #fff; font-size: 13px; font-weight: 600; cursor: pointer; }
@@ -671,9 +679,14 @@ body.page-mode .work { grid-template-columns: auto minmax(0, 1fr); }
 
 /* ---------- a page: the status line, the page, the composer; the side panel ---------- */
 .pagecol { display: grid; grid-template-rows: auto minmax(0, 1fr) auto; min-width: 0; min-height: 0; padding: 10px 18px 14px; gap: 10px; }
-body.mode-edit .pagecol { padding: 0; gap: 0; grid-template-rows: auto minmax(0, 1fr); }
+body.mode-edit .pagecol, body.mode-view .pagecol { grid-template-rows: auto minmax(0, 1fr); }
+/* the rows by name: the status line (only while something goes on), the page's box with its mode label on its
+   border, the composer */
+.pagecol > .pstatus { grid-row: 1; }
+.pagecol > .stage, .pagecol > .modetag { grid-row: 2; grid-column: 1; }
+.pagecol > .composer { grid-row: 3; }
+body.mode-view .work { grid-template-columns: minmax(0, 1fr); }
 .pstatus { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; min-height: 34px; }
-body.mode-edit .pstatus { padding: 6px 14px; border-bottom: 1px solid var(--line); background: #fff; }
 .pstatus .hint { display: flex; align-items: center; gap: 8px; flex: 1 1 200px; min-width: 0; margin: 0; color: var(--ink-2); font-size: 15px; }
 .pstatus .hint svg { width: 16px; height: 16px; flex: none; fill: none; stroke: currentColor; stroke-width: 1.8; }
 .pstatus .status { flex: 1 1 200px; min-width: 0; display: flex; align-items: center; gap: 10px; font-weight: 600; }
@@ -682,8 +695,17 @@ body.mode-edit .pstatus { padding: 6px 14px; border-bottom: 1px solid var(--line
 .pstatus .chip::before { content: none; }
 .pstatus .actions { display: flex; flex-wrap: wrap; gap: 8px; margin-left: auto; }
 .pstatus .btn.on { background: var(--bar); border-color: var(--bar); color: #fff; }
-body.page-mode .stage { border: 1px solid var(--line); border-radius: 12px; }
-body.mode-edit .stage { border: 0; border-radius: 0; }
+/* the three modes share one presentation: the page in its box, its border in the mode's colour, the mode's name on
+   the border (Tasks orange as the pins, Edit blue, View green); nothing else between the top bar and the page */
+body.mode-tasks { --mode: var(--task); --mode-ink: var(--task-ink); }
+body.mode-edit { --mode: #1F6FD1; --mode-ink: #fff; }
+body.mode-view { --mode: var(--good); --mode-ink: #fff; }
+body.page-mode .stage { border: 2px solid var(--mode); border-radius: 12px; }
+.modetag { z-index: 25; align-self: start; justify-self: start; display: inline-flex; align-items: center; gap: 10px; margin: -11px 0 0 18px; padding: 2px 10px; border-radius: 999px; background: var(--mode); color: var(--mode-ink); font-size: 13px; font-weight: 600; line-height: 18px; white-space: nowrap; pointer-events: none; }
+.modetag > span { display: inline-flex; align-items: center; gap: 6px; }
+.modetag svg { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.modetag a { color: inherit; font-weight: 500; text-decoration: underline; text-underline-offset: 2px; pointer-events: auto; }
+.modetag a:focus-visible { outline: 3px solid var(--task); outline-offset: 2px; border-radius: 4px; }
 .ptasks { display: grid; gap: 6px; margin: 0 0 10px; padding: 0; list-style: none; }
 .ptask { display: flex; gap: 8px; width: 100%; padding: 8px 10px; border: 1px solid var(--ask-line); border-radius: 8px; background: var(--ask); color: var(--ink); text-align: left; font-size: 14px; cursor: pointer; }
 .ptask:hover, .ptask:focus-visible { border-color: var(--task); outline: none; }
@@ -734,6 +756,21 @@ body { grid-template-columns: minmax(0, 1fr); }
   .bar .kbtn { padding-inline: 6px; }
   .bar .widths .size { min-width: 0; }
   .bar .modes a { padding: 5px 9px; }
+}
+/* the modes stay whole; in a narrower window Desktop keeps its icon only (its name is its label) */
+.bar .modes, .bar .mhelp { flex: none; }
+@media (max-width: 1180px) {
+  .bar .widths button[data-device="full"] .size { display: none; }
+  .bar .widths .size { min-width: 0; }
+  /* This page and Checks keep their icon and count; their names stay for screen readers */
+  .bar .pbtn > span:not(.tcount), .bar .checks span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+}
+/* narrower still: the modes and widths go on a line of their own under the bar's first line */
+@media (max-width: 1000px) {
+  .bar { flex-wrap: wrap; }
+  .bar .crumb { order: 1; }
+  .bar .centre { order: 3; flex-basis: 100%; justify-content: flex-start; overflow-x: auto; }
+  .bar .topacts { order: 2; margin-left: auto; }
 }
 
 /* ---------- v4 round 2: page modes at full width; the page's sections in the rail ---------- */

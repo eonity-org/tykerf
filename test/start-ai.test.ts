@@ -90,7 +90,7 @@ describe('show or describe it', () => {
     expect(await page.locator('.tray .how').textContent()).toBe('I left the hero text for you to write.');
     // Got it; then the whole conversation is the top block's, to read from Kaity's work
     await page.locator('[data-bar="job-seen"]').click();
-    await page.locator('.pstatus .hint').waitFor();
+    await page.locator('.pstatus').waitFor({ state: 'hidden' });
     await page.goto(`${url}_tykerf/edit/bakery/?conversation=${await top(url, 'bakery')}`);
     await page.locator('.convo .msg.ai').first().waitFor();
     expect(await page.locator('.convo .msg.ai .who').first().textContent()).toBe('Kaity'); // Kaity's replies carry her name and mark
@@ -145,7 +145,7 @@ describe('show or describe it', () => {
 
     // the chat shows the request and the file names; the model gets the files' text and the picture
     await page.locator('[data-bar="job-seen"]').click();
-    await page.locator('.pstatus .hint').waitFor();
+    await page.locator('.pstatus').waitFor({ state: 'hidden' });
     await page.goto(`${url}_tykerf/edit/paris/?conversation=${await top(url, 'paris')}`);
     await page.locator('.convo .msg.user').waitFor();
     expect(await page.locator('.convo .msg.user').textContent()).toContain('(Attached: stitch_paris.zip: DESIGN.md, code.html, screen.png)');
@@ -258,7 +258,7 @@ describe("a task's review", () => {
     const page = await browser.newPage({ viewport: { width: 1280, height: 860 } });
     page.setDefaultTimeout(8000);
     await page.goto(`${url}_tykerf/edit/log/`);
-    await page.locator('.pstatus [data-bar="tray"]').click();
+    await page.locator('.rail [data-side="tray"]').click();
     expect(await page.locator('.card[data-card="1"] .pics img').count()).toBe(1);
     const before = got.length;
     replies.push(

@@ -1,7 +1,7 @@
 // A page in the v4 editor (public/shell.html, shell/*.js at /_tykerf/edit/<page>/): the one frame (the top bar, the
 // rail with the page's sections), the page in a frame at the rest of the width, tasks left by clicking it, the rail's
-// sections and the drop-down from "This page", the tray, the one Undo, and View mode, which stays while following
-// links until Edit.
+// sections and the drop-down from "This page", the tray, the one Undo, the three modes' one presentation (the page in
+// its box, the mode's name on its border, the mode's hint), and View mode, which follows links to the site's pages.
 
 import { type ChildProcess, spawn } from 'node:child_process';
 import { mkdtempSync } from 'node:fs';
@@ -73,8 +73,11 @@ describe('the v3 editor', () => {
     expect(await page.locator('.rail .rlist a').allTextContents()).toContain('Kaity center');
     expect(await page.locator('.rail .rpage[aria-current]').textContent()).toContain('home');
     for (const k of ['blocks', 'site']) await page.locator(`.rail [data-acc="${k}"]`).click();
-    // the status line, the sections, the composer under the page: one line, its scope a drop-down
-    expect(await page.locator('.pstatus .hint').textContent()).toBe('Click anything on the page and say what should change, or ask Kaity about the whole page below.');
+    // nothing between the top bar and the page while nothing goes on: the page's box, the mode's name on its border
+    expect(await page.locator('.pstatus').isHidden()).toBe(true);
+    expect(await page.locator('.modetag').textContent()).toBe('Tasks');
+    expect(await page.locator('.stage').evaluate((s) => getComputedStyle(s).borderTopColor)).toBe('rgb(234, 154, 39)');
+    // the sections, the composer under the page: one line, its scope a drop-down
     expect(await page.locator('.rail [data-section="tasks"] .empty').textContent()).toBe('No open tasks. Click anything on the page and say what should change.');
     expect(await page.locator('.pagecol .composer.line select option').allTextContents()).toEqual(['This page', 'Whole site']);
     expect(await page.locator('.pagecol .composer [data-c="attach"]').getAttribute('aria-label')).toBe('Attach');
@@ -125,7 +128,7 @@ describe('the v3 editor', () => {
     await box.locator('[data-box="add"]').click();
     await page.locator('.pin[data-pin="1"]').waitFor();
     expect(await page.locator('.taskbox').count()).toBe(0);
-    expect(await page.locator('.pstatus [data-bar="tray"]').textContent()).toBe('1 task · see them all');
+    expect(await page.locator('.rail [data-side="tray"]').textContent()).toBe('See them all');
     // Tasks on this page lists it, with its number, as the pin does; the top bar's This page counts it
     expect(await page.locator('.rail .ptask').textContent()).toBe('1hero — Make the headline fit on two lines on a phone');
     expect(await page.locator('.rail [data-acc="tasks"] .acc-n').textContent()).toBe('1');
@@ -161,7 +164,7 @@ describe('the v3 editor', () => {
   });
 
   it('lists the tasks in the tray, and the top bar\'s one Undo takes back a task marked done', async () => {
-    await page.locator('.pstatus [data-bar="tray"]').click();
+    await page.locator('.rail [data-side="tray"]').click();
     const tray = page.locator('.tray');
     await tray.waitFor();
     expect(await tray.locator('h2').textContent()).toBe('1 task and 1 question on home');
@@ -220,19 +223,64 @@ describe('the v3 editor', () => {
     expect(await page.locator('.rail [data-acc="tasks"]').getAttribute('aria-expanded')).toBe('true');
   });
 
-  it('views the site as a visitor does, and stays in View while following links, until Edit', async () => {
+  it('tells what each mode is for: by itself the first time, and again from the (?)', async () => {
+    // a browser a program drives never gets it by itself: the (?) shows it, under the mode's button
+    const help = page.locator('.bar [data-top="help"]');
+    const hint = page.locator('.mhint');
+    expect(await hint.isHidden()).toBe(true);
+    await help.click();
+    expect(await hint.locator('p').textContent()).toMatch(/^Click anything on the page and say what should change/);
+    expect(await help.getAttribute('aria-expanded')).toBe('true');
+    await page.keyboard.press('Escape');
+    expect(await hint.isHidden()).toBe(true);
+    // a person's browser: the first time in a mode, once
+    const fresh = await browser.newPage({ viewport: { width: 1280, height: 900 } });
+    await fresh.addInitScript({ content: "Object.defineProperty(navigator, 'webdriver', { get: () => false })" });
+    await fresh.goto(`${base}/_tykerf/edit/home/?mode=view`);
+    await fresh.locator('.mhint p').waitFor();
+    expect(await fresh.locator('.mhint p').textContent()).toBe('The page as visitors see it: links, buttons and forms work, and nothing you click changes it.');
+    await fresh.locator('.mhint [data-hint="ok"]').click();
+    expect(await fresh.locator('.mhint').isHidden()).toBe(true);
+    await fresh.reload();
+    await fresh.locator('.frame').waitFor();
+    await fresh.waitForTimeout(900);
+    expect(await fresh.locator('.mhint').isHidden()).toBe(true);
+    await fresh.close();
+  });
+
+  it('views the page as visitors see it, in its box, and follows links to the site\'s pages in View', async () => {
     await page.locator('.bar .modes a', { hasText: 'View' }).click();
-    await page.waitForURL(/\/home\/$/);
-    expect(await page.locator('.bar').count()).toBe(0);
-    expect(await page.locator('tykerf-root').count()).toBe(0);
-    // the pill: tykerf · Viewing · the page switcher · Edit this page
+    await page.waitForURL(/\/_tykerf\/edit\/home\/\?mode=view$/);
+    await frame().locator('[data-sw="hero"]').waitFor();
+    // the same frame and the same box, green, with View on its border; nothing beside the page or under it
+    expect(await page.locator('.bar .modes [aria-current]').textContent()).toContain('View');
+    expect(await page.locator('.modetag > span').textContent()).toBe('View');
+    expect(await page.locator('.stage').evaluate((s) => getComputedStyle(s).borderTopColor)).toBe('rgb(29, 107, 68)');
+    for (const gone of ['.rail', '.pagecol .composer', '.pstatus', '.bar [data-top="page"]', '.pin']) expect(await page.locator(gone).first().isHidden(), gone).toBe(true);
+    // the page works as for a visitor: a click leaves no task box
+    await frame().locator('[data-sw="hero"] h1').click();
+    expect(await page.locator('.taskbox').count()).toBe(0);
+    // a link to another page of the site opens it, still in View
+    await frame().locator('body').evaluate((b) => {
+      const a = document.createElement('a');
+      a.href = '/about/';
+      a.id = 'go';
+      a.textContent = 'About';
+      a.style.cssText = 'position:fixed;top:120px;left:20px;z-index:9;background:#fff';
+      b.append(a);
+    });
+    await frame().locator('#go').click();
+    await page.waitForURL(/\/_tykerf\/edit\/about\/\?mode=view$/);
+    // Open in a new tab: the page on its own, as visitors get it, with the pill, until its Edit this page
+    const href = await page.locator('.modetag a').getAttribute('href');
+    expect(href).toBe('/_tykerf/view?page=about&visitor=1');
+    await page.goto(`${base}${href}`);
+    await page.waitForURL(/\/about\/$/);
+    expect(await page.locator('.bar .modes').count()).toBe(0);
     const pill = page.locator('tykerf-view');
     await pill.locator('.pill').waitFor();
     expect(await pill.locator('.tag').textContent()).toBe('Viewing');
     expect(await pill.locator('.edit').textContent()).toBe('Edit this page');
-    // a link to another page of the site keeps View
-    await page.goto(`${base}/about/`);
-    await pill.locator('.pill').waitFor();
     expect(await pill.locator('.switch').textContent()).toBe('about ▾');
     await pill.locator('.switch').click();
     await expect.poll(() => pill.locator('.menu a').allTextContents()).toEqual(['about', 'homeHome', '← Back to the site manager']);
@@ -250,8 +298,8 @@ describe('the v3 editor', () => {
     await page.goto(`${base}/_tykerf/edit/home/`);
     await frame().locator('[data-sw="hero"]').waitFor();
     await page.keyboard.press('Alt+Shift+KeyT');
-    await page.waitForURL(/\/home\/$/);
-    await page.locator('tykerf-view .pill').waitFor();
+    await page.waitForURL(/\/_tykerf\/edit\/home\/\?mode=view$/);
+    await frame().locator('[data-sw="hero"]').waitFor();
     await page.keyboard.press('Alt+Shift+KeyT');
     await page.waitForURL(/\/_tykerf\/edit\/home\/$/);
   });

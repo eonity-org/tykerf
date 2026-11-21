@@ -133,7 +133,7 @@ describe('a new page in the v4 editor', () => {
     expect(await page.locator('.tray .how').textContent()).toBe('I built a page for the bakery.');
     expect(await page.locator('.jobsteps li').first().textContent()).toMatch(/get layout/);
     await page.locator('[data-bar="job-seen"]').click();
-    await page.locator('.pstatus .hint').waitFor();
+    await page.locator('.pstatus').waitFor({ state: 'hidden' });
     expect(await page.locator('.tray').isHidden()).toBe(true);
   });
 
@@ -192,7 +192,7 @@ describe('a new page in the v4 editor', () => {
     await page.waitForURL(/\/_tykerf\/edit\/about\/$/);
     await page.frameLocator('.frame').locator('[data-sw]').first().waitFor();
     expect(existsSync(join(site, 'about', 'layout.slice'))).toBe(true);
-    expect(await page.locator('.pstatus .hint').isVisible()).toBe(true);
+    expect(await page.locator('.modetag').textContent()).toBe('Tasks');
   });
 
   it('makes one and asks Kaity to fill it: the page opens with the composer on the whole page', async () => {
