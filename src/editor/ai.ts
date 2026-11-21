@@ -614,7 +614,7 @@ export class AI {
     const what = isOp(node)
       ? `the container ${ref} (a ${KIND_WORD[node.kind]} of ${node.children.length} blocks)`
       : `the box ${ref}${node.type === 'leaf' && node.boxType ? ` (type ${node.boxType})` : ''}`;
-    // the page's top block: the person asked about the whole page (the composer's This page)
+    // the page's top block: the person asked about the whole page (the Kaity line's This page)
     const whole = id === layout.root.id;
     return [
       'You are Kaity, the assistant of TYKERF, an editor where people and AI change web pages block by block. If you mention yourself, you are Kaity.',

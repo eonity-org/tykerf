@@ -1,10 +1,12 @@
 // The site in the v4 editor (/_tykerf/edit/_site/<screen>): the one frame (chrome.js: the top bar and the rail)
 // around the site's screens. The Overview is where the editor opens; the others are the site's screens
-// (screens.js), New page (newpage.js) and the Kaity center as a page (kaity.js).
+// (screens.js), New page (newpage.js) and the Kaity center as a page (kaity.js). Under every screen, the Kaity line
+// (kaityline.js), on the whole site.
 
 import { $, failed, request, t, toast, watchVersion } from './common.js';
 import { SCREEN_TITLES, checkState, createRail, renderTop } from './chrome.js';
 import { createKaityCenter, kaityScreen, onKaityNews } from './kaity.js';
+import { createKaityLine } from './kaityline.js';
 import { newScreen } from './newpage.js';
 import { overviewScreen } from './overview.js';
 import { SCREENS as OTHERS } from './screens.js';
@@ -16,7 +18,7 @@ export async function siteMode() {
   const screenOf = () => location.pathname.match(/^\/_tykerf\/edit\/_site\/([a-z-]*)/)?.[1] || 'overview';
   let screen = SCREENS[screenOf()] ? screenOf() : 'overview';
   document.body.classList.add('site-mode');
-  $('.stage').outerHTML = '<div class="work"><main class="screen" tabindex="-1"></main></div>';
+  $('.stage').outerHTML = '<div class="work"><div class="sitecol"><main class="screen" tabindex="-1"></main></div></div>';
   const main = $('.screen');
   const bar = $('.bar');
   let history = null, pending = null, crumb = null;
@@ -24,6 +26,9 @@ export async function siteMode() {
   const rail = createRail({ screen: () => screen, go, pending: () => pending, onKaity: () => center.toggle() });
   $('.work').prepend(rail.el);
   const center = createKaityCenter({ onToggle: () => renderBar() });
+  // the Kaity line: on the site's screens, the whole site
+  const line = createKaityLine({ sent: () => (toast(t('Kaity is on it: she works on the whole site')), center.open()) });
+  $('.sitecol').append(line.el);
 
   function renderBar() {
     const info = rail.info;

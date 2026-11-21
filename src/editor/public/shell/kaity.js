@@ -5,7 +5,7 @@
 // person's message and her answer; task runs and her own passes show as compact events. Each can be undone.
 
 import { $, esc, failed, kaityMark, plainLabel, request, stamp, store, t, toast } from './common.js';
-import { createComposer, fileChip } from './composer.js';
+import { fileChip } from './composer.js';
 import { markdown } from '../markdown.js';
 
 /** Longer than this, a message the person sent folds to a few lines (a pasted profile, say). */
@@ -164,7 +164,7 @@ function eventLine(r) {
 
 /** The thread's items as a list, oldest first, with a heading for each day. */
 export function threadHTML(items, { unfolded = new Set() } = {}) {
-  if (!items.length) return `<p class="empty">${esc(t('Nothing yet. Ask Kaity below: she can change one box, a whole page or the whole site, and every change can be undone.'))}</p>`;
+  if (!items.length) return `<p class="empty">${esc(t('Nothing yet. Ask Kaity in the line at the bottom: on a page about that page, here about the whole site. Every change can be undone.'))}</p>`;
   let day = '';
   const out = [];
   for (const r of items) {
@@ -196,14 +196,15 @@ export async function askKaity({ prompt, files, scope }, { page = null, box = nu
 }
 
 /**
- * The thread with its filters and composer: in the drawer (`full` false) or full width (the Kaity screen). `page`:
- * the page open, if any (its filter and its composer scope come first). `onAsked`: after something was sent.
+ * The thread with its filters, a list only: in the drawer (`full` false) or full width (the Kaity screen). `page`: the
+ * page open, if any (its filter comes first). Nothing is asked from here: the Kaity line at the bottom of the screen
+ * is where a request is written, so the filter never meets a second choice of what she may change.
  */
-export function createThreadView({ full = false, page = null, filter = null, onAsked = () => {} } = {}) {
+export function createThreadView({ full = false, page = null, filter = null } = {}) {
   const el = document.createElement('div');
   el.className = `kview${full ? ' full' : ''}`;
   const S = { data: null, filter: filter ?? store.get('kaityFilter', 'all'), unfolded: new Set() };
-  // opened from a page: that page's part of the thread, and the composer on that page (the filters show the rest)
+  // opened from a page: that page's part of the thread (the filters show the rest)
   if (page && !filter) S.filter = page;
   const list = document.createElement('div');
   list.className = 'kscroll';
@@ -212,21 +213,7 @@ export function createThreadView({ full = false, page = null, filter = null, onA
   filters.setAttribute('role', 'group');
   filters.setAttribute('aria-label', t('Show'));
   const pagesFor = () => S.data?.pages ?? (page ? [page] : []);
-  const composer = createComposer({
-    scopes: [],
-    placeholder: (s) => (!s || s === 'site' ? t('Ask Kaity about the whole site…') : t('Ask Kaity about {page}…', { page: s.slice(5) })),
-    send: async (m) => {
-      await askKaity(m, { page });
-      toast(t('Kaity is on it'));
-      onAsked(m);
-      await reload();
-    },
-  });
-  function scopes() {
-    const ps = page ? [page] : pagesFor().slice(0, 3);
-    composer.setScopes([{ key: 'site', label: t('Whole site') }, ...ps.map((p) => ({ key: `page:${p}`, label: p }))], page ? `page:${page}` : 'site');
-  }
-  el.append(filters, list, composer.el);
+  el.append(filters, list);
 
   function shown() {
     const items = S.data?.items ?? [];
@@ -240,7 +227,6 @@ export function createThreadView({ full = false, page = null, filter = null, onA
     filters.innerHTML = `<span>${esc(t('Show'))}</span>${opts.map(([k, l]) => `<button type="button" data-filter="${esc(k)}" aria-pressed="${S.filter === k}">${esc(l)}</button>`).join('')}`;
     const atBottom = list.scrollHeight - list.scrollTop - list.clientHeight < 40;
     list.innerHTML = S.filter === 'tasks' ? await tasksHTML().catch((e) => `<p class="note bad">${esc(e.message)}</p>`) : threadHTML(shown(), { unfolded: S.unfolded });
-    composer.el.hidden = S.filter === 'tasks';
     if (atBottom || !S.rendered) list.scrollTop = list.scrollHeight;
     S.rendered = true;
   }
@@ -250,7 +236,6 @@ export function createThreadView({ full = false, page = null, filter = null, onA
     } catch (e) {
       return failed(e);
     }
-    scopes();
     await render();
   }
 
@@ -281,7 +266,6 @@ export function createThreadView({ full = false, page = null, filter = null, onA
   return {
     el,
     reload,
-    composer,
     /** A step of the run going on (on that page, '' for the whole site): its line follows without drawing it all again. */
     step(page, text) {
       for (const live of list.querySelectorAll(`[data-live="${CSS.escape(page ?? '')}"]`)) live.textContent = text;
@@ -353,7 +337,7 @@ export function createKaityCenter({ page = null, onToggle = () => {} } = {}) {
       onToggle(true);
       await reload();
       await summary();
-      view.composer.focus();
+      $('[data-filter][aria-pressed="true"]', el)?.focus();
     },
     close() {
       el.hidden = true;
@@ -372,13 +356,12 @@ export const kaityScreen = {
   title: () => t('Kaity center'),
   async render(main) {
     const q = new URLSearchParams(location.search);
-    main.innerHTML = `<header class="khead page"><h1>${esc(t('Kaity center'))}</h1><p class="note">${esc(t('Everything Kaity was asked and did, on the whole site and on every page, oldest first: the newest is at the bottom, next to where you write.'))}</p></header>`;
-    // from a page (?from=juanpri): its part of the thread first, and the composer on it
+    main.innerHTML = `<header class="khead page"><h1>${esc(t('Kaity center'))}</h1><p class="note">${esc(t('Everything Kaity was asked and did, on the whole site and on every page, oldest first: the newest is at the bottom.'))}</p></header>`;
+    // from a page (?from=juanpri): its part of the thread first
     const from = q.get('from');
     fullView = createThreadView({ full: true, page: from || null, filter: q.get('filter') ?? null });
     main.append(fullView.el);
     await fullView.reload();
-    fullView.composer.focus();
   },
   onAi(m) {
     if (!fullView) return;

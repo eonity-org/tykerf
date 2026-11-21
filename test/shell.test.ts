@@ -106,12 +106,15 @@ describe('the v3 editor', () => {
     expect(await box.locator('.where .what').textContent()).toMatch(/^› the heading ".+"$/);
     expect(await box.locator('.where .chip').count()).toBe(0);
     expect(await box.locator('textarea').getAttribute('placeholder')).toBe('What should change here? End with ? to ask.');
-    expect(await box.locator('button').evaluateAll((b) => b.map((x) => (x as HTMLElement).dataset.box))).toEqual(['q', 'cancel', 'pic', 'menu', 'add']);
+    expect(await box.locator('button').evaluateAll((b) => b.map((x) => (x as HTMLElement).dataset.box))).toEqual(['q', 'cancel', 'pic', 'menu', 'now', 'add']);
+    expect(await box.locator('[data-box="now"]').textContent()).toBe('Ask Kaity now');
     expect(await box.locator('[data-box="pic"]').textContent()).toBe('Attach');
-    // the block picked is the composer's too: it is aimed at it (one Kaity input besides the task box)
-    expect(await page.locator('.pagecol .composer select option').allTextContents()).toEqual(['This box: hero', 'This page', 'Whole site']);
-    expect(await page.locator('.pagecol .composer select').inputValue()).toBe('box');
-    expect(await page.locator('.pagecol .composer textarea').getAttribute('placeholder')).toBe('Ask Kaity about hero…');
+    // the Kaity line under the page stays on the page: one box is asked in its task box, never from the line; while
+    // the task box is open, the line is dimmed and can't be used (one input at a time)
+    expect(await page.locator('.pagecol .composer').evaluate((e) => (e as HTMLElement).inert)).toBe(true);
+    expect(await page.locator('.pagecol .composer select option').allTextContents()).toEqual(['This page', 'Whole site']);
+    expect(await page.locator('.pagecol .composer select').inputValue()).toBe('page');
+    expect(await page.locator('.pagecol .composer textarea').getAttribute('placeholder')).toBe('Ask Kaity about home…');
     expect(await page.locator('textarea:visible').count()).toBe(2);
     await box.locator('textarea').fill('Make the headline fit on two lines on a phone');
     // More… opens the right-click menu from the box, which stays with what is written in it
@@ -128,6 +131,7 @@ describe('the v3 editor', () => {
     await box.locator('[data-box="add"]').click();
     await page.locator('.pin[data-pin="1"]').waitFor();
     expect(await page.locator('.taskbox').count()).toBe(0);
+    expect(await page.locator('.pagecol .composer').evaluate((e) => (e as HTMLElement).inert)).toBe(false);
     expect(await page.locator('.rail [data-side="tray"]').textContent()).toBe('See them all');
     // Tasks on this page lists it, with its number, as the pin does; the top bar's This page counts it
     expect(await page.locator('.rail .ptask').textContent()).toBe('1hero — Make the headline fit on two lines on a phone');
@@ -187,12 +191,14 @@ describe('the v3 editor', () => {
     await page.locator('.pstatus [data-bar="tray"]').click();
   });
 
-  it('picks a block in the rail: it is shown on the page, and the composer\'s This box', async () => {
+  it('picks a block in the rail: it is shown on the page, with its task box', async () => {
     await page.locator('.rail [data-acc="blocks"]').click();
     await page.locator('.rail [data-block="footer"]').click();
     expect(await page.locator('.rail [data-block="footer"]').getAttribute('aria-current')).toBe('true');
     await page.locator('.outline.flash').waitFor();
-    expect(await page.locator('.pagecol .composer select option:checked').textContent()).toBe('This box: footer');
+    await expect.poll(() => page.locator('.taskbox .where b').textContent()).toBe('footer');
+    expect(await page.locator('.pagecol .composer select option:checked').textContent()).toBe('This page');
+    await page.keyboard.press('Escape');
     // the open sections are remembered across a reload
     await page.reload();
     await frame().locator('[data-sw="hero"]').waitFor();

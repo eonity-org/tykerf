@@ -686,7 +686,7 @@ describe('a new site', () => {
     expect(await home.locator('.when').textContent()).toContain('4 steps');
     expect(await site_.locator('.scopechip').textContent()).toBe('Whole site');
     expect(await site_.locator('.note').textContent()).toBe('Cut short: tykerf was closed while she worked.'); // no run going on now
-    // opened at the newest, next to the composer
+    // opened at the newest, next to the Kaity line
     expect(await page.locator('.screen .kscroll').evaluate((e) => e.scrollHeight - e.scrollTop - e.clientHeight)).toBeLessThan(40);
     await page.locator('.screen .kfilters [data-filter="site"]').click();
     await expect.poll(() => thread.locator('.ti.you').count()).toBe(1);

@@ -7,7 +7,7 @@
 import type { Store } from './store.js';
 
 export interface RunNote {
-  /** She couldn't do it: why, and the scope that would let her (the composer offers "Widen to this page"). */
+  /** She couldn't do it: why, and the scope that would let her (the thread offers "Widen to this page"). */
   cant?: { reason: string; widen?: 'page' | 'site' };
   /** The tools refused a change outside the scope (the first refusal's words). */
   refused?: string;

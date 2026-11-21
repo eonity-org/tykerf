@@ -97,10 +97,14 @@ describe('the site in the v3 editor', () => {
     await main.locator('.ocard[data-page="second"] [data-pact="home"]').click();
     await expect.poll(() => readSite(site).home).toBe('second');
     await main.locator('.ocard[data-page="second"] .hometag').waitFor();
-    // before you publish, and Kaity's latest work with a composer for the whole site
+    // before you publish, and Kaity's latest work (no box of its own: the Kaity line under the screen, on the whole site)
     expect(await main.locator('.ocheck li > span:first-child').allTextContents()).toEqual(['Design check', 'About this site', 'Links between pages', 'Language', 'Other checks']);
     expect(await main.locator('.olately h2').textContent()).toBe('Kaity lately');
-    expect(await main.locator('.olately .composer [data-c="attach"]').count()).toBe(1);
+    expect(await main.locator('.olately .composer').count()).toBe(0);
+    const line = page.locator('.sitecol > .kline');
+    expect(await line.locator('textarea').getAttribute('placeholder')).toBe('Ask Kaity about the whole site…');
+    expect(await line.locator('select').count()).toBe(0);
+    expect(await line.locator('[data-c="attach"]').count()).toBe(1);
     // New page in one click from the rail, the header and the card; one Undo and one Publish
     for (const where of ['.rail [data-screen="new"]', '.ohead [data-screen="new"]', '.ocard.onew']) expect(await page.locator(where).count()).toBe(1);
     expect(await page.getByRole('button', { name: /^Undo|^Nothing to undo/ }).count()).toBe(1);

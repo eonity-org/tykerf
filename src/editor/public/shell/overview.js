@@ -3,8 +3,7 @@
 // guides. A site with no pages shows the first run instead: what tykerf is, the guides, and three ways to start.
 
 import { DOC_CARD, DOC_LINKS, docLink, esc, failed, hardToReach, kaityMark, request, stamp, t, toast } from './common.js';
-import { createComposer } from './composer.js';
-import { askKaity, loadThread, scopeChip } from './kaity.js';
+import { loadThread, scopeChip } from './kaity.js';
 
 const edit = (p) => `/_tykerf/edit/${encodeURIComponent(p)}/`;
 const DOC = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5.5A1.5 1.5 0 0 1 5.5 4H11v15H5.5A1.5 1.5 0 0 0 4 20.5zM20 5.5A1.5 1.5 0 0 0 18.5 4H13v15h5.5a1.5 1.5 0 0 1 1.5 1.5z"/></svg>';
@@ -85,14 +84,14 @@ function beforePublish(info) {
     </ul></section>`;
 }
 
-/** Kaity lately: her last three runs, newest first, and the composer for the whole site. */
+/** Kaity lately: her last three runs, newest first (she is asked in the Kaity line at the bottom). */
 function kaityLately(thread) {
   const last = (thread?.items ?? []).slice(-3).reverse();
   const title = (r) => (r.kind === 'task' ? t('Task {n}', { n: r.task }) + (r.answer ? ` — ${r.answer.split(/(?<=[.!?])\s/)[0]}` : '') : r.kind === 'ask' ? r.request : r.answer || r.request);
   return `<section class="olately"><header><h2>${esc(t('Kaity lately'))}</h2><a class="link" href="/_tykerf/edit/_site/kaity" data-open-kaity>${esc(t('Open Kaity center'))}</a></header>
     ${last.length ? `<ul>${last.map((r) => `<li>${kaityMark(r.state === 'working', true)}<div><p class="emeta">${scopeChip(r)}<span>${stamp(r.ended ?? r.at)}${r.steps ? ` · ${esc(r.steps === 1 ? t('1 step') : t('{n} steps', { n: r.steps }))}` : ''}</span></p><p class="etitle">${esc(String(title(r)).slice(0, 140))}</p></div></li>`).join('')}</ul>`
-      : `<p class="empty">${esc(t('Nothing yet. Ask her about the whole site below, or open a page and ask about it.'))}</p>`}
-    <div class="olcomposer"></div></section>`;
+      : `<p class="empty">${esc(t('Nothing yet. Ask her about the whole site in the line at the bottom, or open a page and ask about it.'))}</p>`}
+    </section>`;
 }
 
 const learn = () => `<aside class="olearn">${DOC}<b>${esc(t('Learn tykerf'))}</b>${DOC_LINKS().map(([f, l]) => `<a href="${docLink(f)}" target="_blank" rel="noopener">${esc(l)}</a>`).join('')}<span class="note">${esc(t('Opens the online docs'))} ${OUT}</span></aside>`;
@@ -161,18 +160,6 @@ export const overviewScreen = {
       </div>
       <div class="otwo">${beforePublish(info)}${kaityLately(thread)}</div>
       ${learn()}`;
-    const composer = createComposer({
-      compact: true,
-      label: t('Ask Kaity about the whole site'),
-      placeholder: () => t('Ask Kaity about the whole site…'),
-      submit: () => t('Ask'),
-      send: async (m) => {
-        await askKaity({ ...m, scope: 'site' });
-        toast(t('Kaity is on it'));
-        ctx.openKaity?.();
-      },
-    });
-    main.querySelector('.olcomposer').append(composer.el);
     fitThumbs(main);
     // the card's ⋯ menu (and Remove's question) is a menu: on it the keys move, Escape or a click elsewhere closes it
     const pop = main.querySelector('.ocard .pmore');

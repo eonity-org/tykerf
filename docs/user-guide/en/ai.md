@@ -10,7 +10,7 @@
 
 Kaity changes your page the same way you do: through named, validated moves on the tree, plus the code of each box. She never rewrites the whole page, she can't touch files or run commands, and every change she makes shows up in the history and can be undone.
 
-You ask her with **tasks** (point at anything on the page, say what should change, and hand your tasks over: [below](#tasks-point-say-hand-over)), or in **the box to ask her**, the same everywhere: under a page, in [the Kaity center](#the-kaity-center), on the Overview, and in New page ([below](#ask-her-one-box-a-page-or-the-whole-site)). Each task continues the conversation of its block, so she remembers what was asked there before; for the whole site there is [Kaity for the whole site](#kaity-for-the-whole-site). This page explains what Kaity does and how to set her up. For how to write requests that get good results, and recipes for common jobs, read [Getting good results from Kaity](asking-kaity.md).
+You ask her with **tasks** (point at anything on the page, say what should change, and hand your tasks over: [below](#tasks-point-say-hand-over)), or in **the Kaity line**, the same at the bottom of every screen ([below](#ask-her-one-box-a-page-or-the-whole-site)); one box is asked from its task box. Each task continues the conversation of its block, so she remembers what was asked there before; for the whole site there is [Kaity for the whole site](#kaity-for-the-whole-site). This page explains what Kaity does and how to set her up. For how to write requests that get good results, and recipes for common jobs, read [Getting good results from Kaity](asking-kaity.md).
 
 ## Start a page with Kaity
 
@@ -53,28 +53,31 @@ The editor opens every page in **Tasks**. Click anything on the page, write what
 
 ## Ask her: one box, a page, or the whole site
 
-The box to ask Kaity is the same everywhere (under a page it is one line, with what she may change as a drop-down). **Kaity may change** says what she may touch:
-- **This box: <block>**: the block you picked (on the page, or in the side panel's *Blocks*); picking one aims the box at it. Nothing else changes: when the request needs more, she says she couldn't, and **Widen to this page** sends the same request on the whole page, in one click.
+Where you write says what she may change, so nothing changes it behind your back:
+- **One box:** click it on the page (or pick it in the side panel's *Blocks*) and write in its task box: **Ask Kaity now** sends it at once, and she changes only that box (**Add task** keeps it for later, with the other tasks). When the request needs more, she says she couldn't, and **Widen to this page** sends the same request on the whole page, in one click.
+- **The Kaity line**, at the bottom of every screen: on a page (in Tasks and in Edit) its drop-down says **This page** or **Whole site**; on the site's screens (the Overview, New page, the Kaity center…) it is about the whole site.
 - **This page**: any block of the page, and nothing on the site's other pages. A shared block that other pages show too (the navigation, the footer) waits for your OK: she does the rest and says which pages that part would change, and **Change it on the 2 pages** lets her. A request that needs another page gets an answer saying so.
 - **Whole site**: every page ([below](#kaity-for-the-whole-site)).
 
-**Attach** (or dropping or pasting files on the box) sends pictures, PDFs and a design as a ZIP file, up to five; she reads a PDF's text (your CV, a menu, a brochure). **Enter** sends; **Shift+Enter** starts a new line. While she works on a page, the line above it says so, with **Stop Kaity**.
+**Attach** (or dropping or pasting files on the line or the task box) sends pictures, PDFs and a design as a ZIP file, up to five; she reads a PDF's text (your CV, a menu, a brochure). **Enter** sends; **Shift+Enter** starts a new line. While she works on a page, the line above it says so, with **Stop Kaity**.
+
+**One request at a time.** While Kaity works on anything (a page, the whole site, your tasks, a new page she builds), the Kaity line says what she is working on, keeps what you type, and **Ask** waits until she is free.
 
 ## The Kaity center
 
 Everything Kaity was asked and did, on the whole site and on every page, is **one thread**: the top bar's **Kaity** opens it as a panel on any screen, and *Open as page* shows it full size (`/_tykerf/edit/_site/kaity`). On a page, *Kaity on this page* is the same thread, kept to that page.
 
-- From the oldest to the newest, opened at the newest, next to the box to ask her, with a line for each day.
+- From the oldest to the newest, opened at the newest, with a line for each day. It is a list: nothing is asked from here (the Kaity line under it is where you write), so what it shows never decides what she may change.
 - What you asked her, word for word, and her answer; a long message you pasted folds to a few lines (*Pasted text · 2,340 characters · Show all*); the files you attached, as chips.
 - Her work on tasks, and her own passes (finishing what she left, going on after a stop), as one line each.
 - How each came out: **done** (✓, only for a change), **Needs review** (**Keep** or **Undo**), **Kaity asks** (answer it there), **couldn't do it** (with **Widen to this page** for a request about one box), **asks first** (a shared block other pages show: the OK is one click), **answered**, **not done** (an error, or tykerf closed while she worked). The top bar's **Kaity** counts what waits for you.
 - **Undo** on each change takes that request's work back, on its page (or on every page, for the whole site), as one new step; Undo brings it back. *Her conversation on <block>* shows everything asked on that block.
-- *Show*: **Everything**, **Whole site**, one page, or **Tasks** (every open task of the site, page by page, with **Give Kaity everything**). Opened from a page, it shows that page's part first, and the box asks about that page.
+- *Show*: **Everything**, **Whole site**, one page, or **Tasks** (every open task of the site, page by page, with **Give Kaity everything**). Opened from a page, it shows that page's part first.
 - Times are relative under a day (*25 minutes ago*) and a date after that; point at one for the exact time.
 
 ## Kaity for the whole site
 
-Choose **Whole site** in the box to ask her (in the Kaity center it is chosen; on the Overview it is the only one) for a request about every page at once: *"make the navigation the same height on every page, and link it to all the pages"*, *"add a footer like Rome's to every page"*. Kaity lists the pages, opens each in turn, changes it and checks it at desktop and phone widths, as Claude Desktop does with TYKERF's tools; her steps show as she goes, and **Stop** ends the run.
+Choose **Whole site** in the Kaity line (on the site's screens it is the only one) for a request about every page at once: *"make the navigation the same height on every page, and link it to all the pages"*, *"add a footer like Rome's to every page"*. Kaity lists the pages, opens each in turn, changes it and checks it at desktop and phone widths, as Claude Desktop does with TYKERF's tools; her steps show as she goes, and **Stop** ends the run.
 
 - Each change goes into the history of its page, so it can be undone there.
 - While she works on the site, renaming or removing pages and asking Kaity about one page wait; you can keep editing pages yourself. She waits for a run on one page too.

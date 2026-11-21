@@ -89,15 +89,17 @@ button, input, textarea, select { font: inherit; color: inherit; }
 /* the task box, anchored to the element it is about */
 .taskbox { position: absolute; width: min(440px, calc(100% - 24px)); padding: 0 16px 16px; border: 1px solid var(--line-strong); border-radius: 12px; background: #fff; box-shadow: 0 12px 32px rgb(16 48 63 / .18); pointer-events: auto; }
 /* its header: light, as the full editor's (tykerf.css :host(.embedded) .head), with the same × */
-.taskbox .where { display: flex; align-items: center; gap: 8px; min-height: 44px; margin: 0 -16px 12px; padding: 7px 8px 7px 16px; border-bottom: 1px solid var(--line); border-radius: 11px 11px 0 0; background: var(--ground); font-size: 14px; color: var(--ink-2); }
-.taskbox .where b { flex: none; color: var(--ink); font-size: 15px; }
+/* its header in the top bar's blue, with tykerf's mark: tykerf's, never a part of the page (as the full editor's) */
+.taskbox .where { display: flex; align-items: center; gap: 8px; min-height: 44px; margin: 0 -16px 12px; padding: 7px 8px 7px 12px; border-radius: 11px 11px 0 0; background: var(--bar); font-size: 14px; color: #BFDCE8; }
+.taskbox .where > .mark { flex: none; width: 18px; height: 18px; color: #fff; }
+.taskbox .where b { flex: none; color: #fff; font-size: 15px; }
 .taskbox .where .what { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .taskbox .where .chip { flex: none; padding: 0 6px; border-radius: 4px; background: var(--tag); color: var(--ink); font-size: 12px; font-weight: 600; line-height: 20px; }
 .taskbox .where button.num { flex: none; border: 0; cursor: pointer; }
-.taskbox .where button.num.q { border: 1px solid var(--bar); }
-.taskbox .where button.num:focus-visible { outline: 3px solid var(--bar); outline-offset: 1px; }
-.taskbox .where .x { flex: none; margin-left: auto; width: 30px; height: 30px; padding: 0; border: 1px solid #6FA6C0; border-radius: 8px; background: #fff; color: var(--ink); font-size: 17px; line-height: 1; cursor: pointer; }
-.taskbox .where .x:hover { background: var(--selected); }
+.taskbox .where button.num.q { border: 1px solid #fff; }
+.taskbox .where button.num:focus-visible { outline: 3px solid #fff; outline-offset: 1px; }
+.taskbox .where .x { flex: none; margin-left: auto; width: 30px; height: 30px; padding: 0; border: 1px solid rgb(255 255 255 / .55); border-radius: 8px; background: transparent; color: #fff; font-size: 17px; line-height: 1; cursor: pointer; }
+.taskbox .where .x:hover { background: rgb(255 255 255 / .16); }
 .taskbox .where .x:focus-visible { outline: 3px solid var(--task); outline-offset: 2px; }
 .taskbox .field { position: relative; }
 .taskbox .addpic { position: absolute; right: 22px; bottom: 6px; display: grid; place-items: center; width: 30px; height: 30px; padding: 0; border: 0; border-radius: 6px; background: #fff; color: var(--ink-2); cursor: pointer; }
@@ -679,7 +681,7 @@ body.page-mode .work { grid-template-columns: auto minmax(0, 1fr); }
 
 /* ---------- a page: the status line, the page, the composer; the side panel ---------- */
 .pagecol { display: grid; grid-template-rows: auto minmax(0, 1fr) auto; min-width: 0; min-height: 0; padding: 10px 18px 14px; gap: 10px; }
-body.mode-edit .pagecol, body.mode-view .pagecol { grid-template-rows: auto minmax(0, 1fr); }
+body.mode-view .pagecol { grid-template-rows: auto minmax(0, 1fr); }
 /* the rows by name: the status line (only while something goes on), the page's box with its mode label on its
    border, the composer */
 .pagecol > .pstatus { grid-row: 1; }
@@ -893,3 +895,20 @@ body.dragging { cursor: move; user-select: none; }
   .ifloat { left: 8px !important; right: 8px; top: auto !important; bottom: 8px; width: auto !important; height: 55vh !important; resize: none; }
   .ifloat.min { height: auto !important; }
 }
+
+/* ---------- the Kaity line: the one place to ask Kaity, at the bottom of every screen (kaityline.js) ---------- */
+.sitecol { display: grid; grid-template-rows: minmax(0, 1fr) auto; min-width: 0; min-height: 0; }
+.sitecol > .screen { min-height: 0; }
+.sitecol > .kline { margin: 6px 18px 14px; }
+.composer.line .cwait { flex: none; max-width: 40%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding: 3px 10px; border-radius: 999px; background: var(--ask); color: var(--warn); font-size: 13px; font-weight: 600; }
+/* what floats over the screen stops above the line */
+.kcenter { bottom: calc(var(--kline-h, 0px) + 8px); }
+@media (max-width: 900px) {
+  .sitecol { grid-template-rows: auto auto; }
+  .sitecol > .kline { position: sticky; bottom: 8px; z-index: 5; }
+}
+@media (max-width: 600px) {
+  .ifloat { bottom: calc(var(--kline-h, 0px) + 8px); }
+  .composer.line .cwait { max-width: 100%; order: 5; }
+}
+.composer.line.paused { opacity: .45; }

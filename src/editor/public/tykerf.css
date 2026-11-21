@@ -598,7 +598,8 @@ textarea.code { flex: 1; min-height: 120px; font: var(--mono); tab-size: 2; whit
 .job-head .kaity svg { width: 28px; height: 14px; }
 
 /* ---------- inside the shell (Full editor mode) ----------
-   The shell's bar is the only dark band: the editor's header is light, a tool under it, and keeps the tykerf
+   The editor's header is light here, a tool under the shell's bar (in Edit mode's floating window it takes the bar's
+   blue instead: :host(.railed), at the end), and keeps the tykerf
    sign (mark and wordmark) so it never reads as a box of the page. Words without icons, except the theme
    presets' colour dots. The full editor opened on its own keeps its dark header and its icons. */
 :host(.embedded) .head { background: var(--bg-2); color: var(--text); border-bottom: 1px solid var(--line); }
@@ -644,3 +645,17 @@ textarea.code { flex: 1; min-height: 120px; font: var(--mono); tab-size: 2; whit
 :host(.railed) .panel.min { height: auto !important; }
 :host(.railed) .head { cursor: move; }
 :host(.railed) .head-tools > .undo, :host(.railed) .head-tools > .redo, :host(.railed) .head-tools > .closebtn { display: none; }
+
+/* in the shell's window (Edit mode): the header in the top bar's blue, as the task box's, so it reads as tykerf's and
+   never as a part of the page; the rest stays the embedded editor's */
+:host(.railed) .head { background: var(--brand); color: #fff; border-bottom: 0; }
+:host(.railed) .brand { color: #fff; border-right-color: rgb(255 255 255 / .28); }
+:host(.railed) .path button { color: #BFDCE8; }
+:host(.railed) .path button:hover { background: rgb(255 255 255 / .12); color: #fff; }
+:host(.railed) .path button[aria-current] { color: #fff; }
+:host(.railed) .path .sep { color: #BFDCE8; }
+:host(.railed) .head-tools > button { background: transparent; border-color: rgb(255 255 255 / .55); color: #fff; }
+:host(.railed) .head-tools > button:hover:not(:disabled) { background: rgb(255 255 255 / .12); }
+:host(.railed) .seg { background: rgb(255 255 255 / .12); }
+:host(.railed) .seg button { color: #fff; }
+:host(.railed) .seg button[aria-checked="true"] { background: #fff; color: var(--brand); box-shadow: none; }

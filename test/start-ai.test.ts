@@ -436,11 +436,16 @@ describe('Kaity for the whole site', () => {
     const page = await browser.newPage({ viewport: { width: 1280, height: 800 } });
     page.setDefaultTimeout(10_000);
     await page.goto(`${url}_tykerf/edit/_site/kaity`);
-    const composer = page.locator('.screen .kview .composer');
-    expect(await composer.locator('.chip[aria-pressed="true"]').textContent()).toBe('Whole site');
+    // the Kaity center is a list: she is asked in the Kaity line under the screen, on the whole site
+    expect(await page.locator('.screen .kview .composer').count()).toBe(0);
+    const composer = page.locator('.sitecol > .kline');
+    expect(await composer.locator('textarea').getAttribute('placeholder')).toBe('Ask Kaity about the whole site…');
     await composer.locator('textarea').pressSequentially('Link every page from the navigation'); // real key presses
     await composer.locator('textarea').press('Enter');
     await page.locator('.screen [data-stop]').waitFor();
+    // while she works, the line says on what, and Ask waits
+    await expect.poll(() => composer.locator('.cwait').textContent()).toBe('Kaity is working on the whole site');
+    expect(await composer.locator('button[type="submit"]').isDisabled()).toBe(true);
 
     // while she works on the site, renames and a page's own Kaity wait
     const rename = await post('_tykerf/site/rename', { name: 'rome', to: 'roma' });

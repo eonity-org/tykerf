@@ -2,7 +2,8 @@
 // status line and the tray follow her; then what she did waits in Kaity on this page (round 2: no review bar): a
 // change Needs review, with Keep and Undo, before and after and on a phone on its item; her question, answered there;
 // her answer to a question, with what it points at; one task's work undone, and keeping the rest. Then a request
-// about the whole page from the one-line composer under it, its place in the thread, and Undo from there. The editor runs the Anthropic runner
+// about the whole page from the Kaity line under it, its place in the thread, and Undo from there; and one box asked
+// now from its task box, while the line waits. The editor runs the Anthropic runner
 // against a fake API that answers each task by what it asks, so the whole path is real.
 
 import { type ChildProcess, spawn } from 'node:child_process';
@@ -25,6 +26,7 @@ const call = (name: string, input: unknown, id = name) => ({ type: 'tool_use', i
 
 /** Kaity's side, by the task the request is about and how many turns it has had. */
 const systems: string[] = [];
+const prompts: string[] = [];
 function kaity(body: { system?: string | { text: string }[]; messages: { role: string; content: { type: string; text?: string }[] }[] }) {
   systems.push(typeof body.system === 'string' ? body.system : (body.system ?? []).map((b) => b.text).join('\n'));
   const msgs = body.messages;
@@ -32,6 +34,8 @@ function kaity(body: { system?: string | { text: string }[]; messages: { role: s
   while (i >= 0 && !(msgs[i].role === 'user' && msgs[i].content.some((c) => c.type === 'text'))) i--;
   const prompt = msgs[i].content.filter((c) => c.type === 'text').map((c) => c.text).join('\n');
   const turn = msgs.slice(i + 1).filter((m) => m.role === 'assistant').length;
+  if (turn === 0) prompts.push(prompt);
+  if (prompt.startsWith('Make the price bold')) return turn === 0 ? { ...message([call('set_content', { id: 'pricing', html: '<h2><b>$90</b> a year</h2>' })]), delay: 1500 } : say('Bold now.');
   if (prompt.startsWith('Task 1:')) {
     return turn === 0
       ? { ...message([call('set_content', { id: 'hero', html: '<h1>Short promise</h1>' }, 'a'), call('close_task', { n: 1, reply: 'Shortened the headline. Nothing else in hero moved.' }, 'b')]), delay: 1500 }
@@ -187,7 +191,7 @@ describe('Kaity in the v4 editor', () => {
 
   it('asks Kaity about the whole page from the composer under it; the thread shows it, and Undo takes it back', async () => {
     const composer = page.locator('.pagecol .composer');
-    // aimed at the box picked last: back to the whole page
+    // the line is on the whole page (one box is asked in its task box)
     await composer.locator('select').selectOption('page');
     expect(await composer.locator('select option:checked').textContent()).toBe('This page');
     await composer.locator('textarea').fill('Make the call to action warmer');
@@ -211,5 +215,28 @@ describe('Kaity in the v4 editor', () => {
     await item.locator('[data-undo-run]').click();
     await poll(() => ws.content('cta')).toBe(cta);
     await poll(() => page.locator('.pthread li', { hasText: 'Make the call to action warmer' }).locator('[data-undo-run]').count()).toBe(0);
+  });
+
+  it('asks Kaity now about one box from its task box; the Kaity line waits while she works', async () => {
+    await frame().locator('[data-sw="pricing"] h2').first().click();
+    const box = page.locator('.taskbox');
+    await box.locator('textarea').fill('Make the price bold');
+    await box.locator('[data-box="now"]').click();
+    await poll(() => box.count()).toBe(0);
+    // while she works, the line keeps what is typed, says on what she works, and Ask waits
+    const line = page.locator('.pagecol .composer.line');
+    await line.locator('textarea').fill('Something else');
+    await poll(() => line.locator('.cwait').textContent()).toBe('Kaity is working on home');
+    expect(await line.locator('button[type="submit"]').isDisabled()).toBe(true);
+    await poll(() => ws.content('pricing'), { timeout: 30_000 }).toContain('<b>$90</b>');
+    // she was asked on that box only, with the element pointed at; no task was left for it
+    expect(prompts.find((x) => x.startsWith('Make the price bold'))).toMatch(/^Make the price bold\n\n\(The person pointed at h2 .+\.\)$/);
+    expect(tasks(ws).some((x) => x.text === 'Make the price bold')).toBe(false);
+    const item = page.locator('.pthread li', { hasText: 'Make the price bold' });
+    await item.waitFor();
+    expect(await item.locator('.scopechip').textContent()).toBe('home · pricing');
+    // free again: the line takes requests, with what was typed
+    await poll(() => line.locator('.cwait').count()).toBe(0);
+    expect(await line.locator('textarea').inputValue()).toBe('Something else');
   });
 });

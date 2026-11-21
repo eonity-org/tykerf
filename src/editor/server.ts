@@ -313,7 +313,7 @@ const STATIC: Record<string, string> = {
   '/_tykerf/shell/frame.js': 'text/javascript', '/_tykerf/shell/fix.js': 'text/javascript', '/_tykerf/shell/site.js': 'text/javascript', '/_tykerf/shell/screens.js': 'text/javascript', '/_tykerf/shell/shell.css': 'text/css',
   // v4: the one frame (top bar, rail), the one Kaity (composer, thread, Kaity center), the Overview, New page, View mode
   '/_tykerf/shell/chrome.js': 'text/javascript', '/_tykerf/shell/composer.js': 'text/javascript', '/_tykerf/shell/kaity.js': 'text/javascript', '/_tykerf/shell/sections.js': 'text/javascript',
-  '/_tykerf/shell/overview.js': 'text/javascript', '/_tykerf/shell/newpage.js': 'text/javascript', '/_tykerf/shell/view.js': 'text/javascript',
+  '/_tykerf/shell/overview.js': 'text/javascript', '/_tykerf/shell/newpage.js': 'text/javascript', '/_tykerf/shell/view.js': 'text/javascript', '/_tykerf/shell/kaityline.js': 'text/javascript',
 };
 
 /** TYKERF's own scripts, styles, fonts and translations (also under a page's address, where its script asks for them). */
@@ -401,6 +401,9 @@ async function serveGlobal(req: IncomingMessage, res: ServerResponse, p: string,
     }
     return true;
   }
+  // what Kaity is doing now (the Kaity line is available only while she is free): the site's run, the pages she works
+  // on (a request or a task), and the pages still queued for Give Kaity everything
+  if (req.method === 'GET' && p === '/_tykerf/site/kaity/now') return json(res, 200, { ok: true, ...kaityNow(), queue: taskQueue }), true;
   if (req.method === 'GET' && p === '/_tykerf/site') {
     const pages = sitePages(dir), settings = readSite(dir);
     // each page's last change, for the Overview's cards (who, when, what)

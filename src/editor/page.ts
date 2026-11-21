@@ -681,8 +681,8 @@ export function createPageHost(ws: Workspace, opts: { name: string; site?: () =>
       copied = { token, place: (section, box) => placeSection(ws, r, section, box, 'user') };
       return json(res, 200, { ok: true, token, url: from, sections: r.sections ?? [] });
     }
-    // a request from a composer: on one box, or on the whole page (its top block: Kaity may change any block of it,
-    // and nothing else), with the files attached to it (attachments.ts)
+    // a request from a task box's Ask Kaity now (one box) or the Kaity line (the whole page: its top block, so Kaity
+    // may change any block of it and nothing else), with the files attached to it (attachments.ts)
     if (p === '/_tykerf/ask') {
       // a request of the thread sent again: on the whole page (Widen to this page), or with the person's OK for the
       // shared block it waited on; the same words and the same files

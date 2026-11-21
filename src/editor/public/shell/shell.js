@@ -2,16 +2,17 @@
 // the page, which takes the rest of the width (round 2: nothing is docked on its right). Everything about the page is
 // in the rail's sections (sections.js): Tasks on this page, Kaity on this page, Blocks, the block's details (Edit),
 // fixing by hand, the Site; with the rail folded the same sections drop from the top bar's "This page ▾".
-// Three modes in the top bar: Tasks (the page to point at: click anything and leave a task, or ask Kaity in the
-// one-line composer under the page, on the box picked, the page or the site), Edit (the full editor: its inspector
-// the v3 full editor, whole, floating over the page in this window) and View (the site as visitors see it,
-// until Edit). Kaity works through tasks one at a time (task-run.ts); what she did waits in Kaity on this page, to
+// Three modes in the top bar: Tasks (the page to point at: click anything and leave a task, or ask Kaity now about
+// that box, in the task box), Edit (the full editor: its inspector the v3 full editor, whole, floating over the page
+// in this window) and View (the page as visitors see it). Under the page in Tasks and Edit, the Kaity line
+// (kaityline.js): This page or Whole site, never one box. Kaity works through tasks one at a time (task-run.ts); what she did waits in Kaity on this page, to
 // keep or undo. Everything tykerf draws over the page (outlines, pins, the task box) is in the shell's own document,
 // over the frame; the page itself is untouched.
 
-import { $, CHEVRON, esc, failed, kaityMark, plainLabel, request, stamp, stillMotion, store, t, toast, watchVersion } from './common.js';
+import { $, CHEVRON, MARK, esc, failed, kaityMark, plainLabel, request, stamp, stillMotion, store, t, toast, watchVersion } from './common.js';
 import { checkState, createRail, pageModes, renderTop } from './chrome.js';
-import { createComposer, fileChip, readFiles, ACCEPT } from './composer.js';
+import { fileChip, readFiles, ACCEPT } from './composer.js';
+import { createKaityLine } from './kaityline.js';
 import { createFixPanel } from './fix.js';
 import { createFrame } from './frame.js';
 import { askKaity, createKaityCenter, itemActions, itemNeeds, loadThread, onKaityNews, outcome, scopeChip, threadAction } from './kaity.js';
@@ -42,7 +43,7 @@ const MODE_TAG = {
 };
 
 // the one frame: the rail on the left (the page's sections), the page in the rest (the status line above it, the
-// composer under it in Tasks); the fix panel is a kept node a rail's section shows; in Edit the inspector floats
+// Kaity line under it in Tasks and Edit); the fix panel is a kept node a rail's section shows; in Edit the inspector floats
 const work = document.createElement('div');
 work.className = 'work';
 $('.stage').replaceWith(work);
@@ -85,7 +86,8 @@ const FLOAT = { w: 820, h: 480, x: null, y: null, ...store.get('editor', {}) };
 const editorPanel = () => inspector.querySelector('tykerf-inspector-root')?.shadowRoot?.querySelector('.panel') ?? null;
 const compacted = () => !!editorPanel()?.classList.contains('min');
 function placeFloat() {
-  const W = innerWidth, H = innerHeight, top = $('.bar').offsetHeight;
+  // above the Kaity line at the bottom of the window
+  const W = innerWidth, H = innerHeight - (parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--kline-h')) || 0), top = $('.bar').offsetHeight;
   const min = compacted();
   const w = Math.min(Math.max(360, FLOAT.w), W - 16), h = Math.min(Math.max(220, FLOAT.h), H - top - 16);
   const x = Math.max(8, Math.min(FLOAT.x ?? W - w - 24, W - w - 8));
@@ -153,8 +155,8 @@ const S = {
   tree: null, // the page's tree of blocks (page.ts panelTree)
   kit: null, // the site kit's view (/_tykerf/site/kit), for "the same on another page"
   site: null, // { pages, current }
-  sel: null, // the block picked in the rail or on the page: the composer's "This box"
-  asking: null, // Kaity working on something asked from the composer (not a task): { block, step }
+  sel: null, // the block picked in the rail or on the page
+  asking: null, // Kaity working on something asked from the Kaity line or the task box (not a task): { block, step }
   thread: null, // Kaity's thread on this page (Kaity on this page)
   head: null, // the page head's version: a change reloads the frame
   canUndo: false,
@@ -324,12 +326,12 @@ function followKaity() {
 function openBox(spot) {
   // fresh: a box just added, empty (nothing to point at on the page: the task box sits by the box it came from, `near`)
   S.box = { block: spot.block, path: spot.path, label: spot.label, draft: '', question: !!spot.question, touched: !!spot.question, images: [], fresh: !!spot.fresh, near: spot.near ?? null };
-  // the block picked on the page is the rail's and the composer's too: the composer is aimed at it ("This box")
+  // the block picked on the page is the rail's too
   if (S.sel !== spot.block) {
     S.sel = spot.block;
     renderSections();
   }
-  composerScopes('box');
+  pauseLine(true);
   renderBox();
   draw();
   $('.taskbox textarea').focus();
@@ -338,7 +340,14 @@ function openBox(spot) {
 function closeBox() {
   S.box = null;
   $('.taskbox')?.remove();
+  pauseLine(false);
   draw();
+}
+
+/** While a task box is open, it is the one input: the Kaity line under the page is shown, dimmed, and can't be used. */
+function pauseLine(on) {
+  line.el.inert = on;
+  line.el.classList.toggle('paused', on);
 }
 
 function renderBox() {
@@ -357,7 +366,7 @@ function renderBox() {
   const narrow = S.device !== 'full' ? `<span class="chip">${esc(t('{w} px', { w: frame.width }))}</span>` : '';
   const numTitle = isQ ? t('A question: Kaity answers it and changes nothing. Click to make it a task.') : t('Click to make it a question: Kaity answers it and changes nothing.');
   el.innerHTML = `
-    <p class="where"><button type="button" class="num${isQ ? ' q' : ''}" data-box="q" aria-pressed="${isQ}" title="${esc(numTitle)}" aria-label="${esc(numTitle)}">${isQ ? esc(t('Question')) : esc(t('New task'))}</button><b title="${esc(t('Kaity changes only {block} for it.', { block: b.block }))}">${esc(b.block)}</b>${b.label ? `<span class="what">› ${esc(plainLabel(b.label))}</span>` : ''}${narrow}<button type="button" class="x" data-box="cancel" aria-label="${esc(t('Cancel'))}" title="${esc(t('Cancel (Esc)'))}">×</button></p>
+    <p class="where">${MARK}<button type="button" class="num${isQ ? ' q' : ''}" data-box="q" aria-pressed="${isQ}" title="${esc(numTitle)}" aria-label="${esc(numTitle)}">${isQ ? esc(t('Question')) : esc(t('New task'))}</button><b title="${esc(t('Kaity changes only {block} for it.', { block: b.block }))}">${esc(b.block)}</b>${b.label ? `<span class="what">› ${esc(plainLabel(b.label))}</span>` : ''}${narrow}<button type="button" class="x" data-box="cancel" aria-label="${esc(t('Cancel'))}" title="${esc(t('Cancel (Esc)'))}">×</button></p>
     <div class="field">
       <textarea id="task-text" rows="2" aria-label="${esc(t('The task'))}" placeholder="${esc(b.fresh ? t('What should go in this new box? Kaity fills it, or leave it empty.') : t('What should change here? End with ? to ask.'))}">${esc(b.draft)}</textarea>
     </div>
@@ -367,7 +376,8 @@ function renderBox() {
     </div>
     <div class="row">
       <button type="button" class="link more" data-box="menu" aria-haspopup="menu" title="${esc(t('Fix it by hand, edit its words, add or delete boxes… (the same as a right-click on the page)'))}">${esc(t('More…'))} <span class="hint">${esc(t('or right-click'))}</span></button>
-      <button type="button" class="btn primary" data-box="add" title="${esc(t('⌘↵ / Ctrl+↵'))}">${esc(isQ ? t('Add question') : t('Add task'))}</button>
+      <span class="acts"><button type="button" class="btn" data-box="now" title="${esc(t('Kaity does it now, in {block} only', { block: b.block }))}">${esc(t('Ask Kaity now'))}</button>
+      <button type="button" class="btn primary" data-box="add" title="${esc(t('For later, with the other tasks (⌘↵ / Ctrl+↵)'))}">${esc(isQ ? t('Add question') : t('Add task'))}</button></span>
     </div>`;
   const ta = $('textarea', el);
   ta.oninput = () => {
@@ -410,6 +420,7 @@ function renderBox() {
       return keepTyping();
     }
     if (act === 'add') addTask(false);
+    if (act === 'now') askNow();
     if (act === 'pic') {
       const input = Object.assign(document.createElement('input'), { type: 'file', accept: ACCEPT.replace(/,\.zip,application\/zip$/, ''), multiple: true });
       input.onchange = () => attachPictures([...input.files]);
@@ -440,7 +451,7 @@ async function attachPictures(files) {
   if (!b) return;
   try {
     const zip = files.find((f) => /\.zip$/i.test(f.name));
-    if (zip) throw new Error(t('{file}: a design ZIP goes with a request to Kaity (the composer under the page), not with a task', { file: zip.name }));
+    if (zip) throw new Error(t('{file}: a design ZIP goes with a request to Kaity (the Kaity line under the page), not with a task', { file: zip.name }));
     b.images.push(...(await readFiles(files, 5 - b.images.length)));
   } catch (err) {
     failed(err);
@@ -479,6 +490,27 @@ async function addTask(now) {
   }
 }
 
+/**
+ * Ask Kaity now (the task box): what is written, at once, on that box only (the element and the width go with it).
+ * The one way to ask about one box: the Kaity line under the page is about the page or the site.
+ */
+async function askNow() {
+  const b = S.box;
+  if (!b?.draft.trim()) return void $('.taskbox textarea')?.focus();
+  const why = line.why();
+  if (why) return toast(t('{why}: you can ask her again when she is free.', { why }));
+  const where = [b.label ? `The person pointed at ${b.label}` : '', S.device !== 'full' ? `with the page ${frame.width} px wide` : ''].filter(Boolean).join(', ');
+  try {
+    const r = await askKaity({ prompt: `${b.draft.trim()}${where ? `\n\n(${where}.)` : ''}`, files: b.images.map(({ name, type, data }) => ({ name, type, data })), scope: 'box' }, { page: PAGE, box: b.block });
+    closeBox();
+    S.asking = { block: r.id ?? b.block, step: '' };
+    line.refresh();
+    renderBar();
+  } catch (e) {
+    failed(e);
+  }
+}
+
 // ---------- Kaity ----------
 
 async function giveKaity(ns) {
@@ -504,6 +536,7 @@ function setRun(run) {
     void undoAll();
   }
   if (!S.run) S.stepsHidden = false;
+  line?.update();
   renderBar();
   renderTray();
   followKaity();
@@ -1147,7 +1180,7 @@ function layoutStage() {
 
 // ---------- the rail: the page's sections; the drop-down from "This page ▾"; the Kaity center ----------
 
-/** A block picked in the rail: shown and outlined on the page, and the composer's "This box"; in Edit, the full editor's. */
+/** A block picked in the rail: shown and outlined on the page, with its task box (Tasks); in Edit, the full editor's. */
 function pickBlock(id) {
   S.sel = id;
   if (FULL) {
@@ -1159,7 +1192,8 @@ function pickBlock(id) {
   const el = frame.blockEl(id);
   if (el) (frame.show(el, trayHeight()), flash(el));
   renderSections();
-  composerScopes(id === S.tree?.id ? 'page' : 'box');
+  // a block of the page: its task box, to leave a task on it or ask Kaity about it now (the page itself: the line)
+  if (el && id !== S.tree?.id && !VIEW && !S.box?.draft.trim()) setTimeout(() => openBox({ block: id, path: null, label: '' }), 0);
 }
 // the full editor says which block it has selected, so the rail follows it (tykerf.js)
 window.tykerfSelected = (id) => {
@@ -1302,37 +1336,28 @@ const rail = createRail({
 });
 work.prepend(rail.el);
 rail.el.hidden = VIEW; // View: the page, and nothing beside it
-const center = createKaityCenter({ page: PAGE, onToggle: (open) => ((composer.el.hidden = open || FULL || VIEW), renderBar()) });
+const center = createKaityCenter({ page: PAGE, onToggle: () => renderBar() });
 
-// ---------- the composer under the page: one line, aimed at the box picked, the page or the whole site ----------
+// ---------- the Kaity line under the page (Tasks and Edit): This page or the whole site ----------
 
-const composer = createComposer({
-  label: t('Ask Kaity about this page'),
-  line: true,
-  scopes: [],
-  placeholder: (s) => (s === 'box' ? t('Ask Kaity about {block}…', { block: S.sel ?? '' }) : s === 'site' ? t('Ask Kaity about the whole site…') : t('Ask Kaity about {page}…', { page: PAGE })),
-  submit: () => t('Ask'),
-  send: async (m) => {
-    if (running()) throw new Error(t('Kaity is working through the tasks; wait until she is done, or stop her'));
-    const r = await askKaity(m, { page: PAGE, box: S.sel });
+const line = createKaityLine({
+  page: PAGE,
+  busy: () => (running() ? t('Kaity is working through the tasks') : null),
+  sent: (m, r) => {
     if (m.scope === 'site') return void (toast(t('Kaity is on it: she works on the whole site')), center.open());
-    S.asking = { block: r.id ?? S.sel ?? S.tree?.id, step: '' };
+    S.asking = { block: r.id ?? S.tree?.id, step: '' };
     renderBar();
   },
 });
-/** What Kaity may change from here: the block picked (when there is one), this page, the whole site. */
-function composerScopes(want) {
-  composer.setScopes([...(S.sel && S.sel !== S.tree?.id ? [{ key: 'box', label: t('This box: {block}', { block: S.sel }) }] : []), { key: 'page', label: t('This page') }, { key: 'site', label: t('Whole site') }], want ?? composer.scope ?? 'page');
-}
-if (!FULL && !VIEW) column.append(composer.el);
+if (!VIEW) column.append(line.el);
 
-/** A task she couldn't do in its box, asked on the whole page instead: the composer, with the task's words. */
+/** A task she couldn't do in its box, asked on the whole page instead: the Kaity line, with the task's words. */
 function askOnPage(page, n) {
   if (page !== PAGE) return location.assign(`${shellOf(page, false)}?widen=${n}`);
   const x = taskOf(n);
-  composerScopes('page');
-  composer.text = x ? x.text : '';
-  composer.focus();
+  line.aim('page');
+  line.text = x ? x.text : '';
+  line.focus();
 }
 
 /** The clicks in the page's sections, wherever they are shown (the rail, the drop-down). */
@@ -1468,7 +1493,7 @@ events.addEventListener('changed', () => (clearTimeout(debounce), (debounce = se
 events.addEventListener('tasks', () => loadTasks().catch(failed));
 events.addEventListener('taskrun', (e) => setRun(JSON.parse(e.data)));
 events.addEventListener('job', (e) => setJob(JSON.parse(e.data)));
-// Kaity on something asked from the composer (a task run says so itself): the status line follows her
+// Kaity on something asked from the Kaity line or the task box (a task run says so itself): the status line follows her
 events.addEventListener('ai', (e) => {
   const m = JSON.parse(e.data);
   if (running() || S.job?.state === 'running') return;
@@ -1624,8 +1649,8 @@ function arrive() {
   window.history.replaceState(null, '', location.pathname);
   // from the Kaity center: a task she couldn't do in its box, asked on the whole page
   if (widen) return void askOnPage(PAGE, Number(widen));
-  // New page's "Then ask Kaity to fill it": the composer, on the whole page
-  if (ask) return void (composerScopes('page'), composer.focus());
+  // New page's "Then ask Kaity to fill it": the Kaity line, on the whole page
+  if (ask) return void (line.aim('page'), line.focus());
   // from Kaity's work: her conversation on that block (on the page or not: the conversation stays)
   if (talk) return void conversation(talk);
   const block = show ?? task;
@@ -1642,7 +1667,6 @@ await loadState();
 await loadTasks();
 setJob((await api('/job').catch(() => ({ job: null }))).job, { arriving: true });
 frame.load(frameSrc());
-composerScopes();
 void rail.refresh().then(renderBar);
 void loadThreadNow();
 // the thread on this page follows Kaity anywhere on the site (a task run, the whole site, another tab)

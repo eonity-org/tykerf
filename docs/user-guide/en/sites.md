@@ -60,7 +60,7 @@ The editor opens on the site manager's **Overview** (`http://localhost:4400/`, o
 - **Your site**, with how many pages, shared blocks and media files it has and its language; **View site** (see it as visitors do: [View mode](editor.md#view-mode)) and **+ New page**.
 - **Pages**: a card for each page, with a small picture of it, its name and address, *Home*, its title, who changed it last and when (point at it for the exact time), its open tasks, and how many of Kaity's changes or questions wait for your review there; **Open**, **View**, **Name and title**, **Duplicate**, and **⋯**, a menu with *Make it home* and *Remove…* (see below; Escape or a click elsewhere closes it). The last card is **New page**.
 - **Before you publish**: the design check (*not checked yet*, *out of date* once a page changed after it, *all good* or what to fix: the same as the top bar's **Checks** and the side panel's *Check the site*), About this site, the links between pages, the language and the site's other checks, each with what to do about it. Only what is done shows in green.
-- **Kaity lately**: her last three requests, and a box to ask her about the whole site, with **Attach**. *Open Kaity center* shows everything.
+- **Kaity lately**: her last three requests. *Open Kaity center* shows everything. To ask her about the whole site, use the Kaity line at the bottom of the screen.
 - **Learn tykerf**: the guides, online.
 
 Every screen has the same frame: the top bar (*Your site / …*, **Kaity**, **Checks**, one **Undo**, one **Publish**) and the side panel on the left. On the site's screens the side panel lists the **Pages** (**+ New page** at the top), the **Site**'s screens, each with how it stands now (*2 · 1 could be*, *none yet*, *not set*), and the **Kaity center**; at the bottom, **Docs** and **Sign out**. On a page, the side panel is the page's, and all of this is in its **Site** section (see [the frame](editor.md#the-frame)). **‹** folds it to a strip and **›** opens it again; TYKERF remembers it. On a phone it sits above the screen, folded to one line.
@@ -99,7 +99,7 @@ A page Kaity is working on waits: it can't be renamed, removed or duplicated unt
 
 ### Everything Kaity did
 
-Kaity can work on several pages at once, so on a site of many pages you need one place to see it all: the **Kaity center** (the top bar's **Kaity**, or the side panel). It is one thread, from the oldest to the newest, opened at the newest, next to the box to ask her (see [the Kaity center](ai.md#the-kaity-center)). It is kept in the site's `.tykerf/kaity.jsonl`, the last thousand requests or so.
+Kaity can work on several pages at once, so on a site of many pages you need one place to see it all: the **Kaity center** (the top bar's **Kaity**, or the side panel). It is one thread, from the oldest to the newest, opened at the newest (see [the Kaity center](ai.md#the-kaity-center)). It is kept in the site's `.tykerf/kaity.jsonl`, the last thousand requests or so.
 
 ### Links between pages
 

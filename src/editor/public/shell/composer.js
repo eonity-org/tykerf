@@ -1,5 +1,5 @@
-// The one composer for everything said to Kaity (v4): the Overview's "Kaity lately", the Kaity center, a page's bar
-// under the page, the task box and New page's Describe. It has what Kaity may change ("Kaity may change": This box,
+// The one composer for everything said to Kaity (v4): the Kaity line at the bottom of every screen (kaityline.js) and
+// New page's Describe. It has what Kaity may change ("Kaity may change": This box,
 // This page, Whole site), an Attach button (and dropping or pasting files on it) for pictures, PDFs and a design as a
 // ZIP file, and Enter to send (Shift+Enter for a new line). What it sends and where is the caller's (`send`).
 
@@ -62,7 +62,7 @@ export function createComposer({ scopes = [], scope = scopes[0]?.key, placeholde
   const el = document.createElement('form');
   el.className = `composer${compact ? ' compact' : ''}${line ? ' line' : ''}`;
   el.setAttribute('aria-label', label);
-  const S = { scopes, scope, files: [], busy: false, text: '' };
+  const S = { scopes, scope, files: [], busy: false, text: '', blocked: null };
 
   function render() {
     const typed = el.querySelector('textarea');
@@ -74,11 +74,12 @@ export function createComposer({ scopes = [], scope = scopes[0]?.key, placeholde
       el.innerHTML = `
         ${S.files.length ? `<div class="kfiles">${S.files.map((f, i) => fileChip(f, i)).join('')}</div>` : ''}
         <div class="cline">
-          <span class="cmark" aria-hidden="true">${kaityMark(S.busy, true)}</span>
+          <span class="cmark" aria-hidden="true">${kaityMark(S.busy || !!S.blocked, true)}</span>
           <textarea name="prompt" rows="1" aria-label="${esc(label)}" placeholder="${esc(placeholder(S.scope))}">${esc(S.text)}</textarea>
           ${S.scopes.length > 1 ? `<label class="cscope"><span class="vh">${esc(t('Kaity may change'))}</span><select data-scope-select title="${esc(t('Kaity may change'))}">${S.scopes.map((s) => `<option value="${esc(s.key)}" ${s.key === S.scope ? 'selected' : ''}>${esc(s.label)}</option>`).join('')}</select></label>` : ''}
           <button type="button" class="btn icon attach" data-c="attach" ${S.files.length >= max ? 'disabled' : ''} aria-label="${esc(t('Attach'))}" title="${esc(t('Attach pictures, PDFs or a design as a ZIP file (or drop or paste them here)'))}">${CLIP}</button>
-          <button type="submit" class="btn primary" ${S.busy ? 'disabled' : ''}>${esc(submit(S.scope))}</button>
+          ${S.blocked ? `<span class="cwait" role="status">${esc(S.blocked)}</span>` : ''}
+          <button type="submit" class="btn primary" ${S.busy || S.blocked ? 'disabled' : ''} ${S.blocked ? `title="${esc(t('You can ask Kaity again when she is free'))}"` : ''}>${esc(submit(S.scope))}</button>
         </div>`;
       grow();
       if (focused) {
@@ -124,6 +125,7 @@ export function createComposer({ scopes = [], scope = scopes[0]?.key, placeholde
   async function go() {
     const prompt = (el.querySelector('textarea')?.value ?? '').trim();
     if (!prompt && !S.files.length) return el.querySelector('textarea').focus();
+    if (S.blocked) return toast(t('{why}: you can ask her again when she is free.', { why: S.blocked }));
     S.busy = true;
     render();
     try {
@@ -183,6 +185,12 @@ export function createComposer({ scopes = [], scope = scopes[0]?.key, placeholde
     },
     get scope() {
       return S.scope;
+    },
+    /** Kaity is busy (what with, in words) or free (null): while she is busy, what is typed stays and Ask waits. */
+    setBlocked(why) {
+      if (S.blocked === why) return;
+      S.blocked = why;
+      render();
     },
     set text(v) {
       S.text = v;
