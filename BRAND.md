@@ -56,8 +56,10 @@ The palette is Tydal teal + amber. Amber `#EA9A27` is mycolor.space's match for 
 | Amber | `#EA9A27` | Focus: the selected block, its frame on the page, cell 4 of the mark |
 | Cream | `#F3F0E8` | Ground for brand pages (Tydal) |
 | Ink | `#10303F` | Body text on light grounds |
+| Edit blue | `#426CB2` | The editor's Edit mode: the page's border and its label |
+| View green | `#27856B` | The editor's View mode: the page's border and its label |
 
-In the editor the palette is CSS variables in `src/editor/public/tykerf.css` (`--teal`, `--amber`, `--brand`, `--focus`, `--focus-under`), so the accent changes in one place.
+In the editor the palette is CSS variables in `src/editor/public/tykerf.css` (`--teal`, `--amber`, `--brand`, `--focus`, `--focus-under`), so the accent changes in one place. The editor's areas each have one colour of the palette, on the border of the box that holds the work: the site's screens teal, Tasks amber, Edit blue, View green (`--bar`, `--task`, `--edit`, `--view` in `src/editor/public/shell/shell.css`).
 
 Contrast:
 - Teal is strong on white (8.3:1), so it carries text and buttons.

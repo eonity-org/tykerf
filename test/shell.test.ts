@@ -261,7 +261,7 @@ describe('the v3 editor', () => {
     // the same frame and the same box, green, with View on its border; nothing beside the page or under it
     expect(await page.locator('.bar .modes [aria-current]').textContent()).toContain('View');
     expect(await page.locator('.modetag > span').textContent()).toBe('View');
-    expect(await page.locator('.stage').evaluate((s) => getComputedStyle(s).borderTopColor)).toBe('rgb(29, 107, 68)');
+    expect(await page.locator('.stage').evaluate((s) => getComputedStyle(s).borderTopColor)).toBe('rgb(39, 133, 107)');
     for (const gone of ['.rail', '.pagecol .composer', '.pstatus', '.bar [data-top="page"]', '.pin']) expect(await page.locator(gone).first().isHidden(), gone).toBe(true);
     // the page works as for a visitor: a click leaves no task box
     await frame().locator('[data-sw="hero"] h1').click();

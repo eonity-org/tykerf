@@ -3,7 +3,7 @@
 // (screens.js), New page (newpage.js) and the Kaity center as a page (kaity.js). Under every screen, the Kaity line
 // (kaityline.js), on the whole site.
 
-import { $, failed, request, t, toast, watchVersion } from './common.js';
+import { $, MARK, esc, failed, request, t, toast, watchVersion } from './common.js';
 import { SCREEN_TITLES, checkState, createRail, renderTop } from './chrome.js';
 import { createKaityCenter, kaityScreen, onKaityNews } from './kaity.js';
 import { createKaityLine } from './kaityline.js';
@@ -18,7 +18,8 @@ export async function siteMode() {
   const screenOf = () => location.pathname.match(/^\/_tykerf\/edit\/_site\/([a-z-]*)/)?.[1] || 'overview';
   let screen = SCREENS[screenOf()] ? screenOf() : 'overview';
   document.body.classList.add('site-mode');
-  $('.stage').outerHTML = '<div class="work"><div class="sitecol"><main class="screen" tabindex="-1"></main></div></div>';
+  // the screen in its box, Site on its border (as a page's mode on the page's), the Kaity line under it
+  $('.stage').outerHTML = `<div class="work"><div class="sitecol"><main class="screen" tabindex="-1"></main><div class="modetag"><span>${MARK}${esc(t('Site'))}</span></div></div></div>`;
   const main = $('.screen');
   const bar = $('.bar');
   let history = null, pending = null, crumb = null;

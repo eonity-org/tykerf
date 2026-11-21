@@ -198,6 +198,7 @@ describe('tasks in the editor', () => {
     // nothing above the page but its box (blue, Edit on its border); no × of its own: the top bar's Tasks goes back
     expect(await fresh.locator('.pstatus').isHidden()).toBe(true);
     expect(await fresh.locator('.modetag').textContent()).toBe('Edit');
+    expect(await fresh.locator('.stage').evaluate((s) => getComputedStyle(s).borderTopColor)).toBe('rgb(66, 108, 178)'); // --edit
     expect(await fresh.locator('#tykerf-inspector .panel .closebtn').isHidden()).toBe(true);
     await fresh.locator('.bar .modes a', { hasText: 'Tasks' }).click();
     await fresh.waitForURL(/\/_tykerf\/edit\/home\/$/);

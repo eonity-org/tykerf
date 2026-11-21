@@ -101,6 +101,9 @@ describe('the site in the v3 editor', () => {
     expect(await main.locator('.ocheck li > span:first-child').allTextContents()).toEqual(['Design check', 'About this site', 'Links between pages', 'Language', 'Other checks']);
     expect(await main.locator('.olately h2').textContent()).toBe('Kaity lately');
     expect(await main.locator('.olately .composer').count()).toBe(0);
+    // the screen in its box, tykerf's teal with Site on its border; the Kaity line under it, outside the box
+    expect(await page.locator('.sitecol > .screen').evaluate((s) => getComputedStyle(s).borderTopColor)).toBe('rgb(10, 84, 117)');
+    expect(await page.locator('.sitecol > .modetag').textContent()).toBe('Site');
     const line = page.locator('.sitecol > .kline');
     expect(await line.locator('textarea').getAttribute('placeholder')).toBe('Ask Kaity about the whole site…');
     expect(await line.locator('select').count()).toBe(0);
