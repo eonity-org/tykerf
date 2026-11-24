@@ -9,7 +9,7 @@
   "plugins": [
     {
       "name": "tykerf",
-      "displayName": "TYKERF",
+      "displayName": "TYKERF Community Edition",
       "description": "Build and edit real web pages block by block: Claude changes one named block at a time through validated moves, looks at the result, and every change can be undone. Plain HTML files in a folder, no platform.",
       "source": {
         "source": "github",

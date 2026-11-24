@@ -1,10 +1,15 @@
 <!-- tykerf:header -->
 &nbsp;
 
-[<img src="src/editor/public/brand/tykerf-logo-docs.svg" alt="TYKERF" height="22">](README.md) › **Changelog**
+[<img src="src/editor/public/brand/png/tykerf-logo-48.png" alt="TYKERF" height="24">](README.md) › **Changelog**
 <!-- /tykerf:header -->
 
 # Changelog
+
+## 1.0.0 (2026-11-24): TYKERF Community Edition
+
+- **TYKERF 0.3.0 under its new name.** This repository is now **TYKERF Community Edition** (TYKERF CE), the free, open source edition of TYKERF; **TYKERF**, the full edition, goes on separately. The code is 0.3.0's: the Claude plugin, the Claude Desktop extension and the marketplace show the new name, and the version is 1.0.0. Nothing installed breaks: the plugin's and the extension's id stay `tykerf`.
+- **The ty family's logo and icon.** TYKERF now signs as the family does (TYDAL, TYSET): the logo is the "ty" isotype, its "y" linked to the three balls, then "kerf", a picture exported from its master (in the README, the docs' header, and the headers of the sign-in, *page not found*, site manager, handbook and job window); the icon is the slicing tree in a square frame (the tab icon, the Claude Desktop extension and the plugin). The editor no longer types "tykerf" as text: its panel shows the glyph alone. BRAND.md describes both. Beside the logo, the legend **Community Edition** says which edition this is.
 
 ## 0.3.0 (2026-11-01): tasks, the handbook and the site kit
 

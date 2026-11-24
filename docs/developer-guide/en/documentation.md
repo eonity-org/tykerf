@@ -1,7 +1,7 @@
 <!-- tykerf:header -->
 &nbsp;
 
-[<img src="../../../src/editor/public/brand/tykerf-logo-docs.svg" alt="TYKERF" height="22">](../../../README.md) › [Documentation](../../README.md) › [Developer guide](README.md) › **Writing the docs**
+[<img src="../../../src/editor/public/brand/png/tykerf-logo-48.png" alt="TYKERF" height="24">](../../../README.md) › [Documentation](../../README.md) › [Developer guide](README.md) › **Writing the docs**
 <!-- /tykerf:header -->
 
 # Writing the docs

@@ -89,7 +89,8 @@ function header(file: string, up: Place[]): string {
   // the logo with a wider margin: some Markdown viewers round every image (Markdown Preview on the Mac: 8px,
   // and it ignores style="border-radius:0"), which at this size cut the f's hook off; with the margin the
   // corners are empty. 22px high draws the logo at the size of the plain file at 20px
-  const logo = `[<img src="${rel(file, 'src/editor/public/brand/tykerf-logo-docs.svg')}" alt="TYKERF" height="22">](${rel(file, 'README.md')})`;
+  // the logo is a picture (BRAND.md), here at 24 px, its minimum height, from the 48 px file for sharp screens
+  const logo = `[<img src="${rel(file, 'src/editor/public/brand/png/tykerf-logo-48.png')}" alt="TYKERF" height="24">](${rel(file, 'README.md')})`;
   const crumbs = up.filter((p) => p !== TYKERF).map((p) => `[${p.name}](${rel(file, p.file)})`);
   // a blank line first (Markdown drops empty lines, not an empty paragraph), so the logo doesn't touch the top
   return `<!-- tykerf:header -->\n&nbsp;\n\n${[logo, ...crumbs, `**${title(file)}**`].join(' › ')}\n<!-- /tykerf:header -->\n\n`;

@@ -116,6 +116,10 @@ export function loginPage(next: string): string {
   body { background: #F2F7F9; font-family: tykerf-plex-sans, system-ui, sans-serif; color: #10303F; line-height: 1.5; }
   header { display: flex; align-items: center; gap: 12px; padding: 12px 20px; background: #0A5475; color: #fff; }
   header svg { width: 22px; height: 22px; fill: #fff; }
+  header .logo { display: block; height: 32px; width: auto; }
+  /* the edition (BRAND.md): a thin rule after the logo, then COMMUNITY / EDITION on two lines */
+  header .lockup { display: flex; align-items: center; gap: 10px; }
+  header .edition { margin-top: 3px; padding: 1px 0 1px 10px; border-left: 1px solid rgb(255 255 255 / .45); font: 600 11px/1.15 tykerf-plex-sans, 'IBM Plex Sans', sans-serif; letter-spacing: .06em; text-transform: uppercase; opacity: .92; white-space: nowrap; }
   header svg .focus { fill: #EA9A27; }
   main { max-width: 380px; margin: 64px auto; padding: 0 20px; }
   form { display: grid; gap: 12px; background: #fff; border-radius: 12px; padding: 24px; box-shadow: 0 6px 24px rgb(0 0 0 / .08); }
@@ -133,7 +137,7 @@ export function loginPage(next: string): string {
 </style>
 </head>
 <body>
-<header><svg viewBox="0 0 64 64" aria-hidden="true"><rect width="64" height="20" rx="6"/><rect y="27" width="28.5" height="37" rx="6"/><rect class="focus" x="35.5" y="27" width="28.5" height="12" rx="3"/><rect x="35.5" y="45" width="11.25" height="19" rx="3"/><rect x="52.75" y="45" width="11.25" height="19" rx="3"/></svg><b>tykerf</b></header>
+<header><svg viewBox="0 0 64 64" aria-hidden="true"><rect width="64" height="20" rx="6"/><rect y="27" width="28.5" height="37" rx="6"/><rect class="focus" x="35.5" y="27" width="28.5" height="12" rx="3"/><rect x="35.5" y="45" width="11.25" height="19" rx="3"/><rect x="52.75" y="45" width="11.25" height="19" rx="3"/></svg><span class="lockup"><img class="logo" src="/_tykerf/brand/png/tykerf-logo-white-32.png" srcset="/_tykerf/brand/png/tykerf-logo-white-64.png 2x" height="32" alt="tykerf"><span class="edition">Community<br>Edition</span></span></header>
 <main>
   <form>
     <h1>Sign in to edit this site</h1>

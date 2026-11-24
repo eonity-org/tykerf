@@ -1,6 +1,8 @@
-<p align="center"><img src="src/editor/public/brand/tykerf-logo.svg" alt="TYKERF" width="360" style="border-radius:0"></p>
+<p align="center"><picture><source media="(prefers-color-scheme: dark)" srcset="src/editor/public/brand/png/tykerf-logo-white-280.png"><img src="src/editor/public/brand/png/tykerf-logo-280.png" alt="TYKERF" height="140"></picture></p>
 
-# TYKERF
+# TYKERF Community Edition
+
+**TYKERF Community Edition** (TYKERF CE) is the free, open source edition of TYKERF (Apache-2.0): the page engine, the MCP server and the Claude plugin, with a working editor. **TYKERF**, Eonity's full edition, adds collections (news, products), languages, a WordPress import, site and design checks, and a new editor; a site made here opens there as it is. This edition gets fixes; new features go to TYKERF.
 
 **Make complex web pages understandable and editable. Let AI change one clearly scoped block at a time.**
 

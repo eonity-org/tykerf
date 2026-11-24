@@ -173,7 +173,7 @@ ui.innerHTML = `
 <div class="outdated" role="alert" hidden><span>${t('TYKERF was updated while this editor was running. Restart it to use the new version: Ctrl+C in its terminal, then npm start again.')}</span><button class="reload" hidden>${t('Reload')}</button><button class="close" aria-label="${t('Close')}">×</button></div>
 <section class="panel" role="dialog" aria-label="TYKERF">
   <header class="head">
-    <span class="brand" title="TYKERF">${ICON.tykerf}<span class="wordmark">tykerf</span></span>
+    <span class="brand" title="TYKERF">${ICON.tykerf}</span>
     <div class="modesw" role="radiogroup" aria-label="${t('Mode')}">
       <button data-mode="tasks" role="radio" title="${t('Tasks: click anything on the page to leave a task there, then give your tasks to Kaity')}">${ic('task')}<span class="label">${t('Tasks')}</span><span class="count" hidden></span></button>
       <button data-mode="edit" role="radio" title="${t('Edit: every block in detail, its text, code, sizes and look')}">${ic('edit')}<span class="label">${t('Edit')}</span></button>
@@ -2027,7 +2027,7 @@ function renderJob(job) {
   const ended = !running && !(job.state === 'stopped' && !ai);
   // Kaity never shows without TYKERF (BRAND.md): the TYKERF logo heads the window, above Kaity's symbol and name
   box.innerHTML = `
-    <div class="job-top"><span class="job-brand" title="TYKERF">${ICON.tykerf}<span class="wordmark">tykerf</span></span>
+    <div class="job-top"><span class="job-brand" title="TYKERF">${ICON.tykerf}<picture class="logo"><source media="(prefers-color-scheme: dark)" srcset="/_tykerf/brand/png/tykerf-logo-white-32.png, /_tykerf/brand/png/tykerf-logo-white-64.png 2x"><img src="/_tykerf/brand/png/tykerf-logo-32.png" srcset="/_tykerf/brand/png/tykerf-logo-64.png 2x" height="32" alt="tykerf"></picture><span class="edition">Community<br>Edition</span></span>
       ${running ? `<button class="job-x" data-job="ask-stop" title="${ai ? t('Stop Kaity') : t('Stop the copy')}" aria-label="${ai ? t('Stop Kaity') : t('Stop the copy')}">×</button>` : ''}</div>
     <div class="job-head"><h2>${running ? (ai ? kaityMark(true) : '<span class="spin" aria-hidden="true"></span>') : ''}${title}</h2></div>
     ${lead ? `<p class="job-lead">${lead}</p>` : ''}

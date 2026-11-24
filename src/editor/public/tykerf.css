@@ -220,10 +220,9 @@ textarea.head-code { min-height: 160px; }
   cursor: grab; background: var(--brand); color: #fff; user-select: none; -webkit-user-select: none;
 }
 .panel.dragging .head { cursor: grabbing; }
-/* the logo: mark + wordmark (IBM Plex Sans Light, as in BRAND.md), then a divider before the path */
+/* TYKERF's glyph (BRAND.md: the logo is a picture, never text, and too small to read in this bar), then a divider before the path */
 .brand { display: flex; align-items: center; gap: 7px; flex: none; color: #fff; padding-right: 12px; margin-right: 4px; border-right: 1px solid rgb(255 255 255 / .28); }
-.brand .mark { width: 20px; height: 20px; }
-.wordmark { font: 300 19px/1 var(--sans); letter-spacing: -0.02em; margin-top: -1px; }
+.brand .mark { width: 22px; height: 22px; }
 /* the Site menu (export, the AI), then the current page: the list of pages, with rename, remove and New page… */
 .sitebtn { display: inline-grid; place-items: center; flex: none; width: 28px; height: 26px; margin-right: 2px; padding: 0; border: 1px solid rgb(255 255 255 / .28); border-radius: 7px; background: rgb(255 255 255 / .08); color: #fff; }
 .sitebtn:hover, .sitebtn[aria-expanded="true"] { background: rgb(255 255 255 / .16); }
@@ -606,7 +605,6 @@ textarea.code { flex: 1; min-height: 120px; font: var(--mono); tab-size: 2; whit
   /* phones: Undo and Redo as icons only, so the path keeps its room (their names stay in title and aria-label) */
   .head-tools > .undo .label, .head-tools > .redo .label { display: none; }
   /* phones: the mark alone, so the path keeps its room */
-  .wordmark { display: none; }
   .brand { padding-right: 8px; }
   .head-tools > .undo, .head-tools > .redo { padding-inline: 6px; }
   .body { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(70px, 32%) minmax(0, 1fr); }
@@ -663,7 +661,7 @@ textarea.code { flex: 1; min-height: 120px; font: var(--mono); tab-size: 2; whit
 .job-clear { justify-self: start; padding: 4px 10px; border: 1px solid var(--line); border-radius: 999px; background: var(--bg); color: var(--brand); font-size: 12px; font-weight: 600; cursor: pointer; }
 .job-clear[aria-pressed="true"] { background: var(--tint); }
 .jobmodal.running .job-brand .mark { width: 22px; height: 22px; }
-.jobmodal.running .job-brand .wordmark { font-size: 22px; }
+.jobmodal.running .job-brand .logo img { height: 26px; }
 .jobmodal.running .job-lead { font-size: 12px; }
 .jobmodal.running .job-steps { max-height: 22vh; font-size: 11px; }
 /* steps come short (step() in ai.ts) and wrap; never clip them: Chrome garbles clipped lines in this scrolled list */
@@ -679,7 +677,11 @@ textarea.code { flex: 1; min-height: 120px; font: var(--mono); tab-size: 2; whit
 .job-top { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding-bottom: 10px; border-bottom: 1px solid var(--line); }
 .job-brand { display: flex; align-items: center; gap: 8px; color: var(--accent); }
 .job-brand .mark { width: 26px; height: 26px; }
-.job-brand .wordmark { font-size: 26px; }
+/* the logo (BRAND.md): a picture, colour on light, white in dark mode */
+.job-brand .logo img { display: block; height: 32px; width: auto; }
+/* the edition (BRAND.md): a thin rule after the logo, then COMMUNITY / EDITION on two lines, never inside the logo's picture */
+.job-brand .edition { margin: 3px 0 0 2px; padding: 1px 0 1px 10px; border-left: 1px solid currentColor; font: 600 11px/1.15 var(--sans); letter-spacing: .06em; text-transform: uppercase; opacity: .9; white-space: nowrap; }
+.jobmodal.running .job-brand .edition { font-size: 10px; }
 .job-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .job-head h2 { margin: 0; font-size: 16px; font-weight: 600; display: flex; align-items: center; gap: 10px; }
 .job-head .spin { width: 14px; height: 14px; border: 2px solid var(--brand-2); border-right-color: transparent; border-radius: 50%; animation: tykerf-spin .9s linear infinite; }

@@ -1,7 +1,7 @@
 <!-- tykerf:header -->
 &nbsp;
 
-[<img src="../src/editor/public/brand/tykerf-logo-docs.svg" alt="TYKERF" height="22">](../README.md) › [Documentation](README.md) › **Slicing notation — specification v0.2 (draft)**
+[<img src="../src/editor/public/brand/png/tykerf-logo-48.png" alt="TYKERF" height="24">](../README.md) › [Documentation](README.md) › **Slicing notation — specification v0.2 (draft)**
 <!-- /tykerf:header -->
 
 # Slicing notation — specification v0.2 (draft)

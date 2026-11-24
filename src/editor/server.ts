@@ -238,6 +238,14 @@ function serveStatic(req: IncomingMessage, res: ServerResponse, p: string): bool
     res.end(readFileSync(join(here, 'public', p.slice('/_tykerf/'.length))));
     return true;
   }
+  // TYKERF's logo and icons as PNG (public/brand/png, BRAND.md): the logo in its own headers
+  const brand = /^\/_tykerf\/brand\/png\/(tykerf-[a-z0-9-]+\.png)$/.exec(p);
+  if (brand) {
+    const f = join(here, 'public', 'brand', 'png', brand[1]);
+    if (!existsSync(f)) res.writeHead(404).end('not found');
+    else res.writeHead(200, { 'content-type': 'image/png', 'cache-control': 'no-cache' }).end(readFileSync(f));
+    return true;
+  }
   // bundled IBM Plex (public/fonts, SIL OFL): served by TYKERF so editing a page never calls a font CDN
   const font = /^\/_tykerf\/fonts\/([A-Za-z0-9-]+\.woff2)$/.exec(p);
   if (font) {
@@ -667,7 +675,7 @@ if (PUBLIC_URL) {
  */
 function visitorMay(req: IncomingMessage, p: string): boolean {
   if (req.method !== 'GET' && req.method !== 'HEAD') return false;
-  if (p.startsWith('/_tykerf/fonts/') || p === '/_tykerf/login' || p === '/_tykerf/favicon.svg') return true;
+  if (p.startsWith('/_tykerf/fonts/') || p.startsWith('/_tykerf/brand/') || p === '/_tykerf/login' || p === '/_tykerf/favicon.svg') return true;
   if (p.startsWith('/_tykerf/')) return false;
   // anything else under a page is either the page, its files, or not there (a 404 page, not a refusal)
   const rel = /^\/[^/]+(\/.*)?$/.exec(p)?.[1];

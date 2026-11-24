@@ -1,7 +1,7 @@
 <!-- tykerf:header -->
 &nbsp;
 
-[<img src="../../src/editor/public/brand/tykerf-logo-docs.svg" alt="TYKERF" height="22">](../../README.md) › [Roadmap](../../ROADMAP.md) › **Plan: sharing styles, scripts, blocks and attributes across a site**
+[<img src="../../src/editor/public/brand/png/tykerf-logo-48.png" alt="TYKERF" height="24">](../../README.md) › [Roadmap](../../ROADMAP.md) › **Plan: sharing styles, scripts, blocks and attributes across a site**
 <!-- /tykerf:header -->
 
 # Plan: sharing styles, scripts, blocks and attributes across a site

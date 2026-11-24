@@ -67,7 +67,7 @@ export async function buildMcpb(out = join(root, 'dist', 'mcpb'), opts: { pack?:
   const manifest = {
     manifest_version: '0.3',
     name: 'tykerf',
-    display_name: 'TYKERF',
+    display_name: 'TYKERF Community Edition',
     version: pkg.version,
     description: 'Change a web page block by block: Claude edits a TYKERF page through validated moves on its tree of blocks, and every change can be undone.',
     long_description:

@@ -15,8 +15,11 @@
   header { display: flex; align-items: center; gap: 12px; padding: 12px 20px; background: #0A5475; color: #fff; }
   header svg { width: 22px; height: 22px; fill: #fff; }
   header svg .focus { fill: #EA9A27; }
-  header b { font-size: 17px; letter-spacing: .01em; }
-  header span { opacity: .8; }
+  header .logo { display: block; height: 32px; width: auto; }
+  /* the edition (BRAND.md): a thin rule after the logo, then COMMUNITY / EDITION on two lines */
+  header .lockup { display: flex; align-items: center; gap: 10px; }
+  header .edition { margin-top: 3px; padding: 1px 0 1px 10px; border-left: 1px solid rgb(255 255 255 / .45); font: 600 11px/1.15 tykerf-plex-sans, 'IBM Plex Sans', sans-serif; letter-spacing: .06em; text-transform: uppercase; opacity: .92; white-space: nowrap; }
+  header .subtitle { opacity: .8; border-left: 1px solid rgb(255 255 255 / .38); padding-left: 16px; margin-left: 4px; }
   header nav { margin-left: auto; display: flex; flex-wrap: wrap; gap: 4px 16px; }
   header nav a { color: #fff; font-size: 14px; }
   header nav .signout { font: inherit; font-size: 14px; padding: 0; border: 0; background: none; color: #fff; text-decoration: underline; cursor: pointer; }
@@ -296,7 +299,7 @@
 <body>
 <header>
   <svg viewBox="0 0 64 64" aria-hidden="true"><rect width="64" height="20" rx="6"/><rect y="27" width="28.5" height="37" rx="6"/><rect class="focus" x="35.5" y="27" width="28.5" height="12" rx="3"/><rect x="35.5" y="45" width="11.25" height="19" rx="3"/><rect x="52.75" y="45" width="11.25" height="19" rx="3"/></svg>
-  <b>tykerf</b><span data-t>Start your site with its first page</span>
+  <span class="lockup"><img class="logo" src="/_tykerf/brand/png/tykerf-logo-white-32.png" srcset="/_tykerf/brand/png/tykerf-logo-white-64.png 2x" height="32" alt="tykerf"><span class="edition">Community<br>Edition</span></span><span class="subtitle" data-t>Start your site with its first page</span>
   <nav hidden aria-label="The site"><a class="to-home" href="/" hidden data-t>The home page</a><a href="/pages/" data-t>List of pages</a><button type="button" class="signout" hidden data-t>Sign out</button></nav>
 </header>
 <p class="outdated" role="alert" hidden><span data-t>TYKERF was updated while this editor was running. Restart it to use the new version: Ctrl+C in its terminal, then npm start again.</span> <button type="button" class="reload" hidden data-t>Reload</button></p>
@@ -1104,7 +1107,7 @@ function render() {
   // no pages (a new site, or the last one removed): the ways to make one show at once
   if (!has && newBox.hidden) openNew(false);
   if (has && newBox.hidden) idle.hidden = false;
-  document.querySelector('header span').textContent = has ? t('Your site: its pages, and a new one') : t('Start your site with its first page');
+  document.querySelector('header .subtitle').textContent = has ? t('Your site: its pages, and a new one') : t('Start your site with its first page');
   // the site as visitors see it: its home page, and the list of its pages
   document.querySelector('header nav').hidden = !has && !site.signin;
   const toHome = document.querySelector('.to-home');

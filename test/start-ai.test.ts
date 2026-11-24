@@ -89,7 +89,10 @@ describe('show or describe it', () => {
 
     // the page opens with the AI's work in a modal: its steps, then its answer and how to go on
     await page.locator('.jobmodal').waitFor({ state: 'visible' });
-    expect(await page.locator('.job-brand .wordmark').textContent()).toBe('tykerf'); // Kaity never shows without TYKERF
+    // Kaity never shows without TYKERF: its logo heads the window, a picture that loads (BRAND.md)
+    const logo = page.locator('.job-brand .logo img');
+    expect(await logo.getAttribute('alt')).toBe('tykerf');
+    await expect.poll(() => logo.evaluate((img: HTMLImageElement) => img.complete && img.naturalWidth > 0)).toBe(true);
     // only the page and the modal: the editor and its button stay out of sight until the user picks
     expect(await page.locator('.panel').isHidden()).toBe(true);
     expect(await page.locator('.toggle').isHidden()).toBe(true);

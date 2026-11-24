@@ -60,7 +60,7 @@ export async function buildPlugin(out = join(root, 'dist', 'plugin')): Promise<s
 
   json(join(out, '.claude-plugin', 'plugin.json'), {
     name: 'tykerf',
-    displayName: 'TYKERF',
+    displayName: 'TYKERF Community Edition',
     version,
     description: 'Build and edit real web pages block by block: Claude changes one named block at a time through validated moves, looks at the result, and every change can be undone. Plain HTML files in a folder, no platform.',
     author: { name: 'eonity.org', email: 'dev@eonity.org', url: 'https://eonity.org' },

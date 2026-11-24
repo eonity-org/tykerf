@@ -85,7 +85,10 @@ body.hb { margin: 0; background: var(--bg-2); color: var(--ink); font: 14px/1.5 
 .hb header.top { position: sticky; top: 0; z-index: 2; display: flex; align-items: center; gap: 12px; padding: 10px 24px; background: var(--teal); color: #fff; }
 .hb header.top .mark { width: 22px; height: 22px; fill: currentColor; }
 .hb header.top .mark .focus { fill: var(--amber); }
-.hb header.top b { font: 300 20px/1 tykerf-plex-sans, sans-serif; letter-spacing: -.02em; }
+.hb header.top .logo { display: block; height: 32px; width: auto; }
+.hb header.top .lockup { display: flex; align-items: center; gap: 10px; }
+.hb header.top .edition { margin-top: 3px; padding: 1px 0 1px 10px; border-left: 1px solid rgb(255 255 255 / .45); font: 600 11px/1.15 tykerf-plex-sans, sans-serif; letter-spacing: .06em; text-transform: uppercase; opacity: .92; white-space: nowrap; }
+.hb header.top .page { border-left: 1px solid rgb(255 255 255 / .38); padding-left: 16px; margin-left: 4px; }
 .hb header.top .page { font: 12px/1.5 tykerf-plex-mono, monospace; opacity: .85; }
 .hb header.top nav { margin-left: auto; display: flex; gap: 6px; }
 .hb header.top a { color: #fff; text-decoration: none; padding: 5px 10px; border: 1px solid rgb(255 255 255 / .35); border-radius: 7px; }
@@ -184,7 +187,7 @@ ${root}
 ${CSS}
 </style></head>
 <body class="hb">
-<header class="top">${MARK}<b>tykerf</b><span class="page">handbook · ${esc(name)}</span><nav><a href="./">Back to the page</a><a href="_tykerf/handbook.md" download="handbook-${esc(name)}.md">Markdown</a></nav></header>
+<header class="top">${MARK}<span class="lockup"><img class="logo" src="/_tykerf/brand/png/tykerf-logo-white-32.png" srcset="/_tykerf/brand/png/tykerf-logo-white-64.png 2x" height="32" alt="tykerf"><span class="edition">Community<br>Edition</span></span><span class="page">handbook · ${esc(name)}</span><nav><a href="./">Back to the page</a><a href="_tykerf/handbook.md" download="handbook-${esc(name)}.md">Markdown</a></nav></header>
 <main>
   <div><h1>${esc(name)}</h1><p class="lede">The page's system, generated from the page as it is now: its theme, and every block with what names it. Click a chip to copy it into a request for Kaity, any AI agent or a colleague. ${open ? `${open} ${open === 1 ? 'task is' : 'tasks are'} open.` : ''}</p></div>
   ${vars.length ? `<section class="card" id="theme"><h2>Theme</h2>
