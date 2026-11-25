@@ -6,6 +6,8 @@ import { crc32, deflateRawSync } from 'node:zlib';
 export interface ZipFile {
   path: string; // forward slashes, no leading slash
   bytes: Uint8Array;
+  /** Unix permissions (0o755 for a script to run); left out, the unzipping program decides. */
+  mode?: number;
 }
 
 /** MS-DOS time and date, as ZIP stores them (local time, 2-second steps). */
@@ -40,7 +42,7 @@ export function zip(files: ZipFile[], when = new Date()): Uint8Array {
 
     const dir = Buffer.alloc(46);
     dir.writeUInt32LE(0x02014b50, 0);
-    dir.writeUInt16LE(20, 4); // made by
+    dir.writeUInt16LE(f.mode === undefined ? 20 : (3 << 8) | 20, 4); // made by (3: Unix, so the permissions below count)
     dir.writeUInt16LE(20, 6);
     dir.writeUInt16LE(0x0800, 8);
     dir.writeUInt16LE(stored ? 0 : 8, 10);
@@ -50,6 +52,7 @@ export function zip(files: ZipFile[], when = new Date()): Uint8Array {
     dir.writeUInt32LE(data.length, 20);
     dir.writeUInt32LE(f.bytes.length, 24);
     dir.writeUInt16LE(name.length, 28);
+    if (f.mode !== undefined) dir.writeUInt32LE(((0o100000 | f.mode) << 16) >>> 0, 38); // a regular file, with its permissions
     dir.writeUInt32LE(offset, 42);
     central.push(dir, name);
     offset += head.length + name.length + data.length;

@@ -37,7 +37,13 @@ export async function toolList() {
  * The MCP server as one readable file, `<out>/server/index.js`, with the page library beside it (library.ts finds its
  * folder next to the code: <out>/server/../library). Playwright stays outside: the extension and the plugin each bring it.
  */
-export async function bundleServer(out: string) {
+/**
+ * TYKERF's MCP server as one file, out/server/index.js, and the page library beside it. Playwright stays outside:
+ * the extension ships it in server/node_modules; the plugin (`playwright`) in a folder of its own, imported by that
+ * path, because the directory takes no node_modules.
+ */
+export async function bundleServer(out: string, opts: { playwright?: string } = {}) {
+  const playwright = opts.playwright;
   await build({
     entryPoints: [join(root, 'src', 'mcp', 'server.ts')],
     outfile: join(out, 'server', 'index.js'),
@@ -47,6 +53,7 @@ export async function bundleServer(out: string) {
     target: 'node20',
     // loaded only for screenshots and checks
     external: ['playwright', 'playwright-core'],
+    plugins: playwright ? [{ name: 'playwright-path', setup: (b) => b.onResolve({ filter: /^playwright(-core)?$/ }, () => ({ path: playwright, external: true })) }] : [],
     // some dependencies are CommonJS and call require()
     banner: { js: "import { createRequire as __tykerfRequire } from 'node:module'; const require = __tykerfRequire(import.meta.url);" },
     logLevel: 'warning',

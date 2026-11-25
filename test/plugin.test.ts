@@ -1,10 +1,10 @@
 // The Claude plugin: a folder that passes the directory's file rules, whose bundled server starts on its own (no tsx,
-// no repository, no install) with no folder open, edits the folder Claude opens, and takes screenshots with the
-// Playwright it ships.
+// no repository, no install) from its start script with no folder open, edits the folder Claude opens, and takes
+// screenshots with the Playwright it ships.
 
-import { cpSync, existsSync, lstatSync, mkdtempSync, readFileSync, readdirSync } from 'node:fs';
+import { cpSync, existsSync, lstatSync, mkdtempSync, readFileSync, readdirSync, statSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join, relative } from 'node:path';
+import { dirname, join, relative } from 'node:path';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StdioClientTransport, getDefaultEnvironment } from '@modelcontextprotocol/sdk/client/stdio.js';
 import { describe, expect, it, vi } from 'vitest';
@@ -28,7 +28,13 @@ describe('the Claude plugin', async () => {
     // Cowork leaves out a server whose setting has no default
     // no setting to fill in (Claude Code flags an empty one, Cowork never asks): the default folder is TYKERF_DIR, else ~/TYKERF
     expect(manifest.userConfig).toBeUndefined();
-    expect(read(out, '.mcp.json').mcpServers.tykerf).toEqual({ command: 'node', args: ['${CLAUDE_PLUGIN_ROOT}/server/index.js', '--lazy'] });
+    // the directory's rule for a local server: a plain shell script at a literal path, no variable but CLAUDE_PLUGIN_ROOT
+    expect(read(out, '.mcp.json').mcpServers.tykerf).toEqual({ command: '${CLAUDE_PLUGIN_ROOT}/server/start.sh' });
+    const start = readFileSync(join(out, 'server/start.sh'), 'utf8');
+    expect(start).toMatch(/^#!\/bin\/sh\n/);
+    expect([...start.replace(/^#.*$/gm, '').matchAll(/\$\{?(\w+|[@*#?!$0-9-])/g)].map((m) => m[1])).toEqual(['CLAUDE_PLUGIN_ROOT']);
+    expect(start).not.toMatch(/`|\$\(|[*?~]|<<|\{|npx|uvx|pipx|bun|npm/);
+    expect(statSync(join(out, 'server/start.sh')).mode & 0o111).toBe(0o111);
     const readme = readFileSync(join(out, 'README.md'), 'utf8');
     expect(readme.replace(/```[\s\S]*?```/g, '').split(/\s+/).length).toBeGreaterThan(40);
     for (const part of ['data collection', 'stored', 'third parties', 'Retention', 'Contact']) expect(readme.toLowerCase()).toContain(part.toLowerCase().split(' ')[0]);
@@ -46,7 +52,8 @@ describe('the Claude plugin', async () => {
 
   it('has a skill that names only tools the server has', async () => {
     const skill = readFileSync(join(out, 'skills', 'tykerf', 'SKILL.md'), 'utf8');
-    const front = /^---\nname: (.+)\ndescription: (.+)\n---\n/.exec(skill);
+    // the description in double quotes: it holds ": ", which YAML would read as a key otherwise
+    const front = /^---\nname: (.+)\ndescription: "([^"\\]+)"\n---\n/.exec(skill);
     expect(front?.[1]).toBe('tykerf'); // the folder's name
     expect(front?.[2]).toMatch(/^Build or change a web page.*Not for pages inside an application's codebase/);
     const [a, b] = InMemoryTransport.createLinkedPair();
@@ -62,13 +69,16 @@ describe('the Claude plugin', async () => {
   it('keeps to the directory\'s file rules', () => {
     const all = files(out);
     expect(all.length).toBeLessThan(512);
-    expect(all.filter((f) => /(^|\/)(\.DS_Store|Thumbs\.db|desktop\.ini)$/.test(f) || f.startsWith('bin/'))).toEqual([]);
+    expect(all.filter((f) => /(^|\/)(\.DS_Store|Thumbs\.db|desktop\.ini)$/.test(f) || f.startsWith('bin/') || /(^|\/)node_modules\//.test(f))).toEqual([]);
     expect(all.filter((f) => lstatSync(join(out, f)).isSymbolicLink())).toEqual([]);
     // under 5 MiB each; only the bundled server (not minified) and Playwright's two bundles are over 256 KiB: a reviewer reads them
     expect(all.filter((f) => lstatSync(join(out, f)).size > 5 * 1024 * 1024)).toEqual([]);
-    expect(all.filter((f) => lstatSync(join(out, f)).size > 256 * 1024 && !/\.(png|woff2)$/.test(f)).sort()).toEqual(['node_modules/playwright-core/lib/coreBundle.js', 'node_modules/playwright-core/lib/utilsBundle.js', 'server/index.js']);
-    // only text, pictures and fonts: no binaries, no scripts for a shell, no skills other than the plugin's own
-    expect(all.filter((f) => !/\.(js|mjs|json|md|txt|html|svg|png|woff2)$|(^|\/)(LICENSE|NOTICE)$|\.LICENSE$/.test(f))).toEqual([]);
+    expect(all.filter((f) => lstatSync(join(out, f)).size > 256 * 1024 && !/\.(png|woff2)$/.test(f)).sort()).toEqual(['server/index.js', 'server/playwright-core/lib/coreBundle.js', 'server/playwright-core/lib/utilsBundle.js']);
+    // only text, pictures and fonts: no binaries, one script for a shell (the server's start), no skills other than the plugin's own
+    expect(all.filter((f) => !/\.(js|mjs|json|md|txt|html|svg|png|woff2)$|(^|\/)(LICENSE|NOTICE)$/.test(f))).toEqual(['server/start.sh']);
+    // every package.json a plain object of the fields the directory lists
+    const allowed = new Set(['name', 'displayName', 'version', 'description', 'keywords', 'homepage', 'bugs', 'license', 'author', 'contributors', 'maintainers', 'funding', 'repository', 'private', 'type', 'files', 'engines', '$schema']);
+    for (const f of all.filter((f) => f.endsWith('package.json'))) expect(Object.keys(read(out, f)).filter((k) => !allowed.has(k)), f).toEqual([]);
     expect(all.filter((f) => f.endsWith('SKILL.md'))).toEqual(['skills/tykerf/SKILL.md']);
     expect(readFileSync(join(out, 'server/index.js'), 'utf8').split('\n').length).toBeGreaterThan(10_000);
   });
@@ -79,28 +89,43 @@ describe('the Claude plugin', async () => {
     const { files: packed, skipped } = unzip(readFileSync(file), { maxFiles: 1000, maxTotal: 100 * 1024 * 1024 });
     expect(skipped).toEqual([]);
     expect(packed.map((f) => f.path).sort()).toEqual(files(out).sort());
+    // the start script keeps its permission to run (Unix, in the central directory's external attributes)
+    const zipped = Buffer.from(readFileSync(file));
+    const modes: Record<string, number> = {};
+    // the central directory: where the end record (the last 22 bytes) says, one 46-byte entry and its name per file
+    for (let at = zipped.readUInt32LE(zipped.length - 22 + 16); zipped.readUInt32LE(at) === 0x02014b50; ) {
+      const n = zipped.readUInt16LE(at + 28);
+      modes[zipped.subarray(at + 46, at + 46 + n).toString('utf8')] = (zipped.readUInt32LE(at + 38) >>> 16) & 0o777;
+      at += 46 + n + zipped.readUInt16LE(at + 30) + zipped.readUInt16LE(at + 32);
+    }
+    expect(modes['server/start.sh']).toBe(0o755);
+    expect(modes['server/index.js']).toBe(0); // the rest as before: the unzipping program decides
     expect(JSON.parse(Buffer.from(packed.find((f) => f.path === '.claude-plugin/plugin.json')!.bytes).toString('utf8'))).toEqual(read(out, '.claude-plugin/plugin.json'));
   });
 
-  it('ships the Playwright the repository uses, trimmed to what screenshots need, and installs nothing', () => {
+  it('ships the Playwright the repository uses, trimmed to what screenshots need, as its own files, and installs nothing', () => {
     // Cowork doesn't install a plugin's packages, so Playwright comes along; no lockfile, so Claude Code installs nothing either
     expect(read(out, 'package.json')).toEqual({ name: 'tykerf-plugin', version: read('.', 'package.json').version, private: true, license: 'Apache-2.0', type: 'module' });
     expect(existsSync(join(out, 'package-lock.json'))).toBe(false);
-    for (const p of ['playwright', 'playwright-core']) {
-      expect(read(out, `node_modules/${p}/package.json`).version).toBe(read('.', 'package-lock.json').packages[`node_modules/${p}`].version);
-      for (const f of ['LICENSE', 'NOTICE', 'ThirdPartyNotices.txt']) expect(existsSync(join(out, 'node_modules', p, f)), `${p}/${f}`).toBe(true);
-    }
-    const core = files(join(out, 'node_modules/playwright-core'));
-    expect(core.filter((f) => /^(bin|types|lib\/(vite|tools|entry))\/|xdg-open|webp_codec|\.d\.ts$/.test(f))).toEqual([]);
-    expect(files(join(out, 'node_modules/playwright')).sort()).toEqual(['LICENSE', 'NOTICE', 'ThirdPartyNotices.txt', 'index.js', 'index.mjs', 'package.json']);
+    expect(existsSync(join(out, 'node_modules'))).toBe(false);
+    const core = 'server/playwright-core';
+    expect(read(out, `${core}/package.json`).version).toBe(read('.', 'package-lock.json').packages['node_modules/playwright-core'].version);
+    expect(read(out, `${core}/package.json`).type).toBeUndefined(); // its .js files stay CommonJS
+    for (const f of ['LICENSE', 'NOTICE', 'ThirdPartyNotices.txt']) expect(existsSync(join(out, core, f)), f).toBe(true);
+    expect(files(join(out, core)).filter((f) => /^(bin|types|lib\/(vite|tools|entry))\/|xdg-open|webp_codec|\.d\.ts$/.test(f))).toEqual([]);
+    // the bundled server imports it by its path, not by a package name
+    const server = readFileSync(join(out, 'server/index.js'), 'utf8');
+    expect(server).toContain('import("./playwright-core/index.mjs")');
+    expect(server).not.toMatch(/(from|import\()\s*["']playwright(-core)?["']/);
   });
 
   it('starts with no folder open, and edits the folder Claude opens', async () => {
     const page = mkdtempSync(join(tmpdir(), 'tykerf-plugin-page-'));
     cpSync('examples/widgets', page, { recursive: true, filter: (f) => !/\/(out|\.tykerf)(\/|$)|history/.test(relative(process.cwd(), f)) });
-    // as Claude Code starts it: from another folder, with the setting filled in
+    // as Claude Code starts it: its start script, from another folder, with CLAUDE_PLUGIN_ROOT set and node on the PATH
     const client = new Client({ name: 'test', version: '0' });
-    await client.connect(new StdioClientTransport({ command: process.execPath, args: [join(out, 'server', 'index.js'), '--lazy', '--dir', page], cwd: tmpdir(), env: { ...getDefaultEnvironment(), TYKERF_DOTENV: 'off' }, stderr: 'pipe' }));
+    const env = { ...getDefaultEnvironment(), CLAUDE_PLUGIN_ROOT: out, TYKERF_DIR: page, TYKERF_DOTENV: 'off', PATH: `${dirname(process.execPath)}:${process.env.PATH}` };
+    await client.connect(new StdioClientTransport({ command: join(out, 'server', 'start.sh'), cwd: tmpdir(), env, stderr: 'pipe' }));
     const call = async (name: string, a: Record<string, unknown> = {}) => {
       const r = (await client.callTool({ name, arguments: a })) as { content: { text?: string }[]; isError?: boolean };
       return { text: r.content.map((x) => x.text ?? '').join('\n'), error: !!r.isError };

@@ -1,6 +1,6 @@
 ---
 name: tykerf
-description: Build or change a web page or a small website of plain HTML pages with TYKERF, block by block. Use when the person asks for a landing page, a page for a business, an event or a project, or a few linked pages, without a codebase; when they work on a TYKERF page or site (a folder with layout.slice, or a folder of such pages); or when they mention TYKERF. Not for pages inside an application's codebase (React, Vue, a framework project): edit those as code.
+description: "Build or change a web page or a small website of plain HTML pages with TYKERF, block by block. Use when the person asks for a landing page, a page for a business, an event or a project, or a few linked pages, without a codebase; when they work on a TYKERF page or site (a folder with layout.slice, or a folder of such pages); or when they mention TYKERF. Not for pages inside an application's codebase (React, Vue, a framework project): edit those as code."
 ---
 
 # Building pages with TYKERF

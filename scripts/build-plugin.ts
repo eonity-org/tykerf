@@ -1,6 +1,6 @@
 // Build the Claude plugin for Anthropic's directory: TYKERF's MCP server as one readable bundled file (shared with
-// the extension), the page library, the plugin manifest and MCP config, and the part of Playwright that screenshots
-// need. The README, the skills and the license come from plugin/ and the root.
+// the extension), the page library, the plugin manifest and MCP config, the script that starts the server, and the
+// part of Playwright that screenshots need. The README, the skills and the license come from plugin/ and the root.
 //
 //   npm run build:plugin               -> dist/plugin/ (the plugin folder, at its root) and dist/tykerf-plugin.zip
 //
@@ -9,8 +9,12 @@
 //
 // The server starts with no folder open (--lazy): Cowork can't ask for one on install, so Claude opens one with
 // open_folder, the default when the person names none. Plan and checks: docs/plans/claude-plugin.md.
+//
+// The directory's rules (for a Verified organization's plugin with a local MCP server): the command is a plain shell
+// script at a literal path under CLAUDE_PLUGIN_ROOT, using no variable but CLAUDE_PLUGIN_ROOT; no node_modules (the
+// code the plugin needs in its own files); every package.json a plain object of the fields it lists.
 
-import { cpSync, existsSync, mkdirSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs';
+import { chmodSync, cpSync, existsSync, mkdirSync, readFileSync, readdirSync, renameSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { dirname, join, relative, resolve, sep } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { bundleServer } from './build-mcpb.js';
@@ -20,28 +24,37 @@ const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const REPO = 'https://github.com/eonity-org/tykerf';
 /**
  * Playwright goes in the plugin: Cowork runs what a plugin ships but doesn't install its packages, so screenshots
- * need it inside (Claude Code then uses the same files). Only what launching Chromium needs, with the licenses:
- * `playwright` only re-exports `playwright-core`, and of that the browser-install scripts (bin/), the trace viewer,
- * recorder and report apps (lib/vite/), the command line's tools and skills (lib/tools/), the entry points for the
- * browser download, daemon, dashboard and MCP server (lib/entry/), Electron support, the WebP encoder for videos
- * (a .wasm: screenshots are PNG), the Linux script that opens reports (xdg-open), the command line and the type
- * declarations stay out. test/plugin.test.ts takes a screenshot with what is left.
+ * need it inside (Claude Code then uses the same files). Not as a package in node_modules, which the directory
+ * refuses, but as the plugin's own files in server/playwright-core/, which the bundled server imports by that path.
+ * Only what launching Chromium needs, with the licenses: of `playwright-core` (`playwright` only re-exports it), the
+ * browser-install scripts (bin/), the trace viewer, recorder and report apps (lib/vite/), the command line's tools and
+ * skills (lib/tools/), the entry points for the browser download, daemon, dashboard and MCP server (lib/entry/),
+ * Electron support, the WebP encoder for videos (a .wasm: screenshots are PNG), the Linux script that opens reports
+ * (xdg-open), the command line and the type declarations stay out. Its package.json stays, cut to its name and
+ * version (Playwright reads its version there, and it keeps the folder's .js files CommonJS under the plugin's
+ * "type": "module"). test/plugin.test.ts takes a screenshot with what is left.
  */
-const SHIPPED: Record<string, (path: string) => boolean> = {
-  playwright: (f) => /^(package\.json|index\.m?js|LICENSE|NOTICE|ThirdPartyNotices\.txt)$/.test(f),
-  'playwright-core': (f) => !/^(bin|types|lib\/(vite|tools|entry|server\/electron))(\/|$)|^(cli\.js|README\.md|lib\/xdg-open|lib\/webp_codec\..*)$|\.d\.ts$/.test(f),
-};
+const SHIPPED = (f: string) => !/^(bin|types|lib\/(vite|tools|entry|server\/electron))(\/|$)|^(cli\.js|README\.md|package\.json|lib\/xdg-open|lib\/webp_codec\..*)$|\.d\.ts$/.test(f);
+const PLAYWRIGHT = 'server/playwright-core';
+
+/** The script .mcp.json starts: plain sh, no variable but CLAUDE_PLUGIN_ROOT, which Claude Code and Cowork set. */
+const START = `#!/bin/sh
+# Starts TYKERF's MCP server with no folder open: Claude opens one with open_folder.
+exec node "$CLAUDE_PLUGIN_ROOT/server/index.js" --lazy
+`;
 
 const json = (file: string, value: unknown) => writeFileSync(file, `${JSON.stringify(value, null, 2)}\n`);
 
-/** Playwright's packages, trimmed (see SHIPPED), in the plugin's node_modules, where the bundled server finds them. */
+/** playwright-core, trimmed (see SHIPPED), in server/playwright-core/, where the bundled server imports it. */
 function shipPlaywright(out: string) {
-  for (const [name, keep] of Object.entries(SHIPPED)) {
-    const from = join(root, 'node_modules', name);
-    const to = join(out, 'node_modules', name);
-    cpSync(from, to, { recursive: true, dereference: true, filter: (f) => statSync(f).isDirectory() || keep(relative(from, f).split(sep).join('/')) });
-    dropEmpty(to);
-  }
+  const from = join(root, 'node_modules', 'playwright-core');
+  const to = join(out, PLAYWRIGHT);
+  cpSync(from, to, { recursive: true, dereference: true, filter: (f) => statSync(f).isDirectory() || SHIPPED(relative(from, f).split(sep).join('/')) });
+  dropEmpty(to);
+  const { name, version, description, license, author, homepage, repository } = JSON.parse(readFileSync(join(from, 'package.json'), 'utf8'));
+  json(join(to, 'package.json'), { name, version, description, license, author, homepage, repository });
+  // the bundles' license notices, as text files
+  for (const f of readdirSync(join(to, 'lib'))) if (f.endsWith('.LICENSE')) renameSync(join(to, 'lib', f), join(to, 'lib', `${f}.txt`));
 }
 
 /** Remove the folders the filter left empty (cpSync makes every folder before it knows whether a file goes in). */
@@ -57,7 +70,7 @@ export async function buildPlugin(out = join(root, 'dist', 'plugin')): Promise<s
   rmSync(out, { recursive: true, force: true });
   mkdirSync(join(out, '.claude-plugin'), { recursive: true });
 
-  await bundleServer(out);
+  await bundleServer(out, { playwright: './playwright-core/index.mjs' });
   cpSync(join(root, 'plugin'), out, { recursive: true, filter: (f) => !f.endsWith('.DS_Store') });
   for (const f of ['LICENSE', 'NOTICE']) cpSync(join(root, f), join(out, f));
   cpSync(join(root, 'src', 'editor', 'public', 'brand', 'png', 'tykerf-app-icon-512.png'), join(out, 'icon.png'));
@@ -79,9 +92,9 @@ export async function buildPlugin(out = join(root, 'dist', 'plugin')): Promise<s
   });
   // no setting: Claude Code flags an empty one as not set, and Cowork never asks; the default folder is TYKERF_DIR
   // (the environment, or a .env where Claude Code starts), else ~/TYKERF, the same in both
-  json(join(out, '.mcp.json'), {
-    mcpServers: { tykerf: { command: 'node', args: ['${CLAUDE_PLUGIN_ROOT}/server/index.js', '--lazy'] } },
-  });
+  json(join(out, '.mcp.json'), { mcpServers: { tykerf: { command: '${CLAUDE_PLUGIN_ROOT}/server/start.sh' } } });
+  writeFileSync(join(out, 'server', 'start.sh'), START);
+  chmodSync(join(out, 'server', 'start.sh'), 0o755);
   // the server is an ES module; no dependencies and no lockfile, so nothing is installed: Playwright is shipped
   json(join(out, 'package.json'), { name: 'tykerf-plugin', version, private: true, license: 'Apache-2.0', type: 'module' });
   shipPlaywright(out);
@@ -96,7 +109,8 @@ export function packPlugin(dir: string, file = join(dirname(dir), 'tykerf-plugin
     .map((f) => f.split(sep).join('/'))
     .filter((f) => !/(^|\/)(\.DS_Store|Thumbs\.db|desktop\.ini)$/.test(f))
     .sort();
-  writeFileSync(file, zip(paths.map((path) => ({ path, bytes: readFileSync(join(dir, path)) }))));
+  // a file that runs (server/start.sh) keeps its permission to run
+  writeFileSync(file, zip(paths.map((path) => ({ path, bytes: readFileSync(join(dir, path)), ...(statSync(join(dir, path)).mode & 0o111 ? { mode: 0o755 } : {}) }))));
   return file;
 }
 

@@ -6,6 +6,10 @@
 
 # Changelog
 
+## Unreleased
+
+- **The Claude plugin in the form Anthropic's directory asks for.** The plugin starts its server from a small script (`server/start.sh`) instead of calling `node` itself, and carries the part of Playwright it uses for screenshots as its own files (`server/playwright-core/`) instead of a `node_modules` folder; the skill's description is quoted. Nothing changes in what it does. The directory accepts a plugin with a local server only from a Verified organization: eonity.org's request is under review.
+
 ## 1.0.0 (2026-11-24): TYKERF Community Edition
 
 - **TYKERF 0.3.0 under its new name.** This repository is now **TYKERF Community Edition** (TYKERF CE), the free, open source edition of TYKERF; **TYKERF**, the full edition, goes on separately. The code is 0.3.0's: the Claude plugin, the Claude Desktop extension and the marketplace show the new name, and the version is 1.0.0. Nothing installed breaks: the plugin's and the extension's id stay `tykerf`.
