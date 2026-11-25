@@ -24,7 +24,7 @@ npm run cli -- export <page-or-site> <out-dir|out.zip> [--files]   # plain files
 npm run metrics -- <page.html> [--widths 375,768,1440] [--shots dir]   # Playwright scores + screenshots
 npm run mcp -- --dir examples/widgets      # MCP stdio server
 npm run build:mcpb                         # Claude Desktop extension: dist/mcpb/ + dist/tykerf.mcpb (scripts/build-mcpb.ts)
-npm run build:plugin                       # Claude plugin for Anthropic's directory: dist/plugin/ (scripts/build-plugin.ts, sources in plugin/)
+npm run build:plugin                       # Claude plugin for Anthropic's directory: dist/plugin/ + dist/tykerf-plugin.zip for Claude Desktop's upload (scripts/build-plugin.ts, sources in plugin/)
 ```
 
 Playwright needs Chromium (`npx playwright install chromium`).

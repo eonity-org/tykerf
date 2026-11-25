@@ -149,7 +149,7 @@ The chooser's `openMadePage` then opens the page with the panel on, on the root'
 
 ## The Claude plugin
 
-Anthropic's directory lists a local MCP server only inside a plugin, which runs in Claude Code and in Cowork on the person's computer. `npm run build:plugin` (`scripts/build-plugin.ts`) writes the plugin folder to `dist/plugin/`:
+Anthropic's directory lists a local MCP server only inside a plugin, which runs in Claude Code and in Cowork on the person's computer. `npm run build:plugin` (`scripts/build-plugin.ts`) writes the plugin folder to `dist/plugin/`, and `packPlugin` the same files as `dist/tykerf-plugin.zip` (at the zip's root, for Claude Desktop's *Upload plugin*, which takes a .zip, not a folder):
 - the same server bundle as the extension (`bundleServer` in `build-mcpb.ts`: readable, not minified, since the directory's scan holds code it can't read) and `library/`;
 - `.claude-plugin/plugin.json`: name, version from `package.json`, author `eonity.org`, the directory's listing fields (`icon`, `documentationUrl`, `supportUrl`, `privacyPolicyUrl`), and no setting: Claude Code flags an empty one as not set and Cowork never asks, so the default folder is `TYKERF_DIR`, else `~/TYKERF`, in both;
 - `.mcp.json`: `node ${CLAUDE_PLUGIN_ROOT}/server/index.js --lazy` (see *No folder yet* above);

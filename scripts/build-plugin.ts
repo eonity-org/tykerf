@@ -2,7 +2,10 @@
 // the extension), the page library, the plugin manifest and MCP config, and the part of Playwright that screenshots
 // need. The README, the skills and the license come from plugin/ and the root.
 //
-//   npm run build:plugin               -> dist/plugin/ (the plugin folder, at its root)
+//   npm run build:plugin               -> dist/plugin/ (the plugin folder, at its root) and dist/tykerf-plugin.zip
+//
+// The .zip is the same folder in one file, for Claude Desktop's plugin upload (it takes .zip or .plugin, not a folder
+// or a .mcpb): plugin.json is at .claude-plugin/plugin.json inside it, not under a top folder.
 //
 // The server starts with no folder open (--lazy): Cowork can't ask for one on install, so Claude opens one with
 // open_folder, the default when the person names none. Plan and checks: docs/plans/claude-plugin.md.
@@ -11,6 +14,7 @@ import { cpSync, existsSync, mkdirSync, readFileSync, readdirSync, rmSync, statS
 import { dirname, join, relative, resolve, sep } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { bundleServer } from './build-mcpb.js';
+import { zip } from '../src/zip.js';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const REPO = 'https://github.com/eonity-org/tykerf';
@@ -85,6 +89,19 @@ export async function buildPlugin(out = join(root, 'dist', 'plugin')): Promise<s
   return out;
 }
 
+/** The built plugin folder as one .zip next to it (dist/tykerf-plugin.zip), its files at the zip's root. */
+export function packPlugin(dir: string, file = join(dirname(dir), 'tykerf-plugin.zip')): string {
+  const paths = readdirSync(dir, { recursive: true, encoding: 'utf8' })
+    .filter((f) => !statSync(join(dir, f)).isDirectory())
+    .map((f) => f.split(sep).join('/'))
+    .filter((f) => !/(^|\/)(\.DS_Store|Thumbs\.db|desktop\.ini)$/.test(f))
+    .sort();
+  writeFileSync(file, zip(paths.map((path) => ({ path, bytes: readFileSync(join(dir, path)) }))));
+  return file;
+}
+
 if (import.meta.url === pathToFileURL(process.argv[1] ?? '').href) {
-  console.log(`built ${await buildPlugin()}`);
+  const dir = await buildPlugin();
+  console.log(`built ${dir}`);
+  console.log(`built ${packPlugin(dir)}`);
 }

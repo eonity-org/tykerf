@@ -9,7 +9,8 @@ import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StdioClientTransport, getDefaultEnvironment } from '@modelcontextprotocol/sdk/client/stdio.js';
 import { describe, expect, it, vi } from 'vitest';
 import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
-import { buildPlugin } from '../scripts/build-plugin.js';
+import { buildPlugin, packPlugin } from '../scripts/build-plugin.js';
+import { unzip } from '../src/unzip.js';
 import { createTykerfServer } from '../src/mcp/tools.js';
 
 vi.setConfig({ testTimeout: 60_000 });
@@ -70,6 +71,15 @@ describe('the Claude plugin', async () => {
     expect(all.filter((f) => !/\.(js|mjs|json|md|txt|html|svg|png|woff2)$|(^|\/)(LICENSE|NOTICE)$|\.LICENSE$/.test(f))).toEqual([]);
     expect(all.filter((f) => f.endsWith('SKILL.md'))).toEqual(['skills/tykerf/SKILL.md']);
     expect(readFileSync(join(out, 'server/index.js'), 'utf8').split('\n').length).toBeGreaterThan(10_000);
+  });
+
+  it('packs into one .zip for Claude Desktop\'s upload, the same files at its root', () => {
+    const file = packPlugin(out);
+    expect(file).toBe(join(out, '..', 'tykerf-plugin.zip'));
+    const { files: packed, skipped } = unzip(readFileSync(file), { maxFiles: 1000, maxTotal: 100 * 1024 * 1024 });
+    expect(skipped).toEqual([]);
+    expect(packed.map((f) => f.path).sort()).toEqual(files(out).sort());
+    expect(JSON.parse(Buffer.from(packed.find((f) => f.path === '.claude-plugin/plugin.json')!.bytes).toString('utf8'))).toEqual(read(out, '.claude-plugin/plugin.json'));
   });
 
   it('ships the Playwright the repository uses, trimmed to what screenshots need, and installs nothing', () => {

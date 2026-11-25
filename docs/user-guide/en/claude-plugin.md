@@ -37,11 +37,11 @@ A plugin you add in Cowork or on claude.ai reaches Claude Code too. Each TYKERF 
 
 ```bash
 npm install
-npm run build:plugin        # makes the plugin folder, dist/plugin
+npm run build:plugin        # makes the plugin folder, dist/plugin, and the same as dist/tykerf-plugin.zip
 ```
 
 - **Claude Code**, for one session: `claude --plugin-dir /path/to/tykerf/dist/plugin`.
-- **Cowork**: zip the `dist/plugin` folder, then in the desktop app choose *Customize → Plugins → Add → Upload plugin* and select the zip.
+- **Cowork**: in the desktop app choose *Customize → Plugins → Add → Upload plugin* and select `dist/tykerf-plugin.zip` (the upload takes a .zip, not the folder).
 
 ## The folder Claude works in
 

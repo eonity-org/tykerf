@@ -155,7 +155,7 @@ The `screenshot` and `evaluate` tools need Chromium (`npx playwright install chr
 A release ships three things at once: the editor and CLI (people install them from the repository), the Claude Desktop extension (`tykerf.mcpb`), and the Claude plugin, which people get from TYKERF's own marketplace and, once it is listed, from Anthropic's directory.
 
 1. **Check.** `npm test && npm run typecheck`, and try the editor on `examples` (the sample site). If the notation changed, check that `docs/slicing-notation.md` matches.
-2. **Try the plugin** if the MCP tools, the skill or `plugin/` changed: `npm run build:plugin`, `claude plugin validate dist/plugin`, then a page with a screenshot in Claude Code (`claude --plugin-dir dist/plugin`) and in Cowork (zip `dist/plugin`, *Customize → Plugins → Add → Upload plugin*, a new local task).
+2. **Try the plugin** if the MCP tools, the skill or `plugin/` changed: `npm run build:plugin`, `claude plugin validate dist/plugin`, then a page with a screenshot in Claude Code (`claude --plugin-dir dist/plugin`) and in Cowork (*Customize → Plugins → Add → Upload plugin* with `dist/tykerf-plugin.zip`, a new local task).
 3. **Raise the version** everywhere it appears:
    - `npm version <version> --no-git-tag-version` (`package.json` and `package-lock.json`; the plugin and the extension take theirs from it);
    - the version the MCP server reports (`createTykerfServer` in `src/mcp/tools.ts`; a test checks it matches) and the editor's client (`openTools` in `src/editor/tools-client.ts`);
